@@ -1,0 +1,204 @@
+/* Header styling */
+.ceo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 50px;
+    background-color: white;
+    border-bottom: 1px solid #eaeaea;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+  }
+  
+  .logo {
+    display: flex;
+    align-items: center;
+  }
+  
+  .logo-img {
+    width: 48px;
+    margin-right: 12px;
+  }
+  
+  .logo h1 {
+    font-size: 26px;
+    font-weight: bold;
+    color: #333;
+    margin: 0;
+  }
+  
+  .ceo-header nav ul {
+    list-style: none;
+    display: flex;
+    gap: 30px;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .ceo-header nav ul li {
+    display: inline;
+  }
+  
+  .ceo-header nav ul li a {
+    text-decoration: none;
+    color: #333;
+    font-weight: 500;
+    font-size: 18px;
+  }
+  
+  /* Main container */
+  .container {
+    width: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-size: 18px;
+  }
+  
+  /* Manpower Request Container */
+  .manpower-request-container {
+    max-width: 1200px;
+    margin: 60px auto;
+    padding: 0 30px;
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 60px;
+  }
+  
+  /* Left side with title and description */
+  .manpower-request-left {
+    padding-top: 120px;
+  }
+  
+  .manpower-request-left h1 {
+    font-size: 42px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: #333;
+  }
+  
+  .manpower-request-left p {
+    color: #666;
+    font-size: 20px;
+    margin-top: 0;
+  }
+  
+  /* Right side with form */
+  .manpower-request-right {
+    width: 100%;
+  }
+  
+  /* Form fields */
+  .form-group {
+    margin-bottom: 32px;
+  }
+  
+  .form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 14px;
+    color: #444;
+    font-size: 18px;
+  }
+  
+  .form-group input[type="text"],
+  .form-group textarea {
+    width: 100%;
+    padding: 16px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    box-sizing: border-box;
+  }
+  
+  .form-group .field-hint {
+    font-size: 14px;
+    color: #777;
+    margin-top: 8px;
+  }
+  
+  textarea {
+    resize: vertical;
+    min-height: 150px;
+  }
+  
+  /* Category options */
+  .category-options {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+  }
+  
+  .category-option {
+    display: inline-block;
+    padding: 12px 20px;
+    background-color: #f5f5f5;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    border: 1px solid #e0e0e0;
+  }
+  
+  .category-option.selected {
+    background-color: #e6e6e6;
+    border-color: #cccccc;
+  }
+  
+  .category-option input[type="radio"] {
+    display: none;
+  }
+  
+  /* Submit button */
+  .submit-button {
+    background-color: #4267B2;
+    color: white;
+    border: none;
+    padding: 16px 32px;
+    border-radius: 6px;
+    font-size: 18px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    width: 100%;
+    max-width: 250px;
+  }
+  
+  .submit-button:hover {
+    background-color: #365899;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 900px) {
+    .manpower-request-container {
+      grid-template-columns: 1fr;
+      gap: 30px;
+    }
+    
+    .manpower-request-left {
+      padding-top: 0;
+    }
+    
+    .category-options {
+      flex-direction: column;
+    }
+    
+    .category-option {
+      width: 100%;
+    }
+  }
+  
+  /* Additional adjustments for larger screens */
+  @media (min-width: 1400px) {
+    .manpower-request-container {
+      max-width: 1400px;
+    }
+    
+    .form-group input[type="text"],
+    .form-group textarea {
+      padding: 18px 20px;
+      font-size: 18px;
+    }
+    
+    .submit-button {
+      padding: 18px 36px;
+      font-size: 20px;
+      width: 280px;
+    }
+  }
