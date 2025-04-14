@@ -24,7 +24,7 @@ const Header = () => {
   );
 };
 
-const Pic_Dash = () => {
+const PicDash = () => {
   const materialRequests = [
     { id: 1, status: "Pending", date: "08/20/2022", color: "pending" },
     { id: 2, status: "Approved", date: "08/18/2022", color: "approved" },
@@ -87,4 +87,4 @@ const Pic_Dash = () => {
   );
 };
 
-export default Pic_Dash;
+export default PicDash;

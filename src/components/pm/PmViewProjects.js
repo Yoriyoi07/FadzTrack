@@ -19,7 +19,7 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const Pm_ViewProjects = () => {
+const PmViewProjects = () => {
     const [projectData, setProjectData] = useState({
         name: 'Project ABC',
         description: 'A large-scale construction project in downtown area',
@@ -183,4 +183,4 @@ const Pm_ViewProjects = () => {
     );
 };
 
-export default Pm_ViewProjects;
+export default PmViewProjects;

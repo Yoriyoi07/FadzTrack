@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import '../style/pic_style/Pic_Req.css';
 
-const Pic_Req = () => {
+const PicReq = () => {
   return  (
     <div className="container">
       {/* Header */}
@@ -51,4 +51,4 @@ const Pic_Req = () => {
   );
 };
 
-export default Pic_Req;
+export default PicReq;

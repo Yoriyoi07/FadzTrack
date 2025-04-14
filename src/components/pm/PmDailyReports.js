@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import '../style/pm_style/Pm_DailyReports.css'; 
 
-const Pm_DailyReports = () => {
+const PmDailyReports = () => {
   const [reportData, setReportData] = useState({
     title: '',
     description: '',
@@ -151,4 +151,4 @@ const Pm_DailyReports = () => {
   );
 };
 
-export default Pm_DailyReports;
+export default PmDailyReports;

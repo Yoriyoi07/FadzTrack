@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import '../style/pm_style/Pm_IncidentReport.css'; // Import your CSS file
 import { Link } from 'react-router-dom';
 
-const Pm_IncidentReport = () => {
+const PmIncidentReport = () => {
   const [incidentTitle, setIncidentTitle] = useState('');
   const [peopleInvolved, setPeopleInvolved] = useState('');
   const [incidentDescription, setIncidentDescription] = useState('');
@@ -140,4 +140,4 @@ const Pm_IncidentReport = () => {
   );
 };
 
-export default Pm_IncidentReport;
+export default PmIncidentReport;

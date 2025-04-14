@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import '../style/pm_style/Pm_ManpowerRequest.css';
 import { Link } from 'react-router-dom';
 
-const Pm_ManpowerRequest = () => {
+const PmManpowerRequest = () => {
   const [requestTitle, setRequestTitle] = useState('');
   const [manpowerType, setManpowerType] = useState('Administrative');
   const [reason, setReason] = useState('');
@@ -125,4 +125,4 @@ const Pm_ManpowerRequest = () => {
   );
 };
 
-export default Pm_ManpowerRequest;
+export default PmManpowerRequest;
