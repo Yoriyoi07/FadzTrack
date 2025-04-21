@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom"; // Redirect after login
+import axios from "axios";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import "./style/Loginpage.css";
 import backgroundImage from "../assets/images/login_picture.png";
@@ -6,7 +8,10 @@ import backgroundImage from "../assets/images/login_picture.png";
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const navigate = useNavigate();
 
   const validateEmail = (value) => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -19,6 +24,35 @@ const LoginPage = () => {
     setEmailError(
       value && !validateEmail(value) ? "Please enter a valid email address." : ""
     );
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoginError("");
+
+    console.log("🔐 Logging in with:", { email, password });
+    
+    try {
+      const res = await axios.post("http://localhost:5000/api/auth/login", {
+        email,
+        password,
+      });
+
+      const { token, user } = res.data;
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      // Redirect based on role
+      if (user.role === "pic") {
+        navigate("/h"); // PicDash
+      } else if (user.role === "pm") {
+        navigate("/c"); // PmDash
+      } else {
+        setLoginError("Unknown user role");
+      }
+    } catch (err) {
+      setLoginError(err.response?.data?.msg || "Login failed");
+    }
   };
 
   return (
@@ -37,56 +71,66 @@ const LoginPage = () => {
           <img src="/images/FadzLogo 1.png" alt="Fadz Logo" className="right-logo" />
           <h1 className="app-title">FadzTrack</h1>
 
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              type="text"
-              id="email"
-              value={email}
-              onChange={handleEmailChange}
-              placeholder="Enter your Email"
-              className={`input-field ${emailError ? "error" : ""}`}
-            />
-            {emailError && <p className="error-message">{emailError}</p>}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <div className="password-input-container">
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label htmlFor="email">Email</label>
               <input
-                type={showPassword ? "text" : "password"}
-                id="password"
-                placeholder="Enter your password"
-                className="input-field"
+                type="text"
+                id="email"
+                value={email}
+                onChange={handleEmailChange}
+                placeholder="Enter your Email"
+                className={`input-field ${emailError ? "error" : ""}`}
               />
-              <button
-                type="button"
-                className="toggle-password"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-              >
-                {showPassword ? (
-                  <FaEyeSlash size={16} style={{ display: "block" }} />
-                ) : (
-                  <FaEye size={16} style={{ display: "block" }} />
-                )}
-              </button>
+              {emailError && <p className="error-message">{emailError}</p>}
             </div>
-          </div>
 
-          <div className="form-options">
-            <div className="remember-me">
-              <input type="checkbox" id="remember" />
-              <label htmlFor="remember">Remember Me</label>
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <div className="password-input-container">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="input-field"
+                />
+                <button
+                  type="button"
+                  className="toggle-password"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <FaEyeSlash size={16} style={{ display: "block" }} />
+                  ) : (
+                    <FaEye size={16} style={{ display: "block" }} />
+                  )}
+                </button>
+              </div>
             </div>
-            <a href="#" className="forgot-link">
-              Forgot Password?
-            </a>
-          </div>
 
-          <button className="login-button" disabled={!!emailError || !email}>
-            Login
-          </button>
+            <div className="form-options">
+              <div className="remember-me">
+                <input type="checkbox" id="remember" />
+                <label htmlFor="remember">Remember Me</label>
+              </div>
+              <a href="#" className="forgot-link">
+                Forgot Password?
+              </a>
+            </div>
+
+            {loginError && <p className="error-message">{loginError}</p>}
+
+            <button
+              type="submit"
+              className="login-button"
+              disabled={!!emailError || !email || !password}
+            >
+              Login
+            </button>
+          </form>
         </div>
       </div>
     </div>
