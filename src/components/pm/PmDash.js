@@ -15,11 +15,11 @@ const Dashboard = () => {
         
         <nav className="pm-main-nav">
           <Link to="/c" className="pm-nav-link">Home</Link>
-          <Link to="/request-manpower" className="pm-nav-link">Request Manpower</Link>
+          <Link to="/d" className="pm-nav-link">Request Manpower</Link>
           <Link to="/j" className="pm-nav-link">View Project</Link>
           <Link to="/chat" className="pm-nav-link">Chat</Link>
           <Link to="/view-material-request" className="pm-nav-link">View Material Request</Link>
-          <Link to="/" className="pm-nav-link">Generate Report</Link>
+          <Link to="/q" className="pm-nav-link">Generate Report</Link>
         </nav>
         
         <div className="pm-search-container">

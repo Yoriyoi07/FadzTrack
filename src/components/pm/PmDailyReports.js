@@ -71,11 +71,11 @@ const PmDailyReports = () => {
         </div>
         <nav>
           <ul className="nav-links">
-            <li><Link to="/pm-dash">Home</Link></li>
+            <li><Link to="/c">Home</Link></li>
             <li><Link to="/chats">Chats</Link></li>
-            <li><Link to="/view-projects">View Projects</Link></li>
-            <li><Link to="/view-reports">View Reports</Link></li>
-            <li><Link to="/view-requests">View Requests</Link></li>
+            <li><Link to="/j">View Projects</Link></li>
+            <li><Link to="/q">View Reports</Link></li>
+            <li><Link to="/d">View Requests</Link></li>
           </ul>
         </nav>
       </header>
