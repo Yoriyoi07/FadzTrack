@@ -1,0 +1,186 @@
+/* src/style/am_style/Area_ViewAll.css */
+
+.view-all-container {
+    width: 100%;
+    background-color: #f5f5f5;
+  }
+  
+  /* Updated Header Styles to match the image */
+  .fadztrack-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e0e0e0;
+    width: 100%;
+  }
+  
+  .logo-section {
+    display: flex;
+    align-items: center;
+  }
+  
+  .logo {
+    width: 40px;
+    height: 30px;
+    background-color: #ff0000;
+    clip-path: polygon(0 100%, 50% 0, 100% 100%);
+    position: relative;
+    margin-right: 10px;
+  }
+  
+  .logo:before {
+    content: "";
+    position: absolute;
+    width: 50%;
+    height: 100%;
+    background-color: #0000ff;
+    left: 0;
+    clip-path: polygon(0 100%, 100% 100%, 0 30%);
+  }
+  
+  .logo-section h1 {
+    font-size: 1.5rem;
+    color: #000000;
+    font-weight: 500;
+  }
+  
+  .main-nav {
+    display: flex;
+    gap: 20px;
+  }
+  
+  .main-nav a {
+    text-decoration: none;
+    color: #333;
+    font-weight: 400;
+    font-size: 0.9rem;
+  }
+  
+  .main-nav a:hover {
+    color: #0c3a87;
+  }
+  
+  .request-board {
+    width: 100%;
+    padding: 20px;
+  }
+  
+  .request-sections {
+    display: flex;
+    gap: 30px;
+    justify-content: space-between;
+    margin-top: 20px;
+  }
+  
+  /* Request Section Styles */
+  .request-section {
+    flex: 1;
+    max-width: 50%;
+  }
+  
+  .request-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e0e0e0;
+    text-align: center;
+  }
+  
+  .request-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  /* Request Card Styles */
+  .request-card {
+    display: flex;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    gap: 15px;
+    position: relative;
+  }
+  
+  .request-icon-container {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  /* Different colored icons for workforce and material */
+  .workforce-icon {
+    background-color: #e6f3ff;
+  }
+  
+  .material-icon {
+    background-color: #fff0e6;
+  }
+  
+  .request-info {
+    flex: 1;
+  }
+  
+  .request-info h3 {
+    font-size: 1rem;
+    margin-bottom: 5px;
+    color: #333;
+  }
+  
+  .request-info p {
+    font-size: 0.85rem;
+    color: #777;
+  }
+  
+  .request-manager {
+    text-align: right;
+    flex: 1;
+  }
+  
+  .request-manager h4 {
+    font-size: 0.9rem;
+    margin-bottom: 5px;
+    color: #555;
+  }
+  
+  .request-manager p {
+    font-size: 0.85rem;
+    color: #777;
+  }
+  
+  /* Responsive Adjustments */
+  @media (max-width: 768px) {
+    .request-sections {
+      flex-direction: column;
+    }
+    
+    .request-section {
+      max-width: 100%;
+    }
+    
+    .request-card {
+      flex-direction: column;
+    }
+    
+    .request-manager {
+      text-align: left;
+      margin-top: 10px;
+    }
+    
+    .fadztrack-header {
+      flex-direction: column;
+      gap: 10px;
+    }
+    
+    .main-nav {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+  }

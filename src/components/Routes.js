@@ -8,6 +8,8 @@ import PmDailyReports from './pm/PmDailyReports';
 import PmViewProjects from './pm/PmViewProjects';
 import PmIncidentReport from './pm/PmIncidentReport';
 import PmManpowerRequest from './pm/PmManpowerRequest';
+import AreaManagerDashboard from './am/Area_Dash';
+import Area_ViewAll from './am/Area_ViewAll';
 import LoginPage from './Login';
 
 const AppRoutes = () => {
@@ -22,6 +24,8 @@ const AppRoutes = () => {
       <Route path="/h" element={<PicDash />} />
       <Route path="/chat" element={<PicChat />} />
       <Route path="/material-request" element={<PicReq />} />
+      <Route path="/am" element={<AreaManagerDashboard />} />
+      <Route path="/am/viewall" element={<Area_ViewAll />} />
     </Routes>
   );
 };
