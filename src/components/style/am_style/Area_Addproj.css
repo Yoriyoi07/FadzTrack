@@ -1,0 +1,261 @@
+/* AddProjectPage.css */
+
+/* Reset and base styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  
+  body {
+    font-family: Arial, sans-serif;
+    line-height: 1.6;
+    background-color: #ffffff;
+    color: #333;
+  }
+  
+  /* App container */
+  .app-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: 100%;
+  }
+  
+  /* Header and Navigation */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 5%;
+    background-color: #fff;
+    border-bottom: 1px solid #eaeaea;
+    width: 100%;
+  }
+  
+  .logo-section {
+    display: flex;
+    align-items: center;
+  }
+  
+  .logo {
+    position: relative;
+    width: 45px;
+    height: 40px;
+    margin-right: 10px;
+  }
+  
+  .logo-building {
+    position: absolute;
+    bottom: 0;
+    left: 5px;
+    width: 30px;
+    height: 35px;
+    background-color: #d12323;
+    border-radius: 2px 2px 0 0;
+  }
+  
+  .logo-building::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 5px;
+    width: 8px;
+    height: 13px;
+    background-color: #071c54;
+    border-radius: 1px;
+  }
+  
+  .logo-building::after {
+    content: '';
+    position: absolute;
+    top: 8px;
+    right: 5px;
+    width: 8px;
+    height: 13px;
+    background-color: #071c54;
+    border-radius: 1px;
+  }
+  
+  .logo-flag {
+    position: absolute;
+    top: 0;
+    left: 15px;
+    width: 3px;
+    height: 15px;
+    background-color: #071c54;
+  }
+  
+  .logo-flag::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 3px;
+    width: 8px;
+    height: 6px;
+    background-color: #d12323;
+    border-radius: 1px;
+  }
+  
+  .brand-name {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #000;
+  }
+  
+  .nav-menu {
+    display: flex;
+    gap: 25px;
+  }
+  
+  .nav-link {
+    color: #333;
+    text-decoration: none;
+    font-size: 1rem;
+    transition: color 0.2s;
+  }
+  
+  .nav-link:hover {
+    color: #4a6da7;
+  }
+  
+  /* Main content - Two Column Layout */
+  .main-content {
+    display: flex;
+    flex: 1;
+    padding: 0;
+    width: 100%;
+  }
+  
+  /* Left column - Title and Instructions */
+  .title-container {
+    flex: 0 0 40%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px 5% 40px 15%; /* Increased left padding to move text more to the left */
+  }
+  
+  .page-title {
+    font-size: 2.5rem; /* Increased font size */
+    font-weight: bold;
+    margin-bottom: 15px; /* Added more space below title */
+    margin-right: 20px;
+    color: #000;
+  }
+  
+  .form-instruction {
+    color: #666;
+    font-size: 1.2rem; /* Increased font size */
+    
+  }
+  
+  /* Right column - Form */
+  .form-container {
+    flex: 0 0 60%;
+    padding: 40px 10% 40px 5%;
+    background-color: #fafafa;
+    border-left: 1px solid #eaeaea;
+  }
+  
+  /* Form styles */
+  .project-form {
+    width: 100%;
+  }
+  
+  .form-group {
+    margin-bottom: 25px;
+  }
+  
+  label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
+  }
+  
+  input, textarea {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    color: #333;
+    background-color: #fff;
+  }
+  
+  input:focus, textarea:focus {
+    outline: none;
+    border-color: #4a6da7;
+    box-shadow: 0 0 0 2px rgba(74, 109, 167, 0.1);
+  }
+  
+  .input-helper {
+    font-size: 0.85rem;
+    color: #777;
+    margin-top: 6px;
+  }
+  
+  textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+  
+  .submit-button {
+    background-color: #4a6da7;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 12px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: background-color 0.2s;
+  }
+  
+  .submit-button:hover {
+    background-color: #3c5a8a;
+  }
+  
+  /* Responsive styles */
+  @media (max-width: 920px) {
+    .main-content {
+      flex-direction: column;
+    }
+    
+    .title-container {
+      flex: 0 0 auto;
+      padding: 40px 5%;
+      align-items: center;
+      text-align: center;
+    }
+    
+    .form-container {
+      flex: 0 0 auto;
+      padding: 40px 5%;
+      border-left: none;
+      border-top: 1px solid #eaeaea;
+    }
+  }
+  
+  @media (max-width: 768px) {
+    .header {
+      flex-direction: column;
+      gap: 15px;
+    }
+    
+    .nav-menu {
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+    }
+    
+    .page-title {
+      font-size: 2rem;
+    }
+    
+    .form-instruction {
+      font-size: 1.1rem;
+    }
+  }
