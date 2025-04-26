@@ -14,6 +14,8 @@ import LoginPage from './Login';
 import MaterialRequests from './am/Area_Material_Approval';
 import AddProject from './am/Area_Addproj';
 import AreasPage from './am/Area_Proj_Area';
+import IT_Dash from './it/It_Dash';
+import IT_CreateAcc from './it/It_CreateAcc';
 
 
 const AppRoutes = () => {
@@ -46,6 +48,10 @@ const AppRoutes = () => {
       <Route path="/am/addproj" element={<AddProject />} />
       <Route path="/am/matreq" element={<MaterialRequests />} />
       <Route path="/am/viewproj" element={<AreasPage />} />
+
+      {/* IT */}
+      <Route path="/it" element={<IT_Dash />} />
+      <Route path="/create-account" element={<IT_CreateAcc />} />
     </Routes>
   );
 };
