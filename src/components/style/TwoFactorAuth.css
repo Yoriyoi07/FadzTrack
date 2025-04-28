@@ -1,0 +1,15 @@
+.two-fa-container {
+    max-width: 300px;
+    margin: auto;
+    padding: 20px;
+    text-align: center;
+  }
+  .two-fa-container input {
+    width: 100%;
+    padding: 8px;
+    margin: 10px 0;
+  }
+  .two-fa-container button {
+    width: 100%;
+    padding: 10px;
+  }
