@@ -22,7 +22,6 @@ const IT_CreateAcc = () => {
       [name]: value
     }));
     
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prevErrors => ({
         ...prevErrors,
@@ -71,25 +70,34 @@ const IT_CreateAcc = () => {
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-    
+  
     setIsSubmitting(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      console.log('Account creation data:', formData);
-      setIsSubmitting(false);
-      setSubmitSuccess(true);
-      
-      // Reset form after success
-      setTimeout(() => {
+  
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          role: formData.role,
+          password: formData.password
+        })
+      });
+  
+      const result = await response.json();
+      if (response.ok) {
+        setSubmitSuccess(true);
         setFormData({
           name: '',
           email: '',
@@ -98,11 +106,16 @@ const IT_CreateAcc = () => {
           password: '',
           confirmPassword: ''
         });
-        setSubmitSuccess(false);
-      }, 3000);
-    }, 1500);
+      } else {
+        setErrors({ general: result.msg || 'Something went wrong' });
+      }
+    } catch (error) {
+      setErrors({ general: 'Failed to connect to server' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-
+  
   return (
     <div className="create-account-container">
       <div className="form-header">
@@ -181,10 +194,10 @@ const IT_CreateAcc = () => {
                   className={errors.role ? 'input-error' : ''}
                 >
                   <option value="">Select a role</option>
-                  <option value="PIC">PIC</option>
-                  <option value="PM">PM</option>
-                  <option value="AM">AM</option>
-                  <option value="HR">HR</option>
+                  <option value="pic">PIC</option>
+                  <option value="pm">PM</option>
+                  <option value="am">AM</option>
+                  <option value="hr">HR</option>
                 </select>
                 {errors.role && <p className="error-message">{errors.role}</p>}
               </div>
