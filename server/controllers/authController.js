@@ -39,35 +39,6 @@ exports.registerUser = async (req, res) => {
 };
 
 
-// exports.loginUser = async (req, res) => {
-//   try {
-//     const { email, password } = req.body;
-//     console.log('Login attempt:', email, password);
-
-//     const user = await User.findOne({ email });
-//     if (!user) {
-//       console.log('User not found');
-//       return res.status(400).json({ msg: 'Invalid credentials' });
-//     }
-
-//     console.log('User found:', user);
-
-//     if (user.password !== password) {
-//       console.log('Password mismatch', user.password, password);
-//       return res.status(400).json({ msg: 'Invalid credentials' });
-//     }
-
-//     const twoFACode = Math.floor(100000 + Math.random() * 900000).toString();
-//     twoFACodes[email] = { code: twoFACode, expires: Date.now() + 5 * 60 * 1000 };
-
-//     await sendTwoFACode(email, twoFACode);
-
-//     res.json({ msg: '2FA code sent to email', requires2FA: true, user: { id: user._id, email: user.email, role: user.role } });
-//   } catch (err) {
-//     console.error('Login error', err);
-//     res.status(500).json({ msg: 'Login error', err });
-//   }
-// };
 
 exports.loginUser = async (req, res) => {
   try {
@@ -152,6 +123,13 @@ async function sendTwoFACode(email, code) {
     subject: 'Your FadzTrack 2FA Code',
     text: `Your 2FA code is: ${code}`
   };
+  
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('2FA email sent:', info.response);
+  } catch (error) {
+    console.error('Error sending 2FA email:', error);
+  }
 
   await transporter.sendMail(mailOptions);
 }

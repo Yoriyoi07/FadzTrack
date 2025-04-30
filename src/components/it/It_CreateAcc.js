@@ -32,41 +32,43 @@ const IT_CreateAcc = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
+  
     // Name validation
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
     }
-    
-    // Email validation
+  
+    // Email validation (Gmail only)
     if (!formData.email) {
       newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email address is invalid';
+    } else if (!/^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(formData.email)) {
+      newErrors.email = 'Email must be a valid Gmail address';
     }
-    
-    // Phone validation
+  
+    // Phone validation (11 digits)
     if (!formData.phone) {
       newErrors.phone = 'Phone number is required';
+    } else if (!/^\d{11}$/.test(formData.phone)) {
+      newErrors.phone = 'Phone number must be exactly 11 digits';
     }
-    
+  
     // Role validation
     if (!formData.role) {
       newErrors.role = 'Role is required';
     }
-    
+  
     // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
     }
-    
+  
     // Confirm password validation
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
-    
+  
     return newErrors;
   };
 
