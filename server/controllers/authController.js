@@ -4,10 +4,10 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
-const twoFACodes = {}; 
+const twoFACodes = {};
 
 exports.getAllUsers = async (req, res) => {
-  try {
+  try { 
     const users = await User.find();
     res.json(users);
   } catch (err) {
@@ -21,14 +21,15 @@ exports.registerUser = async (req, res) => {
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ msg: 'User already exists' });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    console.log("Registering with password:", password);
     const newUser = new User({
       name,
       email,
       phone,
       role,
-      password: hashedPassword
+      password 
     });
+    
 
     await newUser.save();
     res.status(201).json({ msg: 'User registered!' });
@@ -74,16 +75,20 @@ exports.loginUser = async (req, res) => {
     console.log('Login attempt:', email, password);
 
     const user = await User.findOne({ email });
+
     if (!user) {
       console.log('User not found');
       return res.status(400).json({ msg: 'Invalid credentials' });
     }
 
-    console.log('User found:', user);
+    console.log('User from DB:', user);
+    console.log('Stored hash:', user.password);
+    console.log('Password entered:', password);
 
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log('Password match:', isMatch);
+
     if (!isMatch) {
-      console.log('Password mismatch');
       return res.status(400).json({ msg: 'Invalid credentials' });
     }
 
@@ -92,13 +97,16 @@ exports.loginUser = async (req, res) => {
 
     await sendTwoFACode(email, twoFACode);
 
-    res.json({ msg: '2FA code sent to email', requires2FA: true, user: { id: user._id, email: user.email, role: user.role } });
+    res.json({
+      msg: '2FA code sent to email',
+      requires2FA: true,
+      user: { id: user._id, email: user.email, role: user.role }
+    });
   } catch (err) {
     console.error('Login error', err);
     res.status(500).json({ msg: 'Login error', err });
   }
 };
-
 
 
 exports.verify2FACode = async (req, res) => {
