@@ -11,9 +11,9 @@ const Header = () => {
       </div>
       <nav>
         <ul>
-          <li><Link to="/">Home</Link></li>
-          <li><Link to="chat">Chat</Link></li>
-          <li><Link to="material-request">Request for Materials</Link></li>
+          <li><Link to="/h">Home</Link></li>
+          <li><Link to="/chat">Chat</Link></li>
+          <li><Link to="/material-request">Request for Materials</Link></li>
         </ul>
       </nav>
       <div className="search-container">

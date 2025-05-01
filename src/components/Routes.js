@@ -9,7 +9,7 @@ import PmViewProjects from './pm/PmViewProjects';
 import PmIncidentReport from './pm/PmIncidentReport';
 import PmManpowerRequest from './pm/PmManpowerRequest';
 import AreaManagerDashboard from './am/Area_Dash';
-import Area_ViewAll from './am/Area_ViewAll';
+import Area_Viewall from './am/Area_Viewall';
 import LoginPage from './Login';
 import MaterialRequests from './am/Area_Material_Approval';
 import AddProject from './am/Area_Addproj';
@@ -44,7 +44,7 @@ const AppRoutes = () => {
 
       {/* AREA */}
       <Route path="/am" element={<AreaManagerDashboard />} />
-      <Route path="/am/viewall" element={<Area_ViewAll />} />
+      <Route path="/am/viewall" element={<Area_Viewall />} />
       <Route path="/am/addproj" element={<AddProject />} />
       <Route path="/am/matreq" element={<MaterialRequests />} />
       <Route path="/am/viewproj" element={<AreasPage />} />

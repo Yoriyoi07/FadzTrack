@@ -12,7 +12,7 @@ const PicReq = () => {
           <h1>FadzTrack</h1>
         </div>
         <nav>     
-          <Link to="/">Home</Link>
+          <Link to="/h">Home</Link>
           <Link to="/chat">Chat</Link>
           <Link to="/material-request">Request for Materials</Link>
           <input type="text" placeholder="Search in site" className="search-input" />

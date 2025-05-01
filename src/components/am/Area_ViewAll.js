@@ -1,4 +1,3 @@
-// src/components/am/Area_ViewAll.js
 import React from 'react';
 import '../style/am_style/Area_ViewAll.css';
 

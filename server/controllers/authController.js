@@ -4,6 +4,8 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
+
+// Temporary in-memory store for 2FA codes
 const twoFACodes = {};
 
 exports.getAllUsers = async (req, res) => {
@@ -18,18 +20,17 @@ exports.getAllUsers = async (req, res) => {
 exports.registerUser = async (req, res) => {
   try {
     const { name, email, phone, role, password } = req.body;
+
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ msg: 'User already exists' });
 
-    console.log("Registering with password:", password);
     const newUser = new User({
       name,
       email,
       phone,
       role,
-      password 
+      password // Assumes hashing is handled in the User model
     });
-    
 
     await newUser.save();
     res.status(201).json({ msg: 'User registered!' });
@@ -38,31 +39,17 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-
-
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-    console.log('Login attempt:', email, password);
 
     const user = await User.findOne({ email });
-
-    if (!user) {
-      console.log('User not found');
-      return res.status(400).json({ msg: 'Invalid credentials' });
-    }
-
-    console.log('User from DB:', user);
-    console.log('Stored hash:', user.password);
-    console.log('Password entered:', password);
+    if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log('Password match:', isMatch);
+    if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
 
-    if (!isMatch) {
-      return res.status(400).json({ msg: 'Invalid credentials' });
-    }
-
+    // Generate a 6-digit 2FA code, valid for 5 minutes
     const twoFACode = Math.floor(100000 + Math.random() * 900000).toString();
     twoFACodes[email] = { code: twoFACode, expires: Date.now() + 5 * 60 * 1000 };
 
@@ -78,7 +65,6 @@ exports.loginUser = async (req, res) => {
     res.status(500).json({ msg: 'Login error', err });
   }
 };
-
 
 exports.verify2FACode = async (req, res) => {
   try {
@@ -97,6 +83,7 @@ exports.verify2FACode = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ msg: 'User not found' });
 
+    // Generate JWT after successful 2FA
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
 
     delete twoFACodes[email];
@@ -107,7 +94,7 @@ exports.verify2FACode = async (req, res) => {
   }
 };
 
-// Send 2FA code via email
+// Sends the 2FA code to user's email using nodemailer
 async function sendTwoFACode(email, code) {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -123,13 +110,11 @@ async function sendTwoFACode(email, code) {
     subject: 'Your FadzTrack 2FA Code',
     text: `Your 2FA code is: ${code}`
   };
-  
+
   try {
     const info = await transporter.sendMail(mailOptions);
     console.log('2FA email sent:', info.response);
   } catch (error) {
     console.error('Error sending 2FA email:', error);
   }
-
-  await transporter.sendMail(mailOptions);
 }

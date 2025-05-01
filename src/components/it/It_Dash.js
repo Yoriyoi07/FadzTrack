@@ -28,25 +28,6 @@ const IT_Dash = () => {
             </ul>
           </div>
 
-          {/* System Status Card */}
-          <div className="dashboard-card">
-            <h2>System Status</h2>
-            <div className="status-list">
-              <div className="status-item">
-                <span>Servers</span>
-                <span className="status-badge status-online">Online</span>
-              </div>
-              <div className="status-item">
-                <span>Database</span>
-                <span className="status-badge status-online">Online</span>
-              </div>
-              <div className="status-item">
-                <span>Email Service</span>
-                <span className="status-badge status-online">Online</span>
-              </div>
-            </div>
-          </div>
-
           {/* Quick Stats Card */}
           <div className="dashboard-card">
             <h2>Quick Stats</h2>
