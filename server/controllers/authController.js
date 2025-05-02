@@ -83,15 +83,46 @@ exports.verify2FACode = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ msg: 'User not found' });
 
-    // Generate JWT after successful 2FA
-    const token = jwt.sign({ id: user._id }, JWT_SECRET);
+    const accessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
 
     delete twoFACodes[email];
 
-    res.json({ token, user: { id: user._id, email: user.email, role: user.role } });
+    res
+      .cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000
+      })
+      .json({ accessToken, user: { id: user._id, email: user.email, role: user.role } });
+
   } catch (err) {
-    res.status(500).json({ msg: 'Verification error', err });
+    res.status(500).json({ msg: '2FA verification error', err });
   }
+};
+
+
+exports.refreshToken = (req, res) => {
+  const token = req.cookies.refreshToken;
+  if (!token) return res.status(401).json({ msg: 'No refresh token' });
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(403).json({ msg: 'Invalid refresh token' });
+
+    const accessToken = jwt.sign({ id: decoded.id }, JWT_SECRET, { expiresIn: '15m' });
+    res.json({ accessToken });
+  });
+};
+
+exports.logoutUser = (req, res) => {
+  res.clearCookie('refreshToken', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/'
+  });
+  res.json({ msg: 'Logged out successfully' });
 };
 
 // Sends the 2FA code to user's email using nodemailer

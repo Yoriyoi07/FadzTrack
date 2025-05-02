@@ -4,6 +4,21 @@ import '../style/pm_style/Pm_Dash.css';
 import { Link } from 'react-router-dom'; // Import Link component
 
 const Dashboard = () => {
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include' 
+      });
+      const data = await response.json();
+      console.log(data.msg);
+      window.location.href = '/'; 
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+
   return (
     <div className="pm-dashboard"> {/* Changed class name to be more specific */}
       {/* Header/Navigation */}
@@ -11,6 +26,7 @@ const Dashboard = () => {
         <div className="pm-logo-container">
           <img src="/images/FadzLogo 1.png" alt="Logo" className="pm-logo-img" /> 
           <span className="pm-logo-text">FadzTrack</span>
+          <button onClick={handleLogout} className="pm-nav-link pm-logout-btn">Logout</button>
         </div>
         
         <nav className="pm-main-nav">
@@ -18,7 +34,6 @@ const Dashboard = () => {
           <Link to="/d" className="pm-nav-link">Request Manpower</Link>
           <Link to="/j" className="pm-nav-link">View Project</Link>
           <Link to="/chat" className="pm-nav-link">Chat</Link>
-          <Link to="/view-material-request" className="pm-nav-link">View Material Request</Link>
           <Link to="/q" className="pm-nav-link">Generate Report</Link>
         </nav>
         

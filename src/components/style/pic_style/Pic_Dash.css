@@ -17,6 +17,19 @@ header {
     width: 200px;
   }
 
+  .pm-logout-btn {
+    background: none;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    font-weight: bold;
+    margin-left: 1rem;
+  }
+  
+  .pm-logout-btn:hover {
+    text-decoration: underline;
+  }
+  
   nav ul {
     list-style: none;
     display: flex;

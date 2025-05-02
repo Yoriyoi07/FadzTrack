@@ -3,12 +3,30 @@ import { Link } from 'react-router-dom';
 import "../style/pic_style/Pic_Dash.css";
 
 const Header = () => {
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include' 
+      });
+      const data = await response.json();
+      console.log(data.msg);
+      window.location.href = '/'; 
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  };
+  
+  
   return (
     <header className="header">
       <div className="logo">
         <img src="/images/FadzLogo 1.png" alt="FadzTrack Logo" className="logo-img" />
         <h1>FadzTrack</h1>
       </div>
+      <button onClick={handleLogout} className="pm-nav-link pm-logout-btn">Logout</button>
+
       <nav>
         <ul>
           <li><Link to="/h">Home</Link></li>

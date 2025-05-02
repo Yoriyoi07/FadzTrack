@@ -4,7 +4,7 @@ import { FaPaperclip, FaPaperPlane, FaWindowMaximize, FaEllipsisH } from 'react-
 import io from 'socket.io-client';
 import '../style/pic_style/Pic_Chat.css';
 
-const socket = io('http://localhost:5000'); // Replace with your backend URL if deployed
+const socket = io('http://localhost:5000'); 
 
 const PicChat = () => {
   const [messages, setMessages] = useState([]);
@@ -23,14 +23,17 @@ const PicChat = () => {
   const handleSend = () => {
     if (!newMessage.trim()) return;
   
+    const user = JSON.parse(localStorage.getItem('user'));
+
     const messageData = {
-      sender: 'You',
+      sender: user.id, 
       content: newMessage,
+      chatId: '64e2c7c2053f826db77d9301',
       timestamp: new Date().toISOString()
     };
   
     socket.emit('sendMessage', messageData);
-    setNewMessage(''); // Don't append here
+    setNewMessage(''); 
   };
 
   return (

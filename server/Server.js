@@ -1,52 +1,68 @@
 const express = require('express');
-const http = require('http');
-const cors = require('cors');
 const mongoose = require('mongoose');
-const socketIo = require('socket.io');
-const authRoutes = require('./routes/auth');
-const messageRoutes = require('./routes/messages');
-const { verifyJWT } = require('./middleware/auth');
+require('dotenv').config();
+const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
+const authRoutes = require('./route/auth');
+const Message = require('./models/Messages');
+
 
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: { origin: '*' }
-});
-
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json());
 
-// Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/fadztrack', {
+const PORT = process.env.PORT || 5000;
+
+// MongoDB connection
+mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-});
+})
+.then(() => console.log('✅ MongoDB connected'))
+.catch(err => console.error('❌ MongoDB connection error:', err));
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/messages', verifyJWT, messageRoutes);
+app.get('/', (req, res) => res.send('API is working'));
 
-let onlineUsers = {};
+// HTTP + WebSocket server
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
 
+// Socket.IO
 io.on('connection', (socket) => {
-  console.log('User connected', socket.id);
+  console.log('⚡ Client connected:', socket.id);
 
-  socket.on('add-user', (userId) => {
-    onlineUsers[userId] = socket.id;
-  });
+  socket.on('sendMessage', async (data) => {
+    try {
+      const newMsg = new Message({
+        sender: data.sender,
+        content: data.content,
+        chatId: data.chatId
+      });
 
-  socket.on('send-msg', (data) => {
-    const sendToSocket = onlineUsers[data.to];
-    if (sendToSocket) {
-      io.to(sendToSocket).emit('msg-receive', data.message);
+      const savedMsg = await newMsg.save();
+      io.emit('receiveMessage', savedMsg);
+    } catch (err) {
+      console.error('❌ Save error:', err);
     }
   });
 
   socket.on('disconnect', () => {
-    Object.keys(onlineUsers).forEach(key => {
-      if (onlineUsers[key] === socket.id) delete onlineUsers[key];
-    });
+    console.log('🚪 Client disconnected:', socket.id);
   });
 });
 
-server.listen(5000, () => console.log('Server running on port 5000'));
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
