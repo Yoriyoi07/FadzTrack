@@ -29,7 +29,7 @@ exports.registerUser = async (req, res) => {
       email,
       phone,
       role,
-      password // Assumes hashing is handled in the User model
+      password 
     });
 
     await newUser.save();
@@ -84,7 +84,7 @@ exports.verify2FACode = async (req, res) => {
     if (!user) return res.status(400).json({ msg: 'User not found' });
 
     // Generate JWT after successful 2FA
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: user._id }, JWT_SECRET);
 
     delete twoFACodes[email];
 
