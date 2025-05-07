@@ -1,143 +1,254 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import '../style/am_style/Area_Addproj.css';
 
-export default function AddProject() {
-    const [formData, setFormData] = useState({
-      projectName: '',
-      contractor: '',
-      area: '',
-      location: '',
-      employees: ''
-    });
-  
-    const handleChange = (e) => {
-      const { name, value } = e.target;
-      setFormData(prevState => ({
-        ...prevState,
-        [name]: value
-      }));
-    };
-  
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      // In a real app, you would send this data to your backend
-      console.log("Form submitted:", formData);
-      
-      // Clear form after submission (optional)
-      setFormData({
-        projectName: '',
-        contractor: '',
-        area: '',
-        location: '',
-        employees: ''
+const AddProject = () => {
+  const [formData, setFormData] = useState({
+    projectName: '',
+    designStyle: '',
+    contractor: '',
+    architectDesigner: '',
+    location: '',
+    startDate: '',
+    endDate: '',    
+    manpower: ''
+  });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!formData.startDate || !formData.endDate) {
+      alert("Please select both start and end dates.");
+      return;
+    }
+    
+    if (new Date(formData.endDate) < new Date(formData.startDate)) {
+      alert("End date cannot be before start date.");
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5000/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
       });
-    };
   
-    return (
-      <div className="app-container">
-        {/* Header with Navigation */}
-        <header className="header">
-          <div className="logo-section">
-            <div className="logo">
-              <div className="logo-building"></div>
-              <div className="logo-flag"></div>
-            </div>
-            <h1 className="brand-name">FadzTrack</h1>
-          </div>
-          <nav className="nav-menu">
-            <a href="#" className="nav-link">Home</a>
-            <a href="#" className="nav-link">Chats</a>
-            <a href="#" className="nav-link">View Projects</a>
-            <a href="#" className="nav-link">View Reports</a>
-            <a href="#" className="nav-link">View Requests</a>
-          </nav>
-        </header>
+      const result = await response.json();
+
+      if (response.ok) {
+        alert('✅ Project added successfully!');
+        // Optionally reset form
+        setFormData({
+          projectName: '',
+          designStyle: '',
+          contractor: '',
+          architectDesigner: '',
+          location: '',
+          startDate: '',
+          endDate: '',
+          manpower: ''
+        });
+        console.log('Form data:', formData);
+      } else {
+        alert(`❌ Error: ${result.message || 'Failed to add project'}`);
+      }
   
-        {/* Main Content */}
-        <main className="main-content">
-          {/* Left Column - Title and Instructions */}
-          <div className="title-container">
-            <h2 className="page-title">Add New Project</h2>
-            <p className="form-instruction">Please fill in the details below:</p>
+    } catch (error) {
+      console.error('❌ Submission error:', error);
+      alert('❌ Failed to connect to server.');
+    }
+  };
+  
+  return (
+    <div className="app-container">
+      {/* Header with Navigation */}
+      <header className="header">
+        <div className="logo-container">
+          <div className="logo">
+            <div className="logo-building"></div>
+            <div className="logo-flag"></div>
           </div>
+          <h1 className="brand-name">FadzTrack</h1>
+        </div>
+        <nav className="nav-menu">
+          <a href="#" className="nav-link">Requests</a>
+          <a href="#" className="nav-link">Projects</a>
+          <a href="#" className="nav-link">Chat</a>
+          <a href="#" className="nav-link">Logs</a>
+          <a href="#" className="nav-link">Reports</a>
+        </nav>
+        <div className="search-profile">
+          <div className="search-container">
+            <input type="text" placeholder="Search in site" className="search-input" />
+            <button className="search-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+          </div>
+          <div className="profile-circle">Z</div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="main-content">
+        <div className="form-container">
+          <h2 className="page-title">Add New Project</h2>
           
-          {/* Right Column - Form */}
-          <div className="form-container">
-            <form onSubmit={handleSubmit} className="project-form">
+          <form onSubmit={handleSubmit} className="project-form">
+            <div className="form-row">
               <div className="form-group">
                 <label htmlFor="projectName">Project Name</label>
                 <input
                   type="text"
                   id="projectName"
                   name="projectName"
-                  placeholder="Enter Project Name"
+                  placeholder="Enter project name"
                   value={formData.projectName}
                   onChange={handleChange}
-                  required
                 />
-                <p className="input-helper">Enter the name of the project where the employee is assigned.</p>
               </div>
-  
+              
+              <div className="form-group">
+                <label htmlFor="designStyle">Design/Style</label>
+                <input
+                  type="text"
+                  id="designStyle"
+                  name="designStyle"
+                  placeholder="Enter design/style details"
+                  value={formData.designStyle}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
               <div className="form-group">
                 <label htmlFor="contractor">Contractor</label>
                 <input
                   type="text"
                   id="contractor"
                   name="contractor"
-                  placeholder="Enter Contractor Name"
+                  placeholder="Enter contractor details"
                   value={formData.contractor}
                   onChange={handleChange}
-                  required
                 />
-                <p className="input-helper">Enter the name of the contractor employing the employee.</p>
               </div>
-  
+              
               <div className="form-group">
-                <label htmlFor="area">Area</label>
+                <label htmlFor="architectDesigner">Architect/Designer</label>
                 <input
                   type="text"
-                  id="area"
-                  name="area"
-                  placeholder="Enter Area"
-                  value={formData.area}
+                  id="architectDesigner"
+                  name="architectDesigner"
+                  placeholder="Enter architect/designer details"
+                  value={formData.architectDesigner}
                   onChange={handleChange}
-                  required
                 />
-                <p className="input-helper">Specify the area where the employee is working.</p>
               </div>
-  
+            </div>
+
+            <div className="form-row">
               <div className="form-group">
-                <label htmlFor="location">Maps</label>
+                <label htmlFor="location">Location</label>
                 <input
                   type="text"
                   id="location"
                   name="location"
-                  placeholder="Enter Location"
+                  placeholder="Enter location"
                   value={formData.location}
                   onChange={handleChange}
                 />
-                <p className="input-helper">Select the location on the map where the employee is assigned.</p>
               </div>
-  
+              
               <div className="form-group">
-                <label htmlFor="employees">Employees List</label>
+                <label htmlFor="startDate">Start Date</label>
+                <input
+                  type="date"
+                  id="startDate"
+                  name="startDate"
+                  value={formData.startDate}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="endDate">End Date</label>
+                <input
+                  type="date"
+                  id="endDate"
+                  name="endDate"
+                  value={formData.endDate}
+                  onChange={handleChange}
+                  required
+                  min={formData.startDate} 
+                />
+              </div>
+            </div>
+
+            <div className="form-row single-column">
+              <div className="form-group">
+                <label htmlFor="manpower">Manpower</label>
                 <textarea
-                  id="employees"
-                  name="employees"
-                  rows="4"
-                  placeholder="Enter employee details"
-                  value={formData.employees}
+                  id="manpower"
+                  name="manpower"
+                  placeholder="Add manpower details"
+                  value={formData.manpower}
                   onChange={handleChange}
                 ></textarea>
-                <p className="input-helper">Please provide details of employees working on the project.</p>
               </div>
-  
-              <div className="form-group">
-                <button type="submit" className="submit-button">Submit</button>
-              </div>
-            </form>
-          </div>
-        </main>
-      </div>
-    );
-  }
+            </div>
+
+            <div className="form-row submit-row">
+              <button type="submit" className="submit-button">Add Project</button>
+            </div>
+          </form>
+        </div>
+      </main>
+      
+      {/* Footer */}
+      <footer className="footer">
+        <div className="footer-column">
+          <p className="footer-category">Member</p>
+          <a href="#" className="footer-link">Become A Member</a>
+          <a href="#" className="footer-link">Running Shoe Finder</a>
+          <a href="#" className="footer-link">Product Advice</a>
+          <a href="#" className="footer-link">Education Discounts</a>
+          <a href="#" className="footer-link">Send Us Feedback</a>
+        </div>
+        
+        <div className="footer-column">
+          <p className="footer-category">Orders</p>
+          <a href="#" className="footer-link">Order Status</a>
+          <a href="#" className="footer-link">Delivery</a>
+          <a href="#" className="footer-link">Returns</a>
+          <a href="#" className="footer-link">Payment Options</a>
+          <a href="#" className="footer-link">Contact Us</a>
+        </div>
+        
+        <div className="footer-column">
+          <p className="footer-category">About</p>
+          <a href="#" className="footer-link">News</a>
+          <a href="#" className="footer-link">Careers</a>
+          <a href="#" className="footer-link">Investors</a>
+          <a href="#" className="footer-link">Sustainability</a>
+          <a href="#" className="footer-link">Impact</a>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+export default AddProject;

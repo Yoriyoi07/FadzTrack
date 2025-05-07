@@ -6,7 +6,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const authRoutes = require('./route/auth');
 const Message = require('./models/Messages');
-
+const projectRoutes = require('./route/project');
 
 const app = express();
 app.use(cors({
@@ -27,6 +27,7 @@ mongoose.connect(process.env.MONGO_URI, {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/projects', projectRoutes);
 app.get('/', (req, res) => res.send('API is working'));
 
 // HTTP + WebSocket server
@@ -47,8 +48,8 @@ io.on('connection', (socket) => {
     try {
       const newMsg = new Message({
         sender: data.sender,
-        content: data.content,
-        chatId: data.chatId
+        text: data.content,
+        chat: data.chatId  
       });
 
       const savedMsg = await newMsg.save();

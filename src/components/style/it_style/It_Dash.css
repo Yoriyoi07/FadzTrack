@@ -2,22 +2,26 @@
 
 .dashboard-container {
   min-height: 100vh;
-  background-color: #f3f4f6;
-  padding: 1.5rem;
+  background-color: #f8fafc;
+  padding: 2rem;
 }
 
 .dashboard-content {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
 .dashboard-header {
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .dashboard-header h1 {
-  font-size: 2rem;
+  font-size: 2.25rem;
   font-weight: 700;
+  color: #1e293b;
   color: #1f2937;
   margin-bottom: 0.25rem;
 }
