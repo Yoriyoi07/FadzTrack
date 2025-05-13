@@ -23,13 +23,31 @@ exports.getAllUsers = async (req, res) => {
 // UPDATE user
 exports.updateUser = async (req, res) => {
   try {
-    const updatedUser = await User.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
-    );
-    res.json(updatedUser);
+    const userId = req.params.id;
+    const updateData = { ...req.body };
+
+    // If a password is provided, hash it before updating
+    if (updateData.password) {
+      const salt = await bcrypt.genSalt(10);
+      updateData.password = await bcrypt.hash(updateData.password, salt);
+    } else {
+      // Prevent overwriting the password with an empty string
+      delete updateData.password;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+      new: true,            // Return the updated document
+      runValidators: true,  // Validate the data
+      timestamps: true      // Update createdAt and updatedAt
+    });
+
+    if (!updatedUser) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+
+    res.json({ msg: 'User updated successfully', user: updatedUser });
   } catch (err) {
+    console.error('Error updating user:', err);
     res.status(500).json({ msg: 'Failed to update user', err });
   }
 };
@@ -63,7 +81,7 @@ exports.registerUser = async (req, res) => {
       phone,
       role,
       password: hashedPassword,
-      status: 'Active' // Automatically set status to Active
+      status: 'Active' 
     });
 
     // Save the user to the database
@@ -215,3 +233,28 @@ async function sendTwoFACode(email, code) {
     console.error('Error sending 2FA email:', error);
   }
 }
+
+exports.resend2FACode = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ msg: 'User not found' });
+
+    const twoFACode = Math.floor(100000 + Math.random() * 900000).toString();
+    console.log(`Resent 2FA Code for ${email}: ${twoFACode}`);
+
+    twoFACodes[email] = {
+      code: twoFACode,
+      expires: Date.now() + 5 * 60 * 1000
+    };
+
+    // ✅ Reuse email function
+    await sendTwoFACode(email, twoFACode);
+
+    res.status(200).json({ msg: '2FA code resent' });
+  } catch (error) {
+    console.error('Error resending 2FA code:', error);
+    res.status(500).json({ msg: 'Error resending 2FA code' });
+  }
+};

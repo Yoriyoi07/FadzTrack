@@ -10,5 +10,6 @@ router.post('/refresh-token', authController.refreshToken);
 router.post('/logout', authController.logoutUser);
 router.put('/users/:id', authController.updateUser);
 router.delete('/users/:id', authController.deleteUser);
+router.post('/resend-2fa', authController.resend2FACode);
 
 module.exports = router;

@@ -1,31 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './style/TwoFactorAuth.css';
 
 const TwoFactorAuth = ({ email, onSuccess }) => {
-  // State to hold the entered 2FA code and any error message
   const [code, setCode] = useState('');
   const [message, setMessage] = useState('');
+  const [cooldown, setCooldown] = useState(0); // in seconds
 
-  // Handle form submission to verify 2FA code
+  // Handle verification of 2FA code
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      // Send the email and entered code to the backend for verification
       const response = await axios.post('http://localhost:5000/api/auth/verify-2fa', { email, code });
 
-      // On successful verification, save token and user to localStorage
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
 
-      // Call onSuccess to continue login flow (e.g., redirect)
       onSuccess();
     } catch (error) {
-      // Show an error message if verification fails
       setMessage(error.response?.data?.msg || 'Verification failed.');
     }
   };
+
+  // Handle resend code with cooldown
+  const handleResend = async () => {
+    try {
+      const res = await axios.post('http://localhost:5000/api/auth/resend-2fa', { email });
+      setMessage(res.data.msg);
+      setCooldown(30); // start 30-second cooldown
+    } catch (err) {
+      setMessage(err.response?.data?.msg || 'Error resending code.');
+    }
+  };
+
+  // Countdown effect
+  useEffect(() => {
+    if (cooldown === 0) return;
+
+    const interval = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [cooldown]);
 
   return (
     <div className="two-fa-container">
@@ -41,6 +65,13 @@ const TwoFactorAuth = ({ email, onSuccess }) => {
         />
         <button type="submit">Verify</button>
       </form>
+
+      {/* Resend Button */}
+      <button onClick={handleResend} disabled={cooldown > 0} className="resend-button">
+        {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Code'}
+      </button>
+
+      {/* Message display */}
       {message && <p className="error-message">{message}</p>}
     </div>
   );

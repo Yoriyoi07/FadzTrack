@@ -7,9 +7,9 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  status: { type: String, default: 'Active' }, 
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  status: { type: String, default: 'Active' }
+}, {
+  timestamps: true  
 });
 
 userSchema.pre('save', async function (next) {

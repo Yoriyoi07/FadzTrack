@@ -7,21 +7,54 @@ const It_Dash = () => {
   const [sortOption, setSortOption] = useState('Newest');
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateAccount, setShowCreateAccount] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [editingAccount, setEditingAccount] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
 
-  const itemsPerPage = 8;
+  const itemsPerPage = 10;
 
   const [newAccount, setNewAccount] = useState({
     name: '',
     position: '',
     phone: '',
     email: '',
-    password: ''
+    password: '',
+    confirmPassword: ''
   });
+
+  const validateField = (name, value) => {
+  let errorMsg = '';
+
+  switch (name) {
+    case 'name':
+      if (!value.trim()) errorMsg = 'Name is required';
+      break;
+    case 'position':
+      if (!value.trim()) errorMsg = 'Position is required';
+      break;
+    case 'phone':
+      if (!/^\d{11}$/.test(value)) errorMsg = 'Phone must be 11 digits';
+      break;
+    case 'email':
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errorMsg = 'Invalid email';
+      break;
+    case 'password':
+      if (value.length < 6) errorMsg = 'Password must be at least 6 characters';
+      break;
+    case 'confirmPassword':
+      if (value !== newAccount.password) errorMsg = 'Passwords do not match';
+      break;
+    default:
+      break;
+  }
+
+  setErrors((prev) => ({ ...prev, [name]: errorMsg }));
+};
 
   useEffect(() => {
   const fetchAccounts = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/all-users');
+      const response = await fetch('http://localhost:5000/api/auth/Users');
       const data = await response.json();
 
       if (!response.ok) {
@@ -48,18 +81,44 @@ const It_Dash = () => {
 }, []);
 
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewAccount({
-      ...newAccount,
-      [name]: value
-    });
-  };
+const handleInputChange = (e) => {
+  const { name, value } = e.target;
+  setNewAccount((prev) => ({
+    ...prev,
+    [name]: value
+  }));
 
-const handleCreateAccount = async () => {
+  validateField(name, value);
+};
+
+const isFormValid = () => {
+  const fieldNames = ['name', 'position', 'phone', 'email', 'password', 'confirmPassword'];
+  let valid = true;
+
+  fieldNames.forEach((field) => {
+    validateField(field, newAccount[field]);
+    if (newAccount[field] === '' || errors[field]) {
+      valid = false;
+    }
+  });
+
+  return valid;
+};
+
+const handleSaveAccount = async () => {
+  if (!isFormValid()) {
+    alert('Please correct the errors before submitting');
+    return;
+  }
+
   try {
-    const response = await fetch('http://localhost:5000/api/auth/register', {
-      method: 'POST',
+    const method = isEditing ? 'PUT' : 'POST';
+    const endpoint = isEditing 
+      ? `http://localhost:5000/api/auth/users/${editingAccount.id}`
+      : 'http://localhost:5000/api/auth/register';
+    
+    const response = await fetch(endpoint, {
+      method: method,
       headers: {
         'Content-Type': 'application/json'
       },
@@ -68,7 +127,7 @@ const handleCreateAccount = async () => {
         role: newAccount.position,
         phone: newAccount.phone,
         email: newAccount.email,
-        password: newAccount.password
+        password: newAccount.password || undefined,
       })
     });
 
@@ -79,15 +138,26 @@ const handleCreateAccount = async () => {
       return;
     }
 
-    // Update the local state
-    setAccounts([...accounts, {
-      id: data.user._id,
-      name: data.user.name,
-      position: data.user.role,
-      phone: data.user.phone,
-      email: data.user.email,
-      status: data.user.status  // Use status from the backend
-    }]);
+    if (isEditing) {
+      // Update the local state
+      setAccounts(accounts.map(account => 
+        account.id === editingAccount.id 
+          ? { ...account, ...data.user }
+          : account
+      ));
+      alert('Account updated successfully!');
+    } else {
+      // Add the new account to the list
+      setAccounts([...accounts, {
+        id: data.user._id,
+        name: data.user.name,
+        position: data.user.role,
+        phone: data.user.phone,
+        email: data.user.email,
+        status: data.user.status
+      }]);
+      alert('Account created successfully!');
+    }
 
     // Clear the form
     setNewAccount({
@@ -95,25 +165,45 @@ const handleCreateAccount = async () => {
       position: '',
       phone: '',
       email: '',
-      password: ''
+      password: '',
+      confirmPassword: ''
     });
 
     setShowCreateAccount(false);
-    alert('Account created successfully!');
+    setIsEditing(false);
+    setEditingAccount(null);
+
   } catch (error) {
-    console.error('Error creating account:', error);
-    alert('Failed to create account. Please try again.');
+    console.error('Error saving account:', error);
+    alert('Failed to save account. Please try again.');
   }
 };
 
+
   const filteredAccounts = accounts.filter(account => {
     return account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           account.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           account.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
            account.email.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentAccounts = filteredAccounts.slice(indexOfFirstItem, indexOfLastItem);
+const sortedAccounts = [...filteredAccounts].sort((a, b) => {
+  switch (sortOption) {
+    case 'Newest':
+      return b.id.localeCompare(a.id); 
+    case 'Oldest':
+      return a.id.localeCompare(b.id);
+    case 'A-Z':
+      return a.name.localeCompare(b.name);
+    case 'Z-A':
+      return b.name.localeCompare(a.name);
+    default:
+      return 0;
+  }
+});
+const currentAccounts = sortedAccounts.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredAccounts.length / itemsPerPage);
 
   const goToPage = (pageNumber) => {
@@ -145,7 +235,7 @@ const handleCreateAccount = async () => {
     } else {
       return (
         <div className="create-account-sidebar">
-          <h2>Create New Account</h2>
+          <h2>{isEditing ? 'Update Account' : 'Create New Account'}</h2>
 
           <div className="form-group">
             <input
@@ -156,6 +246,7 @@ const handleCreateAccount = async () => {
               onChange={handleInputChange}
               className="form-control"
             />
+            {errors.name && <div className="error-msg">{errors.name}</div>}
           </div>
 
           <div className="form-group">
@@ -166,9 +257,9 @@ const handleCreateAccount = async () => {
               className="form-control"
             >
               <option value="">Position</option>
-              <option value="PM">PM</option>
-              <option value="AM">AM</option>
-              <option value="PIC">PIC</option>
+              <option value="Project Manager">Project Manager</option>
+              <option value="Area Manager">Area Manager</option>
+              <option value="Project in Charge">Project in Charge</option>
             </select>
           </div>
 
@@ -180,7 +271,9 @@ const handleCreateAccount = async () => {
               value={newAccount.phone}
               onChange={handleInputChange}
               className="form-control"
+              maxLength="11"
             />
+            {errors.phone && <div className="error-msg">{errors.phone}</div>}
           </div>
 
           <div className="form-group">
@@ -192,6 +285,7 @@ const handleCreateAccount = async () => {
               onChange={handleInputChange}
               className="form-control"
             />
+            {errors.email && <div className="error-msg">{errors.email}</div>}
           </div>
 
           <div className="form-group">
@@ -203,13 +297,41 @@ const handleCreateAccount = async () => {
               onChange={handleInputChange}
               className="form-control"
             />
+            {errors.password && <div className="error-msg">{errors.password}</div>}
           </div>
 
+          <div className="form-group">
+          <input
+            type="password"
+            name="confirmPassword"
+            placeholder="Confirm Password"
+            value={newAccount.confirmPassword}
+            onChange={handleInputChange}
+            className="form-control"
+          />
+          {errors.confirmPassword && <div className="error-msg">{errors.confirmPassword}</div>}
+        </div>
+          
           <div className="form-group button-group">
-            <button className="create-account-btn" onClick={handleCreateAccount}>
-              Create New Account
+            <button className="create-account-btn" onClick={handleSaveAccount}>
+            {isEditing ? 'Update Account' : 'Create New Account'}
             </button>
-            <button className="back-btn" onClick={() => setShowCreateAccount(false)}>
+                      <button 
+              className="back-btn" 
+              onClick={() => {
+                setShowCreateAccount(false);
+                setIsEditing(false);
+                setEditingAccount(null);
+                setNewAccount({
+                  name: '',
+                  position: '',
+                  phone: '',
+                  email: '',
+                  password: '',
+                  confirmPassword: ''
+                });
+              }}
+            >
               <span className="back-arrow">←</span> Back
             </button>
           </div>
@@ -251,7 +373,7 @@ const handleCreateAccount = async () => {
         <main className="dashboard-content">
           <div className="dashboard-card">
             <div className="welcome-header">
-              <h2>Good Morning, ALECK!</h2>
+              <h2>Hello, Admin!</h2>
 
               <div className="stats-container">
                 <div className="stat-card">
@@ -310,6 +432,7 @@ const handleCreateAccount = async () => {
                       <th>Email</th>
                       <th>Status</th>
                       <th></th>
+                       <th></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -319,14 +442,30 @@ const handleCreateAccount = async () => {
                         <td>{account.position}</td>
                         <td>{account.phone}</td>
                         <td>{account.email}</td>
-                        <td>{account.status}</td>
                         <td>
                           <span className={`status-badge ${account.status.toLowerCase()}`}>
                             {account.status}
                           </span>
                         </td>
                         <td>
-                          <button className="edit-button">✏️</button>
+                           <button 
+                            className="edit-button" 
+                            onClick={() => {
+                              setEditingAccount(account);
+                              setIsEditing(true);
+                              setShowCreateAccount(true);
+                              setNewAccount({
+                                name: account.name,
+                                position: account.position,
+                                phone: account.phone,
+                                email: account.email,
+                                password: '',
+                                confirmPassword: ''
+                              });
+                            }}
+                          >
+                            ✏️
+                          </button>
                         </td>
                       </tr>
                     ))}

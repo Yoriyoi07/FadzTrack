@@ -64,10 +64,12 @@ const LoginPage = () => {
 
   // Redirect user to dashboard based on role
   const redirectBasedOnRole = (role) => {
-    if (role === "pic") {
-      navigate("/h"); // Example PIC dashboard
-    } else if (role === "pm") {
-      navigate("/c"); // Example PM dashboard
+    if (role === "Project in Charge") {
+      navigate("/h"); 
+    } else if (role === "Project Manager") {
+      navigate("/c"); 
+    }else if (role === "Area Manager") {
+      navigate("/am"); 
     } else {
       setLoginError("Unknown user role");
     }

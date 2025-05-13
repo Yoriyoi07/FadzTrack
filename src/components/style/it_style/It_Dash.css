@@ -157,6 +157,12 @@ body {
   color: #333;
 }
 
+.error-msg {
+  color: red;
+  font-size: 0.85em;
+  margin-top: 2px;
+}
+
 .new-account-btn {
   background-color: #3353c9;
   color: white;
