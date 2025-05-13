@@ -1,46 +1,225 @@
-import React, { useState } from 'react';
-import '../style/it_style/It_Dash.css'; // Import your CSS file for styling
+import React, { useState,useEffect } from 'react';
+import '../style/it_style/It_Dash.css';
 
-const FadzTrackDashboard = () => {
-  // Sample data for accounts
-  const [accounts, setAccounts] = useState([
-    { id: 1, name: 'Jane Cooper', position: 'PM', phone: '(225) 555-0118', email: 'jane@microsoft.com', notes: '2316dzjc', status: 'Active' },
-    { id: 2, name: 'Floyd Miles', position: 'AM', phone: '(205) 555-0100', email: 'floyd@yahoo.com', notes: 'nghagfkufi', status: 'Inactive' },
-    { id: 3, name: 'Ronald Richards', position: 'PIC', phone: '(302) 555-0107', email: 'ronald@adobe.com', notes: '3lsfynqb', status: 'Inactive' },
-    { id: 4, name: 'Marvin McKinney', position: 'PIC', phone: '(252) 555-0126', email: 'marvin@tesla.com', notes: 'happylert today', status: 'Active' },
-    { id: 5, name: 'Jerome Bell', position: 'PIC', phone: '(629) 555-0129', email: 'jerome@google.com', notes: 'esdgj63', status: 'Active' },
-    { id: 6, name: 'Kathryn Murphy', position: 'PIC', phone: '(406) 555-0120', email: 'kathryn@microsoft.com', notes: 'dsaufhgh as6', status: 'Active' },
-    { id: 7, name: 'Jacob Jones', position: 'PIC', phone: '(208) 555-0112', email: 'jacob@yahoo.com', notes: 'sddbwng hk3', status: 'Active' },
-    { id: 8, name: 'Kristin Watson', position: 'PIC', phone: '(704) 555-0127', email: 'kristin@facebook.com', notes: 'epdhfhysjs', status: 'Inactive' },
-  ]);
-
+const It_Dash = () => {
+  const [accounts, setAccounts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOption, setSortOption] = useState('Newest');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showCreateAccount, setShowCreateAccount] = useState(false);
+
   const itemsPerPage = 8;
 
-  // Filter accounts based on search term
+  const [newAccount, setNewAccount] = useState({
+    name: '',
+    position: '',
+    phone: '',
+    email: '',
+    password: ''
+  });
+
+  useEffect(() => {
+  const fetchAccounts = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/all-users');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.msg || 'Failed to fetch accounts');
+      }
+
+      // Convert backend user data to match frontend table structure
+      const formattedAccounts = data.map(user => ({
+        id: user._id,
+        name: user.name,
+        position: user.role,
+        phone: user.phone,
+        email: user.email,
+        status: user.status || 'Active' 
+      }));
+
+      setAccounts(formattedAccounts);
+    } catch (error) {
+      console.error('Error fetching accounts:', error);
+    }
+  };
+
+  fetchAccounts();
+}, []);
+
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewAccount({
+      ...newAccount,
+      [name]: value
+    });
+  };
+
+const handleCreateAccount = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: newAccount.name,
+        role: newAccount.position,
+        phone: newAccount.phone,
+        email: newAccount.email,
+        password: newAccount.password
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(`Error: ${data.msg}`);
+      return;
+    }
+
+    // Update the local state
+    setAccounts([...accounts, {
+      id: data.user._id,
+      name: data.user.name,
+      position: data.user.role,
+      phone: data.user.phone,
+      email: data.user.email,
+      status: data.user.status  // Use status from the backend
+    }]);
+
+    // Clear the form
+    setNewAccount({
+      name: '',
+      position: '',
+      phone: '',
+      email: '',
+      password: ''
+    });
+
+    setShowCreateAccount(false);
+    alert('Account created successfully!');
+  } catch (error) {
+    console.error('Error creating account:', error);
+    alert('Failed to create account. Please try again.');
+  }
+};
+
   const filteredAccounts = accounts.filter(account => {
     return account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
            account.email.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  // Calculate pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentAccounts = filteredAccounts.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredAccounts.length / itemsPerPage);
 
-  // Handle page change
   const goToPage = (pageNumber) => {
     if (pageNumber > 0 && pageNumber <= totalPages) {
       setCurrentPage(pageNumber);
     }
   };
 
+  const renderSidebar = () => {
+    if (!showCreateAccount) {
+      return (
+        <>
+          <h2>Dashboard</h2>
+          <button className="new-account-btn" onClick={() => setShowCreateAccount(true)}>
+            Create New Account
+          </button>
+
+          <div className="user-profile-large">
+            <div className="profile-avatar">J</div>
+            <h3>Jane Cooper</h3>
+            <p className="user-email">jane@microsoft.com</p>
+            <p className="user-position">PM</p>
+            <div className="status-indicator">
+              <span className="status active">Active</span>
+            </div>
+          </div>
+        </>
+      );
+    } else {
+      return (
+        <div className="create-account-sidebar">
+          <h2>Create New Account</h2>
+
+          <div className="form-group">
+            <input
+              type="text"
+              name="name"
+              placeholder="Enter Name"
+              value={newAccount.name}
+              onChange={handleInputChange}
+              className="form-control"
+            />
+          </div>
+
+          <div className="form-group">
+            <select
+              name="position"
+              value={newAccount.position}
+              onChange={handleInputChange}
+              className="form-control"
+            >
+              <option value="">Position</option>
+              <option value="PM">PM</option>
+              <option value="AM">AM</option>
+              <option value="PIC">PIC</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <input
+              type="text"
+              name="phone"
+              placeholder="Enter Phone Number"
+              value={newAccount.phone}
+              onChange={handleInputChange}
+              className="form-control"
+            />
+          </div>
+
+          <div className="form-group">
+            <input
+              type="email"
+              name="email"
+              placeholder="Enter Email"
+              value={newAccount.email}
+              onChange={handleInputChange}
+              className="form-control"
+            />
+          </div>
+
+          <div className="form-group">
+            <input
+              type="password"
+              name="password"
+              placeholder="Enter Password"
+              value={newAccount.password}
+              onChange={handleInputChange}
+              className="form-control"
+            />
+          </div>
+
+          <div className="form-group button-group">
+            <button className="create-account-btn" onClick={handleCreateAccount}>
+              Create New Account
+            </button>
+            <button className="back-btn" onClick={() => setShowCreateAccount(false)}>
+              <span className="back-arrow">←</span> Back
+            </button>
+          </div>
+        </div>
+      );
+    }
+  };
+
   return (
     <div className="fadztrack-app">
-      {/* Header */}
       <header className="app-header">
         <div className="logo-container">
           <img src="/logo.png" alt="FadzTrack Logo" className="logo" />
@@ -64,44 +243,30 @@ const FadzTrackDashboard = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <div className="main-content">
-        {/* Sidebar */}
         <aside className="sidebar">
-          <h2>Dashboard</h2>
-          <button className="new-account-btn">Create New Account</button>
-          
-          <div className="user-profile-large">
-            <div className="profile-avatar">J</div>
-            <h3>Jane Cooper</h3>
-            <p className="user-email">jane@microsoft.com</p>
-            <p className="user-position">PM</p>
-            <div className="status-indicator">
-              <span className="status active">Active</span>
-            </div>
-          </div>
+          {renderSidebar()}
         </aside>
 
-        {/* Dashboard Content */}
         <main className="dashboard-content">
           <div className="dashboard-card">
             <div className="welcome-header">
               <h2>Good Morning, ALECK!</h2>
-              
+
               <div className="stats-container">
                 <div className="stat-card">
                   <div className="stat-icon users">👥</div>
                   <div className="stat-info">
                     <div className="stat-label">Total Accounts</div>
-                    <div className="stat-number">123</div>
+                    <div className="stat-number">{accounts.length}</div>
                   </div>
                 </div>
-                
+
                 <div className="stat-card">
                   <div className="stat-icon devices">💻</div>
                   <div className="stat-info">
                     <div className="stat-label">Total Active</div>
-                    <div className="stat-number">189</div>
+                    <div className="stat-number">{accounts.filter(a => a.status === 'Active').length}</div>
                   </div>
                 </div>
               </div>
@@ -143,7 +308,6 @@ const FadzTrackDashboard = () => {
                       <th>Position</th>
                       <th>Phone Number</th>
                       <th>Email</th>
-                      <th>Notes</th>
                       <th>Status</th>
                       <th></th>
                     </tr>
@@ -155,7 +319,7 @@ const FadzTrackDashboard = () => {
                         <td>{account.position}</td>
                         <td>{account.phone}</td>
                         <td>{account.email}</td>
-                        <td>{account.notes}</td>
+                        <td>{account.status}</td>
                         <td>
                           <span className={`status-badge ${account.status.toLowerCase()}`}>
                             {account.status}
@@ -182,19 +346,13 @@ const FadzTrackDashboard = () => {
                   >
                     &lt;
                   </button>
-                  
+
                   {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
-                    // Show different page numbers based on current page
                     let pageNum = index + 1;
                     if (currentPage > 3 && totalPages > 5) {
-                      // Adjust which page numbers to show
-                      if (currentPage + 2 <= totalPages) {
-                        pageNum = (currentPage - 2) + index;
-                      } else {
-                        pageNum = (totalPages - 4) + index;
-                      }
+                      pageNum = (currentPage + index) - 2;
+                      if (pageNum > totalPages) pageNum = totalPages - 4 + index;
                     }
-                    
                     return (
                       <button 
                         key={index}
@@ -205,7 +363,7 @@ const FadzTrackDashboard = () => {
                       </button>
                     );
                   })}
-                  
+
                   <button 
                     className="pagination-btn next" 
                     onClick={() => goToPage(currentPage + 1)}
@@ -223,4 +381,4 @@ const FadzTrackDashboard = () => {
   );
 };
 
-export default FadzTrackDashboard;
+export default It_Dash;

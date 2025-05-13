@@ -5,19 +5,44 @@ const nodemailer = require('nodemailer');
 
 // Load JWT secret from environment 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
-
 const twoFACodes = {};
 
 
+// Get all users
 exports.getAllUsers = async (req, res) => {
-  try { 
-    const users = await User.find();
+  try {
+    const users = await User.find({}, 'name role phone email'); 
     res.json(users);
   } catch (err) {
+    console.error('Error fetching users:', err);
     res.status(500).json({ msg: 'Failed to get users', err });
   }
 };
 
+
+// UPDATE user
+exports.updateUser = async (req, res) => {
+  try {
+    const updatedUser = await User.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    res.json(updatedUser);
+  } catch (err) {
+    res.status(500).json({ msg: 'Failed to update user', err });
+  }
+};
+
+// DELETE user
+exports.deleteUser = async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ msg: 'User deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ msg: 'Failed to delete user', err });
+  }
+};
 
 
 exports.registerUser = async (req, res) => {
@@ -28,12 +53,25 @@ exports.registerUser = async (req, res) => {
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ msg: 'User already exists' });
 
-    // Create new user document
-    const newUser = new User({ name, email, phone, role, password });
+    // Hash the password before saving
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create a new user document with Active status
+    const newUser = new User({
+      name,
+      email,
+      phone,
+      role,
+      password: hashedPassword,
+      status: 'Active' // Automatically set status to Active
+    });
+
+    // Save the user to the database
     await newUser.save();
 
-    res.status(201).json({ msg: 'User registered!' });
+    res.status(201).json({ msg: 'User registered successfully', user: newUser });
   } catch (err) {
+    console.error('Error registering user', err);
     res.status(500).json({ msg: 'Error registering user', err });
   }
 };

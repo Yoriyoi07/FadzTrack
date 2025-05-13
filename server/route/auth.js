@@ -8,5 +8,7 @@ router.get('/users', authController.getAllUsers);
 router.post('/verify-2fa', authController.verify2FACode);
 router.post('/refresh-token', authController.refreshToken);
 router.post('/logout', authController.logoutUser);
+router.put('/users/:id', authController.updateUser);
+router.delete('/users/:id', authController.deleteUser);
 
 module.exports = router;
