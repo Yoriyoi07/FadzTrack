@@ -179,6 +179,50 @@ const handleSaveAccount = async () => {
   }
 };
 
+const handleToggleAccountStatus = async (account) => {
+  const newStatus = account.status === 'Active' ? 'Inactive' : 'Active';
+
+ if (newStatus === 'Inactive') {
+  const confirm = window.confirm(`Are you sure you want to deactivate ${account.name}'s account?`);
+  if (!confirm) return;
+}
+
+ if (newStatus === 'Active') {
+  const confirm = window.confirm(`Are you sure you want to activate ${account.name}'s account?`);
+  if (!confirm) return;
+}
+
+  try {
+    const response = await fetch(`http://localhost:5000/api/auth/users/${account.id}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ status: newStatus }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      alert(`Error: ${data.msg}`);
+      return;
+    }
+
+    // Update local state
+    setAccounts(prevAccounts => 
+      prevAccounts.map(a => 
+        a.id === account.id ? { ...a, status: newStatus } : a
+      )
+    );
+
+    alert(`Account ${newStatus === 'Inactive' ? 'disabled' : 'enabled'} successfully.`);
+  } catch (error) {
+    console.error('Failed to toggle account status:', error);
+    alert('An error occurred. Please try again.');
+  }
+};
+
+
 
   const filteredAccounts = accounts.filter(account => {
     return account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -467,6 +511,15 @@ const currentAccounts = sortedAccounts.slice(indexOfFirstItem, indexOfLastItem);
                             ✏️
                           </button>
                         </td>
+
+                        <td>
+                        <button 
+                          className={`status-toggle-button ${account.status === 'Active' ? 'deactivate' : 'activate'}`} 
+                          onClick={() => handleToggleAccountStatus(account)}
+                        >
+                          {account.status === 'Active' ? 'Disable' : 'Enable'}
+                        </button>
+                      </td>
                       </tr>
                     ))}
                   </tbody>

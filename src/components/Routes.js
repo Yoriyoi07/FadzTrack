@@ -15,7 +15,6 @@ import MaterialRequests from './am/Area_Material_Approval';
 import AddProject from './am/Area_Addproj';
 import AreasPage from './am/Area_Proj_Area';
 import ITAdminPage from './it/It_Dash';
-import IT_CreateAcc from './it/It_CreateAcc';
 
 
 const AppRoutes = () => {
@@ -51,7 +50,6 @@ const AppRoutes = () => {
 
       {/* IT */}
       <Route path="/it" element={<ITAdminPage />} />
-      <Route path="/create-account" element={<IT_CreateAcc />} />
     </Routes>
   );
 };

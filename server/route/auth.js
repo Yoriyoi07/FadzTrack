@@ -11,5 +11,6 @@ router.post('/logout', authController.logoutUser);
 router.put('/users/:id', authController.updateUser);
 router.delete('/users/:id', authController.deleteUser);
 router.post('/resend-2fa', authController.resend2FACode);
+router.put('/users/:id/status', authController.updateUserStatus);
 
 module.exports = router;
