@@ -11,6 +11,7 @@ const It_Dash = () => {
   const [editingAccount, setEditingAccount] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
 
+
   const itemsPerPage = 10;
 
   const [newAccount, setNewAccount] = useState({
@@ -383,6 +384,7 @@ const currentAccounts = sortedAccounts.slice(indexOfFirstItem, indexOfLastItem);
       );
     }
   };
+  
 
   return (
     <div className="fadztrack-app">

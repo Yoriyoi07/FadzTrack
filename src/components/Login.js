@@ -35,6 +35,7 @@ const LoginPage = () => {
 
     try {
       const res = await axios.post("http://localhost:5000/api/auth/login", { email, password });
+      console.log("Login response:", res.data); 
       const { token, user, requires2FA } = res.data;
 
       if (requires2FA) {
@@ -47,6 +48,7 @@ const LoginPage = () => {
         redirectBasedOnRole(user.role);
       }
     } catch (err) {
+      console.log(err.response?.data); 
       // Display any login errors returned by server
       setLoginError(err.response?.data?.msg || "Login failed");
     }
@@ -70,6 +72,8 @@ const LoginPage = () => {
       navigate("/c"); 
     }else if (role === "Area Manager") {
       navigate("/am"); 
+    }else if (role === "IT Admin") {
+      navigate("/it"); 
     } else {
       setLoginError("Unknown user role");
     }

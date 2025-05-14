@@ -11,6 +11,14 @@ const userSchema = new mongoose.Schema({
 }, {
   timestamps: true  
 });
+const hash = "$2b$10$2HcyTAvLyvLcQKMbKpHlMuNrT0uQo9C5WuM5s7Wh2JJJW4J9JwgPi";
+
+async function testPassword(inputPassword) {
+  const match = await bcrypt.compare(inputPassword, hash);
+  console.log("Does it match?", match);
+}
+
+testPassword("admin123");
 
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
