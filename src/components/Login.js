@@ -72,7 +72,7 @@ const LoginPage = () => {
       navigate("/c"); 
     }else if (role === "Area Manager") {
       navigate("/am"); 
-    }else if (role === "IT Admin") {
+    }else if (role === "IT") {
       navigate("/it"); 
     } else {
       setLoginError("Unknown user role");
