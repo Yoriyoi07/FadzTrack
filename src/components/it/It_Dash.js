@@ -43,7 +43,7 @@ const It_Dash = () => {
       if (value.length < 6) errorMsg = 'Password must be at least 6 characters';
       break;
     case 'confirmPassword':
-      if (value !== newAccount.password) errorMsg = 'Passwords do not match';
+      if (value !== newAccount.password || '') errorMsg = 'Passwords do not match';
       break;
     default:
       break;

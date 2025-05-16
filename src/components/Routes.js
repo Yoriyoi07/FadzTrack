@@ -15,6 +15,8 @@ import MaterialRequests from './am/Area_Material_Approval';
 import AddProject from './am/Area_Addproj';
 import AreasPage from './am/Area_Proj_Area';
 import ITAdminPage from './it/It_Dash';
+import Ceo_Proj from './ceo/Ceo_Proj';
+import Ceo_ViewSpecific from './ceo/Ceo_ViewSpecific';
 
 
 const AppRoutes = () => {
@@ -27,10 +29,10 @@ const AppRoutes = () => {
       <Route path="/k" element={<PmIncidentReport />} />
       <Route path="/j" element={<PmViewProjects />} />
       <Route path="/q" element={<PmDailyReports />} />
-      <Route path="/c" element={<PmDash />} />
+      <Route path="/pm" element={<PmDash />} />
 
       {/* PIC */}
-      <Route path="/h" element={<PicDash />} />
+      <Route path="/pic" element={<PicDash />} />
       <Route path="/chat" element={<PicChat />} />
       <Route path="/material-request" element={<PicReq />} />
 
@@ -50,6 +52,13 @@ const AppRoutes = () => {
 
       {/* IT */}
       <Route path="/it" element={<ITAdminPage />} />
+
+      {/* CEO */}
+      <Route path="/ceo/proj" element={<Ceo_Proj />} />
+      <Route path="/ceo/view" element={<Ceo_ViewSpecific />} />
+
+      {/* Add more routes as needed */}
+    
     </Routes>
   );
 };

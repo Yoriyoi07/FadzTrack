@@ -1,78 +1,225 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import "../style/ceo_style/Ceo_Dash.css";
+import React, { useState } from 'react';
+import '../style/ceo_style/Ceo_Proj.css';
 
-const ViewProjects = () => {
-  const [selectedArea, setSelectedArea] = useState("Batangas");
-
-  const projects = {
-    Batangas: [
-      { name: "Project A", manager: "John Doe", startDate: "05/10/2022" },
-      { name: "Project B", manager: "Jane Smith", startDate: "06/01/2022" },
-      { name: "Project X", manager: "Alice Johnson", startDate: "05/15/2022" },
-      { name: "Project Y", manager: "Bob Brown", startDate: "05/28/2022" },
-    ],
-    Makati: [
-      { name: "Project M1", manager: "Mark Spencer", startDate: "07/12/2022" },
-      { name: "Project M2", manager: "Lisa Ray", startDate: "08/03/2022" },
-      { name: "Project M3", manager: "Chris Evans", startDate: "09/25/2022" },
-    ],
-  };
+const Ceo_Proj = () => {
+  const [filter, setFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('grid');
+  
+  const projects = [
+    {
+      id: 1,
+      name: 'BGC Hotel',
+      location: 'BGC, Taguig City',
+      image: 'https://via.placeholder.com/300x200',
+      budget: 'Php 2,300,000',
+      projectManager: 'Engr. Shaquille Mirales',
+      contractor: 'Jerruel Mangila',
+      targetDate: 'January 2026',
+      manpower: 'Dominic Antonio, Dante Raphael Monis, Berleaney Tomista, Darlow Tiamzon, Paul Jason Canza, Karlton Ian Garcia, Christinajo Julien Patricio, John Richard Neri, Kenneth Clarence Aria, Lance Krisoffur Calla, Martin Dimson, Sean Carl Matthew Canda, Nomer Somido, Jan Marii Rubiano'
+    },
+    {
+      id: 2,
+      name: 'Calatagan Townhomes',
+      location: 'BGC, Taguig City',
+      image: 'https://via.placeholder.com/300x200',
+      budget: 'Php 3,500,000',
+      projectManager: 'Engr. Shaquille Mirales',
+      contractor: 'Jerruel Mangila',
+      targetDate: 'January 2026',
+      manpower: 'Dominic Antonio, Dante Raphael Monis, Berleaney Tomista, Darlow Tiamzon, Paul Jason Canza, Karlton Ian Garcia, Christinajo Julien Patricio, John Richard Neri, Kenneth Clarence Aria, Lance Krisoffur Calla, Martin Dimson, Sean Carl Matthew Canda, Nomer Somido, Jan Marii Rubiano'
+    },
+    {
+      id: 3,
+      name: 'Twin Lakes Project',
+      location: 'BGC, Taguig City',
+      image: 'https://via.placeholder.com/300x200',
+      budget: 'Php 6,100,000',
+      projectManager: 'Engr. Shaquille Mirales',
+      contractor: 'Jerruel Mangila',
+      targetDate: 'January 2026',
+      manpower: 'Dominic Antonio, Dante Raphael Monis, Berleaney Tomista, Darlow Tiamzon, Paul Jason Canza, Karlton Ian Garcia, Christinajo Julien Patricio, John Richard Neri, Kenneth Clarence Aria, Lance Krisoffur Calla, Martin Dimson, Sean Carl Matthew Canda, Nomer Somido, Jan Marii Rubiano'
+    },
+     {
+      id: 4,
+      name: 'BGC Hotel',
+      location: 'BGC, Taguig City',
+      image: 'https://via.placeholder.com/300x200',
+      budget: 'Php 2,300,000',
+      projectManager: 'Engr. Shaquille Mirales',
+      contractor: 'Jerruel Mangila',
+      targetDate: 'January 2026',
+      manpower: 'Dominic Antonio, Dante Raphael Monis, Berleaney Tomista, Darlow Tiamzon, Paul Jason Canza, Karlton Ian Garcia, Christinajo Julien Patricio, John Richard Neri, Kenneth Clarence Aria, Lance Krisoffur Calla, Martin Dimson, Sean Carl Matthew Canda, Nomer Somido, Jan Marii Rubiano'
+    },
+     {
+      id: 4,
+      name: 'BGC Hotel',
+      location: 'BGC, Taguig City',
+      image: 'https://via.placeholder.com/300x200',
+      budget: 'Php 2,300,000',
+      projectManager: 'Engr. Shaquille Mirales',
+      contractor: 'Jerruel Mangila',
+      targetDate: 'January 2026',
+      manpower: 'Dominic Antonio, Dante Raphael Monis, Berleaney Tomista, Darlow Tiamzon, Paul Jason Canza, Karlton Ian Garcia, Christinajo Julien Patricio, John Richard Neri, Kenneth Clarence Aria, Lance Krisoffur Calla, Martin Dimson, Sean Carl Matthew Canda, Nomer Somido, Jan Marii Rubiano'
+    },
+     {
+      id: 4,
+      name: 'BGC Hotel',
+      location: 'BGC, Taguig City',
+      image: 'https://via.placeholder.com/300x200',
+      budget: 'Php 2,300,000',
+      projectManager: 'Engr. Shaquille Mirales',
+      contractor: 'Jerruel Mangila',
+      targetDate: 'January 2026',
+      manpower: 'Dominic Antonio, Dante Raphael Monis, Berleaney Tomista, Darlow Tiamzon, Paul Jason Canza, Karlton Ian Garcia, Christinajo Julien Patricio, John Richard Neri, Kenneth Clarence Aria, Lance Krisoffur Calla, Martin Dimson, Sean Carl Matthew Canda, Nomer Somido, Jan Marii Rubiano'
+    }
+  ];
 
   return (
-    <div className="ceo-dashboard">
-      <header className="ceo-header">
-        <div className="logo">
-          <img src="/images/FadzLogo 1.png" alt="FadzTrack Logo" className="logo-img" />
-          <h1>FadzTrack</h1>
+     <div className="dashboard-container">
+      {/* Top navigation bar */}
+      <div className="top-navbar">
+        <div className="logo-container">
+          <div className="logo">
+            <span className="logo-icon">🏗️</span>
+          </div>
+          <h1 className="app-name">FadzTrack</h1>
         </div>
-        <nav>
-          <ul>
-            <li><Link to="/cdash">Home</Link></li>
-            <li><Link to="/cprojects">View Projects</Link></li>
-            <li><Link to="/crecords">View Records</Link></li>
-            <li><Link to="/cchat">Chat</Link></li>
-          </ul>
-        </nav>
+        
+        <div className="nav-links">
+          <a href="#" className="nav-link">Requests</a>
+          <a href="#" className="nav-link">Projects</a>
+          <a href="#" className="nav-link">Chat</a>
+          <a href="#" className="nav-link">Logs</a>
+          <a href="#" className="nav-link">Reports</a>
+        </div>
+        
         <div className="search-container">
           <input type="text" placeholder="Search in site" className="search-input" />
-          <button className="search-btn">🔍</button>
+          <button className="search-button">🔍</button>
         </div>
-      </header>
-
-      <div className="view-projects-container">
-        <h2>Areas</h2>
-        <div className="areas">
-          <button 
-            className={selectedArea === "Batangas" ? "area-button selected" : "area-button"} 
-            onClick={() => setSelectedArea("Batangas")}
-          >
-            Batangas
-          </button>
-          <button 
-            className={selectedArea === "Makati" ? "area-button selected" : "area-button"} 
-            onClick={() => setSelectedArea("Makati")}
-          >
-            Makati
-          </button>
-        </div>
-
-        <h2>Projects in {selectedArea}</h2>
-        <div className="projects-list">
-          {projects[selectedArea].map((project, index) => (
-            <div key={index} className="project-card">
-              <div className="project-icon"></div>
-              <div className="project-details">
-                <h3>{project.name}</h3>
-                <p>Project Manager: {project.manager}</p>
-                <p><strong>Started on:</strong> {project.startDate}</p>
-              </div>
-            </div>
-          ))}
+        
+        <div className="user-profile">
+          <div className="user-avatar">Z</div>
         </div>
       </div>
+      
+    <div className="projects-container">
+      {/* Filter bar */}
+      <div className="filter-bar">
+        <div className="area-filter">
+          <span className="filter-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+            </svg>
+            Area Filter
+          </span>
+          
+          <div className="filter-tabs">
+            <button 
+              className={filter === 'all' ? 'active' : ''} 
+              onClick={() => setFilter('all')}
+            >
+              All
+            </button>
+            <span className="divider">|</span>
+            <button 
+              className={filter === 'completed' ? 'active' : ''} 
+              onClick={() => setFilter('completed')}
+            >
+              Completed
+            </button>
+            <span className="divider">|</span>
+            <button 
+              className={filter === 'ongoing' ? 'active' : ''} 
+              onClick={() => setFilter('ongoing')}
+            >
+              On Going
+            </button>
+          </div>
+        </div>
+        
+        <div className="view-mode">
+          <button 
+            className={viewMode === 'grid' ? 'active' : ''} 
+            onClick={() => setViewMode('grid')}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+            </svg>
+          </button>
+          <button 
+            className={viewMode === 'list' ? 'active' : ''} 
+            onClick={() => setViewMode('list')}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Project cards */}
+      <div className={`project-cards ${viewMode}`}>
+        {projects.map(project => (
+          <div className="project-card" key={project.id}>
+            <div className="project-image-container">
+              <img src={project.image} alt={project.name} className="project-image" />
+              <button className="favorite-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                </svg>
+              </button>
+            </div>
+            
+            <div className="project-details">
+              <div className="left-details">
+                <h3 className="project-name">{project.name}</h3>
+                <p className="project-location">{project.location}</p>
+                
+                <div className="project-info-grid">
+                  <div className="info-column">
+                    <span className="info-column-header">Project Manager:</span>
+                    <span className="info-column-value">{project.projectManager}</span>
+                  </div>
+                  
+                  <div className="info-column">
+                    <span className="info-column-header">Contractor:</span>
+                    <span className="info-column-value">{project.contractor}</span>
+                  </div>
+                  
+                  <div className="info-column">
+                    <span className="info-column-header">Target Date:</span>
+                    <span className="info-column-value">{project.targetDate}</span>
+                  </div>
+                  
+                  <div className="manpower-section">
+                    <span className="manpower-header">Manpower:</span>
+                    <span className="manpower-value">{project.manpower}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="right-details">
+                <div className="budget">
+                  <p className="budget-amount">{project.budget}</p>
+                  <p className="budget-label">Estimated Budget</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
     </div>
   );
 };
 
-export default ViewProjects;
+export default Ceo_Proj;

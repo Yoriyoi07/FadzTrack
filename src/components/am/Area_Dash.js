@@ -161,7 +161,7 @@ const Dashboard = () => {
         </div>
 
         {/* Center Content */}
-        <div className="main-content">
+        <div className="main1">
           <div className="greeting-section">
             <h1>Good Morning, {userName}!</h1>
             
