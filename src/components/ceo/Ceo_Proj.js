@@ -29,74 +29,22 @@ const Ceo_Proj = () => {
     };
 
 
-  const projects = [
-    {
-      id: 1,
-      name: 'BGC Hotel',
-      location: 'BGC, Taguig City',
-      image: 'https://via.placeholder.com/300x200',
-      budget: 'Php 2,300,000',
-      projectManager: 'Engr. Shaquille Mirales',
-      contractor: 'Jerruel Mangila',
-      targetDate: 'January 2026',
-      manpower: 'Dominic Antonio, Dante Raphael Monis, Berleaney Tomista, Darlow Tiamzon, Paul Jason Canza, Karlton Ian Garcia, Christinajo Julien Patricio, John Richard Neri, Kenneth Clarence Aria, Lance Krisoffur Calla, Martin Dimson, Sean Carl Matthew Canda, Nomer Somido, Jan Marii Rubiano'
-    },
-    {
-      id: 2,
-      name: 'Calatagan Townhomes',
-      location: 'BGC, Taguig City',
-      image: 'https://via.placeholder.com/300x200',
-      budget: 'Php 3,500,000',
-      projectManager: 'Engr. Shaquille Mirales',
-      contractor: 'Jerruel Mangila',
-      targetDate: 'January 2026',
-      manpower: 'Dominic Antonio, Dante Raphael Monis, Berleaney Tomista, Darlow Tiamzon, Paul Jason Canza, Karlton Ian Garcia, Christinajo Julien Patricio, John Richard Neri, Kenneth Clarence Aria, Lance Krisoffur Calla, Martin Dimson, Sean Carl Matthew Canda, Nomer Somido, Jan Marii Rubiano'
-    },
-    {
-      id: 3,
-      name: 'Twin Lakes Project',
-      location: 'BGC, Taguig City',
-      image: 'https://via.placeholder.com/300x200',
-      budget: 'Php 6,100,000',
-      projectManager: 'Engr. Shaquille Mirales',
-      contractor: 'Jerruel Mangila',
-      targetDate: 'January 2026',
-      manpower: 'Dominic Antonio, Dante Raphael Monis, Berleaney Tomista, Darlow Tiamzon, Paul Jason Canza, Karlton Ian Garcia, Christinajo Julien Patricio, John Richard Neri, Kenneth Clarence Aria, Lance Krisoffur Calla, Martin Dimson, Sean Carl Matthew Canda, Nomer Somido, Jan Marii Rubiano'
-    },
-     {
-      id: 4,
-      name: 'BGC Hotel',
-      location: 'BGC, Taguig City',
-      image: 'https://via.placeholder.com/300x200',
-      budget: 'Php 2,300,000',
-      projectManager: 'Engr. Shaquille Mirales',
-      contractor: 'Jerruel Mangila',
-      targetDate: 'January 2026',
-      manpower: 'Dominic Antonio, Dante Raphael Monis, Berleaney Tomista, Darlow Tiamzon, Paul Jason Canza, Karlton Ian Garcia, Christinajo Julien Patricio, John Richard Neri, Kenneth Clarence Aria, Lance Krisoffur Calla, Martin Dimson, Sean Carl Matthew Canda, Nomer Somido, Jan Marii Rubiano'
-    },
-     {
-      id: 4,
-      name: 'BGC Hotel',
-      location: 'BGC, Taguig City',
-      image: 'https://via.placeholder.com/300x200',
-      budget: 'Php 2,300,000',
-      projectManager: 'Engr. Shaquille Mirales',
-      contractor: 'Jerruel Mangila',
-      targetDate: 'January 2026',
-      manpower: 'Dominic Antonio, Dante Raphael Monis, Berleaney Tomista, Darlow Tiamzon, Paul Jason Canza, Karlton Ian Garcia, Christinajo Julien Patricio, John Richard Neri, Kenneth Clarence Aria, Lance Krisoffur Calla, Martin Dimson, Sean Carl Matthew Canda, Nomer Somido, Jan Marii Rubiano'
-    },
-     {
-      id: 4,
-      name: 'BGC Hotel',
-      location: 'BGC, Taguig City',
-      image: 'https://via.placeholder.com/300x200',
-      budget: 'Php 2,300,000',
-      projectManager: 'Engr. Shaquille Mirales',
-      contractor: 'Jerruel Mangila',
-      targetDate: 'January 2026',
-      manpower: 'Dominic Antonio, Dante Raphael Monis, Berleaney Tomista, Darlow Tiamzon, Paul Jason Canza, Karlton Ian Garcia, Christinajo Julien Patricio, John Richard Neri, Kenneth Clarence Aria, Lance Krisoffur Calla, Martin Dimson, Sean Carl Matthew Canda, Nomer Somido, Jan Marii Rubiano'
+ const [projects, setProjects] = useState([]);
+
+useEffect(() => {
+  const fetchProjects = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/projects');
+      const data = await response.json();
+      setProjects(data);
+    } catch (error) {
+      console.error('Failed to fetch projects:', error);
     }
-  ];
+  };
+
+  fetchProjects();
+}, []);
+
 
   return (
      <div className="dashboard-container">

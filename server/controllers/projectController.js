@@ -5,20 +5,24 @@ exports.addProject = async (req, res) => {
     const {
       projectName,
       pic,
+      projectmanager, 
       contractor,
       budget,
       location,
-      duration,
+      startDate, 
+      endDate,   
       manpower,
     } = req.body;
 
     const newProject = new Project({
       projectName,
       pic,
+      projectmanager, 
       contractor,
       budget,
       location,
-      duration,
+      startDate, 
+      endDate,   
       manpower,
     });
 
