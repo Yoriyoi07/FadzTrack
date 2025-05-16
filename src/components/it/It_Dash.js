@@ -1,4 +1,5 @@
 import React, { useState,useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../style/it_style/It_Dash.css';
 
 const It_Dash = () => {
@@ -10,6 +11,8 @@ const It_Dash = () => {
   const [errors, setErrors] = useState({});
   const [editingAccount, setEditingAccount] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const navigate = useNavigate();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
 
   const itemsPerPage = 10;
@@ -51,6 +54,26 @@ const It_Dash = () => {
 
   setErrors((prev) => ({ ...prev, [name]: errorMsg }));
 };
+
+useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener("click", handleClickOutside);
+    
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   useEffect(() => {
   const fetchAccounts = async () => {
@@ -388,26 +411,43 @@ const currentAccounts = sortedAccounts.slice(indexOfFirstItem, indexOfLastItem);
 
   return (
     <div className="fadztrack-app">
-      <header className="app-header">
+      {/* Header with Navigation */}
+      <header className="header">
         <div className="logo-container">
-          <img src="/logo.png" alt="FadzTrack Logo" className="logo" />
-          <h1>FadzTrack</h1>
+          <div className="logo">
+            <div className="logo-building"></div>
+            <div className="logo-flag"></div>
+          </div>
+          <h1 className="brand-name">FadzTrack</h1>
         </div>
-        <nav className="main-nav">
-          <ul>
-            <li className="active">Requests</li>
-            <li>Projects</li>
-            <li>Chat</li>
-            <li>Logs</li>
-            <li>Reports</li>
-          </ul>
+        <nav className="nav-menu">
+          <a href="#" className="nav-link">Home</a>
+          <a href="#" className="nav-link">Chat</a>
         </nav>
-        <div className="search-container">
-          <input type="text" placeholder="Search in site" />
-          <button className="search-button">🔍</button>
-        </div>
-        <div className="user-profile">
-          <div className="avatar">Z</div>
+        <div className="search-profile">
+          <div className="search-container">
+            <input type="text" placeholder="Search in site" className="search-input" />
+            <button className="search-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+          </div>
+          <div className="profile-menu-container">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
+            </div>
+            
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 

@@ -17,7 +17,7 @@ import AreasPage from './am/Area_Proj_Area';
 import ITAdminPage from './it/It_Dash';
 import Ceo_Proj from './ceo/Ceo_Proj';
 import Ceo_ViewSpecific from './ceo/Ceo_ViewSpecific';
-
+import Ceo_Dash from './ceo/Ceo_Dash';
 
 const AppRoutes = () => {
   return (
@@ -56,8 +56,7 @@ const AppRoutes = () => {
       {/* CEO */}
       <Route path="/ceo/proj" element={<Ceo_Proj />} />
       <Route path="/ceo/view" element={<Ceo_ViewSpecific />} />
-
-      {/* Add more routes as needed */}
+      <Route path="/ceo/dash" element={<Ceo_Dash />} />
     
     </Routes>
   );

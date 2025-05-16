@@ -13,4 +13,14 @@ router.post('/', async (req, res) => {
   }
 });
 
+router.get('/', async (req, res) => {
+  try {
+    const projects = await Project.find();
+    res.status(200).json(projects);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch projects' });
+  }
+});
+
+
 module.exports = router;

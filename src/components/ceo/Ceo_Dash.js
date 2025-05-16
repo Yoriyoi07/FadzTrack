@@ -1,93 +1,310 @@
-import React from "react";
-import { Link } from 'react-router-dom';
-import "../style/ceo_style/Ceo_Dash.css";
+import React, { useState,useEffect } from 'react';
+import { PieChart, Pie, Cell } from 'recharts';
+import { useNavigate } from 'react-router-dom';
+import '../style/ceo_style/Ceo_Dash.css';
 
-const CeoDash = () => {
-    return (
-      <div className="ceo-dashboard">
-        {/* Header */}
-        <header className="ceo-header">
+const Ceo_Dash = () => {
+  const [userName, setUserName] = useState('ALECK');
+  const navigate = useNavigate();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [projects, setProjects] = useState([
+    { 
+      id: 1, 
+      name: 'Twin Lakes Project',
+      engineer: 'Engr. Shaquille',
+      progress: [
+        { name: 'Incomplete', value: 60, color: '#FF6B6B' },
+        { name: 'Complete', value: 20, color: '#4CAF50' },
+        { name: 'On Going', value: 20, color: '#5E4FDB' }
+      ]
+    },
+    { 
+      id: 2, 
+      name: 'Calatagan Townhomes',
+      engineer: 'Engr. Rychea Miralles',
+      progress: [
+        { name: 'Incomplete', value: 55, color: '#FF6B6B' },
+        { name: 'Complete', value: 15, color: '#4CAF50' },
+        { name: 'On Going', value: 30, color: '#5E4FDB' }
+      ]
+    },
+    { 
+      id: 3, 
+      name: 'BGC Hotel',
+      engineer: 'Engr.',
+      progress: [
+        { name: 'Incomplete', value: 50, color: '#FF6B6B' },
+        { name: 'Complete', value: 20, color: '#4CAF50' },
+        { name: 'On Going', value: 30, color: '#5E4FDB' }
+      ]
+    }
+  ]);
+
+  const [sidebarProjects, setSidebarProjects] = useState([
+    { id: 1, name: 'Batangas', engineer: 'Engr. Daryll Miralles' },
+    { id: 2, name: 'Twin Lakes Project', engineer: 'Engr. Shaquille' },
+    { id: 3, name: 'Calatagan Townhomes', engineer: 'Engr. Rychea Miralles' },
+    { id: 4, name: 'Makati', engineer: 'Engr. Michelle Amor' },
+    { id: 5, name: 'Cavite', engineer: 'Engr. Zenarose Miranda' },
+    { id: 6, name: 'Taguig', engineer: 'Engr. Third Castellar' }
+  ]);
+
+  const [activities, setActivities] = useState([
+    {
+      id: 1,
+      user: { name: 'Daniel Pocon', initial: 'D' },
+      date: 'July 1, 2029',
+      activity: 'Submitted Daily Logs for San Miguel Corporation Project B',
+      details: [
+        'Weather: Cloudy in AM, Light Rain in PM ☁️',
+        '1. 📊 Site Attendance Log',
+        'Total Workers: 16',
+        'Trades on Site...'
+      ]
+    }
+  ]);
+
+  // Reports data
+  const [reports, setReports] = useState([
+    { 
+      id: 1, 
+      name: 'BGC Hotel', 
+      dateRange: '7/13/25 - 7/27/25',
+      engineer: 'Engr.' 
+    },
+    { 
+      id: 2, 
+      name: 'Protacio Townhomes', 
+      dateRange: '7/13/25 - 7/27/25',
+      engineer: 'Engr.' 
+    },
+    { 
+      id: 3, 
+      name: 'Fegarido Residences', 
+      dateRange: '7/13/25 - 7/27/25',
+      engineer: 'Engr.' 
+    }
+  ]);
+
+  // Chats data
+  const [chats, setChats] = useState([
+    { 
+      id: 1, 
+      name: 'Rychea Miralles', 
+      initial: 'R',
+      message: 'Hello Good Morning po! As...',
+      color: '#4A6AA5'
+    },
+    { 
+      id: 2, 
+      name: 'Third Castellar', 
+      initial: 'T',
+      message: 'Hello Good Morning po! As...',
+      color: '#2E7D32'
+    },
+    { 
+      id: 3, 
+      name: 'Zenarose Miranda', 
+      initial: 'Z',
+      message: 'Hello Good Morning po! As...',
+      color: '#9C27B0'
+    }
+  ]);
+
+  useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (!event.target.closest(".profile-menu-container")) {
+          setProfileMenuOpen(false);
+        }
+      };
+      
+      document.addEventListener("click", handleClickOutside);
+      
+      return () => {
+        document.removeEventListener("click", handleClickOutside);
+      };
+    }, []);
+  
+    const handleLogout = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    };
+
+
+  return (
+     <div className="head">
+      {/* Header with Navigation */}
+      <header className="header">
+        <div className="logo-container">
           <div className="logo">
-            <img src="/images/FadzLogo 1.png" alt="FadzTrack Logo" className="logo-img" />
-            <h1>FadzTrack</h1>
+            <div className="logo-building"></div>
+            <div className="logo-flag"></div>
           </div>
-          <nav>
-            <ul>
-              <li><Link to="/cdash">Home</Link></li>
-              <li><Link to="/cprojects">View Projects</Link></li>
-              <li><Link to="/crecords">View Records</Link></li>
-              <li><Link to="/cchat">Chat</Link></li>
-            </ul>
-          </nav>
+          <h1 className="brand-name">FadzTrack</h1>
+        </div>
+        <nav className="nav-menu">
+          <a href="#" className="nav-link">Requests</a>
+          <a href="#" className="nav-link">Projects</a>
+          <a href="#" className="nav-link">Chat</a>
+          <a href="#" className="nav-link">Logs</a>
+          <a href="#" className="nav-link">Reports</a>
+        </nav>
+        <div className="search-profile">
           <div className="search-container">
             <input type="text" placeholder="Search in site" className="search-input" />
-            <button className="search-btn">🔍</button>
+            <button className="search-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
           </div>
-        </header>
-  
-        {/* Main Content */}
-        <div className="dashboard-content">
-          {/* Today's Reports Section */}
-          <section className="reports-section">
-            <div className="report-card">
-              <div className="report-image-placeholder"></div>
-              <div className="report-content">
-                <h2>Today's Reports</h2>
-                <p>Summary of reports generated today</p>
+          <div className="profile-menu-container">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
+            </div>
+            
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
               </div>
-              <div className="report-actions">
-                <button className="generate-report">Generate New Report</button>
-                <button className="view-reports">View All Reports</button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="dashboard-layout">
+        {/* Left Sidebar */}
+        <div className="sidebar">
+          <h2>Dashboard</h2>
+          <button className="add-project-btn">Add New Project</button>
+          
+          <div className="project-list">
+            {sidebarProjects.map(project => (
+              <div key={project.id} className="project-item">
+                <div className="project-icon">
+                  <span className="icon">🏗️</span>
+                  <div className="icon-bg"></div>
+                </div>
+                <div className="project-info">
+                  <div className="project-name">{project.name}</div>
+                  <div className="project-engineer">{project.engineer}</div>
+                </div>
               </div>
-              <div className="report-summaries">
-                <div className="report-summary">Report 1 Summary</div>
-                <div className="report-summary">Report 2 Summary</div>
+            ))}
+          </div>
+        </div>
+
+        {/* Center Content */}
+        <div className="main1">
+          <div className="greeting-section">
+            <h1>Good Morning, {userName}!</h1>
+            
+            <div className="progress-tracking-section">
+              <h2>Progress Tracking</h2>
+              
+              <div className="latest-projects-progress">
+                <h3>Latest Projects Progress</h3>
+                <div className="project-charts">
+                  {projects.map(project => (
+                    <div key={project.id} className="project-chart-container">
+                      <h4>{project.name}</h4>
+                      <div className="pie-chart-wrapper">
+                        <PieChart width={160} height={160}>
+                          <Pie
+                            data={project.progress}
+                            cx={80}
+                            cy={80}
+                            innerRadius={0}
+                            outerRadius={65}
+                            paddingAngle={0}
+                            dataKey="value"
+                          >
+                            {project.progress.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </div>
+                      <div className="chart-legend">
+                        {project.progress.map((item, index) => (
+                          <div key={index} className="legend-item">
+                            <span className="color-box" style={{ backgroundColor: item.color }}></span>
+                            <span className="legend-text">{item.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </section>
-  
-          {/* Incident Reports Section */}
-          <section className="incident-section">
-            <h2>Incident Reports</h2>
-            <p>Summary of recent incident reports</p>
-            <button className="view-all-reports">View All Reports</button>
-            <div className="incident-grid">
-              <div className="incident-card">
-                <div className="incident-icon"></div>
-                <h3>Incident Report 1</h3>
-                <p>Filed by John Smith</p>
-                <p className="filed-date">Filed on 2022-05-15</p>
+          </div>
+
+          {/* Recent Activities section moved below progress tracking */}
+          <div className="recent-activities-section">
+            <h2>Recent Activities</h2>
+            {activities.map(activity => (
+              <div key={activity.id} className="activity-item">
+                <div className="user-initial">{activity.user.initial}</div>
+                <div className="activity-details">
+                  <div className="activity-header">
+                    <span className="user-name">{activity.user.name}</span>
+                    <span className="activity-date">{activity.date}</span>
+                  </div>
+                  <div className="activity-description">{activity.activity}</div>
+                  <div className="activity-extra-details">
+                    {activity.details.map((detail, index) => (
+                      <div key={index} className="detail-item">{detail}</div>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div className="incident-card">
-                <div className="incident-icon"></div>
-                <h3>Incident Report 2</h3>
-                <p>Filed by Emily Johnson</p>
-                <p className="filed-date">Filed on 2022-05-17</p>
-              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Sidebar */}
+        <div className="right-sidebar">
+          <div className="reports-section">
+            <h3>Reports</h3>
+            <div className="reports-list">
+              {reports.map(report => (
+                <div key={report.id} className="report-item">
+                  <div className="report-icon">📋</div>
+                  <div className="report-details">
+                    <div className="report-name">{report.name}</div>
+                    <div className="report-date">{report.dateRange}</div>
+                    <div className="report-engineer">{report.engineer}</div>
+                  </div>
+                </div>
+              ))}
             </div>
-          </section>
-  
-          {/* Messages Section */}
-          <section className="messages-section">
-            <h2>Messages</h2>
-            <p>Summary of recent messages</p>
-            <button className="view-all-messages">View All Messages</button>
-            <div className="messages-grid">
-              <div className="message-card">
-                <p className="message-title">Message 1</p>
-                <p className="message-text">Nullam vel sagittis orci. Cras a efficitur odio.</p>
-                <p className="message-author">John Doe</p>
-              </div>
-              <div className="message-card">
-                <p className="message-title">Message 2</p>
-                <p className="message-text">Vestibulum ultricies nisl non maximus efficitur.</p>
-                <p className="message-author">Jane Smith</p>
-              </div>
+          </div>
+
+          <div className="chats-section">
+            <h3>Chats</h3>
+            <div className="chats-list">
+              {chats.map(chat => (
+                <div key={chat.id} className="chat-item">
+                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
+                  <div className="chat-details">
+                    <div className="chat-name">{chat.name}</div>
+                    <div className="chat-message">{chat.message}</div>
+                  </div>
+                </div>
+              ))}
             </div>
-          </section>
+          </div>
         </div>
       </div>
-    );
-  };
-  
-  export default CeoDash;
+    </div>
+  );
+};
+
+export default Ceo_Dash;

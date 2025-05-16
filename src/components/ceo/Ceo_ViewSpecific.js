@@ -1,7 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import "../style/ceo_style/Ceo_ViewSpecific.css";
+import { useNavigate } from 'react-router-dom';
 
 const Ceo_ViewSpecific = () => {
+
+  const navigate = useNavigate();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
+   useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (!event.target.closest(".profile-menu-container")) {
+          setProfileMenuOpen(false);
+        }
+      };
+      
+      document.addEventListener("click", handleClickOutside);
+      
+      return () => {
+        document.removeEventListener("click", handleClickOutside);
+      };
+    }, []);
+  
+    const handleLogout = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    };
+
+    
   return (
     <div className="app-container">
       {/* Header with Navigation */}
@@ -30,19 +56,35 @@ const Ceo_ViewSpecific = () => {
               </svg>
             </button>
           </div>
-          <div className="profile-circle">Z</div>
+          <div className="profile-menu-container">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
+            </div>
+            
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="main">
         <div className="project-detail-container">
-          <div className="back-button">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5"></path>
-              <path d="M12 19l-7-7 7-7"></path>
-            </svg>
-          </div>
+          <div className="back-button" onClick={() => navigate('/ceo/proj')} style={{ cursor: 'pointer' }}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" 
+            viewBox="0 0 24 24" fill="none" stroke="currentColor" 
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5"></path>
+            <path d="M12 19l-7-7 7-7"></path>
+          </svg>
+        </div>
+
           
           <div className="project-image-container">
             <img 

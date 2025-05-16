@@ -4,9 +4,9 @@ exports.addProject = async (req, res) => {
   try {
     const {
       projectName,
-      designStyle,
+      pic,
       contractor,
-      architectDesigner,
+      budget,
       location,
       duration,
       manpower,
@@ -14,9 +14,9 @@ exports.addProject = async (req, res) => {
 
     const newProject = new Project({
       projectName,
-      designStyle,
+      pic,
       contractor,
-      architectDesigner,
+      budget,
       location,
       duration,
       manpower,

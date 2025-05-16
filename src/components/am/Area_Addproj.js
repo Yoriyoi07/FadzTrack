@@ -1,16 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../style/am_style/Area_Addproj.css';
 
 const AddProject = () => {
+  const navigate = useNavigate();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
   const [formData, setFormData] = useState({
     projectName: '',
-    designStyle: '',
+    pic: '',
     contractor: '',
-    architectDesigner: '',
+    budget: '',
     location: '',
     startDate: '',
     endDate: '',    
-    manpower: ''
+    manpower: '',
+    projectmanager: ''
   });
 
   const handleChange = (e) => {
@@ -19,6 +24,26 @@ const AddProject = () => {
       ...prevState,
       [name]: value
     }));
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener("click", handleClickOutside);
+    
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
   };
 
   const handleSubmit = async (e) => {
@@ -47,18 +72,19 @@ const AddProject = () => {
 
       if (response.ok) {
         alert('✅ Project added successfully!');
-        // Optionally reset form
         setFormData({
           projectName: '',
-          designStyle: '',
+          pic: '',
           contractor: '',
-          architectDesigner: '',
+          budget: '',
           location: '',
           startDate: '',
           endDate: '',
-          manpower: ''
+          manpower: '',
+          projectmanager: ''
         });
         console.log('Form data:', formData);
+
       } else {
         alert(`❌ Error: ${result.message || 'Failed to add project'}`);
       }
@@ -97,7 +123,20 @@ const AddProject = () => {
               </svg>
             </button>
           </div>
-          <div className="profile-circle">Z</div>
+          <div className="profile-menu-container">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
+            </div>
+            
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -121,17 +160,18 @@ const AddProject = () => {
               </div>
               
               <div className="form-group">
-                <label htmlFor="designStyle">Design/Style</label>
+                <label htmlFor="PIC">PIC</label>
                 <input
                   type="text"
-                  id="designStyle"
-                  name="designStyle"
-                  placeholder="Enter design/style details"
-                  value={formData.designStyle}
+                  id="pic"
+                  name="pic"
+                  placeholder="Enter PIC details"
+                  value={formData.pic}
                   onChange={handleChange}
                 />
               </div>
             </div>
+
 
             <div className="form-row">
               <div className="form-group">
@@ -146,14 +186,26 @@ const AddProject = () => {
                 />
               </div>
               
-              <div className="form-group">
-                <label htmlFor="architectDesigner">Architect/Designer</label>
+                  <div className="form-group">
+                <label htmlFor="projectmanager">Project Manager</label>
                 <input
                   type="text"
-                  id="architectDesigner"
-                  name="architectDesigner"
-                  placeholder="Enter architect/designer details"
-                  value={formData.architectDesigner}
+                  id="projectmanager"
+                  name="projectmanager"
+                  placeholder="Enter Project Manager details"
+                  value={formData.projectmanager}
+                  onChange={handleChange}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="Budget">Budget</label>
+                <input
+                  type="text"
+                  id="budget"
+                  name="budget"
+                  placeholder="Enter Budget Details"
+                  value={formData.budget}
                   onChange={handleChange}
                 />
               </div>
@@ -183,7 +235,7 @@ const AddProject = () => {
                   required
                 />
               </div>
-              
+
               <div className="form-group">
                 <label htmlFor="endDate">End Date</label>
                 <input

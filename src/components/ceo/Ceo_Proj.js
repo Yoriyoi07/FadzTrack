@@ -1,10 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Proj.css';
 
 const Ceo_Proj = () => {
   const [filter, setFilter] = useState('all');
   const [viewMode, setViewMode] = useState('grid');
+  const navigate = useNavigate();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   
+   useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (!event.target.closest(".profile-menu-container")) {
+          setProfileMenuOpen(false);
+        }
+      };
+      
+      document.addEventListener("click", handleClickOutside);
+      
+      return () => {
+        document.removeEventListener("click", handleClickOutside);
+      };
+    }, []);
+  
+    const handleLogout = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    };
+
+
   const projects = [
     {
       id: 1,
@@ -76,32 +100,48 @@ const Ceo_Proj = () => {
 
   return (
      <div className="dashboard-container">
-      {/* Top navigation bar */}
-      <div className="top-navbar">
+      {/* Header with Navigation */}
+      <header className="header">
         <div className="logo-container">
           <div className="logo">
-            <span className="logo-icon">🏗️</span>
+            <div className="logo-building"></div>
+            <div className="logo-flag"></div>
           </div>
-          <h1 className="app-name">FadzTrack</h1>
+          <h1 className="brand-name">FadzTrack</h1>
         </div>
-        
-        <div className="nav-links">
+        <nav className="nav-menu">
           <a href="#" className="nav-link">Requests</a>
           <a href="#" className="nav-link">Projects</a>
           <a href="#" className="nav-link">Chat</a>
           <a href="#" className="nav-link">Logs</a>
           <a href="#" className="nav-link">Reports</a>
+        </nav>
+        <div className="search-profile">
+          <div className="search-container">
+            <input type="text" placeholder="Search in site" className="search-input" />
+            <button className="search-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+          </div>
+          <div className="profile-menu-container">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
+            </div>
+            
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
         </div>
-        
-        <div className="search-container">
-          <input type="text" placeholder="Search in site" className="search-input" />
-          <button className="search-button">🔍</button>
-        </div>
-        
-        <div className="user-profile">
-          <div className="user-avatar">Z</div>
-        </div>
-      </div>
+      </header>
       
     <div className="projects-container">
       {/* Filter bar */}
