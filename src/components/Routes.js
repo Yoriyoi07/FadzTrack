@@ -18,6 +18,7 @@ import ITAdminPage from './it/It_Dash';
 import Ceo_Proj from './ceo/Ceo_Proj';
 import Ceo_ViewSpecific from './ceo/Ceo_ViewSpecific';
 import Ceo_Dash from './ceo/Ceo_Dash';
+import Ceo_Addproject from './ceo/Ceo_Addproj';
 
 const AppRoutes = () => {
   return (
@@ -57,6 +58,8 @@ const AppRoutes = () => {
       <Route path="/ceo/proj" element={<Ceo_Proj />} />
       <Route path="/ceo/view" element={<Ceo_ViewSpecific />} />
       <Route path="/ceo/dash" element={<Ceo_Dash />} />
+      <Route path="/ceo/addproj" element={<Ceo_Addproject />} />
+
     
     </Routes>
   );

@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell } from 'recharts';
+import { Link, useNavigate } from 'react-router-dom';
 import '../style/am_style/Area_Dash.css';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [userName, setUserName] = useState('ALECK');
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projects, setProjects] = useState([
     { 
       id: 1, 
@@ -50,7 +53,7 @@ const Dashboard = () => {
     {
       id: 1,
       user: { name: 'Daniel Pocon', initial: 'D' },
-      date: 'July 1, 2029',
+      date: 'July 1, 2025',
       activity: 'Submitted Daily Logs for San Miguel Corporation Project B',
       details: [
         'Weather: Cloudy in AM, Light Rain in PM ☁️',
@@ -60,6 +63,27 @@ const Dashboard = () => {
       ]
     }
   ]);
+
+   useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (!event.target.closest(".profile-menu-container")) {
+          setProfileMenuOpen(false);
+        }
+      };
+      
+      document.addEventListener("click", handleClickOutside);
+      
+      return () => {
+        document.removeEventListener("click", handleClickOutside);
+      };
+    }, []);
+  
+    const handleLogout = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    };
+
 
   // Reports data
   const [reports, setReports] = useState([
@@ -109,40 +133,62 @@ const Dashboard = () => {
   ]);
 
   return (
-    <div className="dashboard-container">
-      {/* Top navigation bar */}
-      <div className="top-navbar">
+     <div className="dashboard-container">
+      {/* Header with Navigation */}
+      <header className="header">
         <div className="logo-container">
           <div className="logo">
-            <span className="logo-icon">🏗️</span>
+            <div className="logo-building"></div>
+            <div className="logo-flag"></div>
           </div>
-          <h1 className="app-name">FadzTrack</h1>
+          <h1 className="brand-name">FadzTrack</h1>
         </div>
-        
-        <div className="nav-links">
-          <a href="#" className="nav-link">Requests</a>
-          <a href="#" className="nav-link">Projects</a>
-          <a href="#" className="nav-link">Chat</a>
-          <a href="#" className="nav-link">Logs</a>
-          <a href="#" className="nav-link">Reports</a>
+         <nav className="nav-menu">
+                  <Link to="/am" className="nav-link">Dashboard</Link>
+                  <Link to="/requests" className="nav-link">Requests</Link>
+                  <Link to="/am/viewall" className="nav-link">Projects</Link>
+                  <Link to="/chat" className="nav-link">Chat</Link>
+                  <Link to="/logs" className="nav-link">Logs</Link>
+                  <Link to="/reports" className="nav-link">Reports</Link>
+                </nav>
+        <div className="search-profile">
+          <div className="search-container">
+            <input type="text" placeholder="Search in site" className="search-input" />
+            <button className="search-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+          </div>
+          <div className="profile-menu-container">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
+            </div>
+            
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
         </div>
-        
-        <div className="search-container">
-          <input type="text" placeholder="Search in site" className="search-input" />
-          <button className="search-button">🔍</button>
-        </div>
-        
-        <div className="user-profile">
-          <div className="user-avatar">Z</div>
-        </div>
-      </div>
+      </header>
 
       {/* Main Content */}
       <div className="dashboard-layout">
         {/* Left Sidebar */}
         <div className="sidebar">
           <h2>Dashboard</h2>
-          <button className="add-project-btn">Add New Project</button>
+       <button 
+            className="add-project-btn" 
+            onClick={() => navigate('/ceo/addproj')}
+          >
+            Add New Project
+          </button>
           
           <div className="project-list">
             {sidebarProjects.map(project => (
