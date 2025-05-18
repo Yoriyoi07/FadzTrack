@@ -55,10 +55,7 @@ const PmDailyReports = () => {
       })
     };
     
-    // Submit data to API
     console.log('Submitting report:', finalReport);
-    
-    // For demonstration, we're just logging the data
     alert('Report submitted successfully!');
   };
 

@@ -56,9 +56,9 @@ const AppRoutes = () => {
 
       {/* CEO */}
       <Route path="/ceo/proj" element={<Ceo_Proj />} />
-      <Route path="/ceo/view" element={<Ceo_ViewSpecific />} />
       <Route path="/ceo/dash" element={<Ceo_Dash />} />
       <Route path="/ceo/addproj" element={<Ceo_Addproject />} />
+      <Route path="/ceo/proj/:id" element={<Ceo_ViewSpecific />} />
 
     
     </Routes>

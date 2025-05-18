@@ -18,7 +18,6 @@ const PmManpowerRequest = () => {
       date: new Date().toISOString()
     };
     
-    // Here you would typically send this data to your backend
     console.log('Submitting request:', requestData);
     
     // Reset form after submission

@@ -157,17 +157,22 @@ useEffect(() => {
       </div>
 
       {/* Project cards */}
-      <div className={`project-cards ${viewMode}`}>
-        {projects.map(project => (
-          <div className="project-card" key={project.id}>
-            <div className="project-image-container">
-              <img src={project.image} alt={project.name} className="project-image" />
-              <button className="favorite-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                </svg>
-              </button>
-            </div>
+     <div className={`project-cards ${viewMode}`}>
+  {projects.map(project => (
+    <div
+      key={project._id}
+      className="project-card"
+      onClick={() => navigate(`/ceo/proj/${project.id}`)} // 👈 navigate to view specific
+      style={{ cursor: 'pointer' }}
+    >
+      <div className="project-image-container">
+        <img src={project.image} alt={project.name} className="project-image" />
+        <button className="favorite-btn" onClick={(e) => e.stopPropagation()}>
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>
+        </button>
+      </div>
             
             <div className="project-details">
               <div className="left-details">

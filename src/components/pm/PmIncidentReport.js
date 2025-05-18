@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import '../style/pm_style/Pm_IncidentReport.css'; // Import your CSS file
+import '../style/pm_style/Pm_IncidentReport.css';
 import { Link } from 'react-router-dom';
 
 const PmIncidentReport = () => {

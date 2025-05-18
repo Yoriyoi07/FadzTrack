@@ -1,7 +1,6 @@
-// In Pm_Dash.js
 import React from 'react';
 import '../style/pm_style/Pm_Dash.css'; 
-import { Link } from 'react-router-dom'; // Import Link component
+import { Link } from 'react-router-dom'; 
 
 const Dashboard = () => {
 
@@ -20,9 +19,9 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="pm-dashboard"> {/* Changed class name to be more specific */}
+    <div className="pm-dashboard">
       {/* Header/Navigation */}
-      <header className="pm-header"> {/* Changed class name to be more specific */}
+      <header className="pm-header"> 
         <div className="pm-logo-container">
           <img src="/images/FadzLogo 1.png" alt="Logo" className="pm-logo-img" /> 
           <span className="pm-logo-text">FadzTrack</span>

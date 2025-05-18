@@ -4,12 +4,10 @@ import 'leaflet/dist/leaflet.css';
 import '../style/pm_style/Pm_ViewProjects.css';
 import { FiMoreHorizontal } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
-// Fix for Leaflet default icon
 import L from 'leaflet';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// Fix the Leaflet icon issue - this needs to be outside component
 const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
