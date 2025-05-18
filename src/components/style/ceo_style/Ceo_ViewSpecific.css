@@ -217,13 +217,13 @@ body {
 
 /* Project Detail Styles */
 .project-detail-container {
+  width: 90vw;  
   background-color: white;
   border-radius: 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   padding: 2rem;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0;
+  max-width: 1400px; 
+  margin: 0 auto; 
 }
 
 .back-button {
