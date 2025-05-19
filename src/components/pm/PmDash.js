@@ -1,156 +1,300 @@
-import React from 'react';
-import '../style/pm_style/Pm_Dash.css'; 
-import { Link } from 'react-router-dom'; 
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import '../style/pm_style/Pm_Dash.css';
 
-const Dashboard = () => {
+const PmDash = () => {
+  const [userName, setUserName] = useState('ALECK');
+  const navigate = useNavigate();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [sidebarProjects, setSidebarProjects] = useState([
+    { id: 1, name: 'Batangas', engineer: 'Engr. Daryll Miralles' },
+    { id: 2, name: 'Twin Lakes Project', engineer: 'Engr. Shaquille' },
+    { id: 3, name: 'Calatagan Townhomes', engineer: 'Engr. Rychea Miralles' },
+    { id: 4, name: 'Makati', engineer: 'Engr. Michelle Amor' },
+    { id: 5, name: 'Cavite', engineer: 'Engr. Zenarose Miranda' },
+    { id: 6, name: 'Taguig', engineer: 'Engr. Third Castellar' }
+  ]);
 
-  const handleLogout = async () => {
-    try {
-      const response = await fetch('http://localhost:5000/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include' 
-      });
-      const data = await response.json();
-      console.log(data.msg);
-      window.location.href = '/'; 
-    } catch (err) {
-      console.error('Logout failed:', err);
+  const [activities, setActivities] = useState([
+    {
+      id: 1,
+      user: { name: 'Daniel Pocon', initial: 'D' },
+      date: 'July 1, 2029',
+      activity: 'Submitted Daily Logs for San Miguel Corporation Project B',
+      details: [
+        'Weather: Cloudy in AM, Light Rain in PM ☁️',
+        '1. 📊 Site Attendance Log',
+        'Total Workers: 16',
+        'Trades on Site...'
+      ]
     }
-  };
+  ]);
 
+  // Reports data
+  const [reports, setReports] = useState([
+    { 
+      id: 1, 
+      name: 'BGC Hotel', 
+      dateRange: '7/13/25 - 7/27/25',
+      engineer: 'Engr.' 
+    },
+    { 
+      id: 2, 
+      name: 'Protacio Townhomes', 
+      dateRange: '7/13/25 - 7/27/25',
+      engineer: 'Engr.' 
+    },
+    { 
+      id: 3, 
+      name: 'Fegarido Residences', 
+      dateRange: '7/13/25 - 7/27/25',
+      engineer: 'Engr.' 
+    }
+  ]);
+
+  // Chats data
+  const [chats, setChats] = useState([
+    { 
+      id: 1, 
+      name: 'Rychea Miralles', 
+      initial: 'R',
+      message: 'Hello Good Morning po! As...',
+      color: '#4A6AA5'
+    },
+    { 
+      id: 2, 
+      name: 'Third Castellar', 
+      initial: 'T',
+      message: 'Hello Good Morning po! As...',
+      color: '#2E7D32'
+    },
+    { 
+      id: 3, 
+      name: 'Zenarose Miranda', 
+      initial: 'Z',
+      message: 'Hello Good Morning po! As...',
+      color: '#9C27B0'
+    }
+  ]);
+
+  // Material requests data
+  const [materialRequests, setMaterialRequests] = useState([
+    {
+      id: 1,
+      material: '300 Bags of Cement',
+      requester: 'Rychea Miralles',
+      date: '05/24/2022'
+    },
+    {
+      id: 2,
+      material: '300 Bags of Sand',
+      requester: 'Zenarose Miranda',
+      date: '05/25/2022'
+    },
+    {
+      id: 3,
+      material: '300 Bags of Cement',
+      requester: 'Rychea Miralles',
+      date: '05/24/2022'
+    },
+    {
+      id: 4,
+      material: '300 Bags of Sand',
+      requester: 'Zenarose Miranda',
+      date: '05/25/2022'
+    }
+  ]);
+
+  useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (!event.target.closest(".profile-menu-container")) {
+          setProfileMenuOpen(false);
+        }
+      };
+      
+      document.addEventListener("click", handleClickOutside);
+      
+      return () => {
+        document.removeEventListener("click", handleClickOutside);
+      };
+    }, []);
+  
+    const handleLogout = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    };
+
+  // Custom active sector for the pie chart
   return (
-    <div className="pm-dashboard">
-      {/* Header/Navigation */}
-      <header className="pm-header"> 
-        <div className="pm-logo-container">
-          <img src="/images/FadzLogo 1.png" alt="Logo" className="pm-logo-img" /> 
-          <span className="pm-logo-text">FadzTrack</span>
-          <button onClick={handleLogout} className="pm-nav-link pm-logout-btn">Logout</button>
+     <div className="head">
+      {/* Header with Navigation */}
+      <header className="header">
+        <div className="logo-container">
+          <div className="logo">
+            <div className="logo-building"></div>
+            <div className="logo-flag"></div>
+          </div>
+          <h1 className="brand-name">FadzTrack</h1>
         </div>
-        
-        <nav className="pm-main-nav">
-          <Link to="/c" className="pm-nav-link">Home</Link>
-          <Link to="/d" className="pm-nav-link">Request Manpower</Link>
-          <Link to="/j" className="pm-nav-link">View Project</Link>
-          <Link to="/chat" className="pm-nav-link">Chat</Link>
-          <Link to="/q" className="pm-nav-link">Generate Report</Link>
+        <nav className="nav-menu">
+          <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
+          <Link to="/requests" className="nav-link">Requests</Link>
+          <Link to="/ceo/proj" className="nav-link">Projects</Link>
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        
-        <div className="pm-search-container">
-          <input type="text" placeholder="Search in site" className="pm-search-input" />
-          <button className="pm-search-button">
-            <i className="pm-search-icon">🔍</i>
-          </button>
+        <div className="search-profile">
+          <div className="search-container">
+            <input type="text" placeholder="Search in site" className="search-input" />
+            <button className="search-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+          </div>
+          <div className="profile-menu-container">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
+            </div>
+            
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="pm-main-content">
-        {/* Project Overview Section */}
-        <section className="pm-section pm-project-overview">
-          <h2 className="pm-section-title">Project Overview</h2>
-          <p className="pm-section-subtitle">Summary of the project and manpower</p>
-          
-          <button className="pm-view-details-btn">View Details</button>
-          
-          <div className="pm-stats-container">
-            <div className="pm-stat-card">
-              <h3 className="pm-stat-title">Total Manpower</h3>
-              <p className="pm-stat-value">50</p>
-            </div>
-            <div className="pm-stat-card">
-              <h3 className="pm-stat-title">Completed Tasks</h3>
-              <p className="pm-stat-value">20</p>
-            </div>
+      <div className="dashboard-layout">
+        {/* Left Sidebar */}
+        <div className="sidebar">
+          <h2>Dashboard</h2>
+          <button 
+            className="add-project-btn" 
+            onClick={() => navigate('/ceo/addproj')}
+          >
+            Add New Project
+          </button>
+          <div className="project-list">
+            {sidebarProjects.map(project => (
+              <div key={project.id} className="project-item">
+                <div className="project-icon">
+                  <span className="icon">🏗️</span>
+                  <div className="icon-bg"></div>
+                </div>
+                <div className="project-info">
+                  <div className="project-name">{project.name}</div>
+                  <div className="project-engineer">{project.engineer}</div>
+                </div>
+              </div>
+            ))}
           </div>
-        </section>
-        
-        <div className="pm-section-divider"></div>
+        </div>
 
-        {/* Today's Reports Section */}
-        <section className="pm-section pm-reports-section">
-          <div className="pm-section-layout">
-            <div className="pm-section-header">
-              <h2 className="pm-section-title">Today's Reports</h2>
-              <p className="pm-section-subtitle">Summary of reports generated today</p>
+        {/* Center Content */}
+        <div className="main1">
+          <div className="greeting-section">
+            <h1>Good Morning, {userName}!</h1>
+
+            {/* Material Request Section - Added */}
+            <div className="material-request-section">
+              <div className="section-header">
+                <h2>Material Request</h2>
+                <button 
+                  className="view-all-btn"
+                  onClick={() => navigate('/requests')}
+                >
+                  View All Requests
+                </button>
+              </div>
               
-              <div className="pm-button-group">
-                <Link to="/" className="pm-btn pm-primary-btn">Generate New Report</Link>
-                <button className="pm-btn pm-secondary-btn">View All Reports</button>
+              <div className="material-requests-container">
+                {materialRequests.map(request => (
+                  <div key={request.id} className="material-request-item">
+                    <div className="requester-initial">{request.requester.charAt(0)}</div>
+                    <div className="request-details">
+                      <h4>{request.material}</h4>
+                      <div className="request-meta">
+                        <span>{request.requester}</span>
+                        <span>{request.date}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
             
-            <div className="pm-section-content">
-              <div className="pm-card-container">
-                <div className="pm-report-card">
-                  <h3 className="pm-report-title">Report 1</h3>
-                  <p className="pm-report-content">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed non euismod nulla. In...</p>
-                </div>
-                <div className="pm-report-card">
-                  <h3 className="pm-report-title">Report 2</h3>
-                  <p className="pm-report-content">Pellentesque pulvinar feugiat bibendum. Nulla fermentum vivle maleris. In...</p>
-                </div>
-              </div>
-            </div>
+           
           </div>
-        </section>
-        
-        <div className="pm-section-divider"></div>
 
-        {/* Material Requests Section */}
-        <section className="pm-section pm-material-section">
-          <div className="pm-section-layout">
-            <div className="pm-section-header">
-              <h2 className="pm-section-title">Material Requests</h2>
-              <p className="pm-section-subtitle">Summary of material requests made</p>
-              
-              <button className="pm-btn pm-secondary-btn pm-view-all-btn">View All Requests</button>
-            </div>
-            
-            <div className="pm-section-content">
-              <div className="pm-card-container">
-                <div className="pm-material-card">
-                  <div className="pm-file-icon">F...</div>
-                  <h3 className="pm-material-title">Material Request 1</h3>
-                  <p className="pm-material-details">By PCA • 05/24/2022</p>
-                </div>
-                <div className="pm-material-card">
-                  <div className="pm-file-icon">F...</div>
-                  <h3 className="pm-material-title">Material Request 2</h3>
-                  <p className="pm-material-details">By PCB • 05/25/2022</p>
+          {/* Recent Activities section moved below progress tracking */}
+          <div className="recent-activities-section">
+            <h2>Recent Activities</h2>
+            {activities.map(activity => (
+              <div key={activity.id} className="activity-item">
+                <div className="user-initial">{activity.user.initial}</div>
+                <div className="activity-details">
+                  <div className="activity-header">
+                    <span className="user-name">{activity.user.name}</span>
+                    <span className="activity-date">{activity.date}</span>
+                  </div>
+                  <div className="activity-description">{activity.activity}</div>
+                  <div className="activity-extra-details">
+                    {activity.details.map((detail, index) => (
+                      <div key={index} className="detail-item">{detail}</div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
           </div>
-        </section>
-        
-        <div className="pm-section-divider"></div>
+        </div>
 
-        {/* Messages Section */}
-        <section className="pm-section pm-messages-section">
-          <div className="pm-section-header pm-centered">
-            <h2 className="pm-section-title">Messages</h2>
-            <p className="pm-section-subtitle">Summary of recent messages</p>
-            
-            <button className="pm-btn pm-secondary-btn pm-view-all-btn">View All Messages</button>
-          </div>
-          
-          <div className="pm-messages-grid">
-            <div className="pm-message-card">
-              <h3 className="pm-message-title">Message 1</h3>
-              <p className="pm-message-content">Nullam vel sagittis orci. Cras a efficitur odio. Aliquam erat volutpat.</p>
-              <p className="pm-message-sender">John Doe</p>
-            </div>
-            <div className="pm-message-card">
-              <h3 className="pm-message-title">Message 2</h3>
-              <p className="pm-message-content">Vestibulum ultrices neque non maximus efficitur. Maecenas sagittis bibendum sapien sit amet condimentum.</p>
-              <p className="pm-message-sender">Jane Smith</p>
+        {/* Right Sidebar */}
+        <div className="right-sidebar">
+          <div className="reports-section">
+            <h3>Reports</h3>
+            <div className="reports-list">
+              {reports.map(report => (
+                <div key={report.id} className="report-item">
+                  <div className="report-icon">📋</div>
+                  <div className="report-details">
+                    <div className="report-name">{report.name}</div>
+                    <div className="report-date">{report.dateRange}</div>
+                    <div className="report-engineer">{report.engineer}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </section>
-      </main>
+
+          <div className="chats-section">
+            <h3>Chats</h3>
+            <div className="chats-list">
+              {chats.map(chat => (
+                <div key={chat.id} className="chat-item">
+                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
+                  <div className="chat-details">
+                    <div className="chat-name">{chat.name}</div>
+                    <div className="chat-message">{chat.message}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-export default Dashboard;
+export default PmDash;
