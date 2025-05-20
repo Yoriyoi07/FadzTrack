@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import '../style/am_style/Area_Proj.css';
+import React from 'react';
 
 export default function AreasPage() {
     const [selectedArea, setSelectedArea] = useState('Makati');

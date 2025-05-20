@@ -9,9 +9,10 @@ import PmViewProjects from './pm/PmViewProjects';
 import PmIncidentReport from './pm/PmIncidentReport';
 import PmManpowerRequest from './pm/PmManpowerRequest';
 import AreaManagerDashboard from './am/Area_Dash';
-import Area_Viewall from './am/Area_Viewall';
+import Area_ViewAll from './am/Area_ViewAll';
 import LoginPage from './Login';
-import MaterialRequests from './am/Area_Material_Approval';
+import Area_Manpower_List from './am/Area_Manpower_List'
+import Area_Material_list from './am/Area_Material_List';
 import AddProject from './am/Area_Addproj';
 import AreasPage from './am/Area_Proj_Area';
 import ITAdminPage from './it/It_Dash';
@@ -46,9 +47,10 @@ const AppRoutes = () => {
 
       {/* AREA */}
       <Route path="/am" element={<AreaManagerDashboard />} />
-      <Route path="/am/viewall" element={<Area_Viewall />} />
+      <Route path="/am/viewall" element={<Area_ViewAll />} />
       <Route path="/am/addproj" element={<AddProject />} />
-      <Route path="/am/matreq" element={<MaterialRequests />} />
+      <Route path="/am/matreq" element={<Area_Material_list />} />
+      <Route path="/am/manreq" element={<Area_Manpower_List />} />
       <Route path="/am/viewproj" element={<AreasPage />} />
 
       {/* IT */}
