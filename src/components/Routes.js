@@ -20,6 +20,7 @@ import Ceo_Proj from './ceo/Ceo_Proj';
 import Ceo_ViewSpecific from './ceo/Ceo_ViewSpecific';
 import Ceo_Dash from './ceo/Ceo_Dash';
 import Ceo_Addproject from './ceo/Ceo_Addproj';
+import Pic_Dailylogs from './pic/Pic_Dailylogs';
 
 const AppRoutes = () => {
   return (
@@ -37,6 +38,7 @@ const AppRoutes = () => {
       <Route path="/pic" element={<PicDash />} />
       <Route path="/chat" element={<PicChat />} />
       <Route path="/material-request" element={<PicReq />} />
+      <Route path="/daily-logs" element={<Pic_Dailylogs />} />
 
       {/* HR */}
       {/* <Route path="/hraccounts" element = {<Hr_Accounts/>} />

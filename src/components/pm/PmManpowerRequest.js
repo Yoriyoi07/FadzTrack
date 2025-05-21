@@ -1,127 +1,226 @@
-import React, { useState } from 'react';
-import '../style/pm_style/Pm_ManpowerRequest.css';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
+import '../style/pic_style/Pic_Req.css';
 
-const PmManpowerRequest = () => {
-  const [requestTitle, setRequestTitle] = useState('');
-  const [manpowerType, setManpowerType] = useState('Administrative');
-  const [reason, setReason] = useState('');
+const ManpowerReq = () => {
+  const navigate = useNavigate();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    
-    // Create request object
-    const requestData = {
-      title: requestTitle,
-      type: manpowerType,
-      reason: reason,
-      date: new Date().toISOString()
-    };
-    
-    console.log('Submitting request:', requestData);
-    
-    // Reset form after submission
-    setRequestTitle('');
-    setManpowerType('Administrative');
-    setReason('');
-    
-    alert('Manpower request submitted successfully!');
+  const [formData, setFormData] = useState({
+    requestTitle: '',
+    projectLocation: '',
+    manpowerType: '',
+    manpowerQuantity: '',
+    description: '',
+    attachments: []
+  });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prevState => ({
+      ...prevState,
+      [name]: value
+    }));
   };
 
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener("click", handleClickOutside);
+    
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      // Create form data object to handle file uploads
+      const requestFormData = new FormData();
+      requestFormData.append('requestTitle', formData.requestTitle);
+      requestFormData.append('projectLocation', formData.projectLocation);
+      requestFormData.append('manpowerType', formData.manpowerType);
+      requestFormData.append('manpowerQuantity', formData.manpowerQuantity);
+      requestFormData.append('description', formData.description);
+      
+      // Append each file to the form data
+      formData.attachments.forEach(file => {
+        requestFormData.append('attachments', file);
+      });
+
+      const response = await fetch('http://localhost:5000/api/manpower-requests', {
+        method: 'POST',
+        body: requestFormData
+        // Note: Don't set Content-Type header when using FormData, 
+        // browser will set it automatically with the correct boundary
+      });
+  
+      const result = await response.json();
+
+      if (response.ok) {
+        alert('✅ Manpower request submitted successfully!');
+        setFormData({
+          requestTitle: '',
+          projectLocation: '',
+          manpowerType: '',
+          manpowerQuantity: '',
+          description: '',
+          attachments: []
+        });
+      } else {
+        alert(`❌ Error: ${result.message || 'Failed to submit request'}`);
+      }
+  
+    } catch (error) {
+      console.error('❌ Submission error:', error);
+      alert('❌ Failed to connect to server.');
+    }
+  };
+  
   return (
-    <div className="container">
-      <header className="ceo-header">
-        <div className="logo">
-          <img src="/images/FadzLogo 1.png" alt="FadzTrack Logo" className="logo-img" />
-          <h1>FadzTrack</h1>
+    <div className="app-container">
+      {/* Header with Navigation */}
+      <header className="header">
+        <div className="logo-container">
+          <div className="logo">
+            <div className="logo-building"></div>
+            <div className="logo-flag"></div>
+          </div>
+          <h1 className="brand-name">FadzTrack</h1>
         </div>
-        <nav>
-          <ul>
-            <li><Link to="/">Home</Link></li>
-            <li><Link to="/chats">Chats</Link></li>
-            <li><Link to="/view-projects">View Projects</Link></li>
-            <li><Link to="/view-reports">View Reports</Link></li>
-            <li><Link to="/view-requests">View Requests</Link></li>
-          </ul>
+        <nav className="nav-menu">
+          <Link to="/requests" className="nav-link">Requests</Link>
+          <Link to="/projects" className="nav-link">Projects</Link>
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
         </nav>
+        <div className="search-profile">
+          <div className="search-container">
+            <input type="text" placeholder="Search in site" className="search-input" />
+            <button className="search-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+          </div>
+          <div className="profile-menu-container">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
+            </div>
+            
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
+        </div>
       </header>
 
-      <div className="manpower-request-container">
-        <div className="manpower-request-left">
-          <h1>Manpower Request</h1>
-          <p>Submit a request for additional manpower</p>
-        </div>
-        
-        <div className="manpower-request-right">
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>Request Title</label>
-              <input 
-                type="text" 
-                value={requestTitle}
-                onChange={(e) => setRequestTitle(e.target.value)}
-                placeholder="Enter Request Title"
-                required
-              />
-              <p className="field-hint">Select the category of manpower needed</p>
-            </div>
-            
-            <div className="form-group">
-              <label>Type of Manpower Needed</label>
-              <div className="category-options">
-                <label className={`category-option ${manpowerType === 'Administrative' ? 'selected' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="manpowerType" 
-                    value="Administrative"
-                    checked={manpowerType === 'Administrative'}
-                    onChange={(e) => setManpowerType(e.target.value)}
-                  />
-                  Administrative
-                </label>
-                
-                <label className={`category-option ${manpowerType === 'Technical' ? 'selected' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="manpowerType" 
-                    value="Technical"
-                    checked={manpowerType === 'Technical'}
-                    onChange={(e) => setManpowerType(e.target.value)}
-                  />
-                  Technical
-                </label>
-                
-                <label className={`category-option ${manpowerType === 'Operational' ? 'selected' : ''}`}>
-                  <input 
-                    type="radio" 
-                    name="manpowerType" 
-                    value="Operational"
-                    checked={manpowerType === 'Operational'}
-                    onChange={(e) => setManpowerType(e.target.value)}
-                  />
-                  Operational
-                </label>
+      {/* Main Content */}
+      <main className="main-content">
+        <div className="form-container">
+          <h2 className="page-title">Request Manpower</h2>
+          
+          <form onSubmit={handleSubmit} className="project-form">
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="requestTitle">Request Title</label>
+                <input
+                  type="text"
+                  id="requestTitle"
+                  name="requestTitle"
+                  placeholder="Enter request name"
+                  value={formData.requestTitle}
+                  onChange={handleChange}
+                  required
+                />
               </div>
-              <p className="field-hint">Select the category of manpower needed</p>
+              
+              <div className="form-group">
+                <label htmlFor="projectLocation">To what project</label>
+                <input
+                  type="text"
+                  id="projectLocation"
+                  name="projectLocation"
+                  placeholder="Location of project"
+                  value={formData.projectLocation}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
             </div>
-            
-            <div className="form-group">
-              <label>Reason for Request</label>
-              <textarea 
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="Enter reason for request"
-                required
-                rows={6}
-              />
+
+            <div className="form-row">
+              <div className="form-group">
+                <label htmlFor="manpowerType">Type of Manpower</label>
+                <input
+                  type="text"
+                  id="manpowerType"
+                  name="manpowerType"
+                  placeholder="Requested Manpower"
+                  value={formData.manpowerType}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="manpowerQuantity">Quantity of Manpower</label>
+                <input
+                  type="text"
+                  id="manpowerQuantity"
+                  name="manpowerQuantity"
+                  placeholder="How many Manpower"
+                  value={formData.manpowerQuantity}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
             </div>
-            
-            <button type="submit" className="submit-button">Submit Request</button>
+
+            <div className="form-row">
+              <div className="form-group" style={{ width: '100%' }}>
+                <label htmlFor="description">Request Description</label>
+                <textarea
+                  id="description"
+                  name="description"
+                  placeholder="Provide a detailed description of your request"
+                  value={formData.description}
+                  onChange={handleChange}
+                  rows={5}
+                  required
+                ></textarea>
+              </div>
+            </div>
+        
+
+            <div className="form-row submit-row">
+              <button type="submit" className="submit-button">Add Manpower Request</button>
+            </div>
           </form>
         </div>
-      </div>
+      </main>
     </div>
   );
-};
+}
 
-export default PmManpowerRequest;
+export default ManpowerReq;
