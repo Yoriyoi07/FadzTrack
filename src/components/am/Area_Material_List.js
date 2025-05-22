@@ -1,19 +1,21 @@
-import React, { useState } from 'react';
 import { Search, List, LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../style/am_style/Area_Material_List.css';
 
 export default function Area_Material_List() {
-  // State for filter selection and view mode
   const [filterStatus, setFilterStatus] = useState('All');
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
+  const [viewMode, setViewMode] = useState('list'); 
+  const navigate = useNavigate();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   // Sample data – first item follows Calatagan Towhomes design
   const [requests] = useState([
     {
       id: 1,
-      type: 'Calatagan Towhomes',
-      project: 'Calatagan Towhomes',
-      requester: 'Rychca Miralles',
+      type: 'Cement',
+      project: 'Building A',
+      requester: 'John Doe',
       date: '09/15/2022',
       status: 'Pending',
       icon: '📦'
@@ -24,7 +26,7 @@ export default function Area_Material_List() {
       project: 'Building A',
       requester: 'John Doe',
       date: '09/15/2022',
-      status: 'Approved',
+      status: 'Pending',
       icon: '📦'
     },
     {
@@ -33,7 +35,7 @@ export default function Area_Material_List() {
       project: 'Building A',
       requester: 'John Doe',
       date: '09/15/2022',
-      status: 'Rejected',
+      status: 'Pending',
       icon: '📦'
     },
     {
@@ -79,35 +81,74 @@ export default function Area_Material_List() {
     filterStatus === 'All' ? true : request.status === filterStatus
   );
 
+   useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (!event.target.closest(".profile-menu-container")) {
+          setProfileMenuOpen(false);
+        }
+      };
+      
+      document.addEventListener("click", handleClickOutside);
+      
+      return () => {
+        document.removeEventListener("click", handleClickOutside);
+      };
+    }, []);
+  
+    const handleLogout = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    };
+
+
   // Navigation items
   const navItems = ['Requests', 'Projects', 'Chat', 'Logs', 'Reports'];
 
   return (
-    <div className="app-container">
-      {/* Navbar */}
-      <nav className="navbar">
+    <div className="header-container">
+      {/* Header with Navigation */}
+      <header className="header">
         <div className="logo-container">
           <div className="logo">
-            <div className="logo-base"></div>
-            <div className="logo-top"></div>
+            <div className="logo-building"></div>
+            <div className="logo-flag"></div>
           </div>
-          <span className="brand-name">FadzTrack</span>
+          <h1 className="brand-name">FadzTrack</h1>
         </div>
-        <ul className="nav-items">
-          {navItems.map((item, idx) => (
-            <li key={idx}>
-              <button className={`nav-button ${item === 'Requests' ? 'active' : 'inactive'}`}>
-                {item}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className="search-container">
-          <input type="text" placeholder="Search in site" className="search-input" />
-          <Search className="search-icon" />
+        <nav className="nav-menu">
+          <a href="#" className="nav-link">Requests</a>
+          <a href="#" className="nav-link">Projects</a>
+          <a href="#" className="nav-link">Chat</a>
+          <a href="#" className="nav-link">Logs</a>
+          <a href="#" className="nav-link">Reports</a>
+        </nav>
+        <div className="search-profile">
+          <div className="search-container">
+            <input type="text" placeholder="Search in site" className="search-input" />
+            <button className="search-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+          </div>
+          <div className="profile-menu-container">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
+            </div>
+            
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="user-avatar">Z</div>
-      </nav>
+      </header>
 
       {/* Main Content */}
       <main className="main-content">
@@ -151,35 +192,21 @@ export default function Area_Material_List() {
           <div className="scrollable-list">
             <div className="request-list">
               {filteredRequests.map((request) => (
-                <div key={request.id} className="request-item">
-                  <div className="request-icon">{request.icon}</div>
-                  <div className="request-body">
-                    {/* Left column: request title, date, and project */}
-                    <div className="request-left">
-                      <div className="request-header">
-                        <h3 className="request-title">Request for {request.type}</h3>
-                        <div className="request-date">{request.date}</div>
-                      </div>
-                      <div className="request-details">
-                        <p className="project-name">Project: {request.project}</p>
-                      </div>
+                <div key={request.id} className="request-item-card">
+                  <div className="request-icon-circle">{request.icon}</div>
+                  <div className="request-content">
+                    <div className="request-info">
+                      <h3 className="request-title">Request for {request.type}</h3>
+                      <p className="project-name">Project: {request.project}</p>
                     </div>
-                    {/* Right column: requester and status/actions */}
-                    <div className="request-right">
-                      <p className="requester-name">Requester: {request.requester}</p>
-                      <div className="request-status">
+                    <div className="request-meta">
+                      <p className="requester-name">{request.requester}</p>
+                      <p className="request-date">{request.date}</p>
+                      <div className="request-actions">
                         {request.status === 'Pending' && (
                           <div className="action-buttons">
-                            <button className="approve-button">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="action-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                            </button>
-                            <button className="reject-button">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="action-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
+                            <button className="approve-button-circle">✓</button>
+                            <button className="reject-button-circle">✕</button>
                           </div>
                         )}
                         {request.status === 'Approved' && (

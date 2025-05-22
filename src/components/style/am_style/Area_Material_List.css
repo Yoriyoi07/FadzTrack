@@ -1,13 +1,15 @@
 /* Layout */
-.app-container {
+.header-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
   background: linear-gradient(to bottom, #1e3a8a, #1e40af);
+  background-size: cover;
+  background-position: center;
 }
 
-/* Navbar – keeps original blue header */
-.navbar {
+/* Header – updated for new structure */
+.header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -29,7 +31,7 @@
   width: 2rem;
 }
 
-.logo-base {
+.logo-building {
   position: absolute;
   bottom: 0;
   left: 0;
@@ -39,7 +41,7 @@
   border-radius: 0.375rem;
 }
 
-.logo-top {
+.logo-flag {
   position: absolute;
   top: 0;
   right: 0;
@@ -52,40 +54,40 @@
   margin-left: 0.5rem;
   font-size: 1.25rem;
   font-weight: 700;
+  margin: 0;
 }
 
-/* Navigation Items */
-.nav-items {
+/* Navigation Menu */
+.nav-menu {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
-.nav-button {
+.nav-link {
   padding: 0.5rem 1rem;
   background: none;
   border: none;
   font-size: 1rem;
   cursor: pointer;
   transition: color 0.2s;
-}
-
-.nav-button.active {
   color: white;
+  text-decoration: none;
   font-weight: 700;
 }
 
-.nav-button.inactive {
+.nav-link:hover {
   color: #d1d5db;
 }
 
-/* Search */
-.search-wrapper {
-  position: relative;
+/* Search and Profile */
+.search-profile {
   display: flex;
   align-items: center;
+  gap: 1rem;
 }
 
+/* Search */
 .search-container {
   position: relative;
   margin-right: 15px;
@@ -93,27 +95,32 @@
 
 .search-input {
   padding: 0.25rem 1rem;
-  padding-left: 2.5rem;
-  padding-right: 0.75rem;
+  padding-left: 1rem;
+  padding-right: 2.5rem;
   border-radius: 0.375rem;
   background-color: #1f2937;
   color: white;
   width: 16rem;
-  margin-left: 20px;
+  border: none;
 }
 
-.search-icon {
+.search-button {
   position: absolute;
-  left: 0.75rem;
+  right: 0.75rem;
   top: 50%;
   transform: translateY(-50%);
   color: #9ca3af;
-  height: 1rem;
-  width: 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
 }
 
-/* User Avatar */
-.user-avatar {
+/* Profile Menu */
+.profile-menu-container {
+  position: relative;
+}
+
+.profile-circle {
   height: 2rem;
   width: 2rem;
   border-radius: 9999px;
@@ -123,6 +130,32 @@
   justify-content: center;
   color: white;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: white;
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+  margin-top: 0.25rem;
+  z-index: 10;
+}
+
+.profile-menu button {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  color: #1f2937;
+}
+
+.profile-menu button:hover {
+  background-color: #f3f4f6;
 }
 
 /* Main Content */
@@ -131,14 +164,16 @@
   padding: 1rem;
 }
 
-/* Content Card – reduced padding for a tighter look */
+/* Content Card – updated for new design */
 .content-card {
-  background-color: white;
+  background-color: rgba(255, 255, 255, 0.95);
   border-radius: 0.375rem;
   box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1),
               0 2px 4px -1px rgba(0,0,0,0.06);
-  padding: 0.5rem;
+  padding: 1rem;
   width: 100%;
+  max-width: none;
+  backdrop-filter: blur(10px);
 }
 
 /* Filters */
@@ -148,11 +183,13 @@
   align-items: center;
   margin-bottom: 1.5rem;
 }
+
 .filter-options {
   display: flex;
   align-items: center;
   gap: 0.25rem;
 }
+
 .filter-label {
   color: #6b7280;
   font-size: 0.875rem;
@@ -160,11 +197,13 @@
   display: flex;
   align-items: center;
 }
+
 .filter-icon {
   height: 1rem;
   width: 1rem;
   margin-right: 0.25rem;
 }
+
 .filter-button {
   padding: 0.25rem 0.75rem;
   font-size: 0.875rem;
@@ -173,10 +212,12 @@
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
 }
+
 .filter-button.active {
   color: #2563eb;
   font-weight: 500;
 }
+
 .filter-button.inactive {
   color: #6b7280;
 }
@@ -186,16 +227,19 @@
   display: flex;
   gap: 0.5rem;
 }
+
 .view-button {
   padding: 0.25rem;
   border: none;
   background: none;
   cursor: pointer;
 }
+
 .view-button.active {
   background-color: #e5e7eb;
   border-radius: 0.25rem;
 }
+
 .view-icon {
   height: 1.25rem;
   width: 1.25rem;
@@ -209,123 +253,129 @@
   padding-right: 0.5rem;
 }
 
-/* Request List */
+/* Request List - Updated for new card design */
 .request-list {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.5rem;
 }
 
-/* Request Item Layout */
-.request-item {
+/* New Request Item Card Layout */
+.request-item-card {
   display: flex;
-  align-items: flex-start;
-  padding: 1rem 0;
+  align-items: center;
+  padding: 1rem;
   border-bottom: 1px solid #e5e7eb;
+  background-color: white;
+  border-radius: 0.5rem;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-.request-icon {
+.request-icon-circle {
   flex-shrink: 0;
-  height: 2.5rem;
-  width: 2.5rem;
+  height: 3rem;
+  width: 3rem;
   background-color: #fef3c7;
-  border-radius: 0.25rem;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
+  margin-right: 1rem;
 }
 
-/* Split request body into two columns */
-.request-body {
-  margin-left: 1rem;
+.request-content {
+  flex: 1;
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  width: 100%;
+  justify-content: space-between;
 }
 
-.request-left {
-  /* Contains title, date, and project info */
-}
-.request-header {
+.request-info {
   display: flex;
-  gap: 1rem;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
 }
-.request-title {
+
+.request-info h3.request-title {
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 600;
   color: #1f2937;
-  margin: 0;
+  margin: 0 0 0.25rem 0;
 }
-.request-date {
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-.request-details {
-  margin-top: 0.5rem;
-}
-.project-name {
+
+.request-info .project-name {
   font-size: 0.875rem;
   color: #6b7280;
   margin: 0;
 }
 
-/* Right column: requester and status */
-.request-right {
+.request-meta {
   text-align: right;
-  min-width: 150px;
-}
-.requester-name {
-  font-size: 0.875rem;
-  color: #6b7280;
-  margin: 0 0 0.5rem;
-}
-.request-status {
-  margin-top: 0.25rem;
+  min-width: 200px;
 }
 
-/* Action Buttons & Status Badges */
+.request-meta .requester-name {
+  font-size: 0.875rem;
+  color: #1f2937;
+  margin: 0 0 0.25rem 0;
+  font-weight: 500;
+}
+
+.request-meta .request-date {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0 0 0.5rem 0;
+}
+
+.request-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* New Action Buttons */
 .action-buttons {
   display: flex;
   gap: 0.5rem;
 }
-.approve-button,
-.reject-button {
-  padding: 0.25rem;
+
+.approve-button-circle,
+.reject-button-circle {
+  padding: 0.375rem 0.75rem;
   border: none;
   border-radius: 0.25rem;
   cursor: pointer;
+  fontSize: 0.75rem;
+  font-weight: 500;
 }
-.approve-button {
+
+.approve-button-circle {
   background-color: #d1fae5;
+  color: #047857;
 }
-.approve-button .action-icon {
-  height: 1.25rem;
-  width: 1.25rem;
-  color: #059669;
-}
-.reject-button {
+
+.reject-button-circle {
   background-color: #fee2e2;
+  color: #b91c1c;
 }
-.reject-button .action-icon {
-  height: 1.25rem;
-  width: 1.25rem;
-  color: #dc2626;
-}
+
+/* Status Badges */
 .status-badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
   border-radius: 0.25rem;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 500;
 }
+
 .status-badge.approved {
   background-color: #d1fae5;
   color: #047857;
 }
+
 .status-badge.rejected {
   background-color: #fee2e2;
   color: #b91c1c;
@@ -339,6 +389,7 @@
   gap: 0.5rem;
   margin-top: 1.5rem;
 }
+
 .pagination-arrow {
   padding: 0.25rem;
   border: 1px solid #d1d5db;
@@ -346,11 +397,13 @@
   background: none;
   cursor: pointer;
 }
+
 .pagination-arrow-icon {
   height: 1rem;
   width: 1rem;
   color: #6b7280;
 }
+
 .pagination-number {
   height: 1.5rem;
   width: 1.5rem;
@@ -359,15 +412,20 @@
   justify-content: center;
   font-size: 0.875rem;
   cursor: pointer;
+  border: none;
+  background: none;
 }
+
 .pagination-number.active {
   background-color: #9333ea;
   color: white;
   border-radius: 0.25rem;
 }
-.pagination-number.inactive {
+
+.pagination-number:not(.active) {
   color: #6b7280;
 }
+
 .pagination-ellipsis {
   color: #6b7280;
 }
@@ -379,17 +437,19 @@
   }
   .content-card {
     padding: 0.5rem;
+    width: 95%;
   }
   .request-list,
-  .request-item {
+  .request-item-card {
     width: 100%;
   }
-  .request-body {
+  .request-content {
     flex-direction: column;
     align-items: flex-start;
   }
-  .request-right {
+  .request-meta {
     text-align: left;
     margin-top: 0.5rem;
+    min-width: auto;
   }
 }

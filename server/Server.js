@@ -11,7 +11,7 @@ const projectRoutes = require('./route/project');
 const manpowerRequestRoutes = require('./route/manpowerRequest'); 
 const Message = require('./models/Messages');
 const materialRequestRoutes = require('./route/materialRequest');
-
+const { verifyToken } = require('./middleware/authMiddleware');
 
 const app = express();
 app.use(cors({
@@ -32,9 +32,9 @@ mongoose.connect(process.env.MONGO_URI, {
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/manpower-requests', manpowerRequestRoutes); 
-app.use('/api/requests', materialRequestRoutes);
+app.use('/api/projects', verifyToken, require('./routes/projectRoutes'));
+app.use('/api/manpower-requests', verifyToken, require('./routes/manpowerRequestRoutes'));
+app.use('/api/requests', verifyToken, require('./routes/materialRequestRoutes'));
 app.get('/', (req, res) => res.send('API is working'));
 
 // HTTP + WebSocket server

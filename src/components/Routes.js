@@ -21,7 +21,8 @@ import Ceo_ViewSpecific from './ceo/Ceo_ViewSpecific';
 import Ceo_Dash from './ceo/Ceo_Dash';
 import Ceo_Addproject from './ceo/Ceo_Addproj';
 import Pic_Dailylogs from './pic/Pic_Dailylogs';
-
+import PrivateRoute from "./PrivateRoute";
+import It_Dash from './it/It_Dash';
 const AppRoutes = () => {
   return (
     <Routes>
@@ -32,7 +33,7 @@ const AppRoutes = () => {
       <Route path="/k" element={<PmIncidentReport />} />
       <Route path="/j" element={<PmViewProjects />} />
       <Route path="/q" element={<PmDailyReports />} />
-      <Route path="/pm" element={<PmDash />} />
+      <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDash /></PrivateRoute>}/>
 
       {/* PIC */}
       <Route path="/pic" element={<PicDash />} />
@@ -56,7 +57,7 @@ const AppRoutes = () => {
       <Route path="/am/viewproj" element={<AreasPage />} />
 
       {/* IT */}
-      <Route path="/it" element={<ITAdminPage />} />
+      <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><It_Dash /></PrivateRoute>}/>
 
       {/* CEO */}
       <Route path="/ceo/proj" element={<Ceo_Proj />} />

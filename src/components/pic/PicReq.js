@@ -215,7 +215,7 @@ const PicReq = () => {
             </div>
 
             <div className="form-row submit-row">
-              <button type="submit" className="submit-button">Add Project</button>
+              <button type="submit" className="submit-button">Add Material Request</button>
             </div>
           </form>
         </div>

@@ -1,5 +1,5 @@
 import React, { useState,useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import '../style/it_style/It_Dash.css';
 
 const It_Dash = () => {
@@ -421,8 +421,8 @@ const currentAccounts = sortedAccounts.slice(indexOfFirstItem, indexOfLastItem);
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <a href="#" className="nav-link">Home</a>
-          <a href="#" className="nav-link">Chat</a>
+          <Link to="/it" className="nav-link">Dashboard</Link>
+          <Link to="/" className="nav-link">Chat</Link>
         </nav>
         <div className="search-profile">
           <div className="search-container">
