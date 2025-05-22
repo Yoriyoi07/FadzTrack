@@ -150,7 +150,7 @@ const PicReq = () => {
                   type="text"
                   id="material"
                   name="material"
-                  placeholder="Enter project name"
+                  placeholder="Enter Material Name"
                   value={formData.material}
                   onChange={handleChange}
                   required
@@ -163,7 +163,7 @@ const PicReq = () => {
                   type="text"
                   id="quantity"
                   name="quantity"
-                  placeholder="Enter design/style details"
+                  placeholder="Enter Quantity"
                   value={formData.quantity}
                   onChange={handleChange}
                   required

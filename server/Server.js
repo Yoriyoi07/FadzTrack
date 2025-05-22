@@ -4,9 +4,14 @@ require('dotenv').config();
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
+
+// Route imports
 const authRoutes = require('./route/auth');
-const Message = require('./models/Messages');
 const projectRoutes = require('./route/project');
+const manpowerRequestRoutes = require('./route/manpowerRequest'); 
+const Message = require('./models/Messages');
+const materialRequestRoutes = require('./route/materialRequest');
+
 
 const app = express();
 app.use(cors({
@@ -28,6 +33,8 @@ mongoose.connect(process.env.MONGO_URI, {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/manpower-requests', manpowerRequestRoutes); 
+app.use('/api/requests', materialRequestRoutes);
 app.get('/', (req, res) => res.send('API is working'));
 
 // HTTP + WebSocket server
