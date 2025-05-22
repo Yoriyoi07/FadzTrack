@@ -6,10 +6,13 @@ import '../style/ceo_style/Ceo_Addproj.css';
 const Ceo_Addproject = () => {
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [projectManagers, setProjectManagers] = useState([]);
+  const [pics, setPics] = useState([]);
+
 
   const [formData, setFormData] = useState({
     projectName: '',
-    pic: '',
+    pic: [],
     contractor: '',
     budget: '',
     location: '',
@@ -18,6 +21,22 @@ const Ceo_Addproject = () => {
     manpower: '',
     projectmanager: ''
   });
+
+
+  const handleChangeMultiplePics = (e) => {
+  const options = e.target.options;
+  const selectedPics = [];
+  for (let i = 0; i < options.length; i++) {
+    if (options[i].selected) {
+      selectedPics.push(options[i].value);
+    }
+  }
+  setFormData(prevState => ({
+    ...prevState,
+    pic: selectedPics
+  }));
+};
+
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -40,6 +59,31 @@ const Ceo_Addproject = () => {
       document.removeEventListener("click", handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+ const fetchUsers = async () => {
+  try {
+    const [pmRes, picRes] = await Promise.all([
+      fetch('http://localhost:5000/api/users/role/Project%20Manager'),
+      fetch('http://localhost:5000/api/users/role/Person%20in%20Charge')
+    ]);
+
+    const pmData = await pmRes.json();
+    const picData = await picRes.json();
+
+    console.log("PMs:", pmData);
+    console.log("PICs:", picData);
+
+    setProjectManagers(Array.isArray(pmData) ? pmData : pmData.data || []);
+    setPics(Array.isArray(picData) ? picData : picData.data || []);
+  } catch (err) {
+    console.error('Failed to fetch users:', err);
+  }
+};
+
+  fetchUsers();
+}, []);
+
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -162,16 +206,21 @@ const Ceo_Addproject = () => {
               </div>
               
               <div className="form-group">
-                <label htmlFor="PIC">PIC</label>
-                <input
-                  type="text"
-                  id="pic"
-                  name="pic"
-                  placeholder="Enter PIC details"
-                  value={formData.pic}
-                  onChange={handleChange}
-                />
-              </div>
+              <label htmlFor="pic">PIC</label>
+             <select
+                id="pic"
+                name="pic"
+                multiple
+                value={formData.pic}
+                onChange={handleChangeMultiplePics}
+              >
+                {pics.map((user) => (
+                  <option key={user._id} value={user._id}>
+                    {user.name}
+                  </option>
+                ))}
+              </select>
+            </div>
             </div>
 
 
@@ -188,17 +237,23 @@ const Ceo_Addproject = () => {
                 />
               </div>
               
-                  <div className="form-group">
+                <div className="form-group">
                 <label htmlFor="projectmanager">Project Manager</label>
-                <input
-                  type="text"
+                <select
                   id="projectmanager"
                   name="projectmanager"
-                  placeholder="Enter Project Manager details"
                   value={formData.projectmanager}
                   onChange={handleChange}
-                />
+                >
+                  <option value="">-- Select Project Manager --</option>
+                  {projectManagers.map((user) => (
+                    <option key={user._id} value={user.id}>
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
               </div>
+
 
               <div className="form-group">
                 <label htmlFor="Budget">Budget</label>

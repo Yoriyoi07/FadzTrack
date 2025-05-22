@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import '../style/pic_style/Pic_Dailylogs.css';
 
+
+
 const Pic_Dailylogs = () => {
   const navigate = useNavigate();
+  const [projects, setProjects] = useState([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
     attendance: true,
@@ -134,6 +137,20 @@ const Pic_Dailylogs = () => {
       alert('❌ Failed to connect to server.');
     }
   };
+
+  useEffect(() => {
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/projects');
+      const data = await res.json();
+      setProjects(data);
+    } catch (err) {
+      console.error("Failed to fetch projects:", err);
+    }
+  };
+
+  fetchProjects();
+}, []);
   
   return (
     <div className="app-container">
@@ -147,10 +164,16 @@ const Pic_Dailylogs = () => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/requests" className="nav-link">Requests</Link>
-          <Link to="/projects" className="nav-link">Projects</Link>
-          <Link to="/chat" className="nav-link">Chat</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/pic" className="nav-link">Dashboard</Link>
+                      <Link to="/requests" className="nav-link">Requests</Link>
+                      {projects.map((project) => (
+  <div key={project._id}>
+    <h3>{project.projectName}</h3>
+    <Link to={`/pic/${project._id}`}>View Project</Link>
+  </div>
+))}
+
+                      <Link to="/chat" className="nav-link">Chat</Link>
         </nav>
         <div className="search-profile">
           <div className="search-container">

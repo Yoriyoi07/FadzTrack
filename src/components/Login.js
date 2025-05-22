@@ -66,8 +66,8 @@ const LoginPage = () => {
 
   // Redirect user to dashboard based on role
   const redirectBasedOnRole = (role) => {
-    if (role === "Project in Charge") {
-      navigate("/h"); 
+    if (role === "Person in Charge") {
+      navigate("/pic"); 
     } else if (role === "Project Manager") {
       navigate("/c"); 
     }else if (role === "Area Manager") {
@@ -139,13 +139,13 @@ const LoginPage = () => {
               </div>
 
               {/* Remember me & Forgot password */}
-              <div className="form-options">
+             {/*  <div className="form-options">
                 <div className="remember-me">
                   <input type="checkbox" id="remember" />
                   <label htmlFor="remember">Remember Me</label>
                 </div>
                 <a href="#" className="forgot-link">Forgot Password?</a>
-              </div>
+              </div> */}
 
               {/* Show login error if any */}
               {loginError && <p className="error-message">{loginError}</p>}

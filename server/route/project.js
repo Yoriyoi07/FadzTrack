@@ -2,6 +2,31 @@ const express = require('express');
 const router = express.Router();
 const Project = require('../models/Project'); 
 
+router.get('/assigned/:userId', async (req, res) => {
+  const userId = req.params.userId;
+  try {
+    const projects = await Project.find({ pic: userId })
+      .populate('projectmanager', 'name email')
+      .populate('pic', 'name email');
+    res.json(projects);
+  } catch (error) {
+    console.error('Error fetching assigned projects:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+router.get('/role/:role', async (req, res) => {
+  try {
+    const role = req.params.role;
+    const users = await User.find({ role }, 'name'); // or 'email' or 'username'
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch users' });
+  }
+});
+
+
 router.post('/', async (req, res) => {
    console.log('📥 Received POST /api/projects');
   console.log('📝 Request body:', req.body);
@@ -64,20 +89,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET a specific project by ID
-router.get('/:id', async (req, res) => {
-  try {
-    const project = await Project.findById(req.params.id);
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
 
-    res.status(200).json(project);
-  } catch (err) {
-    console.error('Error fetching project by ID:', err);
-    res.status(500).json({ message: 'Failed to fetch project' });
-  }
-});
 
 
 

@@ -5,8 +5,9 @@ import { Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
 
 const Ceo_Dash = () => {
-  const [userName, setUserName] = useState('ALECK');
+
   const navigate = useNavigate();
+  const [userName, setUserName] = useState('');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projects, setProjects] = useState([
     { 
@@ -111,6 +112,13 @@ const Ceo_Dash = () => {
       color: '#9C27B0'
     }
   ]);
+
+  useEffect(() => {
+  const user = JSON.parse(localStorage.getItem("user"));
+  if (user) {
+    setUserName(user.name || 'User'); 
+  }
+}, []);
 
   useEffect(() => {
       const handleClickOutside = (event) => {

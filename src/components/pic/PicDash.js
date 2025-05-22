@@ -1,17 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import '../style/pm_style/Pm_Dash.css';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 const PicDash = () => {
-  const [userName, setUserName] = useState('ALECK');
+  
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-    const navigate = useNavigate();
+  const navigate = useNavigate();
+  const [projects, setProjects] = useState([]);
+  const [project, setProject] = useState(null);
+  const user = JSON.parse(localStorage.getItem('user'));
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/');
+    }
+  }, [user, navigate]);
+
+  const [userName, setUserName] = useState(user?.name || '');
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/');
   };
-  
+
+ 
   // Request data
   const [requests, setRequests] = useState([
     { 
@@ -116,6 +128,54 @@ const PicDash = () => {
     }
   };
 
+ useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/projects');
+        const data = await res.json();
+        console.log('Fetched projects:', data);
+        // Filter only projects that include current user as PIC
+       const filtered = data.filter(project =>
+  Array.isArray(project.assignedTo) &&
+  project.assignedTo.some(
+    person => person.name === user.name && person.role === 'PIC'
+  )
+);
+
+
+        setProjects(filtered);
+      } catch (err) {
+        console.error('Failed to fetch projects:', err);
+      }
+    };
+
+    fetchProjects();
+  }, []);
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!user) {
+      navigate('/');
+      return;
+    }
+
+    const fetchProject = async () => {
+      try {
+        // Fetch all projects assigned to this PIC
+        const res = await fetch(`http://localhost:5000/api/projects/assigned/${user.id}`);
+        const data = await res.json();
+         console.log('Fetched assigned projects:', data);
+        // If there are multiple, just pick the first one
+        setProject(data[0] || null);
+      } catch (err) {
+        console.error('Failed to fetch project:', err);
+        setProject(null);
+      }
+    };
+
+    fetchProject();
+  }, [navigate]);
+
   return (
      <div className="head">
       {/* Header with Navigation */}
@@ -128,12 +188,12 @@ const PicDash = () => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <a href="/ceo/dash" className="nav-link">Dashboard</a>
-          <a href="/requests" className="nav-link">Requests</a>
-          <a href="/ceo/proj" className="nav-link">Projects</a>
-          <a href="/chat" className="nav-link">Chat</a>
-          <a href="/logs" className="nav-link">Logs</a>
-          <a href="/reports" className="nav-link">Reports</a>
+            <Link to="/pic" className="nav-link">Dashboard</Link>
+            <Link to="/requests" className="nav-link">Requests</Link>
+            {project && (
+    <Link to={`/pic/${project._id}`}>View Project</Link>
+  )}
+            <Link to="/chat" className="nav-link">Chat</Link>
         </nav>
         <div className="search-profile">
           <div className="search-container">
@@ -150,7 +210,7 @@ const PicDash = () => {
               className="profile-circle" 
               onClick={() => setProfileMenuOpen(!profileMenuOpen)}
             >
-              Z
+               {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
             
             {profileMenuOpen && (

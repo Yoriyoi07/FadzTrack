@@ -327,7 +327,7 @@ const currentAccounts = sortedAccounts.slice(indexOfFirstItem, indexOfLastItem);
               <option value="">Position</option>
               <option value="Project Manager">Project Manager</option>
               <option value="Area Manager">Area Manager</option>
-              <option value="Project in Charge">Project in Charge</option>
+              <option value="Person in Charge">Person in Charge</option>
             </select>
           </div>
 
