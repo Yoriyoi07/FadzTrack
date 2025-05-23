@@ -188,7 +188,7 @@ exports.verify2FACode = async (req, res) => {
       })
       .json({
         accessToken,
-        user: { id: user._id, email: user.email, role: user.role }
+        user: { id: user._id, email: user.email,  name: user.name,role: user.role }
       });
   } catch (err) {
     res.status(500).json({ msg: '2FA verification error', err });

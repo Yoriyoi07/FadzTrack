@@ -8,15 +8,23 @@ const PicDash = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [project, setProject] = useState(null);
-  const user = JSON.parse(localStorage.getItem('user'));
+  const [user, setUser] = useState(null);
+  const [userName, setUserName] = useState('');
 
-  useEffect(() => {
-    if (!user) {
-      navigate('/');
-    }
-  }, [user, navigate]);
 
-  const [userName, setUserName] = useState(user?.name || '');
+useEffect(() => {
+  const storedUser = JSON.parse(localStorage.getItem('user'));
+  console.log('storedUser:', storedUser);
+  if (!storedUser) {
+    navigate('/');
+  } else {
+    setUser(storedUser);
+    setUserName(storedUser.name);
+  }
+}, [navigate]);
+
+
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -127,13 +135,11 @@ const PicDash = () => {
         return { backgroundColor: '#e0e0e0', color: '#333' };
     }
   };
-
  useEffect(() => {
     const fetchProjects = async () => {
       try {
         const res = await fetch('http://localhost:5000/api/projects');
         const data = await res.json();
-        console.log('Fetched projects:', data);
         // Filter only projects that include current user as PIC
        const filtered = data.filter(project =>
   Array.isArray(project.assignedTo) &&
@@ -191,8 +197,8 @@ const PicDash = () => {
             <Link to="/pic" className="nav-link">Dashboard</Link>
             <Link to="/requests" className="nav-link">Requests</Link>
             {project && (
-    <Link to={`/pic/${project._id}`}>View Project</Link>
-  )}
+  <Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>
+)}
             <Link to="/chat" className="nav-link">Chat</Link>
         </nav>
         <div className="search-profile">

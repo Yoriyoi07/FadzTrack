@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const projectSchema = new mongoose.Schema({
   projectName: { type: String, required: true },
-  pic: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  pic: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   projectmanager: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   contractor: String,
   budget: Number,

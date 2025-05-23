@@ -44,13 +44,6 @@ const AppRoutes = () => {
       <Route path="/daily-logs" element={<Pic_Dailylogs />} />
       <Route path="/pic/:id" element={<Pic_Project />} />
 
-      {/* HR */}
-      {/* <Route path="/hraccounts" element = {<Hr_Accounts/>} />
-      <Route path="/hrchat" element = {<Hr_Chat/>} />
-      <Route path="/hrdash" element = {<Hr_Dash/>} />
-      <Route path="/hrrecords" element = {<Hr_Rec/>} />
-      <Route path="/hrprojects" element = {<Hr_Proj/>} /> */}
-
       {/* AREA */}
       <Route path="/am" element={<AreaManagerDashboard />} />
       <Route path="/am/viewall" element={<Area_ViewAll />} />

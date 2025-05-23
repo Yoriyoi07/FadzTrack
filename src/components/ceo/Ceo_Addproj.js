@@ -119,7 +119,7 @@ const Ceo_Addproject = () => {
         alert('✅ Project added successfully!');
         setFormData({
           projectName: '',
-          pic: '',
+          pic: [],
           contractor: '',
           budget: '',
           location: '',
@@ -247,7 +247,7 @@ const Ceo_Addproject = () => {
                 >
                   <option value="">-- Select Project Manager --</option>
                   {projectManagers.map((user) => (
-                    <option key={user._id} value={user.id}>
+                    <option key={user._id} value={user._id}>
                       {user.name}
                     </option>
                   ))}
@@ -258,7 +258,7 @@ const Ceo_Addproject = () => {
               <div className="form-group">
                 <label htmlFor="Budget">Budget</label>
                 <input
-                  type="text"
+                  type="number"
                   id="budget"
                   name="budget"
                   placeholder="Enter Budget Details"

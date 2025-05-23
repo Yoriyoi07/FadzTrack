@@ -14,6 +14,7 @@ const Ceo_ViewSpecific = () => {
         const res = await fetch(`http://localhost:5000/api/projects/${id}`);
         const data = await res.json();
         setProject(data);
+        console.log("Fetched project data:", data);
       } catch (err) {
         console.error("Failed to fetch project:", err);
       }
@@ -95,7 +96,7 @@ const Ceo_ViewSpecific = () => {
 
           <div className="project-image-container">
             <img 
-              src="https://via.placeholder.com/800x400" 
+              src="https://placehold.com/800x400"
               alt={project.projectName} 
               className="project-image"
             />
@@ -114,7 +115,7 @@ const Ceo_ViewSpecific = () => {
 
               <div className="detail-group">
                 <p className="detail-label">Project Manager:</p>
-                <p className="detail-value">{project.projectmanager}</p>
+                <p className="detail-value">{project.projectManager?.name || "N/A"}</p>
               </div>
 
               <div className="detail-group">
@@ -125,20 +126,22 @@ const Ceo_ViewSpecific = () => {
               <div className="detail-group">
                 <p className="detail-label">Target Date:</p>
                 <p className="detail-value">
-                  {new Date(project.startDate).toLocaleDateString()} - {new Date(project.endDate).toLocaleDateString()}
+                  {project.targetDate || "N/A"}
                 </p>
               </div>
             </div>
 
             <div className="details-column">
               <div className="budget-container">
-                <p className="budget-amount">₱{project.budget?.toLocaleString()}</p>
+                <p className="budget-amount">{project.budget?.toLocaleString()}</p>
                 <p className="budget-label">Estimated Budget</p>
               </div>
 
               <div className="detail-group">
                 <p className="detail-label">PIC:</p>
-                <p className="detail-value">{project.pic}</p>
+                <p className="detail-value">{project.pic && project.pic.length > 0 
+    ? project.pic.map(p => p.name).join(', ') 
+    : 'N/A'}</p>
               </div>
             </div>
           </div>

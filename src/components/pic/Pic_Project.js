@@ -107,7 +107,6 @@ const Pic_Project = () => {
 
           <div className="project-image-container">
             <img 
-              src="https://via.placeholder.com/800x400" 
               alt={project.projectName} 
               className="project-image"
             />
@@ -144,13 +143,16 @@ const Pic_Project = () => {
 
             <div className="details-column">
               <div className="budget-container">
-                <p className="budget-amount">₱{project.budget?.toLocaleString()}</p>
+                <p className="budget-amount">₱{project.budget?.toLocaleString() || '0'}</p>
                 <p className="budget-label">Estimated Budget</p>
               </div>
 
               <div className="detail-group">
-                <p className="detail-label">PIC:</p>
-                <p className="detail-value">{project.pic?.name || 'N/A'}</p>
+                <p className="detail-value">
+  {project.pic && project.pic.length > 0 
+    ? project.pic.map(p => p.name).join(', ') 
+    : 'N/A'}
+</p>
               </div>
             </div>
           </div>

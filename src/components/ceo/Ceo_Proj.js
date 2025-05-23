@@ -31,7 +31,7 @@ const Ceo_Proj = () => {
 
 
  const [projects, setProjects] = useState([]);
-
+console.log(projects);
 useEffect(() => {
   const fetchProjects = async () => {
     try {
@@ -162,7 +162,7 @@ useEffect(() => {
     <div
       key={project._id}
       className="project-card"
-      onClick={() => navigate(`/ceo/proj/${project.id}`)} // 👈 navigate to view specific
+      onClick={() => navigate(`/ceo/proj/${project.id}`)}
       style={{ cursor: 'pointer' }}
     >
       <div className="project-image-container">
@@ -182,7 +182,7 @@ useEffect(() => {
                 <div className="project-info-grid">
                   <div className="info-column">
                     <span className="info-column-header">Project Manager:</span>
-                    <span className="info-column-value">{project.projectManager}</span>
+                    <span className="info-column-value">{project.projectManager?.name }</span>
                   </div>
                   
                   <div className="info-column">
