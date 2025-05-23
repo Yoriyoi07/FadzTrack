@@ -80,13 +80,14 @@ useEffect(() => {
     try {
       const response = await fetch('http://localhost:5000/api/auth/Users');
       const data = await response.json();
+      console.log('Fetched user data:', data);
 
       if (!response.ok) {
         throw new Error(data.msg || 'Failed to fetch accounts');
       }
-
       // Convert backend user data to match frontend table structure
       const formattedAccounts = data.map(user => ({
+        
         id: user._id,
         name: user.name,
         position: user.role,
@@ -94,7 +95,7 @@ useEffect(() => {
         email: user.email,
         status: user.status || 'Active' 
       }));
-
+   
       setAccounts(formattedAccounts);
     } catch (error) {
       console.error('Error fetching accounts:', error);
@@ -249,11 +250,11 @@ const handleToggleAccountStatus = async (account) => {
 
 
   const filteredAccounts = accounts.filter(account => {
-    return account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           account.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           account.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           account.email.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  return account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         account.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         account.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
+         account.email.toLowerCase().includes(searchTerm.toLowerCase());
+});
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -491,7 +492,6 @@ const currentAccounts = sortedAccounts.slice(indexOfFirstItem, indexOfLastItem);
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    <span className="search-icon">🔍</span>
                   </div>
                   <div className="sort-dropdown">
                     <span>Sort by: </span>

@@ -11,7 +11,7 @@ const twoFACodes = {};
 // Get all users
 exports.getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}, 'name role phone email'); 
+    const users = await User.find({}, 'name role phone email status'); 
     res.json(users);
   } catch (err) {
     console.error('Error fetching users:', err);
@@ -120,6 +120,11 @@ exports.loginUser = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
 
+    // Check if user is active
+    if (user.status !== 'Active') {
+      return res.status(403).json({ msg: 'Your account is inactive. Please contact support.' });
+    }
+
     // Compare hashed passwords
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
@@ -188,7 +193,7 @@ exports.verify2FACode = async (req, res) => {
       })
       .json({
         accessToken,
-        user: { id: user._id, email: user.email,  name: user.name,role: user.role }
+        user: { id: user._id, email: user.email,  name: user.name,role: user.role ,status: user.status }
       });
   } catch (err) {
     res.status(500).json({ msg: '2FA verification error', err });
