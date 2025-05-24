@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
 import '../style/pic_style/Pic_Req.css';
 
-const PicReq = () => {
-  const navigate = useNavigate();
+const MaterialRequest = () => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  
   const [formData, setFormData] = useState({
-    material: '',
-    quantity: '',
-    description: '',
-    attachments: []
+    projectName: 'Batangas Townhomes | Ssg. Daryl Morales',
+    materials: [
+      { item: '100 bags Sand', quantity: '' },
+      { item: '50 bags Gravel', quantity: '' },
+      { item: '100 bags Cement', quantity: '' },
+      { item: '1000 pcs roof Shingles', quantity: '' }
+    ],
   });
 
   const handleChange = (e) => {
@@ -22,13 +23,37 @@ const PicReq = () => {
     }));
   };
 
-  const handleFileUpload = (e) => {
-    // Store file objects in state
-    const files = Array.from(e.target.files);
+  const handleMaterialChange = (index, field, value) => {
+    const newMaterials = [...formData.materials];
+    newMaterials[index][field] = value;
     setFormData(prevState => ({
       ...prevState,
-      attachments: files
+      materials: newMaterials
     }));
+  };
+
+  const addMaterial = () => {
+    setFormData(prevState => ({
+      ...prevState,
+      materials: [...prevState.materials, { item: '', quantity: '' }]
+    }));
+  };
+
+  const removeMaterial = (index) => {
+    const newMaterials = formData.materials.filter((_, i) => i !== index);
+    setFormData(prevState => ({
+      ...prevState,
+      materials: newMaterials
+    }));
+  };
+
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    setUploadedFiles(prevFiles => [...prevFiles, ...files]);
+  };
+
+  const removeFile = (index) => {
+    setUploadedFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
   };
 
   useEffect(() => {
@@ -46,56 +71,26 @@ const PicReq = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
+    console.log('Logout clicked');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    alert('✅ Material request submitted successfully!');
+  };
 
-    try {
-      // Create form data object to handle file uploads
-      const requestFormData = new FormData();
-      requestFormData.append('material', formData.material);
-      requestFormData.append('quantity', formData.quantity);
-      requestFormData.append('description', formData.description);
-      
-      // Append each file to the form data
-      formData.attachments.forEach(file => {
-        requestFormData.append('attachments', file);
-      });
+  const handleBack = () => {
+    console.log('Back clicked');
+  };
 
-      const response = await fetch('http://localhost:5000/api/requests', {
-        method: 'POST',
-        body: requestFormData
-        // Note: Don't set Content-Type header when using FormData, 
-        // browser will set it automatically with the correct boundary
-      });
-  
-      const result = await response.json();
-
-      if (response.ok) {
-        alert('✅ Material request submitted successfully!');
-        setFormData({
-          material: '',
-          quantity: '',
-          description: '',
-          attachments: []
-        });
-      } else {
-        alert(`❌ Error: ${result.message || 'Failed to submit request'}`);
-      }
-  
-    } catch (error) {
-      console.error('❌ Submission error:', error);
-      alert('❌ Failed to connect to server.');
+  const handleCancelRequest = () => {
+    if (window.confirm('Are you sure you want to cancel this request?')) {
+      console.log('Request cancelled');
     }
   };
-  
+
   return (
     <div className="app-container">
-      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <div className="logo">
@@ -105,10 +100,12 @@ const PicReq = () => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/requests" className="nav-link">Requests</Link>
-          <Link to="/projects" className="nav-link">Projects</Link>
-          <Link to="/chat" className="nav-link">Chat</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
+          <a href="/ceo/dash" className="nav-link">Dashboard</a>
+          <a href="/requests" className="nav-link">Requests</a>
+          <a href="/ceo/proj" className="nav-link">Projects</a>
+          <a href="/chat" className="nav-link">Chat</a>
+          <a href="/logs" className="nav-link">Logs</a>
+          <a href="/reports" className="nav-link">Reports</a>
         </nav>
         <div className="search-profile">
           <div className="search-container">
@@ -127,7 +124,6 @@ const PicReq = () => {
             >
               Z
             </div>
-            
             {profileMenuOpen && (
               <div className="profile-menu">
                 <button onClick={handleLogout}>Logout</button>
@@ -137,91 +133,104 @@ const PicReq = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="main-content">
-        <div className="form-container">
-          <h2 className="page-title">Request Materials</h2>
-          
-          <form onSubmit={handleSubmit} className="project-form">
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="material">Material to be Requested</label>
-                <input
-                  type="text"
-                  id="material"
-                  name="material"
-                  placeholder="Enter Material Name"
-                  value={formData.material}
-                  onChange={handleChange}
-                  required
-                />
+        <div className="request-container">
+          <div className="request-header">
+            <h1 className="request-title">Material Request #334</h1>
+            <p className="project-name">{formData.projectName}</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="request-form">
+            <div className="form-section">
+              <h3 className="section-title">Material to be Requested</h3>
+              <div className="materials-list">
+                {formData.materials.map((material, index) => (
+                  <div key={index} className="material-item">
+                    <input
+                      type="text"
+                      placeholder="Material item"
+                      value={material.item}
+                      onChange={(e) => handleMaterialChange(index, 'item', e.target.value)}
+                      className="material-input"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Quantity"
+                      value={material.quantity}
+                      onChange={(e) => handleMaterialChange(index, 'quantity', e.target.value)}
+                      className="quantity-input"
+                    />
+                    {formData.materials.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeMaterial(index)}
+                        className="remove-btn"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-              
-              <div className="form-group">
-                <label htmlFor="quantity">Quantity</label>
-                <input
-                  type="text"
-                  id="quantity"
-                  name="quantity"
-                  placeholder="Enter Quantity"
-                  value={formData.quantity}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
+              <button type="button" onClick={addMaterial} className="add-material-btn">
+                + Add Material
+              </button>
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="attachments">Attachment Proof</label>
-                <div className="upload-container">
-                  <button 
-                    type="button" 
-                    onClick={() => document.getElementById('fileInput').click()}
-                    className="upload-button"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px' }}>
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                      <polyline points="17 8 12 3 7 8"></polyline>
-                      <line x1="12" y1="3" x2="12" y2="15"></line>
-                    </svg>
-                    Upload
-                  </button>
-                  <input
-                    type="file"
-                    id="fileInput"
-                    multiple
-                    onChange={handleFileUpload}
-                    style={{ display: 'none' }}
-                  />
-                </div>
+            <div className="form-section">
+              <h3 className="section-title">Attachment Proof</h3>
+              <div className="upload-section">
+                <input
+                  type="file"
+                  id="file-upload"
+                  multiple
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  className="file-input"
+                />
+                <label htmlFor="file-upload" className="upload-btn">📎 Upload</label>
                 <p className="upload-hint">You can attach files such as documents or images</p>
               </div>
+
+              {uploadedFiles.length > 0 && (
+                <div className="uploaded-files">
+                  {uploadedFiles.map((file, index) => (
+                    <div key={index} className="file-item">
+                      <span className="file-name">{file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(index)}
+                        className="remove-file-btn"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="form-row">
-              <div className="form-group" style={{ width: '100%' }}>
-                <label htmlFor="description">Request Description</label>
-                <textarea
-                  id="description"
-                  name="description"
-                  placeholder="Provide a detailed description of your request"
-                  value={formData.description}
-                  onChange={handleChange}
-                  rows={5}
-                  required
-                ></textarea>
-              </div>
+            <div className="form-section">
+              <h3 className="section-title">Request Description</h3>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                className="description-textarea"
+                rows="8"
+                placeholder="Enter request description..."
+              />
             </div>
 
-            <div className="form-row submit-row">
-              <button type="submit" className="submit-button">Add Material Request</button>
+            <div className="action-buttons">
+              <button type="button" onClick={handleBack} className="back-button1">Back</button>
+              <button type="submit" className="submit-btn">Submit Request</button>
             </div>
           </form>
         </div>
       </main>
     </div>
   );
-}
+};
 
-export default PicReq;
+export default MaterialRequest;

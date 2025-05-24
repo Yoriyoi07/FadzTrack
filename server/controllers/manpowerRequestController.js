@@ -1,6 +1,5 @@
 const ManpowerRequest = require('../models/ManpowerRequest');
 
-// CREATE - Add a new manpower request
 const createManpowerRequest = async (req, res) => {
   try {
     const {

@@ -326,36 +326,6 @@ const Ceo_Addproject = () => {
           </form>
         </div>
       </main>
-      
-      {/* Footer */}
-      <footer className="footer">
-        <div className="footer-column">
-          <p className="footer-category">Member</p>
-          <a href="#" className="footer-link">Become A Member</a>
-          <a href="#" className="footer-link">Running Shoe Finder</a>
-          <a href="#" className="footer-link">Product Advice</a>
-          <a href="#" className="footer-link">Education Discounts</a>
-          <a href="#" className="footer-link">Send Us Feedback</a>
-        </div>
-        
-        <div className="footer-column">
-          <p className="footer-category">Orders</p>
-          <a href="#" className="footer-link">Order Status</a>
-          <a href="#" className="footer-link">Delivery</a>
-          <a href="#" className="footer-link">Returns</a>
-          <a href="#" className="footer-link">Payment Options</a>
-          <a href="#" className="footer-link">Contact Us</a>
-        </div>
-        
-        <div className="footer-column">
-          <p className="footer-category">About</p>
-          <a href="#" className="footer-link">News</a>
-          <a href="#" className="footer-link">Careers</a>
-          <a href="#" className="footer-link">Investors</a>
-          <a href="#" className="footer-link">Sustainability</a>
-          <a href="#" className="footer-link">Impact</a>
-        </div>
-      </footer>
     </div>
   );
 }

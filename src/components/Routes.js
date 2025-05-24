@@ -24,6 +24,8 @@ import Pic_Dailylogs from './pic/Pic_Dailylogs';
 import PrivateRoute from "./PrivateRoute";
 import It_Dash from './it/It_Dash';
 import Pic_Project from './pic/Pic_Project';
+import Pic_MatReq from './pic/Pic_MatReq';
+
 
 const AppRoutes = () => {
   return (
@@ -43,6 +45,7 @@ const AppRoutes = () => {
       <Route path="/material-request" element={<PicReq />} />
       <Route path="/daily-logs" element={<Pic_Dailylogs />} />
       <Route path="/pic/:id" element={<Pic_Project />} />
+      <Route path="/pic/matreq" element={<Pic_MatReq />} />
 
       {/* AREA */}
       <Route path="/am" element={<AreaManagerDashboard />} />

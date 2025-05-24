@@ -36,6 +36,7 @@ app.use('/api/users',  userRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/manpower-requests', manpowerRequestRoutes);
 app.use('/api/requests', materialRequestRoutes);
+app.use('/uploads', express.static('uploads'));
 app.get('/', (req, res) => res.send('API is working'));
 
 // HTTP + WebSocket server
