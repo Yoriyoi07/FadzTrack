@@ -9,7 +9,7 @@ import PmViewProjects from './pm/PmViewProjects';
 import PmIncidentReport from './pm/PmIncidentReport';
 import PmManpowerRequest from './pm/PmManpowerRequest';
 import AreaManagerDashboard from './am/Area_Dash';
-import Area_ViewAll from './am/Area_Viewall';
+import Area_ViewAll from './am/Area_ViewAll';
 import LoginPage from './Login';
 import Area_Manpower_List from './am/Area_Manpower_List'
 import Area_Material_list from './am/Area_Material_List';
@@ -28,6 +28,7 @@ import Pic_MatReq from './pic/Pic_MatReq';
 import { Link } from 'react-router-dom';
 
 
+import Hr_ManpowerList from './hr/Hr_ManpowerList';
 const AppRoutes = () => {
   return (
     <Routes>
@@ -65,7 +66,9 @@ const AppRoutes = () => {
       <Route path="/ceo/addproj" element={<Ceo_Addproject />} />
       <Route path="/ceo/proj/:id" element={<Ceo_ViewSpecific />} />
 
-    
+      {/* HR */}
+      <Route path="/hr/mlist" element={<Hr_ManpowerList />} />
+
     </Routes>
   );
 };

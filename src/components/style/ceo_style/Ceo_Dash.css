@@ -645,3 +645,17 @@ body {
     width: 300px;
   }
 }
+
+@media screen and (min-height: 1080px) {
+  .sidebar {
+    width: 240px;
+  }
+  
+  .right-sidebar {
+    width: 300px;
+  }
+  
+  .search-input {
+    width: 300px;
+  }
+}
