@@ -1,189 +1,106 @@
 import React, { useState, useEffect } from 'react';
-import '../style/pm_style/Pm_Dash.css';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import '../style/pic_style/Pic_Dash.css';
+import { useNavigate, Link } from 'react-router-dom';
+
 const PicDash = () => {
-  
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const navigate = useNavigate();
+
+  const token = localStorage.getItem('token');
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const userId = user?._id;
+
+  const [userName, setUserName] = useState(user?.name || '');
   const [projects, setProjects] = useState([]);
   const [project, setProject] = useState(null);
-  const [user, setUser] = useState(null);
-  const [userName, setUserName] = useState('');
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
+  // Load real requests from backend
+  const [requests, setRequests] = useState([]);
 
-useEffect(() => {
-  const storedUser = JSON.parse(localStorage.getItem('user'));
-  console.log('storedUser:', storedUser);
-  if (!storedUser) {
-    navigate('/');
-  } else {
-    setUser(storedUser);
-    setUserName(storedUser.name);
-  }
-}, [navigate]);
+  // Auth guard: redirect if not logged in
+  useEffect(() => {
+    if (!token || !user) {
+      navigate('/');
+      return;
+    }
+    setUserName(user.name);
+  }, [navigate, token, user]);
 
+  // Fetch all projects
+  useEffect(() => {
+    if (!token || !user) return;
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/projects', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        // Filter only projects where this user is a PIC
+        const filtered = data.filter(
+          (p) => Array.isArray(p.pic) && p.pic.some((picUser) => picUser._id === userId)
+        );
+        setProjects(filtered);
+      } catch (err) {
+        console.error('Failed to fetch projects:', err);
+      }
+    };
+    fetchProjects();
+  }, [token, user, userId]);
 
+  // Fetch assigned project for navigation links
+  useEffect(() => {
+    if (!token || !userId) return;
+    const fetchAssigned = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/projects/assigned/${userId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const data = await res.json();
+        setProject(data[0] || null);
+      } catch (err) {
+        console.error('Failed to fetch assigned project:', err);
+        setProject(null);
+      }
+    };
+    fetchAssigned();
+  }, [token, userId]);
 
+  // Fetch requests from backend (just replace the static list)
+  useEffect(() => {
+    if (!token) return;
+    fetch('http://localhost:5000/api/requests/mine', {
+  headers: { Authorization: `Bearer ${token}` }
+})
+.then(async res => {
+  if (!res.ok) throw new Error(res.statusText);
+  // Check if response has a body
+  const text = await res.text();
+  if (!text) throw new Error('No response body');
+  return JSON.parse(text);
+})
+.then(data => setRequests(Array.isArray(data) ? data : []))
+.catch(err => console.error('❌ Failed to load requests:', err));
+
+  }, [token]);
+
+// Sample chats data
+  const [chats] = useState([
+    { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
+    { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
+    { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
+  ]);
+
+  // Logout handler
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/');
   };
 
- 
-  // Request data
-  const [requests, setRequests] = useState([
-    { 
-      id: 1, 
-      name: 'Calatagan Townhomes',
-      requestor: 'Rychea Miralles',
-      date: '09/15/2022',
-      status: 'Pending',
-      icon: '📦'
-    },
-    { 
-      id: 2, 
-      name: 'Request for Cement',
-      requestor: 'Project: Building A',
-      date: '09/15/2022',
-      requestedBy: 'John Doe',
-      status: 'Pending',
-      icon: '📦'
-    },
-    { 
-      id: 3, 
-      name: 'Request for Cement',
-      requestor: 'Project: Building A',
-      date: '09/15/2022',
-      requestedBy: 'John Doe',
-      status: 'Pending',
-      icon: '📦'
-    },
-    { 
-      id: 4, 
-      name: 'Request for Steel Bars',
-      requestor: 'Project: Infrastructure Project B',
-      date: '09/20/2022',
-      requestedBy: 'Jane Smith',
-      status: 'Declined',
-      icon: '🔧'
-    },
-    { 
-      id: 5, 
-      name: 'Request for Steel Bars',
-      requestor: 'Project: Infrastructure Project B',
-      date: '09/20/2022',
-      requestedBy: 'Jane Smith',
-      status: 'Approved',
-      icon: '🔧'
-    },
-    { 
-      id: 6, 
-      name: 'Request for Bricks',
-      requestor: 'Project: Residential Development C',
-      date: '09/25/2022',
-      requestedBy: 'Emily Brown',
-      status: 'Declined',
-      icon: '🧱'
-    },
-    { 
-      id: 7, 
-      name: 'Request for Bricks',
-      requestor: 'Project: Residential Development C',
-      date: '09/25/2022',
-      requestedBy: 'Emily Brown',
-      status: 'Pending',
-      icon: '🧱'
-    }
-  ]);
-
-  // Chats data - for sidebar
-  const [chats, setChats] = useState([
-    { 
-      id: 1, 
-      name: 'Rychea Miralles', 
-      initial: 'R',
-      message: 'Hello Good Morning po! As...',
-      color: '#4A6AA5'
-    },
-    { 
-      id: 2, 
-      name: 'Third Castellar', 
-      initial: 'T',
-      message: 'Hello Good Morning po! As...',
-      color: '#2E7D32'
-    },
-    { 
-      id: 3, 
-      name: 'Zenarose Miranda', 
-      initial: 'Z',
-      message: 'Hello Good Morning po! As...',
-      color: '#9C27B0'
-    }
-  ]);
-
-  // Status badge style function
-  const getStatusBadgeStyle = (status) => {
-    switch(status) {
-      case 'Approved':
-        return { backgroundColor: '#4caf50', color: 'white' };
-      case 'Declined':
-        return { backgroundColor: '#f44336', color: 'white' };
-      case 'Pending':
-      default:
-        return { backgroundColor: '#e0e0e0', color: '#333' };
-    }
-  };
- useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const res = await fetch('http://localhost:5000/api/projects');
-        const data = await res.json();
-        // Filter only projects that include current user as PIC
-       const filtered = data.filter(project =>
-  Array.isArray(project.assignedTo) &&
-  project.assignedTo.some(
-    person => person.name === user.name && person.role === 'PIC'
-  )
-);
-
-
-        setProjects(filtered);
-      } catch (err) {
-        console.error('Failed to fetch projects:', err);
-      }
-    };
-
-    fetchProjects();
-  }, []);
-
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (!user) {
-      navigate('/');
-      return;
-    }
-
-    const fetchProject = async () => {
-      try {
-        // Fetch all projects assigned to this PIC
-        const res = await fetch(`http://localhost:5000/api/projects/assigned/${user.id}`);
-        const data = await res.json();
-         console.log('Fetched assigned projects:', data);
-        // If there are multiple, just pick the first one
-        setProject(data[0] || null);
-      } catch (err) {
-        console.error('Failed to fetch project:', err);
-        setProject(null);
-      }
-    };
-
-    fetchProject();
-  }, [navigate]);
-
   return (
-     <div className="head">
+    <div className="head">
       {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
@@ -194,12 +111,10 @@ useEffect(() => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-            <Link to="/pic" className="nav-link">Dashboard</Link>
-            <Link to="/requests" className="nav-link">Requests</Link>
-            {project && (
-  <Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>
-)}
-            <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/pic" className="nav-link">Dashboard</Link>
+          <Link to="/material-request" className="nav-link">Requests</Link>
+          {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
+          <Link to="/chat" className="nav-link">Chat</Link>
         </nav>
         <div className="search-profile">
           <div className="search-container">
@@ -212,13 +127,12 @@ useEffect(() => {
             </button>
           </div>
           <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
+            <div
+              className="profile-circle"
               onClick={() => setProfileMenuOpen(!profileMenuOpen)}
             >
-               {user?.name?.charAt(0).toUpperCase() || 'U'}
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
-            
             {profileMenuOpen && (
               <div className="profile-menu">
                 <button onClick={handleLogout}>Logout</button>
@@ -231,39 +145,31 @@ useEffect(() => {
       {/* Main Content */}
       <div className="dashboard-layout">
         {/* Left Sidebar */}
-        <div className="sidebar" style={{ display: 'flex', flexDirection: 'column', width: '200px', padding: '20px' }}>
+        <div className="sidebar">
           <h2>Requests</h2>
-          <button 
-            className="add-project-btn" 
-            style={{ marginBottom: '20px' }}
+          <button
+            className="add-project-btn"
+            onClick={() => {
+              if (project) {
+                navigate(`/pic/projects/${project._id}/request`);
+              }
+            }}
+            disabled={!project}
           >
             Add New Request
           </button>
-          
           {/* Chats List in Left Sidebar */}
-          <div style={{ marginTop: '20px' }}>
-            <h3 style={{ fontSize: '18px', marginBottom: '15px' }}>Chats</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div className="chats-section">
+            <h3 className="chats-title">Chats</h3>
+            <div className="chats-list">
               {chats.map(chat => (
-                <div key={chat.id} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                  <div style={{ 
-                    width: '36px', 
-                    height: '36px', 
-                    borderRadius: '50%', 
-                    backgroundColor: chat.color, 
-                    color: 'white', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    marginRight: '12px',
-                    fontSize: '16px',
-                    fontWeight: 'bold'
-                  }}>
+                <div key={chat.id} className="chat-item">
+                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
                     {chat.initial}
                   </div>
-                  <div>
-                    <div style={{ fontWeight: '500', fontSize: '14px' }}>{chat.name}</div>
-                    <div style={{ fontSize: '12px', color: '#777' }}>{chat.message}</div>
+                  <div className="chat-info">
+                    <div className="chat-name">{chat.name}</div>
+                    <div className="chat-message">{chat.message}</div>
                   </div>
                 </div>
               ))}
@@ -272,64 +178,57 @@ useEffect(() => {
         </div>
 
         {/* Center Content */}
-        <div className="main1" style={{ flex: '1', padding: '20px' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-            <h1 style={{ fontSize: '24px', marginBottom: '20px' }}>Good Morning, {userName}!</h1>
-            
+        <div className="main1">
+          <div className="main-content-container">
+            <h1 className="main-title">Good Morning, {userName}!</h1>
             <div>
-              <h2 style={{ fontSize: '18px', marginBottom: '15px' }}>Request Overview</h2>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {requests.map(request => (
-                  <div key={request.id} style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    padding: '12px', 
-                    borderBottom: '1px solid #eee'
-                  }}>
-                    <div style={{ 
-                      fontSize: '24px', 
-                      marginRight: '15px', 
-                      backgroundColor: '#f5f5f5', 
-                      padding: '8px', 
-                      borderRadius: '8px' 
-                    }}>
-                      {request.icon}
-                    </div>
-                    
-                    <div style={{ flex: '1' }}>
-                      <div style={{ fontWeight: '500', fontSize: '15px' }}>{request.name}</div>
-                      <div style={{ fontSize: '13px', color: '#666' }}>{request.requestor}</div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', minWidth: '120px' }}>
-                      {request.requestedBy && <div style={{ fontSize: '14px' }}>{request.requestedBy}</div>}
-                      <div style={{ fontSize: '13px', color: '#666' }}>{request.date}</div>
-                    </div>
-                    
-                    <div style={{ 
-                      marginLeft: '15px', 
-                      padding: '4px 12px', 
-                      borderRadius: '4px', 
-                      fontSize: '12px',
-                      fontWeight: '500',
-                      ...getStatusBadgeStyle(request.status)
-                    }}>
-                      {request.status}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
+              <h2 className="section-title">Request Overview</h2>
+
+  <div className="request-list">
+  {requests.map(request => (
+    <div key={request._id} className="request-item"
+      style={{ cursor: "pointer" }}
+      onClick={() => navigate(`/pic/request/${request._id}`)}>
+      <div className="request-icon">
+        {"📦"}
+      </div>
+      <div className="request-details">
+        <div className="request-name">
+          <p>request for</p>{request.materials && request.materials.length > 0
+            ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
+            : '-'}
+        </div>
+        <div className="request-project" style={{ fontSize: "13px", color: "#666", marginTop: "6px" }}>
+          {/* Show Project Name */}
+          {request.project?.projectName || '-'}
+        </div>
+      </div>
+      <div className="request-requester" style={{ textAlign: 'right' }}>
+        <div className="request-requester-name">
+          {/* Show User Name */}
+          {request.createdBy?.name || '-'}
+        </div>
+        <div className="request-date">
+          {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+        </div>
+      </div>
+      <div className={`badge badge-${(request.status || '').toLowerCase()}`}>
+        {request.status}
+      </div>
+    </div>
+  ))}
+</div>
+
+
               {/* Pagination */}
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px', gap: '5px' }}>
-                <button style={{ width: '30px', height: '30px', border: '1px solid #ddd', backgroundColor: 'white', borderRadius: '4px' }}>«</button>
-                <button style={{ width: '30px', height: '30px', border: 'none', backgroundColor: '#5E4FDB', color: 'white', borderRadius: '4px' }}>1</button>
-                <button style={{ width: '30px', height: '30px', border: '1px solid #ddd', backgroundColor: 'white', borderRadius: '4px' }}>2</button>
-                <button style={{ width: '30px', height: '30px', border: '1px solid #ddd', backgroundColor: 'white', borderRadius: '4px' }}>3</button>
-                <button style={{ width: '30px', height: '30px', border: '1px solid #ddd', backgroundColor: 'white', borderRadius: '4px' }}>4</button>
-                <button style={{ width: '30px', height: '30px', border: '1px solid #ddd', backgroundColor: 'white', borderRadius: '4px' }}>5</button>
-                <button style={{ width: '30px', height: '30px', border: '1px solid #ddd', backgroundColor: 'white', borderRadius: '4px' }}>»</button>
+              <div className="pagination">
+                <button className="pagination-button">«</button>
+                <button className="pagination-button active">1</button>
+                <button className="pagination-button">2</button>
+                <button className="pagination-button">3</button>
+                <button className="pagination-button">4</button>
+                <button className="pagination-button">5</button>
+                <button className="pagination-button">»</button>
               </div>
             </div>
           </div>

@@ -177,8 +177,8 @@ exports.verify2FACode = async (req, res) => {
     if (!user) return res.status(400).json({ msg: 'User not found' });
 
     // Generate access and refresh tokens
-    const accessToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
-    const refreshToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
+    const accessToken = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '15m' });
+    const refreshToken = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
 
     // Clear used 2FA code
     delete twoFACodes[email];

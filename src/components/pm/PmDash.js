@@ -1,13 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import '../style/pm_style/Pm_Dash.css';
 
 const PmDash = () => {
+
+  const token = localStorage.getItem('token');
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const userId = user?._id;
+
+
   const [userName, setUserName] = useState('ALECK');
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [sidebarProjects, setSidebarProjects] = useState([
+
+  useEffect(() => {
+  if (!token || !user) {
+    navigate('/');
+    return;
+  }
+  setUserName(user.name); // Display PM's name!
+}, [navigate, token, user]);
+
+console.log("Loaded user from localStorage:", user);
+
+  // Sidebar Projects, Activities, Reports, and Chats remain static or can be dynamic
+  const [sidebarProjects] = useState([
     { id: 1, name: 'Batangas', engineer: 'Engr. Daryll Miralles' },
     { id: 2, name: 'Twin Lakes Project', engineer: 'Engr. Shaquille' },
     { id: 3, name: 'Calatagan Townhomes', engineer: 'Engr. Rychea Miralles' },
@@ -15,8 +33,7 @@ const PmDash = () => {
     { id: 5, name: 'Cavite', engineer: 'Engr. Zenarose Miranda' },
     { id: 6, name: 'Taguig', engineer: 'Engr. Third Castellar' }
   ]);
-
-  const [activities, setActivities] = useState([
+  const [activities] = useState([
     {
       id: 1,
       user: { name: 'Daniel Pocon', initial: 'D' },
@@ -30,105 +47,66 @@ const PmDash = () => {
       ]
     }
   ]);
-
-  // Reports data
-  const [reports, setReports] = useState([
-    { 
-      id: 1, 
-      name: 'BGC Hotel', 
-      dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.' 
-    },
-    { 
-      id: 2, 
-      name: 'Protacio Townhomes', 
-      dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.' 
-    },
-    { 
-      id: 3, 
-      name: 'Fegarido Residences', 
-      dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.' 
-    }
+  const [reports] = useState([
+    { id: 1, name: 'BGC Hotel', dateRange: '7/13/25 - 7/27/25', engineer: 'Engr.' },
+    { id: 2, name: 'Protacio Townhomes', dateRange: '7/13/25 - 7/27/25', engineer: 'Engr.' },
+    { id: 3, name: 'Fegarido Residences', dateRange: '7/13/25 - 7/27/25', engineer: 'Engr.' }
+  ]);
+  const [chats] = useState([
+    { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
+    { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
+    { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
   ]);
 
-  // Chats data
-  const [chats, setChats] = useState([
-    { 
-      id: 1, 
-      name: 'Rychea Miralles', 
-      initial: 'R',
-      message: 'Hello Good Morning po! As...',
-      color: '#4A6AA5'
-    },
-    { 
-      id: 2, 
-      name: 'Third Castellar', 
-      initial: 'T',
-      message: 'Hello Good Morning po! As...',
-      color: '#2E7D32'
-    },
-    { 
-      id: 3, 
-      name: 'Zenarose Miranda', 
-      initial: 'Z',
-      message: 'Hello Good Morning po! As...',
-      color: '#9C27B0'
-    }
-  ]);
-
-  // Material requests data
-  const [materialRequests, setMaterialRequests] = useState([
-    {
-      id: 1,
-      material: '300 Bags of Cement',
-      requester: 'Rychea Miralles',
-      date: '05/24/2022'
-    },
-    {
-      id: 2,
-      material: '300 Bags of Sand',
-      requester: 'Zenarose Miranda',
-      date: '05/25/2022'
-    },
-    {
-      id: 3,
-      material: '300 Bags of Cement',
-      requester: 'Rychea Miralles',
-      date: '05/24/2022'
-    },
-    {
-      id: 4,
-      material: '300 Bags of Sand',
-      requester: 'Zenarose Miranda',
-      date: '05/25/2022'
-    }
-  ]);
+  // --- DYNAMIC: Material Requests ---
+  const [materialRequests, setMaterialRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [requestsError, setRequestsError] = useState(null);
 
   useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (!event.target.closest(".profile-menu-container")) {
-          setProfileMenuOpen(false);
-        }
-      };
-      
-      document.addEventListener("click", handleClickOutside);
-      
-      return () => {
-        document.removeEventListener("click", handleClickOutside);
-      };
-    }, []);
-  
-    const handleLogout = () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
+    const fetchRequests = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setRequestsError('Session expired. Please log in again.');
+        setLoadingRequests(false);
+        return;
+      }
+      try {
+        const res = await fetch('http://localhost:5000/api/requests/mine', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch requests');
+        const data = await res.json();
+        setMaterialRequests(data);
+        setRequestsError(null);
+      } catch (error) {
+        setRequestsError('Error loading material requests');
+      }
+      setLoadingRequests(false);
     };
+    fetchRequests();
+  }, []);
 
-  // Custom active sector for the pie chart
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
+
   return (
-     <div className="head">
+    <div className="head">
       {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
@@ -140,7 +118,7 @@ const PmDash = () => {
         </div>
         <nav className="nav-menu">
           <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
-          <Link to="/requests" className="nav-link">Requests</Link>
+          <Link to="/pm/request/:id" className="nav-link">Requests</Link>
           <Link to="/ceo/proj" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
@@ -163,7 +141,6 @@ const PmDash = () => {
             >
               Z
             </div>
-            
             {profileMenuOpen && (
               <div className="profile-menu">
                 <button onClick={handleLogout}>Logout</button>
@@ -205,38 +182,69 @@ const PmDash = () => {
           <div className="greeting-section">
             <h1>Good Morning, {userName}!</h1>
 
-            {/* Material Request Section - Added */}
+            {/* Material Request Section - Dynamic */}
             <div className="material-request-section">
               <div className="section-header">
                 <h2>Material Request</h2>
                 <button 
-                  className="view-all-btn"
-                  onClick={() => navigate('/requests')}
-                >
-                  View All Requests
-                </button>
+                className="view-all-btn"
+                onClick={() => navigate('/pm/request/:id')}
+              >
+                View All Requests
+              </button>
               </div>
-              
               <div className="material-requests-container">
-                {materialRequests.map(request => (
-                  <div key={request.id} className="material-request-item">
-                    <div className="requester-initial">{request.requester.charAt(0)}</div>
-                    <div className="request-details">
-                      <h4>{request.material}</h4>
-                      <div className="request-meta">
-                        <span>{request.requester}</span>
-                        <span>{request.date}</span>
+                {loadingRequests ? (
+                  <div>Loading requests...</div>
+                ) : requestsError ? (
+                  <div style={{ color: 'red' }}>{requestsError}</div>
+                ) : materialRequests.length === 0 ? (
+                  <div>No material requests found.</div>
+                ) : (
+                  materialRequests.map(request => (
+                    <Link
+                      to={`/requests/${request._id}`}
+                      key={request._id}
+                      className="material-request-item"
+                      style={{ textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <div className="requester-initial">
+                        {request.createdBy?.name
+                          ? request.createdBy.name.charAt(0)
+                          : 'U'}
                       </div>
-                    </div>
-                  </div>
-                ))}
+                      <div className="request-details">
+                        <h4>
+                          {request.materials && request.materials.length > 0
+                            ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
+                            : 'No Materials'}
+                        </h4>
+                        <div className="request-meta">
+                          <span>
+                            {request.createdBy?.name || 'Unknown'}
+                            {request.project?.projectName ? ` · ${request.project.projectName}` : ''}
+                          </span>
+                          <span>
+                            {new Date(request.createdAt).toLocaleDateString()}
+                          </span>
+                          <span style={{
+                            background: '#e3e6f0',
+                            color: '#0056b3',
+                            padding: '2px 8px',
+                            borderRadius: '8px',
+                            fontSize: '0.85em',
+                            marginLeft: 8
+                          }}>{request.status}</span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))
+                )}
               </div>
             </div>
-            
-           
           </div>
 
-          {/* Recent Activities section moved below progress tracking */}
+          {/* Recent Activities */}
           <div className="recent-activities-section">
             <h2>Recent Activities</h2>
             {activities.map(activity => (

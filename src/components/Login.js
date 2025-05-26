@@ -70,7 +70,7 @@ const LoginPage = () => {
     if (role === "Person in Charge") {
       navigate("/pic"); 
     } else if (role === "Project Manager") {
-      navigate("/c"); 
+      navigate("/pm"); 
     }else if (role === "Area Manager") {
       navigate("/am"); 
     }else if (role === "IT") {
@@ -102,8 +102,15 @@ const LoginPage = () => {
 
           {/* Conditionally show 2FA component or login form */}
           {show2FA ? (
-            <TwoFactorAuth email={email} onSuccess={handle2FASuccess} />
-          ) : (
+                <TwoFactorAuth
+                  email={email}
+                  onSuccess={(accessToken, user) => {
+                    localStorage.setItem('token', accessToken); // <--- store accessToken, not token
+                    localStorage.setItem('user', JSON.stringify(user));
+                    redirectBasedOnRole(user.role);
+                  }}
+                />
+              ): (
             <form onSubmit={handleSubmit}>
               {/* Email input field */}
               <div className="form-group">

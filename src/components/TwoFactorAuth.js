@@ -5,50 +5,43 @@ import './style/TwoFactorAuth.css';
 const TwoFactorAuth = ({ email, onSuccess }) => {
   const [code, setCode] = useState('');
   const [message, setMessage] = useState('');
-  const [cooldown, setCooldown] = useState(0); // in seconds
+  const [cooldown, setCooldown] = useState(0);
 
-  // Handle verification of 2FA code
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/verify-2fa', { email, code });
-
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-
-      onSuccess();
-    } catch (error) {
+      const { data } = await axios.post(
+        'http://localhost:5000/api/auth/verify-2fa',
+        { email, code }
+      );
+      // delegate storage & redirect back to parent
+      onSuccess(data.accessToken, {
+  ...data.user,
+  _id: data.user._id || data.user.id 
+});} catch (error) {
       setMessage(error.response?.data?.msg || 'Verification failed.');
     }
   };
 
-  // Handle resend code with cooldown
   const handleResend = async () => {
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/resend-2fa', { email });
+      const res = await axios.post(
+        'http://localhost:5000/api/auth/resend-2fa',
+        { email }
+      );
       setMessage(res.data.msg);
-      setCooldown(30); // start 30-second cooldown
+      setCooldown(30);
     } catch (err) {
       setMessage(err.response?.data?.msg || 'Error resending code.');
     }
   };
 
-  // Countdown effect
   useEffect(() => {
-    if (cooldown === 0) return;
-
-    const interval = setInterval(() => {
-      setCooldown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
+    if (!cooldown) return;
+    const iv = setInterval(() => {
+      setCooldown(c => (c <= 1 ? (clearInterval(iv), 0) : c - 1));
     }, 1000);
-
-    return () => clearInterval(interval);
+    return () => clearInterval(iv);
   }, [cooldown]);
 
   return (
@@ -59,19 +52,21 @@ const TwoFactorAuth = ({ email, onSuccess }) => {
           type="text"
           placeholder="6-digit code"
           value={code}
-          onChange={(e) => setCode(e.target.value)}
+          onChange={e => setCode(e.target.value)}
           maxLength={6}
           required
         />
         <button type="submit">Verify</button>
       </form>
 
-      {/* Resend Button */}
-      <button onClick={handleResend} disabled={cooldown > 0} className="resend-button">
+      <button
+        onClick={handleResend}
+        disabled={cooldown > 0}
+        className="resend-button"
+      >
         {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Code'}
       </button>
 
-      {/* Message display */}
       {message && <p className="error-message">{message}</p>}
     </div>
   );

@@ -149,6 +149,7 @@ const Pic_Project = () => {
 
               <div className="detail-group">
                 <p className="detail-value">
+                <p className="detail-label">PIC:</p>
   {project.pic && project.pic.length > 0 
     ? project.pic.map(p => p.name).join(', ') 
     : 'N/A'}

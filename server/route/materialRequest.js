@@ -3,6 +3,8 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const MaterialRequest = require('../models/MaterialRequest');
+const { verifyToken } = require('../middleware/authMiddleware');
+const Project = require('../models/Project');
 
 // File storage config
 const storage = multer.diskStorage({
@@ -14,17 +16,51 @@ const storage = multer.diskStorage({
     cb(null, uniqueName);
   }
 });
-
 const upload = multer({ storage });
 
-// POST /api/requests
-router.post('/', upload.array('attachments'), async (req, res) => {
+router.put('/:id', verifyToken, upload.array('newAttachments'), async (req, res) => {
   try {
-    const { materials, description } = req.body;
+    // Parse JSON fields
+    const { materials, description, attachments } = req.body;
+    let updatedAttachments = [];
+    try {
+      updatedAttachments = JSON.parse(attachments || '[]');
+    } catch {
+      updatedAttachments = [];
+    }
+    // Add any new files
+    if (req.files && req.files.length > 0) {
+      updatedAttachments = [
+        ...updatedAttachments,
+        ...req.files.map(file => file.filename)
+      ];
+    }
+    const updated = await MaterialRequest.findByIdAndUpdate(
+      req.params.id,
+      {
+        materials: JSON.parse(materials),
+        description,
+        attachments: updatedAttachments,
+      },
+      { new: true }
+    ).populate('project').populate('createdBy');
+    res.json(updated);
+  } catch (err) {
+    console.error('Error updating request:', err);
+    res.status(500).json({ message: 'Failed to update material request' });
+  }
+});
+
+// POST /api/requests
+router.post('/', verifyToken, upload.array('attachments'), async (req, res) => {
+  try {
+   const { materials, description, project } = req.body;
     const parsedMaterials = JSON.parse(materials);
     const attachments = req.files.map(file => file.filename);
 
     const newRequest = new MaterialRequest({
+      project,
+      createdBy: req.user.id,
       materials: parsedMaterials,
       description,
       attachments
@@ -37,5 +73,136 @@ router.post('/', upload.array('attachments'), async (req, res) => {
     res.status(500).json({ error: 'Failed to submit material request' });
   }
 });
+
+
+router.post('/:id/approve', verifyToken, async (req, res) => {
+  const { decision, reason } = req.body;
+  const userId = req.user.id;
+  const userRole = req.user.role;
+
+  try {
+    const request = await MaterialRequest.findById(req.params.id).populate('project');
+    console.log("Loaded request:", request);
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    console.log("Loaded project in request:", request.project);
+    // Role-based validation
+    const { project } = request;
+
+    // Defensive checks
+    if (!project) {
+      return res.status(500).json({ message: 'Material Request has no linked project.' });
+    }
+    if (!project.projectmanager) {
+      return res.status(500).json({ message: 'Project has no projectmanager assigned.' });
+    }
+    if (!project.areamanager) {
+      return res.status(500).json({ message: 'Project has no areamanager assigned.' });
+    }
+
+    // Safe comparison
+    const isPM = project.projectmanager && project.projectmanager.toString() === userId;
+    const isAM = project.areamanager && project.areamanager.toString() === userId;
+    const isCEO = userRole === 'CEO';
+
+    let nextStatus = '';
+    let currentStatus = request.status;
+
+    if (currentStatus === 'Pending PM' && isPM) {
+      nextStatus = decision === 'approved' ? 'Pending AM' : 'Denied by PM';
+    } else if (currentStatus === 'Pending AM' && isAM) {
+      nextStatus = decision === 'approved' ? 'Pending CEO' : 'Denied by AM';
+    } else if (currentStatus === 'Pending CEO' && isCEO) {
+      nextStatus = decision === 'approved' ? 'Approved' : 'Denied by CEO';
+    } else {
+      return res.status(403).json({ message: 'Unauthorized or invalid state' });
+    }
+
+    // Log the approval
+    request.approvals.push({
+      role: userRole,
+      user: userId,
+      decision,
+      reason
+    });
+
+    request.status = nextStatus;
+    await request.save();
+
+    res.status(200).json({ message: `Request ${decision} by ${userRole}` });
+  } catch (error) {
+    console.error('Approval error:', error);
+    res.status(500).json({ message: 'Failed to process approval' });
+  }
+});
+
+
+// route/materialRequest.js
+router.get('/mine', verifyToken, async (req, res) => {
+  const userId = req.user.id;
+  const userRole = req.user.role;
+  try {
+    let requests = [];
+
+    if (userRole === 'PIC' || userRole === 'Person in Charge') {
+      requests = await MaterialRequest.find({ createdBy: userId })
+        .populate('project')
+        .populate('createdBy');
+    } else if (userRole === 'PM' || userRole === 'Project Manager') {
+      console.log("Request from:", userId, "with role:", userRole);
+      const projects = await Project.find({ projectmanager: userId });
+      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
+        .populate('project')
+        .populate('createdBy');
+    } else if (userRole === 'AM') {
+      const projects = await Project.find({ areaManager: userId });
+      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
+        .populate('project')
+        .populate('createdBy');
+    } else if (userRole === 'CEO') {
+      requests = await MaterialRequest.find()
+        .populate('project')
+        .populate('createdBy');
+    } else {
+      return res.status(403).json({ message: 'Unauthorized' });
+    }
+
+    res.json(requests);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching requests' });
+  }
+});
+
+
+// GET /api/requests/:id
+router.get('/:id', verifyToken, async (req, res) => {
+  try {
+    const request = await MaterialRequest.findById(req.params.id)
+      .populate('project')
+      .populate('createdBy');
+
+    if (!request) {
+      return res.status(404).json({ message: 'Material Request not found' });
+    }
+
+    res.json(request);
+  } catch (err) {
+    res.status(500).json({ message: 'Error fetching material request' });
+  }
+});
+
+// DELETE /api/requests/:id
+router.delete('/:id', require('../middleware/authMiddleware').verifyToken, async (req, res) => {
+  try {
+    const result = await MaterialRequest.findByIdAndDelete(req.params.id);
+    if (!result) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+    res.json({ message: 'Request cancelled successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error cancelling request', err });
+  }
+});
+
+
 
 module.exports = router;

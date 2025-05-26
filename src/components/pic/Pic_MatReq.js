@@ -1,92 +1,112 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import '../style/pic_style/Pic_MatReq.css';
 
 const Pic_MatReq = () => {
+  const { projectId } = useParams();
+  const navigate = useNavigate();
+  const [project, setProject] = useState(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
+  const [materials, setMaterials] = useState([{ id: 1, materialName: '', quantity: '' }]);
+  const [formData, setFormData] = useState({ description: '' });
+  const token = localStorage.getItem('token');
+const storedUser = localStorage.getItem('user');
+const user = storedUser ? JSON.parse(storedUser) : null;
+const userId = user?._id;
 
-  
-  // Updated state to handle multiple materials
-  const [materials, setMaterials] = useState([
-    { id: 1, materialName: '', quantity: '' }
-  ]);
-  
-  const [formData, setFormData] = useState({
-    description: ''
-  });
+
+
+
+  useEffect(() => {
+    if (!token || !user) navigate('/');
+  }, [navigate, token, user]);
+
+  useEffect(() => {
+    if (!token) return;
+    const fetchProject = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/projects/${projectId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const data = await res.json();
+        setProject(data);
+      } catch (err) {
+        console.error('Failed to load project:', err);
+      }
+    };
+    fetchProject();
+  }, [projectId, token]);
+
+  useEffect(() => () => previewImages.forEach(URL.revokeObjectURL), [previewImages]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prevState => ({
-      ...prevState,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleMaterialChange = (id, field, value) => {
-    setMaterials(prevMaterials =>
-      prevMaterials.map(material =>
-        material.id === id ? { ...material, [field]: value } : material
-      )
+    setMaterials(prev =>
+      prev.map(m => (m.id === id ? { ...m, [field]: value } : m))
     );
   };
 
   const addMaterial = () => {
     const newId = Math.max(...materials.map(m => m.id)) + 1;
-    setMaterials(prevMaterials => [
-      ...prevMaterials,
-      { id: newId, materialName: '', quantity: '' }
-    ]);
+    setMaterials(prev => [...prev, { id: newId, materialName: '', quantity: '' }]);
   };
 
   const removeMaterial = (id) => {
     if (materials.length > 1) {
-      setMaterials(prevMaterials => prevMaterials.filter(material => material.id !== id));
+      setMaterials(prev => prev.filter(m => m.id !== id));
     }
   };
 
-const handleFileUpload = (e) => {
-  const files = Array.from(e.target.files);
-  setUploadedFiles(prev => [...prev, ...files]);
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    setUploadedFiles(prev => [...prev, ...files]);
     const previews = files.map(file => URL.createObjectURL(file));
     setPreviewImages(prev => [...prev, ...previews]);
-
-};
-
-useEffect(() => {
-  return () => {
-    previewImages.forEach(url => URL.revokeObjectURL(url));
   };
-}, [previewImages]);
 
-
-const removeFile = (index) => {
-  setUploadedFiles(prevFiles => prevFiles.filter((_, i) => i !== index));
-  setPreviewImages(prevPreviews => prevPreviews.filter((_, i) => i !== index));
-};
-
+  const removeFile = (index) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviewImages(prev => prev.filter((_, i) => i !== index));
+  };
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container-picmatreq")) {
-        setProfileMenuOpen(false);
-      }
+      const handleClickOutside = (event) => {
+        if (!event.target.closest(".profile-menu-container")) {
+          setProfileMenuOpen(false);
+        }
+      };
+      
+      document.addEventListener("click", handleClickOutside);
+      
+      return () => {
+        document.removeEventListener("click", handleClickOutside);
+      };
+    }, []);
+  
+    const handleLogout = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
     };
-    
-    document.addEventListener("click", handleClickOutside);
-    
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, []);
 
-  const handleLogout = () => {
-    console.log('Logout clicked');
-  };
 
   const handleSubmit = async (e) => {
   e.preventDefault();
+console.log("Submitting with token:", token);
+
+  if (!token) {
+    alert('No token, please log in again.');
+    navigate('/');
+    return;
+  }
 
   const validMaterials = materials.filter(m => m.materialName.trim() && m.quantity.trim());
   if (validMaterials.length === 0) {
@@ -95,17 +115,30 @@ const removeFile = (index) => {
   }
 
   const data = new FormData();
-  uploadedFiles.forEach(file => data.append('attachments', file)); // multiple files
+  uploadedFiles.forEach(file => data.append('attachments', file));
   data.append('description', formData.description);
-  data.append('materials', JSON.stringify(validMaterials)); // stringify objects
+  data.append('materials', JSON.stringify(validMaterials));
+  data.append('project', projectId);
 
   try {
-   const res = await fetch('http://localhost:5000/api/requests', {
+    const res = await fetch('http://localhost:5000/api/requests', {
       method: 'POST',
-      body: data
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: data,
     });
 
     const result = await res.json();
+
+    if (result.msg === 'Invalid token') {
+      alert('Session expired. Please login again.');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+      return;
+    }
+
     console.log('✅ Uploaded:', result);
     alert('✅ Material request submitted successfully!');
     setFormData({ description: '' });
@@ -117,6 +150,7 @@ const removeFile = (index) => {
     alert('❌ Upload failed');
   }
 };
+
 
   return (
     <div className="app-container">
@@ -165,6 +199,14 @@ const removeFile = (index) => {
       <main className="main-content-picmatreq">
         <div className="request-materials-container-picmatreq">
           <h1 className="page-title-picmatreq">Request Materials</h1>
+
+          {project && (
+            <div className="project-details-box" style={{ marginBottom: '20px' }}>
+              <h2 style={{ margin: 0 }}>{project.name}</h2>
+              <p style={{ margin: 0, fontStyle: 'italic' }}>{project.location}</p>
+              <p style={{ margin: 0, color: '#555' }}>{project.targetDate}</p>
+            </div>
+          )}
           
           <div className="materials-form-picmatreq">
             <div className="form-group-picmatreq">
@@ -226,69 +268,45 @@ const removeFile = (index) => {
                   <span className="upload-icon-picmatreq">📎</span>
                   Upload
                 </label>
-                 {previewImages.length > 0 && (
-                    <div
-                        className="preview-container"
-                        style={{
-                        display: 'flex',
-                        gap: '10px',
-                        flexWrap: 'wrap',
-                        marginTop: '10px'
-                        }}
-                    >
-                        {previewImages.map((src, index) => (
-                        <div key={index} style={{ position: 'relative' }}>
-                            <img
-                            src={src}
-                            alt={`preview-${index}`}
-                            style={{
-                                width: '200px',
-                                height: '200px',
-                                objectFit: 'cover',
-                                borderRadius: '8px',
-                                border: '1px solid #ccc'
-                            }}
-                            />
-                            <button
-                            type="button"
-                            onClick={() => removeFile(index)}
-                            style={{
-                                position: 'absolute',
-                                top: '-6px',
-                                right: '-6px',
-                                background: '#ff4d4f',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: '20px',
-                                height: '20px',
-                                cursor: 'pointer'
-                            }}
-                            >
-                            ×
-                            </button>
-                        </div>
-                        ))}
-                    </div>
-                    )}
+                {previewImages.length > 0 && (
+                  <div className="preview-container" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
+                    {previewImages.map((src, index) => (
+                      <div key={index} style={{ position: 'relative' }}>
+                        <img
+                          src={src}
+                          alt={`preview-${index}`}
+                          style={{
+                            width: '200px',
+                            height: '200px',
+                            objectFit: 'cover',
+                            borderRadius: '8px',
+                            border: '1px solid #ccc'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeFile(index)}
+                          style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            background: '#ff4d4f',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '20px',
+                            height: '20px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <p className="upload-hint-picmatreq">You can attach files such as documents or images</p>
               </div>
-              {uploadedFiles.length > 0 && (
-                <div className="uploaded-files-picmatreq">
-                  {uploadedFiles.map((file, index) => (
-                    <div key={index} className="file-item-picmatreq">
-                      <span className="file-name-picmatreq">{file.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeFile(index)}
-                        className="remove-file-btn-picmatreq"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             <div className="form-group-picmatreq">

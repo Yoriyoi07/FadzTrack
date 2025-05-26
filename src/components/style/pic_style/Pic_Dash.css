@@ -174,9 +174,11 @@
 
 /* Left Sidebar */
 .sidebar {
-  width: 250px;
-  background-color: white;
+  display: flex;
+  flex-direction: column;
+  width: 200px;
   padding: 20px;
+  background-color: white;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
   height: 100%;
   overflow-y: auto;
@@ -207,6 +209,11 @@
   background-color: #3b5998;
 }
 
+.add-project-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Main Content */
 .main1 {
   flex: 1;
@@ -215,18 +222,35 @@
   overflow-y: auto;
 }
 
-/* Request List */
-.request-list {
+/* Main Content Container */
+.main-content-container {
   background-color: white;
   border-radius: 8px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.main-title {
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+.section-title {
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+/* Request List */
+.request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .request-item {
   display: flex;
   align-items: center;
-  padding: 15px 20px;
+  padding: 12px;
   border-bottom: 1px solid #eee;
 }
 
@@ -253,8 +277,10 @@
 }
 
 .request-requester {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   min-width: 120px;
-  text-align: right;
 }
 
 .request-requester-name {
@@ -267,11 +293,11 @@
 }
 
 .badge {
+  margin-left: 15px;
   padding: 4px 12px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
-  margin-left: 15px;
 }
 
 .badge-pending {
@@ -287,6 +313,40 @@
 .badge-declined {
   background-color: #f44336;
   color: white;
+}
+
+/* Request Action Buttons */
+.request-actions-Pic_Dash {
+  display: flex;
+  gap: 8px;
+  margin-left: 15px;
+}
+
+.action-button-Pic_Dash {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.edit-button-Pic_Dash {
+  background-color: #4a90e2;
+  color: white;
+}
+
+.edit-button-Pic_Dash:hover {
+  background-color: #357abd;
+}
+
+.cancel-button-Pic_Dash {
+  background-color: #f44336;
+  color: white;
+}
+
+.cancel-button-Pic_Dash:hover {
+  background-color: #da190b;
 }
 
 /* Pagination */
@@ -316,29 +376,40 @@
   border: none;
 }
 
+/* Chats Section */
+.chats-section {
+  margin-top: 20px;
+}
+
+.chats-title {
+  font-size: 18px;
+  margin-bottom: 15px;
+}
+
+.chats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
 /* Chat item in sidebar */
 .chat-item {
   display: flex;
   align-items: center;
-  padding: 10px;
   cursor: pointer;
-  border-radius: 4px;
-}
-
-.chat-item:hover {
-  background-color: #f5f5f5;
 }
 
 .chat-avatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: bold;
   margin-right: 12px;
+  font-size: 16px;
+  font-weight: bold;
 }
 
 .chat-info {

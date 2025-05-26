@@ -15,7 +15,6 @@ import Area_Manpower_List from './am/Area_Manpower_List'
 import Area_Material_list from './am/Area_Material_List';
 import AddProject from './am/Area_Addproj';
 import AreasPage from './am/Area_Proj_Area';
-import ITAdminPage from './it/It_Dash';
 import Ceo_Proj from './ceo/Ceo_Proj';
 import Ceo_ViewSpecific from './ceo/Ceo_ViewSpecific';
 import Ceo_Dash from './ceo/Ceo_Dash';
@@ -25,6 +24,8 @@ import PrivateRoute from "./PrivateRoute";
 import It_Dash from './it/It_Dash';
 import Pic_Project from './pic/Pic_Project';
 import Pic_MatReq from './pic/Pic_MatReq';
+import Pm_ViewRequest from './pm/Pm_ViewRequest';
+import Pm_MaterialRequestDetail from './pm/Pm_MatRequest';
 import { Link } from 'react-router-dom';
 
 
@@ -36,6 +37,8 @@ const AppRoutes = () => {
       <Route path="/" element={<LoginPage />} />
 
       {/* PROJECT MANAGER */}
+      <Route path="/pm/material-request/:id" element={<Pm_MaterialRequestDetail />} />
+      <Route path="/pm/request/:id" element={<Pm_ViewRequest />} />
       <Route path="/d" element={<PmManpowerRequest />} />
       <Route path="/k" element={<PmIncidentReport />} />
       <Route path="/j" element={<PmViewProjects />} />
@@ -45,10 +48,10 @@ const AppRoutes = () => {
       {/* PIC */}
       <Route path="/pic" element={<PicDash />} />
       <Route path="/chat" element={<PicChat />} />
-      <Route path="/material-request" element={<PicReq />} />
+      <Route path="/pic/request/:id" element={<PicReq />} />
       <Route path="/daily-logs" element={<Pic_Dailylogs />} />
       <Route path="/pic/:id" element={<Pic_Project />} />
-      <Route path="/pic/matreq" element={<Pic_MatReq />} />
+      <Route path="/pic/projects/:projectId/request" element={<Pic_MatReq />} />
 
       {/* AREA */}
       <Route path="/am" element={<AreaManagerDashboard />} />
