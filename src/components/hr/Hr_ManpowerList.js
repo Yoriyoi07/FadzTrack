@@ -1,102 +1,87 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import axios from 'axios';
 import Papa from 'papaparse';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, Calendar, Grid, List, Upload, Filter } from 'lucide-react';
 import '../style/hr_style/Hr_ManpowerList.css';
-import FadzLogo from '../../assets/images/FadzLogo1.png';
-
-const initialEmployeeData = [
-  { id: 1, name: 'Carlo Villamin', position: 'PIC', status: 'Unassigned', project: 'N/A', avatar: '📦' },
-  { id: 2, name: 'Lorenz Nicolai Laddaran', position: 'Architect', status: 'Assigned', project: 'BGC Hotel', avatar: '📦' },
-  { id: 3, name: 'John Lloyd Hita', position: 'Engineer', status: 'Assigned', project: 'BGC Tower', avatar: '📦' },
-  { id: 4, name: 'Kelvy Doria', position: 'Construction Worker', status: 'Assigned', project: 'Calatagan Townhomes', avatar: '🔧' },
-  { id: 5, name: 'Ethann Jharnes Romualdez', position: 'Construction Worker', status: 'Assigned', project: 'NU MOA', avatar: '🔧' },
-  { id: 6, name: 'Iaron Lloyd Monge', position: 'Construction Worker', status: 'Unassigned', project: 'N/A', avatar: '⛑️' },
-  { id: 7, name: 'Denver Teodoro', position: 'Construction Worker', status: 'Inactive', project: 'N/A', avatar: '⛑️' },
-  { id: 8, name: 'Maria Santos', position: 'Site Manager', status: 'Assigned', project: 'BGC Hotel', avatar: '📦' },
-  { id: 9, name: 'Pedro Reyes', position: 'Safety Officer', status: 'Assigned', project: 'BGC Tower', avatar: '🔧' },
-  { id: 10, name: 'Ana Garcia', position: 'Quality Inspector', status: 'Inactive', project: 'N/A', avatar: '⛑️' },
-  { id: 11, name: 'Luis Martinez', position: 'Foreman', status: 'Assigned', project: 'Calatagan Townhomes', avatar: '📦' },
-  { id: 12, name: 'Sofia Rodriguez', position: 'Project Coordinator', status: 'Assigned', project: 'NU MOA', avatar: '🔧' },
-  { id: 13, name: 'Miguel Torres', position: 'Heavy Equipment Operator', status: 'Inactive', project: 'N/A', avatar: '⛑️' },
-  { id: 14, name: 'Carmen Flores', position: 'Administrative Assistant', status: 'Assigned', project: 'BGC Hotel', avatar: '📦' },
-  { id: 15, name: 'Roberto Cruz', position: 'Electrician', status: 'Assigned', project: 'BGC Tower', avatar: '🔧' },
-  { id: 16, name: 'Isabella Morales', position: 'Civil Engineer', status: 'Inactive', project: 'N/A', avatar: '⛑️' },
-  { id: 17, name: 'Diego Herrera', position: 'Plumber', status: 'Assigned', project: 'Calatagan Townhomes', avatar: '📦' },
-  { id: 18, name: 'Valentina Jimenez', position: 'Surveyor', status: 'Assigned', project: 'NU MOA', avatar: '🔧' },
-  { id: 19, name: 'Alejandro Silva', position: 'Welder', status: 'Inactive', project: 'N/A', avatar: '⛑️' },
-  { id: 20, name: 'Camila Vargas', position: 'Environmental Specialist', status: 'Assigned', project: 'BGC Hotel', avatar: '📦' }
-];
+import FadzLogo1 from '../../assets/images/FadzLogo1.png';
 
 const ITEMS_PER_PAGE = 7;
 
-function EmployeeRow({ employee }) {
-  const getStatusBadge = (status) => {
-    const statusClass = status.toLowerCase().replace(/\s+/g, '-');
-    return (
-      <span className={`status-badge status-${statusClass}`}>
-        {status}
-      </span>
-    );
-  };
-
+function ManpowerRow({ manpower }) {
   return (
     <div className="employee-row">
-      <div className="employee-cell employee-info-cell">
-        <div className="employee-avatar">
-          <span>{employee.avatar}</span>
-        </div>
+      <div className="employee-info-cell">
+        <img src={manpower.avatar} alt={manpower.name} className="employee-avatar" />
         <div className="employee-details">
-          <div className="employee-name">{employee.name}</div>
-          <div className="employee-position">Position: {employee.position}</div>
+          <h4 className="employee-name">{manpower.name}</h4>
+          <p className="employee-position">Position: {manpower.position}</p>
         </div>
       </div>
-      <div className="employee-cell project-cell">
-        <span className="project-name">{employee.project}</span>
+      
+      <div className="project-cell">
+        <span className="project-name">{manpower.project}</span>
       </div>
-      <div className="employee-cell status-cell">
-        {getStatusBadge(employee.status)}
+      
+      <div className="status-cell">
+        <span className={`status-badge status-${manpower.status.toLowerCase()}`}>
+          {manpower.status}
+        </span>
       </div>
     </div>
   );
 }
 
 function Pagination({ currentPage, totalPages, onPageChange }) {
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxVisiblePages = 5;
-
-    if (totalPages <= maxVisiblePages) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      if (currentPage <= 3) {
-        pages.push(1, 2, 3, 4, '...', totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-      } else {
-        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
-      }
-    }
+  const getVisiblePages = () => {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
     
-    return pages;
+    for (let i = Math.max(2, currentPage - delta); 
+         i <= Math.min(totalPages - 1, currentPage + delta); 
+         i++) {
+      range.push(i);
+    }
+
+    if (currentPage - delta > 2) {
+      rangeWithDots.push(1, '...');
+    } else {
+      rangeWithDots.push(1);
+    }
+
+    rangeWithDots.push(...range);
+
+    if (currentPage + delta < totalPages - 1) {
+      rangeWithDots.push('...', totalPages);
+    } else {
+      rangeWithDots.push(totalPages);
+    }
+
+    return rangeWithDots;
   };
+
+  if (totalPages <= 1) return null;
+
+  const visiblePages = getVisiblePages();
 
   return (
     <div className="pagination-wrapper">
       <div className="pagination">
         <button
-          className="pagination-btn nav-btn"
+          className="pagination-btn"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
         >
-          ‹
+          &lt;
         </button>
         
-        {getPageNumbers().map((page, index) => (
+        {visiblePages.map((page, index) => (
           <button
             key={index}
-            className={`pagination-btn ${page === currentPage ? 'active' : ''} ${page === '...' ? 'dots' : ''}`}
+            className={`pagination-btn ${
+              page === '...' ? 'dots' : ''
+            } ${page === currentPage ? 'active' : ''}`}
             onClick={() => typeof page === 'number' ? onPageChange(page) : null}
             disabled={page === '...'}
           >
@@ -104,55 +89,78 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
           </button>
         ))}
         
-        <button 
-          className="pagination-btn nav-btn"
+        <button
+          className="pagination-btn"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
         >
-          ›
+          &gt;
         </button>
       </div>
     </div>
   );
 }
 
-export default function FadzTrack() {
-  const [employees, setEmployees] = useState(initialEmployeeData);
+
+export default function Hr_ManpowerList() {
+  const [manpowers, setManpowers] = useState();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const fileInputRef = useRef(null);
+  const navigate = useNavigate();
 
-  const handleCSVUpload = (event) => {
+  useEffect(() => {
+    axios.get('http://localhost:5000/api/manpower')
+      .then(response => {
+        setManpowers(response.data);
+      })
+      .catch(error => {
+        console.error('Error fetching manpower:', error);
+      });
+  }, []);
+
+
+    const handleCSVUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
-        complete: function(results) {
-          const newEmployees = results.data.map(item => ({
-            id: Number(item.id),
+        complete: function (results) {
+          const parsedManpower = results.data.map(item => ({
             name: item.name,
             position: item.position,
             status: item.status,
             project: item.project || 'N/A',
             avatar: item.avatar
           }));
-          setEmployees(prev => [...prev, ...newEmployees]);
+
+          axios.post('http://localhost:5000/api/manpower/bulk', { manpowers: parsedManpower })
+            .then(response => {
+              setManpowers(prev => [...prev, ...response.data]);
+            })
+            .catch(error => {
+              console.error('Error uploading manpower CSV data:', error);
+            });
         }
       });
     }
   };
 
-  const filteredEmployees = useMemo(() => {
-    return employees.filter(employee =>
-      employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.position.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [searchTerm, employees]);
 
-  const totalPages = Math.ceil(filteredEmployees.length / ITEMS_PER_PAGE);
+
+  const filteredManpower = useMemo(() => {
+    if (!manpowers) return [];
+      return manpowers.filter(manpower =>
+      manpower.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      manpower.position.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [searchTerm, manpowers]);
+
+  const totalPages = Math.ceil(filteredManpower.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const currentEmployees = filteredEmployees.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const currentManpower = filteredManpower.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -163,26 +171,71 @@ export default function FadzTrack() {
     setCurrentPage(page);
   };
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener("click", handleClickOutside);
+    
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
+
   return (
    <div className="fadztrack-container">
-      <nav className="navbar">
-        <div className="navbar-left">
+      {/* Header with Navigation */}
+      <header className="header">
+        <div className="logo-container">
           <div className="logo">
-            <div className="logo-icon">
-              <div className="logo-triangle"></div>
-            </div>
-            <span className="logo-text">FadzTrack</span>
+            <div className="logo-building"></div>
+            <div className="logo-flag"></div>
           </div>
-          <div className="nav-links">
-            <a href="#" className="nav-link">Movement</a>
-            <a href="#" className="nav-link">Projects</a>
-            <a href="#" className="nav-link">Chat</a>
-            <a href="#" className="nav-link">Logs</a>
-            <a href="#" className="nav-link">Reports</a>
+          <h1 className="brand-name">FadzTrack</h1>
+        </div>
+        <nav className="nav-menu">
+          <Link to="/hr/dash" className="nav-link">Dashboard</Link>
+          <Link to="/requests" className="nav-link">Movement</Link>
+          <Link to="/ceo/proj" className="nav-link">Projects</Link>
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/hr/mlist" className="nav-link">Manpower</Link>
+        </nav>
+        <div className="search-profile">
+          <div className="search-container">
+            <input type="text" placeholder="Search in site" className="search-input" />
+            <button className="search-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+          </div>
+          <div className="profile-menu-container">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
+            </div>
+            
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
           </div>
         </div>
-        <div className="profile-avatar">Z</div>
-      </nav>
+      </header>
 
       <main className="main-content">
         <div className="top-section">
@@ -210,7 +263,7 @@ export default function FadzTrack() {
               <input 
                 type="text" 
                 className="search-input" 
-                placeholder="Search Employee"
+                placeholder="Search Manpower"
                 value={searchTerm}
                 onChange={handleSearchChange}
               />
@@ -231,26 +284,24 @@ export default function FadzTrack() {
         <div className="bottom-section">
           <div className="employee-list-container">
             <div className="employee-list">
-              {currentEmployees.length === 0 ? (
+              {currentManpower.length === 0 ? (
                 <div className="empty-state">
-                  <h3>No employees found</h3>
+                  <h3>No manpower found</h3>
                   <p>Try adjusting your search criteria</p>
                 </div>
               ) : (
-                currentEmployees.map(employee => (
-                  <EmployeeRow key={employee.id} employee={employee} />
+                currentManpower.map(manpower => (
+                  <ManpowerRow key={manpower._id} manpower={manpower} />
                 ))
               )}
             </div>
           </div>
 
-          {totalPages > 1 && (
-            <Pagination 
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-            />
-          )}
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
         </div>
       </main>
     </div>

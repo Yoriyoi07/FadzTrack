@@ -1,24 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Clock, AlertTriangle, MessageCircle, FileText, Plus, Zap, BarChart3 } from 'lucide-react';
-import './HRDashboard.css';
+import { Link, useNavigate } from 'react-router-dom';
+import '../style/hr_style/Hr_Dash.css';
 
 const Hr_Dash = () => {
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [stats, setStats] = useState({
     totalStaff: 21,
     assigned: 18,
     available: 3,
     requests: 5
   });
+  const navigate = useNavigate();
 
   // Simulate real-time updates
   useEffect(() => {
     const interval = setInterval(() => {
-      setStats(prev => ({
-        ...prev,
-        totalStaff: Math.max(15, prev.totalStaff + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0)),
-        assigned: Math.max(10, prev.assigned + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0)),
-        available: Math.max(0, prev.available + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0)),
-        requests: Math.max(0, prev.requests + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0))
+      setStats(prevStats => ({
+        ...prevStats,
+        totalStaff: Math.max(0, prevStats.totalStaff + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0)),
+        assigned: Math.max(0, prevStats.assigned + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0)),
+        available: Math.max(0, prevStats.available + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0)),
+        requests: Math.max(0, prevStats.requests + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0))
       }));
     }, 10000);
 
@@ -37,30 +39,34 @@ const Hr_Dash = () => {
     }
   };
 
+  const handleProjectClick = (projectName) => {
+    alert(`Opening detailed view for ${projectName}...`);
+  };
+
   const projects = [
     {
       name: 'BDC Hotel',
       status: 'In Progress',
-      statusClass: 'bg-blue-100 text-blue-800',
-      assigned: 8,
-      due: 'Dec 15',
-      progress: 85
+      statusClass: 'status-progress',
+      staffAssigned: 8,
+      dueDate: 'Dec 15',
+      capacity: 85
     },
     {
       name: 'Stonehouse Gateway',
       status: 'Planning',
-      statusClass: 'bg-yellow-100 text-yellow-800',
-      assigned: 6,
-      due: 'Jan 30',
-      progress: 60
+      statusClass: 'status-planning',
+      staffAssigned: 6,
+      dueDate: 'Jan 30',
+      capacity: 60
     },
     {
       name: 'Freemont Place',
       status: 'Active',
-      statusClass: 'bg-green-100 text-green-800',
-      assigned: 4,
-      due: 'Feb 20',
-      progress: 40
+      statusClass: 'status-active',
+      staffAssigned: 4,
+      dueDate: 'Feb 20',
+      capacity: 40
     }
   ];
 
@@ -70,181 +76,216 @@ const Hr_Dash = () => {
       requester: 'Jane Cooper',
       time: '2 hours ago',
       status: 'Urgent',
-      statusClass: 'bg-red-100 text-red-800'
+      statusClass: 'status-urgent'
     },
     {
       title: '2x Laborers for Stonehouse',
       requester: 'Ronald Richards',
       time: '5 hours ago',
       status: 'Pending',
-      statusClass: 'bg-yellow-100 text-yellow-800'
+      statusClass: 'status-pending'
     },
     {
       title: '1x Foreman for Freemont',
       requester: 'Floyd Miles',
       time: '1 day ago',
       status: 'Approved',
-      statusClass: 'bg-green-100 text-green-800'
+      statusClass: 'status-approved'
     },
     {
       title: '2x Plumbers for BDC Hotel',
       requester: 'Jerome Bell',
       time: '2 days ago',
       status: 'Pending',
-      statusClass: 'bg-yellow-100 text-yellow-800'
+      statusClass: 'status-pending'
     }
   ];
 
   const activities = [
     {
-      title: 'Jacob Jones assigned to BDC Hotel',
-      time: '15 minutes ago',
       icon: '👥',
-      iconBg: 'bg-blue-100 text-blue-600'
+      iconClass: 'icon-assignment',
+      title: 'Jacob Jones assigned to BDC Hotel',
+      time: '15 minutes ago'
     },
     {
-      title: 'New manpower request from Stonehouse Gateway',
-      time: '1 hour ago',
       icon: '📋',
-      iconBg: 'bg-yellow-100 text-yellow-600'
+      iconClass: 'icon-request',
+      title: 'New manpower request from Stonehouse Gateway',
+      time: '1 hour ago'
     },
     {
-      title: 'Daily log submitted by Freemont Place',
-      time: '3 hours ago',
       icon: '📊',
-      iconBg: 'bg-purple-100 text-purple-600'
+      iconClass: 'icon-report',
+      title: 'Daily log submitted by Freemont Place',
+      time: '3 hours ago'
     },
     {
-      title: 'Kristin Watson reassigned to Stonehouse',
-      time: '5 hours ago',
       icon: '👤',
-      iconBg: 'bg-blue-100 text-blue-600'
+      iconClass: 'icon-assignment',
+      title: 'Kristin Watson reassigned to Stonehouse',
+      time: '5 hours ago'
     }
   ];
 
   const communications = [
     {
-      title: '5 unread messages from Jane Cooper',
-      subtitle: 'BDC Hotel updates',
       icon: '💬',
-      iconBg: 'bg-blue-100 text-blue-600'
+      title: '5 unread messages from Jane Cooper',
+      subtitle: 'BDC Hotel updates'
     },
     {
-      title: 'New files shared by Ronald Richards',
-      subtitle: 'Stonehouse blueprints',
       icon: '📁',
-      iconBg: 'bg-yellow-100 text-yellow-600'
+      title: 'New files shared by Ronald Richards',
+      subtitle: 'Stonehouse blueprints'
     },
     {
-      title: 'Daily report approved for Freemont',
-      subtitle: 'Floyd Miles',
       icon: '✅',
-      iconBg: 'bg-green-100 text-green-600'
+      title: 'Daily report approved for Freemont',
+      subtitle: 'Floyd Miles'
     }
   ];
 
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (!event.target.closest(".profile-menu-container")) {
+          setProfileMenuOpen(false);
+        }
+      };
+      
+      document.addEventListener("click", handleClickOutside);
+      
+      return () => {
+        document.removeEventListener("click", handleClickOutside);
+      };
+    }, []);
+
+    const handleLogout = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    };
   return (
-    <div className="dashboard-container">
-      {/* Navigation Bar */}
-      <nav className="navbar">
-        <div className="navbar-content">
+    <div className="hr-dashboard">
+      {/* Header with Navigation */}
+      <header className="header">
+        <div className="logo-container">
           <div className="logo">
-            <div className="logo-icon">F</div>
-            <span className="logo-text">FadzTrack</span>
+            <div className="logo-building"></div>
+            <div className="logo-flag"></div>
           </div>
-          
-          <div className="nav-links">
-            <a href="#" className="nav-link">Dashboard</a>
-            <a href="#" className="nav-link">Projects</a>
-            <a href="#" className="nav-link">Requests</a>
-            <a href="#" className="nav-link">Reports</a>
-            <a href="#" className="nav-link">Chat</a>
+          <h1 className="brand-name">FadzTrack</h1>
+        </div>
+        <nav className="nav-menu">
+          <Link to="/hr/dash" className="nav-link">Dashboard</Link>
+          <Link to="/requests" className="nav-link">Movement</Link>
+          <Link to="/ceo/proj" className="nav-link">Projects</Link>
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/hr/mlist" className="nav-link">Manpower</Link>
+        </nav>
+        <div className="search-profile">
+          <div className="search-container">
+            <input type="text" placeholder="Search in site" className="search-input" />
+            <button className="search-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
           </div>
-          
-          <div className="user-profile">
-            <span>ALECK (HR Manager)</span>
-            <div className="avatar">A</div>
+          <div className="profile-menu-container">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
+            </div>
+            
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
           </div>
         </div>
-      </nav>
+      </header>
 
-      <div className="main-content">
+      <div className="dashboard-container">
         {/* Welcome Header */}
         <div className="welcome-header">
           <div className="welcome-text">
             <h1>Good Morning, ALECK!</h1>
             <p>Here's your workforce overview for today</p>
           </div>
-          
           <div className="quick-stats">
-            {[
-              { value: stats.totalStaff, label: 'Total Staff' },
-              { value: stats.assigned, label: 'Assigned' },
-              { value: stats.available, label: 'Available' },
-              { value: stats.requests, label: 'Requests' }
-            ].map((stat, idx) => (
-              <div key={idx} className="stat-card">
-                <div className="stat-value">{stat.value}</div>
-                <div className="stat-label">{stat.label}</div>
-              </div>
-            ))}
+            <div className="stat-card">
+              <span className="stat-number">{stats.totalStaff}</span>
+              <span className="stat-label">Total Staff</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-number">{stats.assigned}</span>
+              <span className="stat-label">Assigned</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-number">{stats.available}</span>
+              <span className="stat-label">Available</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-number">{stats.requests}</span>
+              <span className="stat-label">Requests</span>
+            </div>
           </div>
         </div>
 
         {/* Key Metrics */}
         <div className="metrics-grid">
-          {[
-            { value: '85%', label: 'Workforce Utilization', change: '+5% from last week', positive: true },
-            { value: '3', label: 'Active Projects', change: '+1 new project', positive: true },
-            { value: '12', label: 'Pending Requests', change: '-3 from yesterday', positive: true },
-            { value: '92%', label: 'Request Approval Rate', change: '+8% improvement', positive: true }
-          ].map((metric, idx) => (
-            <div key={idx} className="metric-card">
-              <div className="metric-value">{metric.value}</div>
-              <div className="metric-label">{metric.label}</div>
-              <div className={`metric-change ${metric.positive ? 'positive' : 'negative'}`}>
-                {metric.change}
-              </div>
-            </div>
-          ))}
+          <div className="metric-card">
+            <div className="metric-value">85%</div>
+            <div className="metric-label">Workforce Utilization</div>
+            <div className="metric-change change-positive">+5% from last week</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-value">3</div>
+            <div className="metric-label">Active Projects</div>
+            <div className="metric-change change-positive">+1 new project</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-value">12</div>
+            <div className="metric-label">Pending Requests</div>
+            <div className="metric-change change-positive">-3 from yesterday</div>
+          </div>
+          <div className="metric-card">
+            <div className="metric-value">92%</div>
+            <div className="metric-label">Request Approval Rate</div>
+            <div className="metric-change change-positive">+8% improvement</div>
+          </div>
         </div>
 
         {/* Critical Alerts */}
-        <div className="alerts-section">
+        <div className="card alerts-section">
           <div className="card-header">
-            <h3 className="card-title alert-title">
-              <AlertTriangle className="alert-icon" />
-              Critical Alerts
-            </h3>
-            <button 
-              onClick={() => handleAction('View All Alerts')}
-              className="card-action alert-action"
-            >
+            <h3 className="card-title alert-title">⚠️ Critical Alerts</h3>
+            <button className="card-action alert-action-btn" onClick={() => handleAction('View All')}>
               View All
             </button>
           </div>
           <div className="card-content">
             <div className="alert-item">
-              <Clock className="alert-item-icon" />
+              <span className="alert-icon">⏰</span>
               <span className="alert-text">
                 <strong>Urgent Request:</strong> 3 electricians needed for BDC Hotel by tomorrow
               </span>
-              <button 
-                onClick={() => handleAction('Review Urgent Request')}
-                className="alert-item-action"
-              >
+              <button className="alert-action" onClick={() => handleAction('Review')}>
                 Review
               </button>
             </div>
             <div className="alert-item">
-              <AlertTriangle className="alert-item-icon" />
+              <span className="alert-icon">🚨</span>
               <span className="alert-text">
                 <strong>High Priority:</strong> 2 foremen requested for Stonehouse Gateway - immediate assignment needed
               </span>
-              <button 
-                onClick={() => handleAction('Assign Now')}
-                className="alert-item-action"
-              >
+              <button className="alert-action" onClick={() => handleAction('Assign Now')}>
                 Assign Now
               </button>
             </div>
@@ -257,35 +298,32 @@ const Hr_Dash = () => {
           <div className="card project-overview">
             <div className="card-header">
               <h3 className="card-title">Project Assignment Overview</h3>
-              <button 
-                onClick={() => handleAction('Manage All Projects')}
-                className="card-action"
-              >
+              <button className="card-action" onClick={() => handleAction('Manage All')}>
                 Manage All
               </button>
             </div>
             <div className="card-content">
-              <div className="project-grid">
-                {projects.map((project, idx) => (
+              <div className="project-mini-cards">
+                {projects.map((project, index) => (
                   <div 
-                    key={idx}
-                    className="project-card"
-                    onClick={() => handleAction(`View ${project.name} Details`)}
+                    key={index}
+                    className="mini-project-card"
+                    onClick={() => handleProjectClick(project.name)}
                   >
                     <div className="project-header">
                       <span className="project-name">{project.name}</span>
-                      <span className={`project-status ${project.status.toLowerCase().replace(' ', '-')}`}>
+                      <span className={`project-status ${project.statusClass}`}>
                         {project.status}
                       </span>
                     </div>
                     <div className="project-metrics">
-                      <span>{project.assigned} Staff Assigned</span>
-                      <span>Due: {project.due}</span>
+                      <span>{project.staffAssigned} Staff Assigned</span>
+                      <span>Due: {project.dueDate}</span>
                     </div>
-                    <div className="progress-bar">
+                    <div className="capacity-bar">
                       <div 
-                        className="progress-fill"
-                        style={{ width: `${project.progress}%` }}
+                        className="capacity-fill" 
+                        style={{ width: `${project.capacity}%` }}
                       ></div>
                     </div>
                   </div>
@@ -298,22 +336,19 @@ const Hr_Dash = () => {
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">Manpower Requests</h3>
-              <button 
-                onClick={() => handleAction('View All Requests')}
-                className="card-action"
-              >
+              <button className="card-action" onClick={() => handleAction('View All')}>
                 View All
               </button>
             </div>
             <div className="card-content">
-              <div className="scrollable-content">
-                {requests.map((request, idx) => (
-                  <div key={idx} className="request-item">
+              <div className="manpower-requests">
+                {requests.map((request, index) => (
+                  <div key={index} className="request-item">
                     <div className="request-info">
                       <h4>{request.title}</h4>
                       <p>Requested by {request.requester} • {request.time}</p>
                     </div>
-                    <span className={`status-badge ${request.status.toLowerCase()}`}>
+                    <span className={`request-status ${request.statusClass}`}>
                       {request.status}
                     </span>
                   </div>
@@ -326,18 +361,15 @@ const Hr_Dash = () => {
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">Recent Activity</h3>
-              <button 
-                onClick={() => handleAction('View Timeline')}
-                className="card-action"
-              >
+              <button className="card-action" onClick={() => handleAction('View Timeline')}>
                 View Timeline
               </button>
             </div>
             <div className="card-content">
-              <div className="scrollable-content">
-                {activities.map((activity, idx) => (
-                  <div key={idx} className="activity-item">
-                    <div className={`activity-icon ${activity.icon.includes('👥') ? 'assignment' : activity.icon.includes('📋') ? 'request' : 'report'}`}>
+              <div className="activity-feed">
+                {activities.map((activity, index) => (
+                  <div key={index} className="activity-item">
+                    <div className={`activity-icon ${activity.iconClass}`}>
                       {activity.icon}
                     </div>
                     <div className="activity-content">
@@ -354,86 +386,27 @@ const Hr_Dash = () => {
           <div className="card">
             <div className="card-header">
               <h3 className="card-title">Communication Center</h3>
-              <button 
-                onClick={() => handleAction('Open Chat')}
-                className="card-action"
-              >
+              <button className="card-action" onClick={() => handleAction('Open Chat')}>
                 Open Chat
               </button>
             </div>
             <div className="card-content">
-              <div className="scrollable-content">
-                {communications.map((comm, idx) => (
-                  <div key={idx} className="communication-item">
-                    <div className={`communication-icon ${comm.icon.includes('💬') ? 'message' : comm.icon.includes('📁') ? 'file' : 'approval'}`}>
+              <div className="activity-feed">
+                {communications.map((comm, index) => (
+                  <div key={index} className="activity-item">
+                    <div className="activity-icon comm-icon">
                       {comm.icon}
                     </div>
-                    <div className="communication-content">
-                      <div className="communication-title">{comm.title}</div>
-                      <div className="communication-subtitle">{comm.subtitle}</div>
+                    <div className="activity-content">
+                      <div className="activity-title">{comm.title}</div>
+                      <div className="activity-time">{comm.subtitle}</div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           </div>
-
-          {/* Team Updates */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">Team Updates</h3>
-              <button 
-                onClick={() => handleAction('View All Updates')}
-                className="card-action"
-              >
-                View All
-              </button>
-            </div>
-            <div className="card-content">
-              <div className="team-updates">
-                <div className="update-item meeting">
-                  <Users className="update-icon" />
-                  <div>
-                    <div className="update-title">Weekly team meeting scheduled</div>
-                    <div className="update-time">Tomorrow at 2:00 PM</div>
-                  </div>
-                </div>
-                <div className="update-item report">
-                  <FileText className="update-icon" />
-                  <div>
-                    <div className="update-title">Safety report submitted</div>
-                    <div className="update-time">All projects compliant</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
-      </div>
-
-      {/* Floating Action Buttons */}
-      <div className="fab-container">
-        <button 
-          onClick={() => handleAction('Create Report')}
-          className="fab fab-report"
-          title="Create Report"
-        >
-          <BarChart3 className="fab-icon" />
-        </button>
-        <button 
-          onClick={() => handleAction('Bulk Assignment')}
-          className="fab fab-assignment"
-          title="Bulk Assignment"
-        >
-          <Zap className="fab-icon" />
-        </button>
-        <button 
-          onClick={() => handleAction('New Request')}
-          className="fab fab-primary"
-          title="New Request"
-        >
-          <Plus className="fab-icon" />
-        </button>
       </div>
     </div>
   );

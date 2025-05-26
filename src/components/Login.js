@@ -5,6 +5,7 @@ import { FaEye, FaEyeSlash } from "react-icons/fa";
 import "./style/Loginpage.css";
 import backgroundImage from "../assets/images/login_picture.png";
 import TwoFactorAuth from "../components/TwoFactorAuth";
+import FadzLogo from "../assets/images/FadzLogo1.png"
 
 const LoginPage = () => {
   // State hooks for login form
@@ -96,7 +97,7 @@ const LoginPage = () => {
       {/* Right side login form */}
       <div className="login-right">
         <div className="login-form-container">
-          <img src="/images/FadzLogo 1.png" alt="Fadz Logo" className="right-logo" />
+          <img src={FadzLogo} alt="Fadz Logo" className="right-logo" />
           <h1 className="app-title">FadzTrack</h1>
 
           {/* Conditionally show 2FA component or login form */}

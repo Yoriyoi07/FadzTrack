@@ -29,6 +29,7 @@ import { Link } from 'react-router-dom';
 
 
 import Hr_ManpowerList from './hr/Hr_ManpowerList';
+import Hr_Dash from './hr/Hr_Dash';
 const AppRoutes = () => {
   return (
     <Routes>
@@ -67,6 +68,7 @@ const AppRoutes = () => {
       <Route path="/ceo/proj/:id" element={<Ceo_ViewSpecific />} />
 
       {/* HR */}
+      <Route path="/hr/dash" element={<Hr_Dash />} />
       <Route path="/hr/mlist" element={<Hr_ManpowerList />} />
 
     </Routes>

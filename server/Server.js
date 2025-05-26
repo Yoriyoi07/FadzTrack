@@ -13,12 +13,15 @@ const Message = require('./models/Messages');
 const materialRequestRoutes = require('./route/materialRequest');
 const { verifyToken } = require('./middleware/authMiddleware');
 const userRoutes = require('./route/user');
+const manpowerRoutes = require('./route/manpower');
 const app = express();
+
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
 const PORT = process.env.PORT || 5000;
 
