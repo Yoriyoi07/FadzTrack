@@ -154,7 +154,7 @@ const Ceo_Dash = () => {
         </div>
         <nav className="nav-menu">
           <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
-          <Link to="/requests" className="nav-link">Requests</Link>
+          <Link to="/ceo/material-list" className="nav-link">Material Requests</Link>
           <Link to="/ceo/proj" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>

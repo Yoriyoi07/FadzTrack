@@ -152,8 +152,6 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
 });
 
 
-
-// route/materialRequest.js
 router.get('/mine', verifyToken, async (req, res) => {
   const userId = req.user.id;
   const userRole = req.user.role;
@@ -165,14 +163,13 @@ router.get('/mine', verifyToken, async (req, res) => {
         .populate('project')
         .populate('createdBy');
     } else if (userRole === 'PM' || userRole === 'Project Manager') {
-      console.log("Request from:", userId, "with role:", userRole);
       const projects = await Project.find({ projectmanager: userId });
-      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
+      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) }, status: "Pending PM" })
         .populate('project')
         .populate('createdBy');
     } else if (userRole === 'AM' || userRole === 'Area Manager') {
       const projects = await Project.find({ areamanager: userId });
-      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
+      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) }, status: "Pending AM" })
         .populate('project')
         .populate('createdBy');
     } else if (userRole === 'CEO') {

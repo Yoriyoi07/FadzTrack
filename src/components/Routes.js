@@ -26,6 +26,7 @@ import Pic_Project from './pic/Pic_Project';
 import Pic_MatReq from './pic/Pic_MatReq';
 import Pm_ViewRequest from './pm/Pm_ViewRequest';
 import Pm_MaterialRequestDetail from './pm/Pm_MatRequest';
+import Ceo_Material_List from './ceo/Ceo_Material_List';
 import { Link } from 'react-router-dom';
 
 
@@ -69,6 +70,7 @@ const AppRoutes = () => {
       <Route path="/ceo/dash" element={<Ceo_Dash />} />
       <Route path="/ceo/addproj" element={<Ceo_Addproject />} />
       <Route path="/ceo/proj/:id" element={<Ceo_ViewSpecific />} />
+      <Route path="/ceo/material-list" element={<Ceo_Material_List />} />
 
       {/* HR */}
       <Route path="/hr/dash" element={<Hr_Dash />} />

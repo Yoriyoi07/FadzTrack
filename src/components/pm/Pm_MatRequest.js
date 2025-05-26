@@ -60,8 +60,9 @@ const Pm_MaterialRequestDetail = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ decision: 'approved' })
+        
       });
-      if (!res.ok) throw new Error('Approval failed');
+     if (!res.ok) throw new Error('Approval failed');
       alert('Request approved.');
       navigate(-1);
     } catch (err) {
