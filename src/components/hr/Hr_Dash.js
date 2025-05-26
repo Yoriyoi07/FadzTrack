@@ -47,7 +47,7 @@ const Hr_Dash = () => {
     {
       name: 'BDC Hotel',
       status: 'In Progress',
-      statusClass: 'status-progress',
+      statusClass: 'hr-dash-status-progress',
       staffAssigned: 8,
       dueDate: 'Dec 15',
       capacity: 85
@@ -55,7 +55,7 @@ const Hr_Dash = () => {
     {
       name: 'Stonehouse Gateway',
       status: 'Planning',
-      statusClass: 'status-planning',
+      statusClass: 'hr-dash-status-planning',
       staffAssigned: 6,
       dueDate: 'Jan 30',
       capacity: 60
@@ -63,7 +63,7 @@ const Hr_Dash = () => {
     {
       name: 'Freemont Place',
       status: 'Active',
-      statusClass: 'status-active',
+      statusClass: 'hr-dash-status-active',
       staffAssigned: 4,
       dueDate: 'Feb 20',
       capacity: 40
@@ -76,53 +76,53 @@ const Hr_Dash = () => {
       requester: 'Jane Cooper',
       time: '2 hours ago',
       status: 'Urgent',
-      statusClass: 'status-urgent'
+      statusClass: 'hr-dash-status-urgent'
     },
     {
       title: '2x Laborers for Stonehouse',
       requester: 'Ronald Richards',
       time: '5 hours ago',
       status: 'Pending',
-      statusClass: 'status-pending'
+      statusClass: 'hr-dash-status-pending'
     },
     {
       title: '1x Foreman for Freemont',
       requester: 'Floyd Miles',
       time: '1 day ago',
       status: 'Approved',
-      statusClass: 'status-approved'
+      statusClass: 'hr-dash-status-approved'
     },
     {
       title: '2x Plumbers for BDC Hotel',
       requester: 'Jerome Bell',
       time: '2 days ago',
       status: 'Pending',
-      statusClass: 'status-pending'
+      statusClass: 'hr-dash-status-pending'
     }
   ];
 
   const activities = [
     {
       icon: '👥',
-      iconClass: 'icon-assignment',
+      iconClass: 'hr-dash-icon-assignment',
       title: 'Jacob Jones assigned to BDC Hotel',
       time: '15 minutes ago'
     },
     {
       icon: '📋',
-      iconClass: 'icon-request',
+      iconClass: 'hr-dash-icon-request',
       title: 'New manpower request from Stonehouse Gateway',
       time: '1 hour ago'
     },
     {
       icon: '📊',
-      iconClass: 'icon-report',
+      iconClass: 'hr-dash-icon-report',
       title: 'Daily log submitted by Freemont Place',
       time: '3 hours ago'
     },
     {
       icon: '👤',
-      iconClass: 'icon-assignment',
+      iconClass: 'hr-dash-icon-assignment',
       title: 'Kristin Watson reassigned to Stonehouse',
       time: '5 hours ago'
     }
@@ -146,64 +146,65 @@ const Hr_Dash = () => {
     }
   ];
 
-    useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (!event.target.closest(".profile-menu-container")) {
-          setProfileMenuOpen(false);
-        }
-      };
-      
-      document.addEventListener("click", handleClickOutside);
-      
-      return () => {
-        document.removeEventListener("click", handleClickOutside);
-      };
-    }, []);
-
-    const handleLogout = () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".hr-dash-profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
     };
+    
+    document.addEventListener("click", handleClickOutside);
+    
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
+
   return (
-    <div className="hr-dashboard">
+    <div className="hr-dash-container">
       {/* Header with Navigation */}
-      <header className="header">
-        <div className="logo-container">
-          <div className="logo">
-            <div className="logo-building"></div>
-            <div className="logo-flag"></div>
+      <header className="hr-dash-header">
+        <div className="hr-dash-logo-container">
+          <div className="hr-dash-logo">
+            <div className="hr-dash-logo-building"></div>
+            <div className="hr-dash-logo-flag"></div>
           </div>
-          <h1 className="brand-name">FadzTrack</h1>
+          <h1 className="hr-dash-brand-name">FadzTrack</h1>
         </div>
-        <nav className="nav-menu">
-          <Link to="/hr/dash" className="nav-link">Dashboard</Link>
-          <Link to="/requests" className="nav-link">Movement</Link>
-          <Link to="/ceo/proj" className="nav-link">Projects</Link>
-          <Link to="/chat" className="nav-link">Chat</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
-          <Link to="/hr/mlist" className="nav-link">Manpower</Link>
+        <nav className="hr-dash-nav-menu">
+          <Link to="/hr/dash" className="hr-dash-nav-link">Dashboard</Link>
+          <Link to="/requests" className="hr-dash-nav-link">Movement</Link>
+          <Link to="/ceo/proj" className="hr-dash-nav-link">Projects</Link>
+          <Link to="/chat" className="hr-dash-nav-link">Chat</Link>
+          <Link to="/logs" className="hr-dash-nav-link">Logs</Link>
+          <Link to="/hr/mlist" className="hr-dash-nav-link">Manpower</Link>
         </nav>
-        <div className="search-profile">
-          <div className="search-container">
-            <input type="text" placeholder="Search in site" className="search-input" />
-            <button className="search-button">
+        <div className="hr-dash-search-profile">
+          <div className="hr-dash-search-container">
+            <input type="text" placeholder="Search in site" className="hr-dash-search-input" />
+            <button className="hr-dash-search-button">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
             </button>
           </div>
-          <div className="profile-menu-container">
+          <div className="hr-dash-profile-menu-container">
             <div 
-              className="profile-circle" 
+              className="hr-dash-profile-circle" 
               onClick={() => setProfileMenuOpen(!profileMenuOpen)}
             >
               Z
             </div>
             
             {profileMenuOpen && (
-              <div className="profile-menu">
+              <div className="hr-dash-profile-menu">
                 <button onClick={handleLogout}>Logout</button>
               </div>
             )}
@@ -211,81 +212,81 @@ const Hr_Dash = () => {
         </div>
       </header>
 
-      <div className="dashboard-container">
+      <div className="hr-dash-dashboard-container">
         {/* Welcome Header */}
-        <div className="welcome-header">
-          <div className="welcome-text">
+        <div className="hr-dash-welcome-header">
+          <div className="hr-dash-welcome-text">
             <h1>Good Morning, ALECK!</h1>
             <p>Here's your workforce overview for today</p>
           </div>
-          <div className="quick-stats">
-            <div className="stat-card">
-              <span className="stat-number">{stats.totalStaff}</span>
-              <span className="stat-label">Total Staff</span>
+          <div className="hr-dash-quick-stats">
+            <div className="hr-dash-stat-card">
+              <span className="hr-dash-stat-number">{stats.totalStaff}</span>
+              <span className="hr-dash-stat-label">Total Staff</span>
             </div>
-            <div className="stat-card">
-              <span className="stat-number">{stats.assigned}</span>
-              <span className="stat-label">Assigned</span>
+            <div className="hr-dash-stat-card">
+              <span className="hr-dash-stat-number">{stats.assigned}</span>
+              <span className="hr-dash-stat-label">Assigned</span>
             </div>
-            <div className="stat-card">
-              <span className="stat-number">{stats.available}</span>
-              <span className="stat-label">Available</span>
+            <div className="hr-dash-stat-card">
+              <span className="hr-dash-stat-number">{stats.available}</span>
+              <span className="hr-dash-stat-label">Available</span>
             </div>
-            <div className="stat-card">
-              <span className="stat-number">{stats.requests}</span>
-              <span className="stat-label">Requests</span>
+            <div className="hr-dash-stat-card">
+              <span className="hr-dash-stat-number">{stats.requests}</span>
+              <span className="hr-dash-stat-label">Requests</span>
             </div>
           </div>
         </div>
 
         {/* Key Metrics */}
-        <div className="metrics-grid">
-          <div className="metric-card">
-            <div className="metric-value">85%</div>
-            <div className="metric-label">Workforce Utilization</div>
-            <div className="metric-change change-positive">+5% from last week</div>
+        <div className="hr-dash-metrics-grid">
+          <div className="hr-dash-metric-card">
+            <div className="hr-dash-metric-value">85%</div>
+            <div className="hr-dash-metric-label">Workforce Utilization</div>
+            <div className="hr-dash-metric-change hr-dash-change-positive">+5% from last week</div>
           </div>
-          <div className="metric-card">
-            <div className="metric-value">3</div>
-            <div className="metric-label">Active Projects</div>
-            <div className="metric-change change-positive">+1 new project</div>
+          <div className="hr-dash-metric-card">
+            <div className="hr-dash-metric-value">3</div>
+            <div className="hr-dash-metric-label">Active Projects</div>
+            <div className="hr-dash-metric-change hr-dash-change-positive">+1 new project</div>
           </div>
-          <div className="metric-card">
-            <div className="metric-value">12</div>
-            <div className="metric-label">Pending Requests</div>
-            <div className="metric-change change-positive">-3 from yesterday</div>
+          <div className="hr-dash-metric-card">
+            <div className="hr-dash-metric-value">12</div>
+            <div className="hr-dash-metric-label">Pending Requests</div>
+            <div className="hr-dash-metric-change hr-dash-change-positive">-3 from yesterday</div>
           </div>
-          <div className="metric-card">
-            <div className="metric-value">92%</div>
-            <div className="metric-label">Request Approval Rate</div>
-            <div className="metric-change change-positive">+8% improvement</div>
+          <div className="hr-dash-metric-card">
+            <div className="hr-dash-metric-value">92%</div>
+            <div className="hr-dash-metric-label">Request Approval Rate</div>
+            <div className="hr-dash-metric-change hr-dash-change-positive">+8% improvement</div>
           </div>
         </div>
 
         {/* Critical Alerts */}
-        <div className="card alerts-section">
-          <div className="card-header">
-            <h3 className="card-title alert-title">⚠️ Critical Alerts</h3>
-            <button className="card-action alert-action-btn" onClick={() => handleAction('View All')}>
+        <div className="hr-dash-card hr-dash-alerts-section">
+          <div className="hr-dash-card-header">
+            <h3 className="hr-dash-card-title hr-dash-alert-title">⚠️ Critical Alerts</h3>
+            <button className="hr-dash-card-action hr-dash-alert-action-btn" onClick={() => handleAction('View All')}>
               View All
             </button>
           </div>
-          <div className="card-content">
-            <div className="alert-item">
-              <span className="alert-icon">⏰</span>
-              <span className="alert-text">
+          <div className="hr-dash-card-content">
+            <div className="hr-dash-alert-item">
+              <span className="hr-dash-alert-icon">⏰</span>
+              <span className="hr-dash-alert-text">
                 <strong>Urgent Request:</strong> 3 electricians needed for BDC Hotel by tomorrow
               </span>
-              <button className="alert-action" onClick={() => handleAction('Review')}>
+              <button className="hr-dash-alert-action" onClick={() => handleAction('Review')}>
                 Review
               </button>
             </div>
-            <div className="alert-item">
-              <span className="alert-icon">🚨</span>
-              <span className="alert-text">
+            <div className="hr-dash-alert-item">
+              <span className="hr-dash-alert-icon">🚨</span>
+              <span className="hr-dash-alert-text">
                 <strong>High Priority:</strong> 2 foremen requested for Stonehouse Gateway - immediate assignment needed
               </span>
-              <button className="alert-action" onClick={() => handleAction('Assign Now')}>
+              <button className="hr-dash-alert-action" onClick={() => handleAction('Assign Now')}>
                 Assign Now
               </button>
             </div>
@@ -293,36 +294,36 @@ const Hr_Dash = () => {
         </div>
 
         {/* Main Dashboard Grid */}
-        <div className="dashboard-grid">
+        <div className="hr-dash-dashboard-grid">
           {/* Project Assignment Overview */}
-          <div className="card project-overview">
-            <div className="card-header">
-              <h3 className="card-title">Project Assignment Overview</h3>
-              <button className="card-action" onClick={() => handleAction('Manage All')}>
+          <div className="hr-dash-card hr-dash-project-overview">
+            <div className="hr-dash-card-header">
+              <h3 className="hr-dash-card-title">Project Assignment Overview</h3>
+              <button className="hr-dash-card-action" onClick={() => handleAction('Manage All')}>
                 Manage All
               </button>
             </div>
-            <div className="card-content">
-              <div className="project-mini-cards">
+            <div className="hr-dash-card-content">
+              <div className="hr-dash-project-mini-cards">
                 {projects.map((project, index) => (
                   <div 
                     key={index}
-                    className="mini-project-card"
+                    className="hr-dash-mini-project-card"
                     onClick={() => handleProjectClick(project.name)}
                   >
-                    <div className="project-header">
-                      <span className="project-name">{project.name}</span>
-                      <span className={`project-status ${project.statusClass}`}>
+                    <div className="hr-dash-project-header">
+                      <span className="hr-dash-project-name">{project.name}</span>
+                      <span className={`hr-dash-project-status ${project.statusClass}`}>
                         {project.status}
                       </span>
                     </div>
-                    <div className="project-metrics">
+                    <div className="hr-dash-project-metrics">
                       <span>{project.staffAssigned} Staff Assigned</span>
                       <span>Due: {project.dueDate}</span>
                     </div>
-                    <div className="capacity-bar">
+                    <div className="hr-dash-capacity-bar">
                       <div 
-                        className="capacity-fill" 
+                        className="hr-dash-capacity-fill" 
                         style={{ width: `${project.capacity}%` }}
                       ></div>
                     </div>
@@ -333,22 +334,22 @@ const Hr_Dash = () => {
           </div>
 
           {/* Manpower Requests */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">Manpower Requests</h3>
-              <button className="card-action" onClick={() => handleAction('View All')}>
+          <div className="hr-dash-card">
+            <div className="hr-dash-card-header">
+              <h3 className="hr-dash-card-title">Manpower Requests</h3>
+              <button className="hr-dash-card-action" onClick={() => handleAction('View All')}>
                 View All
               </button>
             </div>
-            <div className="card-content">
-              <div className="manpower-requests">
+            <div className="hr-dash-card-content">
+              <div className="hr-dash-manpower-requests">
                 {requests.map((request, index) => (
-                  <div key={index} className="request-item">
-                    <div className="request-info">
+                  <div key={index} className="hr-dash-request-item">
+                    <div className="hr-dash-request-info">
                       <h4>{request.title}</h4>
                       <p>Requested by {request.requester} • {request.time}</p>
                     </div>
-                    <span className={`request-status ${request.statusClass}`}>
+                    <span className={`hr-dash-request-status ${request.statusClass}`}>
                       {request.status}
                     </span>
                   </div>
@@ -358,23 +359,23 @@ const Hr_Dash = () => {
           </div>
 
           {/* Recent Activity */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">Recent Activity</h3>
-              <button className="card-action" onClick={() => handleAction('View Timeline')}>
+          <div className="hr-dash-card">
+            <div className="hr-dash-card-header">
+              <h3 className="hr-dash-card-title">Recent Activity</h3>
+              <button className="hr-dash-card-action" onClick={() => handleAction('View Timeline')}>
                 View Timeline
               </button>
             </div>
-            <div className="card-content">
-              <div className="activity-feed">
+            <div className="hr-dash-card-content">
+              <div className="hr-dash-activity-feed">
                 {activities.map((activity, index) => (
-                  <div key={index} className="activity-item">
-                    <div className={`activity-icon ${activity.iconClass}`}>
+                  <div key={index} className="hr-dash-activity-item">
+                    <div className={`hr-dash-activity-icon ${activity.iconClass}`}>
                       {activity.icon}
                     </div>
-                    <div className="activity-content">
-                      <div className="activity-title">{activity.title}</div>
-                      <div className="activity-time">{activity.time}</div>
+                    <div className="hr-dash-activity-content">
+                      <div className="hr-dash-activity-title">{activity.title}</div>
+                      <div className="hr-dash-activity-time">{activity.time}</div>
                     </div>
                   </div>
                 ))}
@@ -383,23 +384,23 @@ const Hr_Dash = () => {
           </div>
 
           {/* Communication Center */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="card-title">Communication Center</h3>
-              <button className="card-action" onClick={() => handleAction('Open Chat')}>
+          <div className="hr-dash-card">
+            <div className="hr-dash-card-header">
+              <h3 className="hr-dash-card-title">Communication Center</h3>
+              <button className="hr-dash-card-action" onClick={() => handleAction('Open Chat')}>
                 Open Chat
               </button>
             </div>
-            <div className="card-content">
-              <div className="activity-feed">
+            <div className="hr-dash-card-content">
+              <div className="hr-dash-activity-feed">
                 {communications.map((comm, index) => (
-                  <div key={index} className="activity-item">
-                    <div className="activity-icon comm-icon">
+                  <div key={index} className="hr-dash-activity-item">
+                    <div className="hr-dash-activity-icon hr-dash-comm-icon">
                       {comm.icon}
                     </div>
-                    <div className="activity-content">
-                      <div className="activity-title">{comm.title}</div>
-                      <div className="activity-time">{comm.subtitle}</div>
+                    <div className="hr-dash-activity-content">
+                      <div className="hr-dash-activity-title">{comm.title}</div>
+                      <div className="hr-dash-activity-time">{comm.subtitle}</div>
                     </div>
                   </div>
                 ))}
