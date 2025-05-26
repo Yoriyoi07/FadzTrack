@@ -138,7 +138,8 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
       role: approvalRole,
       user: userId,
       decision,
-      reason
+      reason,
+      timestamp: new Date()
     });
 
     request.status = nextStatus;

@@ -197,7 +197,17 @@ const Ceo_Material_List = () => {
                     <div className="request-author">{request.createdBy?.name || 'Unknown'}</div>
                     <div className="request-project">{request.project?.projectName || '-'}</div>
                     <div className="request-date">
-                        {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+                    <div>Requested: {request.createdAt ? new Date(request.createdAt).toLocaleString() : ''}</div>
+                    {request.approvals && request.approvals.find(a => a.role === 'PM' && a.decision === 'approved') && (
+                        <div>
+                       PM Approved: {new Date(request.approvals.find(a => a.role === 'PM' && a.decision === 'approved').timestamp).toLocaleString()}
+                        </div>
+                    )}
+                    {request.approvals && request.approvals.find(a => a.role === 'AM' && a.decision === 'approved') && (
+                        <div>
+                        AM Approved: {new Date(request.approvals.find(a => a.role === 'AM' && a.decision === 'approved').timestamp).toLocaleString()}
+                        </div>
+                    )}
                     </div>
                     </div>
                     <div className="request-actions">
