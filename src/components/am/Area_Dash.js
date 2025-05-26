@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState,useEffect } from 'react';
 import { PieChart, Pie, Cell } from 'recharts';
-import { Link, useNavigate } from 'react-router-dom';
-import '../style/am_style/Area_Dash.css';
+import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
+import '../style/ceo_style/Ceo_Dash.css';
 
-const Dashboard = () => {
+const Area_Dash = () => {
+
   const navigate = useNavigate();
-  const [userName, setUserName] = useState('ALECK');
+  const [userName, setUserName] = useState('');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projects, setProjects] = useState([
     { 
@@ -53,7 +55,7 @@ const Dashboard = () => {
     {
       id: 1,
       user: { name: 'Daniel Pocon', initial: 'D' },
-      date: 'July 1, 2025',
+      date: 'July 1, 2029',
       activity: 'Submitted Daily Logs for San Miguel Corporation Project B',
       details: [
         'Weather: Cloudy in AM, Light Rain in PM ☁️',
@@ -63,27 +65,6 @@ const Dashboard = () => {
       ]
     }
   ]);
-
-   useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (!event.target.closest(".profile-menu-container")) {
-          setProfileMenuOpen(false);
-        }
-      };
-      
-      document.addEventListener("click", handleClickOutside);
-      
-      return () => {
-        document.removeEventListener("click", handleClickOutside);
-      };
-    }, []);
-  
-    const handleLogout = () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
-    };
-
 
   // Reports data
   const [reports, setReports] = useState([
@@ -132,8 +113,36 @@ const Dashboard = () => {
     }
   ]);
 
+  useEffect(() => {
+  const user = JSON.parse(localStorage.getItem("user"));
+  if (user) {
+    setUserName(user.name || 'User'); 
+  }
+}, []);
+
+  useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (!event.target.closest(".profile-menu-container")) {
+          setProfileMenuOpen(false);
+        }
+      };
+      
+      document.addEventListener("click", handleClickOutside);
+      
+      return () => {
+        document.removeEventListener("click", handleClickOutside);
+      };
+    }, []);
+  
+    const handleLogout = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    };
+
+
   return (
-     <div className="dashboard-container">
+     <div className="head">
       {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
@@ -143,14 +152,14 @@ const Dashboard = () => {
           </div>
           <h1 className="brand-name">FadzTrack</h1>
         </div>
-         <nav className="nav-menu">
-                  <Link to="/am" className="nav-link">Dashboard</Link>
-                  <Link to="/requests" className="nav-link">Requests</Link>
-                  <Link to="/am/viewall" className="nav-link">Projects</Link>
-                  <Link to="/chat" className="nav-link">Chat</Link>
-                  <Link to="/logs" className="nav-link">Logs</Link>
-                  <Link to="/reports" className="nav-link">Reports</Link>
-                </nav>
+        <nav className="nav-menu">
+          <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
+          <Link to="/requests" className="nav-link">Requests</Link>
+          <Link to="/ceo/proj" className="nav-link">Projects</Link>
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/reports" className="nav-link">Reports</Link>
+        </nav>
         <div className="search-profile">
           <div className="search-container">
             <input type="text" placeholder="Search in site" className="search-input" />
@@ -183,13 +192,12 @@ const Dashboard = () => {
         {/* Left Sidebar */}
         <div className="sidebar">
           <h2>Dashboard</h2>
-       <button 
+          <button 
             className="add-project-btn" 
             onClick={() => navigate('/ceo/addproj')}
           >
             Add New Project
           </button>
-          
           <div className="project-list">
             {sidebarProjects.map(project => (
               <div key={project.id} className="project-item">
@@ -313,4 +321,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default Area_Dash;

@@ -1,169 +1,188 @@
-/* Updated FadzTrackDashboard.css */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: 'Inter', sans-serif;
   background-color: #f5f7fa;
   color: #333;
   line-height: 1.5;
-  height: 100vh; /* Make sure body takes up full viewport height */
-  margin: 0; /* Remove default margins */
+  height: 100vh; 
+  margin: 0; 
 }
 
-.fadztrack-app {
+.fadztrack-app-IT {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
 }
 
-/* Header styles */
-.app-header {
-  background-color: #192f59;
+.header-IT {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 2rem;
+  background-color: #00205b;
   color: white;
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  border-bottom: none;
+}
+
+.logo-container-IT {
   display: flex;
   align-items: center;
-  padding: 0.5rem 1rem;
-  height: 60px;
-  width: 100%;
-  overflow: hidden;
 }
 
-.logo-container {
+.logo-IT {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  margin-right: 10px;
+}
+
+.logo-building-IT {
+  position: absolute;
+  bottom: 0;
+  left: 5px;
+  width: 30px;
+  height: 35px;
+  background-color: #ff3333;
+  border-radius: 3px 3px 0 0;
+}
+
+.logo-flag-IT {
+  position: absolute;
+  top: 0;
+  left: 18px;
+  width: 4px;
+  height: 20px;
+  background-color: #ffffff;
+}
+.logo-flag-IT::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 4px;
+  width: 15px;
+  height: 10px;
+  background-color: #ff3333;
+}
+
+.brand-name-IT {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+}
+
+.nav-menu-IT {
+  display: flex;
+  gap: 2rem;
+}
+.nav-link-IT {
+  color: white;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+.nav-link-IT:hover {
+  color: #c0c0c0;
+}
+
+.search-profile-IT {
   display: flex;
   align-items: center;
-  margin-right: 1rem;
-  flex-shrink: 0;
+  gap: 1rem;
 }
 
-.logo {
-  height: 32px;
-  margin-right: 0.5rem;
-}
-
-.logo-container h1 {
-  font-size: 1.2rem;
-  font-weight: 600;
-}
-
-.main-nav {
-  overflow-x: auto;
-  white-space: nowrap;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE and Edge */
-}
-
-.main-nav::-webkit-scrollbar {
-  display: none; /* Chrome, Safari and Opera */
-}
-
-.main-nav ul {
-  display: flex;
-  list-style: none;
-}
-
-.main-nav li {
-  margin-right: 1.2rem;
-  cursor: pointer;
-  padding: 0.5rem 0;
-  font-size: 0.9rem;
-  flex-shrink: 0;
-}
-
-.main-nav li.active {
-  font-weight: 600;
-  border-bottom: 2px solid white;
-}
-
-.search-container {
-  margin-left: auto;
+.search-container-IT {
   display: flex;
   align-items: center;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  padding: 0.25rem 0.5rem;
-  flex-shrink: 0;
-  min-width: 120px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 0.2rem 0.5rem;
 }
 
-.search-container input {
+.search-input-IT {
   background: transparent;
   border: none;
   color: white;
+  padding: 0.3rem 0.5rem;
+  width: 180px;
   outline: none;
-  width: 150px;
-  max-width: 100%;
-  padding: 0.25rem;
 }
-
-.search-container input::placeholder {
+.search-input-IT::placeholder {
   color: rgba(255, 255, 255, 0.7);
 }
-
-.search-button {
+.search-button-IT {
   background: transparent;
   border: none;
   color: white;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.user-profile {
-  margin-left: 0.75rem;
-  flex-shrink: 0;
+.profile-menu-container-IT {
+  position: relative;
 }
-
-.avatar {
-  background-color: #e74c3c;
+.profile-circle-IT {
+  width: 40px;
+  height: 40px;
+  background-color: #555;
   color: white;
-  width: 32px;
-  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
+  cursor: pointer;
+  font-weight: bold;
+}
+.profile-menu-IT {
+  position: absolute;
+  right: 0;
+  margin-top: 10px;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 10;
+}
+.profile-menu-IT button {
+  background: none;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+.profile-menu-IT button:hover {
+  background-color: #f0f0f0;
 }
 
-/* Main content layout */
-.main-content {
-  display: flex;
-  flex: 1;
-  min-height: calc(100vh - 60px);
-  height: calc(100vh - 60px); /* Fix height to viewport minus header */
-  overflow: hidden; /* Prevent scrolling at this level */
-}
+.profile-menu-IT button { width: 100%; background: none; border: none; padding: 0.5rem 0; cursor: pointer; }
 
-/* Sidebar styles */
-.sidebar {
+.main-content-IT { display: flex; flex: 1; min-height: calc(100vh - 60px); height: calc(100vh - 60px); overflow: hidden; }
+
+.sidebar-IT {
   background-color: white;
   width: 250px;
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  height: calc(100vh - 60px); /* Make it full-height minus header */
+  height: calc(100vh - 60px);
   overflow-y: auto;
-  position: relative; /* or remove position if unnecessary */
+  position: relative;
 }
 
-.sidebar h2 {
-  font-size: 1.3rem;
-  margin-bottom: 1.5rem;
-  color: #333;
-}
-
-.error-msg {
-  color: red;
-  font-size: 0.85em;
-  margin-top: 2px;
-}
-
-.new-account-btn {
+.sidebar-IT h2 { font-size: 1.3rem; margin-bottom: 1.5rem; color: #333; }
+.error-msg-IT { color: red; font-size: 0.85em; margin-top: 2px; }
+.new-account-btn-IT {
   background-color: #3353c9;
   color: white;
   border: none;
@@ -174,17 +193,10 @@ body {
   margin-bottom: 2rem;
   transition: background-color 0.2s ease;
 }
+.new-account-btn-IT:hover { background-color: #2843b0; }
 
-.new-account-btn:hover {
-  background-color: #2843b0;
-}
-
-.user-profile-large {
-  text-align: center;
-  margin-top: 2rem;
-}
-
-.profile-avatar {
+.user-profile-large-IT { text-align: center; margin-top: 2rem; }
+.profile-avatar-IT {
   background-color: #5762a5;
   color: white;
   width: 80px;
@@ -196,57 +208,17 @@ body {
   font-size: 2rem;
   margin: 0 auto 1rem;
 }
+.user-profile-large-IT h3 { font-size: 1.1rem; margin-bottom: 0.3rem; }
+.user-email-IT { color: #777; font-size: 0.85rem; margin-bottom: 0.5rem; }
+.user-position-IT { font-weight: 600; margin-bottom: 0.5rem; }
+.status-indicator-IT { margin-top: 0.5rem; }
+.status-IT { font-size: 0.8rem; padding: 0.25rem 0.75rem; border-radius: 50px; }
+.status-IT.active-IT { background-color: rgba(72, 199, 142, 0.1); color: #48c78e; }
 
-.user-profile-large h3 {
-  font-size: 1.1rem;
-  margin-bottom: 0.3rem;
-}
-
-.user-email {
-  color: #777;
-  font-size: 0.85rem;
-  margin-bottom: 0.5rem;
-}
-
-.user-position {
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-}
-
-.status-indicator {
-  margin-top: 0.5rem;
-}
-
-.status {
-  font-size: 0.8rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 50px;
-}
-
-.status.active {
-  background-color: rgba(72, 199, 142, 0.1);
-  color: #48c78e;
-}
-
-/* Create Account sidebar styles - IMPROVED */
-.create-account-sidebar {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.create-account-sidebar h2 {
-  margin-bottom: 1.5rem;
-  font-size: 1.2rem;
-  color: #192f59;
-}
-
-.create-account-sidebar .form-group {
-  margin-bottom: 1.25rem;
-}
-
-.create-account-sidebar .form-control {
+.create-account-sidebar-IT { width: 100%; height: 100%; display: flex; flex-direction: column; }
+.create-account-sidebar-IT h2 { margin-bottom: 1.5rem; font-size: 1.2rem; color: #192f59; }
+.form-group-IT { margin-bottom: 1.25rem; }
+.form-control-IT {
   width: 100%;
   padding: 0.7rem;
   border: 1px solid #ddd;
@@ -257,21 +229,12 @@ body {
   color: #333;
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  height: 42px; /* Add consistent height for all form controls */
-  box-sizing: border-box; /* Ensure padding is included in height calculation */
+  height: 42px;
+  box-sizing: border-box;
 }
-
-.create-account-sidebar .form-control:focus {
-  border-color: #3353c9;
-  box-shadow: 0 0 0 3px rgba(51, 83, 201, 0.15);
-  outline: none;
-}
-
-.create-account-sidebar .form-control::placeholder {
-  color: #999;
-}
-
-.create-account-sidebar select.form-control {
+.form-control-IT:focus { border-color: #3353c9; box-shadow: 0 0 0 3px rgba(51, 83, 201, 0.15); outline: none; }
+.form-control-IT::placeholder { color: #999; }
+.create-account-sidebar-IT select.form-control-IT {
   background-color: white;
   appearance: none;
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
@@ -282,8 +245,7 @@ body {
   height: 42px;
   line-height: normal;
 }
-
-.create-account-btn {
+.create-account-btn-IT {
   background-color: #3353c9;
   color: white;
   border: none;
@@ -297,29 +259,9 @@ body {
   margin-bottom: 0.75rem;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
-
-.create-account-btn:hover {
-  background-color: #2843b0;
-}
-
-.create-account-sidebar input[type="text"],
-.create-account-sidebar input[type="email"],
-.create-account-sidebar input[type="password"],
-.create-account-sidebar input::placeholder {
-  height: 42px;
-  appearance: none; /* Standardize appearance across browsers */
-  font-size: 0.9rem;
-  font-family: 'Inter', sans-serif;
-  line-height: 1.5;
-}
-
-.button-group {
-  margin-top: auto;
-  padding-top: 1rem;
-}
-
-/* Back button styling - IMPROVED */
-.back-btn {
+.create-account-btn-IT:hover { background-color: #2843b0; }
+.button-group-IT { margin-top: auto; padding-top: 1rem; }
+.back-btn-IT {
   width: 100%;
   padding: 0.7rem 1rem;
   background-color: #f5f7fa;
@@ -333,289 +275,65 @@ body {
   justify-content: center;
   transition: all 0.2s ease;
 }
+.back-btn-IT:hover { background-color: #edf0f7; color: #333; }
+.back-arrow-IT { margin-right: 0.5rem; font-size: 1.1rem; line-height: 1; }
 
-.back-btn:hover {
-  background-color: #edf0f7;
-  color: #333;
-}
-
-.back-arrow {
-  margin-right: 0.5rem;
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
-/* Dashboard content styles */
-.dashboard-content {
-  flex: 1;
-  padding: 1.5rem;
-  overflow-y: auto; /* Enable scrolling for content */
-  height: 100%; /* Full height */
-}
-
-.dashboard-card {
+.dashboard-content-IT { flex: 1; padding: 1.5rem; overflow-y: auto; height: 100%; }
+.dashboard-card-IT {
   background-color: white;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   padding: 1.5rem;
 }
+.welcome-header-IT { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+.welcome-header-IT h2 { font-size: 1.5rem; font-weight: 600; }
+.stats-container-IT { display: flex; gap: 1.5rem; }
+.stat-card-IT { display: flex; align-items: center; padding: 0.75rem 1.5rem; border-radius: 8px; background-color: white; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); }
+.stat-icon-IT { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 1rem; font-size: 1.2rem; }
+.stat-icon-IT.users-IT { background-color: rgba(72, 199, 142, 0.1); color: #48c78e; }
+.stat-icon-IT.devices-IT { background-color: rgba(72, 199, 142, 0.1); color: #48c78e; }
+.stat-label-IT { font-size: 0.85rem; color: #777; }
+.stat-number-IT { font-size: 1.5rem; font-weight: 600; }
 
-.welcome-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-}
+.accounts-section-IT { margin-top: 1.5rem; }
+.accounts-header-IT { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.accounts-header-IT h3 { font-size: 1.1rem; }
+.accounts-tools-IT { display: flex; gap: 1rem; align-items: center; }
+.search-box-IT { position: relative; }
+.search-box-IT .search-input-IT { border: 1px solid #ddd; border-radius: 4px; padding: 0.5rem 2rem 0.5rem 0.75rem; font-size: 0.9rem; }
+.sort-dropdown-IT { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; }
+.sort-dropdown-IT select { border: 1px solid #ddd; border-radius: 4px; padding: 0.5rem; font-size: 0.9rem; }
 
-.welcome-header h2 {
-  font-size: 1.5rem;
-  font-weight: 600;
-}
+.accounts-table-IT { margin-top: 1rem; overflow-x: auto; }
+.accounts-table-IT table { width: 100%; border-collapse: collapse; }
+.accounts-table-IT thead { background-color: #f9fafb; }
+.accounts-table-IT th { text-align: left; padding: 0.75rem 1rem; font-size: 0.85rem; font-weight: 500; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
+.accounts-table-IT td { padding: 0.75rem 1rem; border-bottom: 1px solid #e5e7eb; font-size: 0.9rem; }
+.accounts-table-IT tbody tr:hover { background-color: #f9fafb; }
+.status-badge-IT { display: inline-flex; padding: 0.25rem 0.75rem; border-radius: 50px; font-size: 0.75rem; font-weight: 500; }
+.status-badge-IT.active-IT { background-color: rgba(72, 199, 142, 0.1); color: #48c78e; }
+.status-badge-IT.inactive-IT { background-color: rgba(241, 82, 82, 0.1); color: #f15252; }
+.edit-button-IT { background: none; border: none; cursor: pointer; font-size: 0.9rem; }
 
-.stats-container {
-  display: flex;
-  gap: 1.5rem;
-}
+.pagination-IT { display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; font-size: 0.85rem; }
+.pagination-info-IT { color: #6b7280; }
+.pagination-controls-IT { display: flex; gap: 0.25rem; }
+.pagination-btn-IT { width: 32px; height: 32px; border-radius: 4px; background-color: white; border: 1px solid #e5e7eb; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.pagination-btn-IT.active-IT { background-color: #5762a5; color: white; border-color: #5762a5; }
+.pagination-btn-IT:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.stat-card {
-  display: flex;
-  align-items: center;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  background-color: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.stat-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 1rem;
-  font-size: 1.2rem;
-}
-
-.stat-icon.users {
-  background-color: rgba(72, 199, 142, 0.1);
-  color: #48c78e;
-}
-
-.stat-icon.devices {
-  background-color: rgba(72, 199, 142, 0.1);
-  color: #48c78e;
-}
-
-.stat-label {
-  font-size: 0.85rem;
-  color: #777;
-}
-
-.stat-number {
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-/* Accounts section */
-.accounts-section {
-  margin-top: 1.5rem;
-}
-
-.accounts-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.accounts-header h3 {
-  font-size: 1.1rem;
-}
-
-.accounts-tools {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-}
-
-.search-box {
-  position: relative;
-}
-
-.search-box input {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 0.5rem 2rem 0.5rem 0.75rem;
-  font-size: 0.9rem;
-}
-
-.search-icon {
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #999;
-}
-
-.sort-dropdown {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.sort-dropdown select {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 0.5rem;
-  font-size: 0.9rem;
-}
-
-/* Table styles */
-.accounts-table {
-  margin-top: 1rem;
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-thead {
-  background-color: #f9fafb;
-}
-
-th {
-  text-align: left;
-  padding: 0.75rem 1rem;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: #6b7280;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e5e7eb;
-  font-size: 0.9rem;
-}
-
-tbody tr:hover {
-  background-color: #f9fafb;
-}
-
-.status-badge {
-  display: inline-flex;
-  padding: 0.25rem 0.75rem;
-  border-radius: 50px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.status-badge.active {
-  background-color: rgba(72, 199, 142, 0.1);
-  color: #48c78e;
-}
-
-.status-badge.inactive {
-  background-color: rgba(241, 82, 82, 0.1);
-  color: #f15252;
-}
-
-.edit-button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-/* Pagination */
-.pagination {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 1.5rem;
-  font-size: 0.85rem;
-}
-
-.pagination-info {
-  color: #6b7280;
-}
-
-.pagination-controls {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.pagination-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 4px;
-  background-color: white;
-  border: 1px solid #e5e7eb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.pagination-btn.active {
-  background-color: #5762a5;
-  color: white;
-  border-color: #5762a5;
-}
-
-.pagination-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.status-toggle-button {
-  padding: 4px 8px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.status-toggle-button.deactivate {
-  background-color: #f44336;
-  color: white;
-}
-
-.status-toggle-button.activate {
-  background-color: #4caf50;
-  color: white;
-}
-
+.status-toggle-button-IT { padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; }
+.status-toggle-button-IT.deactivate-IT { background-color: #f44336; color: white; }
+.status-toggle-button-IT.activate-IT { background-color: #4caf50; color: white; }
 
 /* Media queries for responsiveness */
 @media (max-width: 768px) {
-  .search-container input {
-    width: 120px;
-  }
-  
-  .create-account-sidebar .form-control {
-    height: 42px;
-  }
-  
-  .logo-container h1 {
-    font-size: 1rem;
-  }
-  
-  .main-nav li {
-    margin-right: 1rem;
-    font-size: 0.8rem;
-  }
+  .search-container-IT .search-input-IT { width: 120px; }
+  .create-account-sidebar-IT .form-control-IT { height: 42px; }
+  .logo-container-IT h1 { font-size: 1rem; }
 }
 
 @media (max-width: 576px) {
-  .search-container {
-    max-width: 100px;
-  }
-  
-  .search-container input {
-    width: 80px;
-  }
+  .search-container-IT { max-width: 100px; }
+  .search-input-IT { width: 80px; }
 }
