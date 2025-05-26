@@ -9,6 +9,45 @@ const Area_Dash = () => {
   const navigate = useNavigate();
   const [userName, setUserName] = useState('');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [materialRequests, setMaterialRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [requestsError, setRequestsError] = useState(null);
+  const token = localStorage.getItem('token');
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const userId = user?._id;
+
+  useEffect(() => {
+  if (!token || !user) {
+    navigate('/');
+    return;
+  }
+  setUserName(user.name); 
+}, [navigate, token, user]);
+
+useEffect(() => {
+  const fetchRequests = async () => {
+    if (!token) {
+      setRequestsError('Session expired. Please log in again.');
+      setLoadingRequests(false);
+      return;
+    }
+    try {
+      const res = await fetch('http://localhost:5000/api/requests/mine', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to fetch requests');
+      const data = await res.json();
+      setMaterialRequests(data);
+      setRequestsError(null);
+    } catch (error) {
+      setRequestsError('Error loading material requests');
+    }
+    setLoadingRequests(false);
+  };
+  fetchRequests();
+}, []);
+
   const [projects, setProjects] = useState([
     { 
       id: 1, 
@@ -153,8 +192,8 @@ const Area_Dash = () => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
-          <Link to="/requests" className="nav-link">Requests</Link>
+          <Link to="/am" className="nav-link">Dashboard</Link>
+          <Link to="/am/matreq" className="nav-link">Material Request</Link>
           <Link to="/ceo/proj" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
@@ -194,7 +233,7 @@ const Area_Dash = () => {
           <h2>Dashboard</h2>
           <button 
             className="add-project-btn" 
-            onClick={() => navigate('/ceo/addproj')}
+            onClick={() => navigate('/am/addproj')}
           >
             Add New Project
           </button>

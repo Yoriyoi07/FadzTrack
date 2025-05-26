@@ -1,23 +1,57 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import '../style/am_style/Area_Addproj.css';
+import { useNavigate, Link } from 'react-router-dom';
+import '../style/ceo_style/Ceo_Addproj.css';
 
-const AddProject = () => {
+const Area_Addproj = () => {
   const navigate = useNavigate();
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
+  // Get logged-in user info from localStorage
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const userId = user?._id; // This will be the areamanager
+
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [projectManagers, setProjectManagers] = useState([]);
+  const [pics, setPics] = useState([]);
+
+  // Initialize formData and include areamanager from the start
   const [formData, setFormData] = useState({
     projectName: '',
-    pic: '',
+    pic: [],
     contractor: '',
     budget: '',
     location: '',
     startDate: '',
-    endDate: '',    
+    endDate: '',
     manpower: '',
-    projectmanager: ''
+    projectmanager: '',
+    areamanager: userId || ''
   });
 
+  // Keep areamanager updated if user changes (edge case)
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      areamanager: userId || ''
+    }));
+  }, [userId]);
+
+  // Handle multiple selection for PICs
+  const handleChangeMultiplePics = (e) => {
+    const options = e.target.options;
+    const selectedPics = [];
+    for (let i = 0; i < options.length; i++) {
+      if (options[i].selected) {
+        selectedPics.push(options[i].value);
+      }
+    }
+    setFormData(prevState => ({
+      ...prevState,
+      pic: selectedPics
+    }));
+  };
+
+  // Handle input change for text, date, number, etc.
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prevState => ({
@@ -26,35 +60,67 @@ const AddProject = () => {
     }));
   };
 
+  // Fetch Project Managers and PICs
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const [pmRes, picRes] = await Promise.all([
+          fetch('http://localhost:5000/api/users/role/Project%20Manager'),
+          fetch('http://localhost:5000/api/users/role/Person%20in%20Charge')
+        ]);
+
+        const pmData = await pmRes.json();
+        const picData = await picRes.json();
+
+        setProjectManagers(Array.isArray(pmData) ? pmData : pmData.data || []);
+        setPics(Array.isArray(picData) ? picData : picData.data || []);
+      } catch (err) {
+        console.error('Failed to fetch users:', err);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  // Profile menu logic
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
         setProfileMenuOpen(false);
       }
     };
-    
+
     document.addEventListener("click", handleClickOutside);
-    
+
     return () => {
       document.removeEventListener("click", handleClickOutside);
     };
   }, []);
 
+  // Logout
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/');
   };
 
+  // Submit form and include areamanager in the payload
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.startDate || !formData.endDate) {
+    // Always make sure areamanager is set to the latest userId
+    const stored = localStorage.getItem('user');
+    const user = stored ? JSON.parse(stored) : null;
+    const userId = user?._id;
+
+    const submitData = { ...formData, areamanager: userId };
+
+    // Validation
+    if (!submitData.startDate || !submitData.endDate) {
       alert("Please select both start and end dates.");
       return;
     }
-    
-    if (new Date(formData.endDate) < new Date(formData.startDate)) {
+    if (new Date(submitData.endDate) < new Date(submitData.startDate)) {
       alert("End date cannot be before start date.");
       return;
     }
@@ -62,39 +128,37 @@ const AddProject = () => {
     try {
       const response = await fetch('http://localhost:5000/api/projects', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submitData)
       });
-  
+
       const result = await response.json();
 
       if (response.ok) {
         alert('✅ Project added successfully!');
         setFormData({
           projectName: '',
-          pic: '',
+          pic: [],
           contractor: '',
           budget: '',
           location: '',
           startDate: '',
           endDate: '',
           manpower: '',
-          projectmanager: ''
+          projectmanager: '',
+          areamanager: userId || ''
         });
-        console.log('Form data:', formData);
-
+        // Redirect or do something
+        navigate('/ceo/dash'); // Change to your area dashboard route if needed
       } else {
         alert(`❌ Error: ${result.message || 'Failed to add project'}`);
       }
-  
     } catch (error) {
       console.error('❌ Submission error:', error);
       alert('❌ Failed to connect to server.');
     }
   };
-  
+
   return (
     <div className="app-container">
       {/* Header with Navigation */}
@@ -107,11 +171,12 @@ const AddProject = () => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <a href="#" className="nav-link">Requests</a>
-          <a href="#" className="nav-link">Projects</a>
-          <a href="#" className="nav-link">Chat</a>
-          <a href="#" className="nav-link">Logs</a>
-          <a href="#" className="nav-link">Reports</a>
+          <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
+          <Link to="/requests" className="nav-link">Requests</Link>
+          <Link to="/ceo/proj" className="nav-link">Projects</Link>
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="search-profile">
           <div className="search-container">
@@ -124,13 +189,12 @@ const AddProject = () => {
             </button>
           </div>
           <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
+            <div
+              className="profile-circle"
               onClick={() => setProfileMenuOpen(!profileMenuOpen)}
             >
-              Z
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
-            
             {profileMenuOpen && (
               <div className="profile-menu">
                 <button onClick={handleLogout}>Logout</button>
@@ -144,7 +208,6 @@ const AddProject = () => {
       <main className="main-content">
         <div className="form-container">
           <h2 className="page-title">Add New Project</h2>
-          
           <form onSubmit={handleSubmit} className="project-form">
             <div className="form-row">
               <div className="form-group">
@@ -158,21 +221,23 @@ const AddProject = () => {
                   onChange={handleChange}
                 />
               </div>
-              
               <div className="form-group">
-                <label htmlFor="PIC">PIC</label>
-                <input
-                  type="text"
+                <label htmlFor="pic">PIC</label>
+                <select
                   id="pic"
                   name="pic"
-                  placeholder="Enter PIC details"
+                  multiple
                   value={formData.pic}
-                  onChange={handleChange}
-                />
+                  onChange={handleChangeMultiplePics}
+                >
+                  {pics.map((user) => (
+                    <option key={user._id} value={user._id}>
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-
-
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="contractor">Contractor</label>
@@ -185,23 +250,26 @@ const AddProject = () => {
                   onChange={handleChange}
                 />
               </div>
-              
-                  <div className="form-group">
+              <div className="form-group">
                 <label htmlFor="projectmanager">Project Manager</label>
-                <input
-                  type="text"
+                <select
                   id="projectmanager"
                   name="projectmanager"
-                  placeholder="Enter Project Manager details"
                   value={formData.projectmanager}
                   onChange={handleChange}
-                />
+                >
+                  <option value="">-- Select Project Manager --</option>
+                  {projectManagers.map((user) => (
+                    <option key={user._id} value={user._id}>
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
               </div>
-
               <div className="form-group">
                 <label htmlFor="Budget">Budget</label>
                 <input
-                  type="text"
+                  type="number"
                   id="budget"
                   name="budget"
                   placeholder="Enter Budget Details"
@@ -210,7 +278,6 @@ const AddProject = () => {
                 />
               </div>
             </div>
-
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="location">Location</label>
@@ -223,7 +290,6 @@ const AddProject = () => {
                   onChange={handleChange}
                 />
               </div>
-              
               <div className="form-group">
                 <label htmlFor="startDate">Start Date</label>
                 <input
@@ -235,7 +301,6 @@ const AddProject = () => {
                   required
                 />
               </div>
-
               <div className="form-group">
                 <label htmlFor="endDate">End Date</label>
                 <input
@@ -245,11 +310,10 @@ const AddProject = () => {
                   value={formData.endDate}
                   onChange={handleChange}
                   required
-                  min={formData.startDate} 
+                  min={formData.startDate}
                 />
               </div>
             </div>
-
             <div className="form-row single-column">
               <div className="form-group">
                 <label htmlFor="manpower">Manpower</label>
@@ -262,45 +326,14 @@ const AddProject = () => {
                 ></textarea>
               </div>
             </div>
-
             <div className="form-row submit-row">
               <button type="submit" className="submit-button">Add Project</button>
             </div>
           </form>
         </div>
       </main>
-      
-      {/* Footer */}
-      <footer className="footer">
-        <div className="footer-column">
-          <p className="footer-category">Member</p>
-          <a href="#" className="footer-link">Become A Member</a>
-          <a href="#" className="footer-link">Running Shoe Finder</a>
-          <a href="#" className="footer-link">Product Advice</a>
-          <a href="#" className="footer-link">Education Discounts</a>
-          <a href="#" className="footer-link">Send Us Feedback</a>
-        </div>
-        
-        <div className="footer-column">
-          <p className="footer-category">Orders</p>
-          <a href="#" className="footer-link">Order Status</a>
-          <a href="#" className="footer-link">Delivery</a>
-          <a href="#" className="footer-link">Returns</a>
-          <a href="#" className="footer-link">Payment Options</a>
-          <a href="#" className="footer-link">Contact Us</a>
-        </div>
-        
-        <div className="footer-column">
-          <p className="footer-category">About</p>
-          <a href="#" className="footer-link">News</a>
-          <a href="#" className="footer-link">Careers</a>
-          <a href="#" className="footer-link">Investors</a>
-          <a href="#" className="footer-link">Sustainability</a>
-          <a href="#" className="footer-link">Impact</a>
-        </div>
-      </footer>
     </div>
   );
-}
+};
 
-export default AddProject;
+export default Area_Addproj;

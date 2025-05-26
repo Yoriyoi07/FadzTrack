@@ -12,6 +12,7 @@ exports.addProject = async (req, res) => {
       startDate, 
       endDate,   
       manpower,
+      areamanager
     } = req.body;
 
     const newProject = new Project({
@@ -24,6 +25,7 @@ exports.addProject = async (req, res) => {
       startDate, 
       endDate,   
       manpower,
+      areamanager
     });
 
     await newProject.save();

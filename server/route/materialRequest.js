@@ -1,4 +1,3 @@
-// route/materialRequest.js
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -82,13 +81,9 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
 
   try {
     const request = await MaterialRequest.findById(req.params.id).populate('project');
-    console.log("Loaded request:", request);
     if (!request) return res.status(404).json({ message: 'Request not found' });
-    console.log("Loaded project in request:", request.project);
-    // Role-based validation
-    const { project } = request;
 
-    // Defensive checks
+    const { project } = request;
     if (!project) {
       return res.status(500).json({ message: 'Material Request has no linked project.' });
     }
@@ -99,7 +94,7 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
       return res.status(500).json({ message: 'Project has no areamanager assigned.' });
     }
 
-    // Safe comparison
+    // --- MAKE SURE YOU DEFINE THESE FIRST ---
     const isPM = project.projectmanager && project.projectmanager.toString() === userId;
     const isAM = project.areamanager && project.areamanager.toString() === userId;
     const isCEO = userRole === 'CEO';
@@ -107,6 +102,19 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
     let nextStatus = '';
     let currentStatus = request.status;
 
+    // --- NOW YOU CAN LOG ---
+    console.log({
+      currentStatus,
+      isPM,
+      isAM,
+      isCEO,
+      userRole,
+      projectmanager: project.projectmanager,
+      areamanager: project.areamanager,
+      userId,
+    });
+
+    // Now your status/role decision logic:
     if (currentStatus === 'Pending PM' && isPM) {
       nextStatus = decision === 'approved' ? 'Pending AM' : 'Denied by PM';
     } else if (currentStatus === 'Pending AM' && isAM) {
@@ -117,9 +125,17 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized or invalid state' });
     }
 
+    // Role mapping for approvals array
+    const roleMap = {
+      'Project Manager': 'PM',
+      'Area Manager': 'AM',
+      'CEO': 'CEO'
+    };
+    const approvalRole = roleMap[userRole] || userRole;
+
     // Log the approval
     request.approvals.push({
-      role: userRole,
+      role: approvalRole,
       user: userId,
       decision,
       reason
@@ -134,6 +150,7 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
     res.status(500).json({ message: 'Failed to process approval' });
   }
 });
+
 
 
 // route/materialRequest.js
@@ -153,8 +170,8 @@ router.get('/mine', verifyToken, async (req, res) => {
       requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
         .populate('project')
         .populate('createdBy');
-    } else if (userRole === 'AM') {
-      const projects = await Project.find({ areaManager: userId });
+    } else if (userRole === 'AM' || userRole === 'Area Manager') {
+      const projects = await Project.find({ areamanager: userId });
       requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
         .populate('project')
         .populate('createdBy');

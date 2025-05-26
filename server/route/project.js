@@ -28,7 +28,7 @@ router.get('/role/:role', async (req, res) => {
 
 
 router.post('/', async (req, res) => {
-   console.log('📥 Received POST /api/projects');
+  console.log('📥 Received POST /api/projects');
   console.log('📝 Request body:', req.body);
 
   try {
@@ -36,6 +36,7 @@ router.post('/', async (req, res) => {
       projectName,
       pic,
       projectmanager,
+      areamanager,    
       contractor,
       budget,
       location,
@@ -48,6 +49,7 @@ router.post('/', async (req, res) => {
       projectName,
       pic,
       projectmanager,
+      areamanager,  
       contractor,
       budget,
       location,
