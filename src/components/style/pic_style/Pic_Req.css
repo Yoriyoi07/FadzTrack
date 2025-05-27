@@ -169,10 +169,174 @@
 }
 
 .attachment-image {
-  width: 200px !important;
-  height: 200px !important;
+  width: 200px;
+  height: 200px;
+  object-fit: cover; 
   border-radius: 8px;
   border: 1px solid #ccc;
+}
+
+/* Attach More Images Button */
+.attach-more-btn {
+  background-color: #4CAF50;
+  color: white;
+  padding: 8px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  margin: 10px 0;
+}
+
+.attach-more-btn:hover {
+  background-color: #45a049;
+}
+
+.upload-section-picmatreq .file-input-picmatreq {
+  display: none;
+}
+
+.remove-file-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #ff4d4f;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.remove-file-btn:hover {
+  background: #ff1a1a;
+}
+
+/* File Upload Section */
+.upload-section-picmatreq {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem;
+  border: 2px dashed #c0c4cc;
+  border-radius: 12px;
+  background-color: #fafafa;
+  transition: all 0.2s ease;
+}
+
+.upload-section-picmatreq:hover {
+  border-color: #007bff;
+  background-color: #f8fbff;
+}
+
+.upload-button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background-color: #007bff;
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+}
+
+.upload-button:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.upload-icon-picmatreq {
+  font-size: 1.2rem;
+}
+
+.upload-hint-picmatreq {
+  color: #666;
+  font-size: 0.9rem;
+  text-align: center;
+  font-style: italic;
+}
+
+.uploaded-files-picmatreq {
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.file-item-picmatreq {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  border: 1px solid #e9ecef;
+}
+
+.file-name-picmatreq {
+  color: #333;
+  font-weight: 500;
+}
+
+.remove-file-btn-picmatreq {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.remove-file-btn-picmatreq:hover {
+  background-color: #c82333;
+  transform: scale(1.1);
+}
+
+.preview-container {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.preview-item {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #007bff;
+}
+
+.preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.existing-attachments {
+  display: flex;
+  gap: 10px;
+}
+
+.existing-attachment-item {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid #007bff;
 }
 
 
@@ -201,7 +365,9 @@
 }
 
 .back-btn,
-.cancel-btn {
+.edit-btn,
+.cancel-btn,
+.received-btn {
   padding: 0.75rem 2rem;
   border: none;
   border-radius: 8px;
@@ -222,6 +388,16 @@
   transform: translateY(-1px);
 }
 
+.edit-btn {
+  background-color: #28a745;
+  color: white;
+}
+
+.edit-btn:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+}
+
 .cancel-btn {
   background-color: #dc3545;
   color: white;
@@ -230,6 +406,25 @@
 .cancel-btn:hover {
   background-color: #c82333;
   transform: translateY(-1px);
+}
+
+.received-btn {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.received-btn:hover {
+  background-color: #138496;
+  transform: translateY(-1px);
+}
+
+.received-badge {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #c3e6cb;
+  font-weight: 500;
 }
 
 .back-button {
@@ -245,6 +440,25 @@
 
 .back-button:hover {
   background-color: #0056b3;
+}
+
+/* Edit Mode Form Actions */
+.cancel-btn-picmatreq {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  min-width: 140px;
+}
+
+.cancel-btn-picmatreq:hover {
+  background-color: #5a6268;
+  transform: translateY(-1px);
 }
 
 /* Responsive Design */
@@ -271,7 +485,9 @@
   }
 
   .back-btn,
-  .cancel-btn {
+  .edit-btn,
+  .cancel-btn,
+  .received-btn {
     width: 100%;
     max-width: 200px;
   }

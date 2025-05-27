@@ -17,9 +17,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+// PUT - Update material request by ID
 router.put('/:id', verifyToken, upload.array('newAttachments'), async (req, res) => {
   try {
-    // Parse JSON fields
     const { materials, description, attachments } = req.body;
     let updatedAttachments = [];
     try {
@@ -27,13 +27,14 @@ router.put('/:id', verifyToken, upload.array('newAttachments'), async (req, res)
     } catch {
       updatedAttachments = [];
     }
-    // Add any new files
+
     if (req.files && req.files.length > 0) {
       updatedAttachments = [
         ...updatedAttachments,
         ...req.files.map(file => file.filename)
       ];
     }
+
     const updated = await MaterialRequest.findByIdAndUpdate(
       req.params.id,
       {
@@ -50,30 +51,33 @@ router.put('/:id', verifyToken, upload.array('newAttachments'), async (req, res)
   }
 });
 
-// POST /api/requests
+// POST - Create a new material request
 router.post('/', verifyToken, upload.array('attachments'), async (req, res) => {
   try {
-   const { materials, description, project } = req.body;
-    const parsedMaterials = JSON.parse(materials);
-    const attachments = req.files.map(file => file.filename);
+    const { materials, description, project } = req.body;
+
+    let attachments = [];
+    if (req.files && req.files.length > 0) {
+      attachments = req.files.map(file => file.filename);
+    }
 
     const newRequest = new MaterialRequest({
-      project,
-      createdBy: req.user.id,
-      materials: parsedMaterials,
+      materials: JSON.parse(materials),
       description,
-      attachments
+      attachments,
+      project,
+      createdBy: req.user.id, // assuming `req.user.id` is the logged-in user
     });
 
     await newRequest.save();
-    res.status(201).json({ message: 'Material request submitted successfully' });
-  } catch (error) {
-    console.error('❌ Error submitting material request:', error);
-    res.status(500).json({ error: 'Failed to submit material request' });
+    res.status(201).json(newRequest);
+  } catch (err) {
+    console.error('Error creating material request:', err);
+    res.status(500).json({ message: 'Failed to create material request' });
   }
 });
 
-
+// Approval route
 router.post('/:id/approve', verifyToken, async (req, res) => {
   const { decision, reason } = req.body;
   const userId = req.user.id;
@@ -94,7 +98,6 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
       return res.status(500).json({ message: 'Project has no areamanager assigned.' });
     }
 
-    // --- MAKE SURE YOU DEFINE THESE FIRST ---
     const isPM = project.projectmanager && project.projectmanager.toString() === userId;
     const isAM = project.areamanager && project.areamanager.toString() === userId;
     const isCEO = userRole === 'CEO';
@@ -102,19 +105,6 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
     let nextStatus = '';
     let currentStatus = request.status;
 
-    // --- NOW YOU CAN LOG ---
-    console.log({
-      currentStatus,
-      isPM,
-      isAM,
-      isCEO,
-      userRole,
-      projectmanager: project.projectmanager,
-      areamanager: project.areamanager,
-      userId,
-    });
-
-    // Now your status/role decision logic:
     if (currentStatus === 'Pending PM' && isPM) {
       nextStatus = decision === 'approved' ? 'Pending AM' : 'Denied by PM';
     } else if (currentStatus === 'Pending AM' && isAM) {
@@ -125,7 +115,6 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized or invalid state' });
     }
 
-    // Role mapping for approvals array
     const roleMap = {
       'Project Manager': 'PM',
       'Area Manager': 'AM',
@@ -133,7 +122,6 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
     };
     const approvalRole = roleMap[userRole] || userRole;
 
-    // Log the approval
     request.approvals.push({
       role: approvalRole,
       user: userId,
@@ -151,7 +139,6 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
     res.status(500).json({ message: 'Failed to process approval' });
   }
 });
-
 
 router.get('/mine', verifyToken, async (req, res) => {
   const userId = req.user.id;
