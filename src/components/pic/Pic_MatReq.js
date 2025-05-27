@@ -13,12 +13,9 @@ const Pic_MatReq = () => {
   const [materials, setMaterials] = useState([{ id: 1, materialName: '', quantity: '' }]);
   const [formData, setFormData] = useState({ description: '' });
   const token = localStorage.getItem('token');
-const storedUser = localStorage.getItem('user');
-const user = storedUser ? JSON.parse(storedUser) : null;
-const userId = user?._id;
-
-
-
+  const storedUser = localStorage.getItem('user');
+  const user = storedUser ? JSON.parse(storedUser) : null;
+  const userId = user?._id;
 
   useEffect(() => {
     if (!token || !user) navigate('/');
@@ -48,9 +45,20 @@ const userId = user?._id;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Restrict quantity to numbers and 7 digits max
   const handleMaterialChange = (id, field, value) => {
     setMaterials(prev =>
-      prev.map(m => (m.id === id ? { ...m, [field]: value } : m))
+      prev.map(m => {
+        if (m.id === id) {
+          if (field === 'quantity') {
+            // Remove all non-digits, then trim to 7 digits
+            let filtered = value.replace(/\D/g, '').slice(0, 7);
+            return { ...m, [field]: filtered };
+          }
+          return { ...m, [field]: value };
+        }
+        return m;
+      })
     );
   };
 
@@ -78,79 +86,72 @@ const userId = user?._id;
   };
 
   useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (!event.target.closest(".profile-menu-container")) {
-          setProfileMenuOpen(false);
-        }
-      };
-      
-      document.addEventListener("click", handleClickOutside);
-      
-      return () => {
-        document.removeEventListener("click", handleClickOutside);
-      };
-    }, []);
-  
-    const handleLogout = () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
     };
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-console.log("Submitting with token:", token);
-
-  if (!token) {
-    alert('No token, please log in again.');
-    navigate('/');
-    return;
-  }
-
-  const validMaterials = materials.filter(m => m.materialName.trim() && m.quantity.trim());
-  if (validMaterials.length === 0) {
-    alert('Please add at least one material with quantity');
-    return;
-  }
-
-  const data = new FormData();
-  uploadedFiles.forEach(file => data.append('attachments', file));
-  data.append('description', formData.description);
-  data.append('materials', JSON.stringify(validMaterials));
-  data.append('project', projectId);
-
-  try {
-    const res = await fetch('http://localhost:5000/api/requests', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: data,
-    });
-
-    const result = await res.json();
-
-    if (result.msg === 'Invalid token') {
-      alert('Session expired. Please login again.');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+    e.preventDefault();
+    if (!token) {
+      alert('No token, please log in again.');
       navigate('/');
       return;
     }
 
-    console.log('✅ Uploaded:', result);
-    alert('✅ Material request submitted successfully!');
-    setFormData({ description: '' });
-    setMaterials([{ id: 1, materialName: '', quantity: '' }]);
-    setUploadedFiles([]);
-    setPreviewImages([]);
-  } catch (err) {
-    console.error('❌ Upload failed:', err);
-    alert('❌ Upload failed');
-  }
-};
+    const validMaterials = materials.filter(m => m.materialName.trim() && m.quantity.trim());
+    if (validMaterials.length === 0) {
+      alert('Please add at least one material with quantity');
+      return;
+    }
 
+    const data = new FormData();
+    uploadedFiles.forEach(file => data.append('attachments', file));
+    data.append('description', formData.description);
+    data.append('materials', JSON.stringify(validMaterials));
+    data.append('project', projectId);
+
+    try {
+      const res = await fetch('http://localhost:5000/api/requests', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: data,
+      });
+
+      const result = await res.json();
+
+      if (result.msg === 'Invalid token') {
+        alert('Session expired. Please login again.');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        navigate('/');
+        return;
+      }
+
+      alert('✅ Material request submitted successfully!');
+      setFormData({ description: '' });
+      setMaterials([{ id: 1, materialName: '', quantity: '' }]);
+      setUploadedFiles([]);
+      setPreviewImages([]);
+    } catch (err) {
+      console.error('❌ Upload failed:', err);
+      alert('❌ Upload failed');
+    }
+  };
 
   return (
     <div className="app-container">
@@ -228,10 +229,23 @@ console.log("Submitting with token:", token);
                     />
                     <input
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       value={material.quantity}
                       onChange={(e) => handleMaterialChange(material.id, 'quantity', e.target.value)}
                       placeholder="Quantity"
+                      maxLength={7}
                       className="quantity-input-picmatreq"
+                      onPaste={e => {
+                        const paste = e.clipboardData.getData('text');
+                        if (!/^\d+$/.test(paste)) e.preventDefault();
+                        if (paste.length > 7) e.preventDefault();
+                      }}
+                      onKeyPress={e => {
+                        if (!/[0-9]/.test(e.key) || material.quantity.length >= 7) {
+                          e.preventDefault();
+                        }
+                      }}
                     />
                     <button
                       type="button"

@@ -165,12 +165,12 @@ router.get('/mine', verifyToken, async (req, res) => {
         .populate('createdBy');
     } else if (userRole === 'PM' || userRole === 'Project Manager') {
       const projects = await Project.find({ projectmanager: userId });
-      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) }, status: "Pending PM" })
+      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
         .populate('project')
         .populate('createdBy');
     } else if (userRole === 'AM' || userRole === 'Area Manager') {
       const projects = await Project.find({ areamanager: userId });
-      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) }, status: "Pending AM" })
+      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
         .populate('project')
         .populate('createdBy');
     } else if (userRole === 'CEO') {
@@ -193,8 +193,8 @@ router.get('/:id', verifyToken, async (req, res) => {
   try {
     const request = await MaterialRequest.findById(req.params.id)
       .populate('project')
-      .populate('createdBy');
-
+      .populate('createdBy')
+      .populate('approvals.user', 'name role');
     if (!request) {
       return res.status(404).json({ message: 'Material Request not found' });
     }
@@ -217,6 +217,27 @@ router.delete('/:id', require('../middleware/authMiddleware').verifyToken, async
     res.status(500).json({ message: 'Error cancelling request', err });
   }
 });
+
+// PATCH /api/requests/:id/received
+router.patch('/:id/received', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await MaterialRequest.findById(id);
+    if (!request) return res.status(404).json({ message: 'Material request not found' });
+    if (request.status !== 'Approved') return res.status(400).json({ message: 'Request is not approved yet.' });
+    if (request.createdBy.toString() !== req.user.id) return res.status(403).json({ message: 'Not your request.' });
+    if (request.receivedByPIC) return res.status(400).json({ message: 'Already marked as received.' });
+
+    request.receivedByPIC = true;
+    request.receivedDate = new Date();  
+    await request.save();
+    res.json({ message: 'Marked as received.' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to mark as received', error: err.message });
+  }
+});
+
+
 
 
 

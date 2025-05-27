@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import ApproveDenyActions from '../ApproveDenyActions';
 import '../style/pm_style/Pm_MatRequest.css';
 
 const Pm_MaterialRequestDetail = () => {
@@ -8,10 +9,9 @@ const Pm_MaterialRequestDetail = () => {
   const [requestData, setRequestData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-
-  // For deny reason dialog
-  const [showDenyReason, setShowDenyReason] = useState(false);
-  const [denyReason, setDenyReason] = useState('');
+  const user = JSON.parse(localStorage.getItem('user'));
+  const userId = user?._id;
+  const userRole = user?.role;
 
   // Fetch request data
   useEffect(() => {
@@ -47,59 +47,6 @@ const Pm_MaterialRequestDetail = () => {
   // --- Attachments helpers ---
   const getAttachmentUrl = (file) =>
     file.startsWith('http') ? file : `http://localhost:5000/uploads/${file}`;
-
-  // --- Approve Handler ---
-  const handleApprove = async () => {
-    if (!window.confirm('Are you sure you want to APPROVE this request?')) return;
-    const token = localStorage.getItem('token');
-    try {
-      const res = await fetch(`http://localhost:5000/api/requests/${id}/approve`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ decision: 'approved' })
-        
-      });
-     if (!res.ok) throw new Error('Approval failed');
-      alert('Request approved.');
-      navigate(-1);
-    } catch (err) {
-      alert('Failed to approve request.');
-      console.error(err);
-    }
-  };
-
-  // --- Deny Handler (show modal, then submit reason) ---
-  const handleDeny = () => {
-    setShowDenyReason(true);
-  };
-  const submitDeny = async () => {
-    if (!denyReason.trim()) {
-      alert("Please provide a reason for denial.");
-      return;
-    }
-    const token = localStorage.getItem('token');
-    try {
-      const res = await fetch(`http://localhost:5000/api/requests/${id}/approve`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ decision: 'denied', reason: denyReason })
-      });
-      if (!res.ok) throw new Error('Denial failed');
-      alert('Request denied.');
-      setShowDenyReason(false);
-      setDenyReason('');
-      navigate(-1);
-    } catch (err) {
-      alert('Failed to deny request.');
-      console.error(err);
-    }
-  };
 
   if (loading) {
     return (
@@ -137,10 +84,14 @@ const Pm_MaterialRequestDetail = () => {
               <h2 className="section-title">Material to be Requested</h2>
               <div className="materials-list">
                 {requestData.materials.map((mat, idx) => (
-                  <div key={idx} className="material-item">
-                    <span className="material-name">{mat.materialName}</span>
-                    {mat.quantity && <span className="material-quantity"> ({mat.quantity})</span>}
-                  </div>
+                    <div key={idx} className="material-item">
+                    <span className="material-name">
+                        <strong>Material:</strong> {mat.materialName}
+                    </span>
+                    <span className="material-quantity">
+                        <strong>Quantity:</strong> {mat.quantity}
+                    </span>
+                    </div>
                 ))}
               </div>
             </div>
@@ -166,57 +117,14 @@ const Pm_MaterialRequestDetail = () => {
               </div>
             </div>
             {/* Action Buttons */}
-            <div className="action-buttons">
-              <button onClick={handleBack} className="back-btn">Back</button>
-              <button
-                onClick={handleApprove}
-                className="publish-button-picmatreq"
-                style={{ background: '#28a745', minWidth: 120 }}
-              >
-                Approve
-              </button>
-              <button
-                onClick={handleDeny}
-                className="cancel-btn"
-                style={{ marginLeft: '1rem', background: '#dc3545', color: '#fff', minWidth: 120 }}
-              >
-                Deny
-              </button>
-            </div>
+            <ApproveDenyActions
+              requestData={requestData}
+              userId={userId}
+              userRole={userRole}
+              onBack={handleBack}
+              // Optionally, add onActionComplete if you want extra behavior after approve/deny
+            />
           </>
-
-          {/* DENY MODAL */}
-          {showDenyReason && (
-            <div className="modal-overlay">
-              <div className="modal-content">
-                <h3>Deny Request</h3>
-                <p>Please provide a reason for denial:</p>
-                <textarea
-                  value={denyReason}
-                  onChange={e => setDenyReason(e.target.value)}
-                  rows={4}
-                  style={{
-                    width: '100%',
-                    borderRadius: '6px',
-                    border: '1px solid #ddd',
-                    padding: '0.75rem'
-                  }}
-                  placeholder="Enter reason for denial"
-                />
-                <div style={{ marginTop: 16, display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                  <button onClick={() => setShowDenyReason(false)} style={{
-                    padding: '0.6rem 1.5rem',
-                    background: '#ddd', border: 'none', borderRadius: 6
-                  }}>Cancel</button>
-                  <button onClick={submitDeny} style={{
-                    padding: '0.6rem 1.5rem',
-                    background: '#dc3545', color: '#fff', border: 'none', borderRadius: 6
-                  }}>Submit</button>
-                </div>
-              </div>
-              <div className="modal-backdrop" onClick={() => setShowDenyReason(false)} />
-            </div>
-          )}
         </div>
       </main>
       {/* Simple Modal Styling */}

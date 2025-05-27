@@ -14,6 +14,16 @@ const MaterialRequestDetail = () => {
   const [newFiles, setNewFiles] = useState([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
+  // Auth
+  const user = JSON.parse(localStorage.getItem('user'));
+  const isPIC = user?._id === requestData?.createdBy?._id;
+
+  // For marking as received
+  const canMarkReceived =
+    requestData?.status === 'Approved' &&
+    !requestData?.receivedByPIC &&
+    isPIC;
+
   // Add unique id to each material for React mapping
   const ensureMaterialIds = (materialsArray) =>
     materialsArray.map((mat, idx) =>
@@ -29,24 +39,13 @@ const MaterialRequestDetail = () => {
       .then(res => res.json())
       .then(data => {
         setRequestData(data);
-        setMaterials(ensureMaterialIds(data.materials));
-        setDescription(data.description);
+        setMaterials(ensureMaterialIds(data.materials || [])); // Ensure materials is an empty array if not found
+        setDescription(data.description || '');
         setAttachments(data.attachments || []);
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [id]);
-
-  // Profile menu outside click handler (if you use the header dropdown)
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -72,9 +71,13 @@ const MaterialRequestDetail = () => {
   };
 
   // --- Attachments handlers ---
-  const handleDeleteAttachment = idx => setAttachments(attachments.filter((_, i) => i !== idx));
-  const handleFileUpload = e => setNewFiles(prev => [...prev, ...Array.from(e.target.files)]);
-  const handleRemoveNewFile = idx => setNewFiles(prev => prev.filter((_, i) => i !== idx));
+  const handleFileUpload = (e) => setNewFiles(prev => [...prev, ...Array.from(e.target.files)]);
+  const handleRemoveNewFile = (idx) => setNewFiles(prev => prev.filter((_, i) => i !== idx));
+  
+  // Function to remove file from the current attachments
+  const handleRemoveAttachment = (idx) => {
+    setAttachments(prev => prev.filter((_, i) => i !== idx));
+  };
 
   const getAttachmentUrl = (file) =>
     file.startsWith('http') ? file : `http://localhost:5000/uploads/${file}`;
@@ -83,12 +86,12 @@ const MaterialRequestDetail = () => {
   const handleSaveEdit = async () => {
     const token = localStorage.getItem('token');
     const formData = new FormData();
-    // Remove temp id before saving to backend
-    const materialsToSave = materials.map(({id, ...mat}) => mat);
+    const materialsToSave = materials.map(({ id, ...mat }) => mat);
     formData.append('materials', JSON.stringify(materialsToSave));
     formData.append('description', description);
     formData.append('attachments', JSON.stringify(attachments));
     newFiles.forEach(file => formData.append('newAttachments', file));
+
     try {
       const res = await fetch(`http://localhost:5000/api/requests/${id}`, {
         method: 'PUT',
@@ -98,9 +101,9 @@ const MaterialRequestDetail = () => {
       if (!res.ok) throw new Error('Update failed');
       const updated = await res.json();
       setRequestData(updated);
-      setMaterials(ensureMaterialIds(updated.materials));
-      setDescription(updated.description);
-      setAttachments(updated.attachments);
+      setMaterials(ensureMaterialIds(updated.materials || []));
+      setDescription(updated.description || '');
+      setAttachments(updated.attachments || []);
       setNewFiles([]);
       setEditMode(false);
       alert('Request updated!');
@@ -127,6 +130,59 @@ const MaterialRequestDetail = () => {
         alert('Failed to cancel request');
         console.error(err);
       });
+  };
+
+  // --- Mark as received ---
+  const handleMarkReceived = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      const res = await fetch(`http://localhost:5000/api/requests/${id}/received`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error('Failed to mark as received');
+      alert('Request marked as received!');
+      window.location.reload();
+    } catch (err) {
+      alert('Failed to mark as received');
+      console.error(err);
+    }
+  };
+
+  // --- Prevent editing/cancelling if not pending ---
+  const isEditable = [
+    'Pending PM',
+    'Pending AM',
+    'Pending CEO'
+  ].includes(requestData?.status);
+
+  // If currently in editMode but not editable, force out of editMode
+  useEffect(() => {
+    if (!isEditable && editMode) setEditMode(false);
+    // eslint-disable-next-line
+  }, [isEditable]);
+
+  // --- Denied Approval Info ---
+  const deniedApproval = (() => {
+    if (!requestData?.approvals) return null;
+    return [...requestData.approvals].reverse().find(a => a.decision === 'denied');
+  })();
+
+  // --- Helper for user/role display ---
+  const getDenierDisplay = (approval) => {
+    if (!approval) return '';
+    let role =
+      approval.role === 'PM'
+        ? 'Project Manager'
+        : approval.role === 'AM'
+        ? 'Area Manager'
+        : approval.role === 'CEO'
+        ? 'CEO'
+        : approval.role;
+    if (approval.user && typeof approval.user === 'object' && approval.user.name) {
+      return `${approval.user.name} (${role})`;
+    }
+    return `${role}`;
   };
 
   if (loading) {
@@ -158,199 +214,179 @@ const MaterialRequestDetail = () => {
             <p style={{ margin: 0, fontStyle: 'italic' }}>{requestData.project?.location || '-'}</p>
             <p style={{ margin: 0, color: '#555' }}>{requestData.project?.targetDate || ''}</p>
           </div>
-          {editMode ? (
-            <form className="materials-form-picmatreq" onSubmit={e => {e.preventDefault(); handleSaveEdit();}}>
-              {/* Materials Section */}
-              <div className="form-group-picmatreq">
-                <label className="form-label-picmatreq">Material to be Requested</label>
-                <div className="materials-list-picmatreq">
-                  <div className="material-headers-picmatreq">
-                    <span className="material-header-label-picmatreq">Material Name</span>
-                    <span className="quantity-header-label-picmatreq">Quantity</span>
-                    <span className="action-header-label-picmatreq"></span>
-                  </div>
-                  {materials.map((material) => (
-                    <div key={material.id} className="material-row-picmatreq">
-                      <input
-                        type="text"
-                        value={material.materialName}
-                        onChange={(e) => handleMaterialChange(material.id, 'materialName', e.target.value)}
-                        placeholder="Enter material name"
-                        className="material-input-picmatreq"
-                      />
-                      <input
-                        type="text"
-                        value={material.quantity}
-                        onChange={(e) => handleMaterialChange(material.id, 'quantity', e.target.value)}
-                        placeholder="Quantity"
-                        className="quantity-input-picmatreq"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteMaterial(material.id)}
-                        className="remove-material-btn-picmatreq"
-                        disabled={materials.length === 1}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={handleAddMaterial}
-                    className="add-material-btn-picmatreq"
-                  >
-                    + Add Material
-                  </button>
-                </div>
-              </div>
-              {/* Attachments Section */}
-              <div className="form-group-picmatreq">
-                <label className="form-label-picmatreq">Attachment Proof</label>
-                <div className="upload-section-picmatreq">
-                  <input
-                    type="file"
-                    id="file-upload"
-                    multiple
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="file-input-picmatreq"
-                  />
-                  <label htmlFor="file-upload" className="upload-button">
-                    <span className="upload-icon-picmatreq">📎</span>
-                    Upload
-                  </label>
-                  {(attachments.length > 0 || newFiles.length > 0) && (
-                    <div className="preview-container">
-                      {attachments.map((file, idx) => (
-                        <div key={`existing-${idx}`} style={{ position: 'relative' }}>
-                          <img
-                            src={getAttachmentUrl(file)}
-                            alt={`attachment-${idx}`}
-                            style={{
-                              width: '200px',
-                              height: '200px',
-                              objectFit: 'cover',
-                              borderRadius: '8px',
-                              border: '1px solid #ccc'
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteAttachment(idx)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                      {newFiles.map((file, idx) => (
-                        <div key={`newfile-${idx}`} style={{ position: 'relative' }}>
-                          <img
-                            src={URL.createObjectURL(file)}
-                            alt={`new-upload-${idx}`}
-                            style={{
-                              width: '200px',
-                              height: '200px',
-                              objectFit: 'cover',
-                              borderRadius: '8px',
-                              border: '1px solid #ccc'
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveNewFile(idx)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <p className="upload-hint-picmatreq">You can attach files such as documents or images</p>
-                </div>
-              </div>
-              {/* Description Section */}
-              <div className="form-group-picmatreq">
-                <label className="form-label-picmatreq">Request Description</label>
-                <textarea
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  className="description-textarea-picmatreq"
-                  rows={6}
-                  placeholder="Provide a detailed description of your request"
-                />
-              </div>
-              {/* Action Buttons */}
-              <div className="form-actions-picmatreq">
-                <button type="submit" className="publish-button-picmatreq">
-                  Save
-                </button>
+
+          {/* --- Form/Edit Mode --- */}
+          {editMode && isEditable ? (
+  <form className="materials-form-picmatreq" onSubmit={e => { e.preventDefault(); handleSaveEdit(); }}>
+    {/* Materials Section */}
+    <div className="form-group-picmatreq">
+      <label className="form-label-picmatreq">Material to be Requested</label>
+      <div className="materials-list-picmatreq">
+        {materials.map((material) => (
+          <div key={material.id} className="material-row-picmatreq">
+            <input
+              type="text"
+              value={material.materialName}
+              onChange={(e) => handleMaterialChange(material.id, 'materialName', e.target.value)}
+              placeholder="Enter material name"
+              className="material-input-picmatreq"
+            />
+            <input
+              type="text"
+              value={material.quantity}
+              onChange={(e) => handleMaterialChange(material.id, 'quantity', e.target.value)}
+              placeholder="Quantity"
+              maxLength={7}
+              className="quantity-input-picmatreq"
+            />
+            <button
+              type="button"
+              onClick={() => handleDeleteMaterial(material.id)}
+              className="remove-material-btn-picmatreq"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        <button type="button" onClick={handleAddMaterial} className="add-material-btn-picmatreq">
+          + Add Material
+        </button>
+      </div>
+    </div>
+
+    {/* File Upload */}
+    <div className="form-group-picmatreq">
+      <label className="form-label-picmatreq">Attachment Proof</label>
+      <input
+        type="file"
+        multiple
+        accept="image/*"
+        onChange={handleFileUpload}
+        className="file-input-picmatreq"
+      />
+      <div className="preview-container">
+        {newFiles.map((file, index) => (
+          <div key={index} className="preview-item">
+            <img
+              src={URL.createObjectURL(file)}
+              alt={`Preview ${index}`}
+              className="attachment-image"
+            />
+            <button
+              type="button"
+              onClick={() => handleRemoveNewFile(index)}
+              className="remove-file-btn"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Description */}
+    <div className="form-group-picmatreq">
+      <label className="form-label-picmatreq">Request Description</label>
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        className="description-textarea-picmatreq"
+        rows="4"
+        placeholder="Enter a detailed description"
+      />
+    </div>
+
+    {/* Save or Cancel Buttons */}
+    <div className="form-actions-picmatreq">
+      <button type="button" onClick={() => setEditMode(false)} className="cancel-btn">Cancel</button>
+      <button type="submit" className="save-btn">Save Changes</button>
+    </div>
+  </form>
+) : (
+  <>
+    {/* Existing Materials Display */}
+    <div className="materials-section">
+      <h2 className="section-title">Material to be Requested</h2>
+      <div className="materials-list">
+        {requestData.materials?.map((mat, idx) => (
+          <div key={idx} className="material-item">
+            <span><strong>Material:</strong> {mat.materialName}</span>
+            <span><strong>Quantity:</strong> {mat.quantity}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Existing Attachments Display */}
+    <div className="attachments-section">
+      <h2 className="section-title">Attachment Proof</h2>
+      <div className="attachments-grid">
+        {requestData.attachments?.length
+          ? requestData.attachments.map((file, idx) => (
+            <div key={idx} className="attachment-item">
+              <img src={getAttachmentUrl(file)} alt={`Attachment ${idx + 1}`} className="attachment-image" />
+              {editMode && (
                 <button
                   type="button"
-                  onClick={() => setEditMode(false)}
-                  className="cancel-btn"
-                  style={{ marginLeft: '1rem', background: '#dc3545', color: '#fff', minWidth: 120 }}
+                  onClick={() => handleRemoveAttachment(idx)}
+                  className="remove-file-btn"
                 >
-                  Cancel
+                  ×
                 </button>
-              </div>
-            </form>
-          ) : (
-            // --- VIEW MODE (default detail view) ---
-            <>
-              {/* Materials */}
-              <div className="materials-section">
-                <h2 className="section-title">Material to be Requested</h2>
-                <div className="materials-list">
-                  {requestData.materials.map((mat, idx) => (
-                    <div key={idx} className="material-item">
-                      <span className="material-name">{mat.materialName}</span>
-                      {mat.quantity && <span className="material-quantity"> ({mat.quantity})</span>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Attachments */}
-              <div className="attachments-section">
-                <h2 className="section-title">Attachment Proof</h2>
-                <div className="attachments-grid">
-                  {requestData.attachments?.length
-                    ? requestData.attachments.map((file, idx) => (
-                      <div key={idx} className="attachment-item">
-                        <img src={getAttachmentUrl(file)} alt={`Attachment ${idx + 1}`} className="attachment-image" />
-                      </div>
-                    ))
-                    : <div>No attachments</div>
-                  }
-                </div>
-              </div>
-              {/* Description */}
-              <div className="description-section">
-                <h2 className="section-title">Request Description</h2>
-                <div className="description-content">
-                  <p>{requestData.description}</p>
-                </div>
-              </div>
-              {/* Action Buttons */}
-              <div className="action-buttons">
-                <button onClick={handleBack} className="back-btn">Back</button>
-                <button onClick={() => setEditMode(true)} className="edit-btn" style={{
-                  padding: '0.75rem 2rem',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  fontWeight: '500',
-                  background: '#007bff',
-                  color: '#fff',
-                  minWidth: 120,
-                  cursor: 'pointer',
-                  marginLeft: '1rem',
-                  transition: 'all 0.2s ease'
-                }}>Edit</button>
-                <button onClick={handleCancelRequest} className="cancel-btn">Cancel Request</button>
-              </div>
-            </>
-          )}
+              )}
+            </div>
+          ))
+          : <div>No attachments</div>
+        }
+      </div>
+    </div>
+
+    {/* Existing Description Display */}
+    <div className="description-section">
+      <h2 className="section-title">Request Description</h2>
+      <div className="description-content">
+        <p>{requestData.description}</p>
+      </div>
+    </div>
+
+    {/* Action Buttons */}
+    <div className="action-buttons">
+      <button onClick={handleBack} className="back-btn">Back</button>
+      {isEditable && (
+        <>
+          <button
+            onClick={() => setEditMode(true)}
+            className="edit-btn"
+          >
+            Edit
+          </button>
+          <button onClick={handleCancelRequest} className="cancel-btn">Cancel Request</button>
+        </>
+      )}
+      {/* Mark as received button & info */}
+      {requestData.status === 'Approved' && isPIC && (
+        requestData.receivedByPIC ? (
+          <span className="received-badge">
+            <span>✔</span> Received by PIC&nbsp;
+            {requestData.receivedDate && (
+              <span>
+                ({new Date(requestData.receivedDate).toLocaleString()})
+              </span>
+            )}
+          </span>
+        ) : (
+          <button
+            onClick={handleMarkReceived}
+            className="received-btn"
+          >
+            Mark as Received
+          </button>
+        )
+      )}
+    </div>
+  </>
+)}
+
         </div>
       </main>
     </div>

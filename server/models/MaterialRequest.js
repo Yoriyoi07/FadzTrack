@@ -13,7 +13,10 @@ const materialRequestSchema = new mongoose.Schema({
   attachments: [String],
   status: {
     type: String,
-    enum: ['Pending PM', 'Denied by PM', 'Pending AM', 'Denied by AM', 'Pending CEO', 'Denied by CEO', 'Approved'],
+    enum: [
+      'Pending PM', 'Denied by PM', 'Pending AM',
+      'Denied by AM', 'Pending CEO', 'Denied by CEO', 'Approved'
+    ],
     default: 'Pending PM'
   },
   approvals: [
@@ -25,7 +28,12 @@ const materialRequestSchema = new mongoose.Schema({
       timestamp: { type: Date, default: Date.now }
     }
   ],
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  receivedByPIC: { type: Boolean, default: false },
+  receivedDate: { type: Date },
+  receivedAt: { type: Date },
+  receivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+
 }, {
   timestamps: true
 });

@@ -25,8 +25,10 @@ import It_Dash from './it/It_Dash';
 import Pic_Project from './pic/Pic_Project';
 import Pic_MatReq from './pic/Pic_MatReq';
 import Pm_ViewRequest from './pm/Pm_ViewRequest';
-import Pm_MaterialRequestDetail from './pm/Pm_MatRequest';
 import Ceo_Material_List from './ceo/Ceo_Material_List';
+import Ceo_MaterialRequestDetail from './ceo/Ceo_MaterialRequestDetail';
+import Pm_MaterialRequestDetail from './pm/Pm_MatRequest';
+import ApproveDenyAction from './ApproveDenyActions';
 import { Link } from 'react-router-dom';
 
 
@@ -61,6 +63,7 @@ const AppRoutes = () => {
       <Route path="/am/matreq" element={<Area_Material_list />} />
       <Route path="/am/manreq" element={<Area_Manpower_List />} />
       <Route path="/am/viewproj" element={<AreasPage />} />
+      <Route path="/am/viewproj/:id" element={<AreasPage />} />
 
       {/* IT */}
       <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><It_Dash /></PrivateRoute>}/>
@@ -71,11 +74,14 @@ const AppRoutes = () => {
       <Route path="/ceo/addproj" element={<Ceo_Addproject />} />
       <Route path="/ceo/proj/:id" element={<Ceo_ViewSpecific />} />
       <Route path="/ceo/material-list" element={<Ceo_Material_List />} />
+      <Route path="/ceo/material-request/:id" element={<Ceo_MaterialRequestDetail />} />
 
       {/* HR */}
       <Route path="/hr/dash" element={<Hr_Dash />} />
       <Route path="/hr/mlist" element={<Hr_ManpowerList />} />
 
+      {/*Reusable*/}
+      <Route path="/approve-deny/:id" element={<ApproveDenyAction />} />
     </Routes>
   );
 };
