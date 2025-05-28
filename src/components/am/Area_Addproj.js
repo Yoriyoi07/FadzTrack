@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import '../style/ceo_style/Ceo_Addproj.css';
+import '../style/am_style/Area_Addproj.css';
+import Papa from 'papaparse';
 
 const Area_Addproj = () => {
   const navigate = useNavigate();
@@ -15,6 +16,10 @@ const Area_Addproj = () => {
   const [pics, setPics] = useState([]);
   const [assignedLocations, setAssignedLocations] = useState([]);
   const [manpowerList, setManpowerList] = useState([]);
+  const [searchManpower, setSearchManpower] = useState('');
+  const [availableManpower, setAvailableManpower] = useState([]);
+  const [assignedManpower, setAssignedManpower] = useState([]);
+  const [csvError, setCsvError] = useState('');
 
   // Initialize formData and include areamanager from the start
   const [formData, setFormData] = useState({
@@ -68,13 +73,15 @@ const Area_Addproj = () => {
 };
 
 
-  useEffect(() => {
+useEffect(() => {
   fetch('http://localhost:5000/api/manpower')
     .then(res => res.json())
-    .then(data => setManpowerList(data))
+    .then(data => {
+      setManpowerList(data);
+      setAvailableManpower(data);
+    })
     .catch(err => console.error('Failed to fetch manpower:', err));
 }, []);
-
 
 useEffect(() => {
   if (userId) {
@@ -88,7 +95,9 @@ useEffect(() => {
   }
 }, [userId]);
 
-
+useEffect(() => {
+  setFormData(prev => ({ ...prev, manpower: assignedManpower.map(m => m._id) }));
+}, [assignedManpower]);
   // Handle input change for text, date, number, etc.
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -196,6 +205,51 @@ useEffect(() => {
       alert('❌ Failed to connect to server.');
     }
   };
+
+  // Assign manpower from left to right
+  const handleAssignManpower = (mp) => {
+    setAssignedManpower(prev => [...prev, mp]);
+    setAvailableManpower(prev => prev.filter(m => m._id !== mp._id));
+  };
+
+  // Remove manpower from right to left
+  const handleRemoveManpower = (mp) => {
+    setAvailableManpower(prev => [...prev, mp]);
+    setAssignedManpower(prev => prev.filter(m => m._id !== mp._id));
+  };
+
+  const handleCSVUpload = (e) => {
+    setCsvError('');
+    const file = e.target.files[0];
+    if (!file) return;
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const csvData = results.data;
+        let notFound = [];
+        let foundList = [];
+        csvData.forEach(row => {
+          // By name and position (case-insensitive)
+          const found = availableManpower.find(mp =>
+            mp.name.trim().toLowerCase() === (row.name || '').trim().toLowerCase() &&
+            mp.position.trim().toLowerCase() === (row.position || '').trim().toLowerCase()
+          );
+          if (found) foundList.push(found);
+          else notFound.push(`${row.name || ''} (${row.position || ''})`);
+        });
+        if (notFound.length) setCsvError('Not found: ' + notFound.join(', '));
+        setAssignedManpower(prev => [...prev, ...foundList]);
+        setAvailableManpower(prev => prev.filter(mp => !foundList.some(f => f._id === mp._id)));
+      },
+      error: () => setCsvError('Invalid CSV format'),
+    });
+  };
+
+  const filteredAvailableManpower = availableManpower.filter(mp =>
+    mp.name.toLowerCase().includes(searchManpower.toLowerCase()) ||
+    mp.position.toLowerCase().includes(searchManpower.toLowerCase())
+  );
 
   return (
     <div className="app-container">
@@ -359,23 +413,78 @@ useEffect(() => {
               </div>
             </div>
            <div className="form-row single-column">
-  <div className="form-group">
-    <label htmlFor="manpower">Manpower</label>
-    <select
-      id="manpower"
-      name="manpower"
-      multiple
-      value={formData.manpower}
-      onChange={handleChangeMultipleManpower}
-    >
-      {manpowerList.map(mp => (
-        <option key={mp._id} value={mp._id}>
-          {mp.name} — {mp.position}
-        </option>
-      ))}
-    </select>
+          <div className="form-row single-column">
+            <div className="manpower-panels">
+              {/* LEFT: Available Manpower */}
+              <div className="manpower-box">
+                <label>Available Manpower</label>
+                <input
+                  type="text"
+                  placeholder="Search manpower"
+                  value={searchManpower}
+                  onChange={e => setSearchManpower(e.target.value)}
+                  style={{ width: '100%', marginBottom: 8 }}
+                />
+                <select
+                  multiple
+                  size={10}
+                  style={{ width: '100%', height: '200px' }}
+                  onDoubleClick={e => {
+                    const selectedId = e.target.value;
+                    const mp = availableManpower.find(m => m._id === selectedId);
+                    if (mp) handleAssignManpower(mp);
+                  }}
+                >
+                  {filteredAvailableManpower.map(mp => (
+                    <option key={mp._id} value={mp._id}>
+                      {mp.name} — {mp.position}
+                    </option>
+                  ))}
+                </select>
+                <div className="manpower-help">Double click to assign</div>
+              </div>
+              {/* RIGHT: Assigned Manpower */}
+              <div className="manpower-box">
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                  <label style={{ marginRight: 8 }}>Assigned Manpower</label>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    id="csvUpload"
+                    style={{ display: 'none' }}
+                    onChange={handleCSVUpload}
+                  />
+                  <button
+                    type="button"
+                    className="csv-upload-btn"
+                    onClick={() => document.getElementById('csvUpload').click()}
+                    style={{ marginLeft: 8 }}
+                  >
+                    Upload CSV
+                  </button>
+                </div>
+                {csvError && <div className="manpower-error">{csvError}</div>}
+                <select
+                  multiple
+                  size={10}
+                  style={{ width: '100%', height: '200px' }}
+                  onDoubleClick={e => {
+                    const selectedId = e.target.value;
+                    const mp = assignedManpower.find(m => m._id === selectedId);
+                    if (mp) handleRemoveManpower(mp);
+                  }}
+                >
+                  {assignedManpower.map(mp => (
+                    <option key={mp._id} value={mp._id}>
+                      {mp.name} — {mp.position}
+                    </option>
+                  ))}
+                </select>
+                <div className="manpower-help">Double click to remove</div>
+              </div>
+            </div>
+          </div>
   </div>
-</div>
             <div className="form-row submit-row">
               <button type="submit" className="submit-button">Add Project</button>
             </div>

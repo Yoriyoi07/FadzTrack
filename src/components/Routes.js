@@ -9,7 +9,7 @@ import PmViewProjects from './pm/PmViewProjects';
 import PmIncidentReport from './pm/PmIncidentReport';
 import PmManpowerRequest from './pm/PmManpowerRequest';
 import AreaManagerDashboard from './am/Area_Dash';
-import Area_ViewAll from './am/Area_Viewall';
+import Area_ViewAll from './am/Area_ViewAll';
 import LoginPage from './Login';
 import Area_Manpower_List from './am/Area_Manpower_List'
 import Area_Material_list from './am/Area_Material_List';
