@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import '../style/pic_style/Pic_Req.css';
 
 const ManpowerReq = () => {
@@ -10,12 +9,36 @@ const ManpowerReq = () => {
   const [formData, setFormData] = useState({
     requestTitle: '',
     projectLocation: '',
-    manpowerType: '',
-    manpowerQuantity: '',
+    manpowers: [{ type: '', quantity: '' }],  // Dynamic rows here
     description: '',
     attachments: []
   });
 
+  // --- Dynamic Manpower Handlers ---
+  const handleManpowerChange = (idx, field, value) => {
+    setFormData(prev => {
+      const newManpowers = prev.manpowers.map((mp, i) => 
+        i === idx ? { ...mp, [field]: value } : mp
+      );
+      return { ...prev, manpowers: newManpowers };
+    });
+  };
+
+  const addManpowerRow = () => {
+    setFormData(prev => ({
+      ...prev,
+      manpowers: [ ...prev.manpowers, { type: '', quantity: '' } ]
+    }));
+  };
+
+  const removeManpowerRow = (idx) => {
+    setFormData(prev => ({
+      ...prev,
+      manpowers: prev.manpowers.filter((_, i) => i !== idx)
+    }));
+  };
+
+  // --- General Field Change Handler ---
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prevState => ({
@@ -24,19 +47,23 @@ const ManpowerReq = () => {
     }));
   };
 
+  // --- Attachment Handler (optional if you want to use file uploads) ---
+  const handleAttachmentChange = (e) => {
+    setFormData(prev => ({
+      ...prev,
+      attachments: Array.from(e.target.files)
+    }));
+  };
 
+  // --- Profile Menu Logic ---
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
         setProfileMenuOpen(false);
       }
     };
-    
     document.addEventListener("click", handleClickOutside);
-    
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -45,19 +72,17 @@ const ManpowerReq = () => {
     navigate('/');
   };
 
+  // --- Form Submit Handler ---
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     try {
-      // Create form data object to handle file uploads
       const requestFormData = new FormData();
       requestFormData.append('requestTitle', formData.requestTitle);
       requestFormData.append('projectLocation', formData.projectLocation);
-      requestFormData.append('manpowerType', formData.manpowerType);
-      requestFormData.append('manpowerQuantity', formData.manpowerQuantity);
+      requestFormData.append('manpowers', JSON.stringify(formData.manpowers));
       requestFormData.append('description', formData.description);
-      
-      // Append each file to the form data
+
       formData.attachments.forEach(file => {
         requestFormData.append('attachments', file);
       });
@@ -66,7 +91,6 @@ const ManpowerReq = () => {
         method: 'POST',
         body: requestFormData
       });
-  
       const result = await response.json();
 
       if (response.ok) {
@@ -74,21 +98,19 @@ const ManpowerReq = () => {
         setFormData({
           requestTitle: '',
           projectLocation: '',
-          manpowerType: '',
-          manpowerQuantity: '',
+          manpowers: [{ type: '', quantity: '' }],
           description: '',
           attachments: []
         });
       } else {
         alert(`❌ Error: ${result.message || 'Failed to submit request'}`);
       }
-  
     } catch (error) {
       console.error('❌ Submission error:', error);
       alert('❌ Failed to connect to server.');
     }
   };
-  
+
   return (
     <div className="app-container">
       {/* Header with Navigation */}
@@ -123,7 +145,6 @@ const ManpowerReq = () => {
             >
               Z
             </div>
-            
             {profileMenuOpen && (
               <div className="profile-menu">
                 <button onClick={handleLogout}>Logout</button>
@@ -137,11 +158,11 @@ const ManpowerReq = () => {
       <main className="main-content">
         <div className="form-container">
           <h2 className="page-title">Request Manpower</h2>
-          
           <form onSubmit={handleSubmit} className="project-form">
+            {/* Request Title & Project Location */}
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="requestTitle">Request Title</label>
+                <label htmlFor="requestTitle">Target Acquisition Date</label>
                 <input
                   type="text"
                   id="requestTitle"
@@ -152,9 +173,8 @@ const ManpowerReq = () => {
                   required
                 />
               </div>
-              
               <div className="form-group">
-                <label htmlFor="projectLocation">To what project</label>
+                <label htmlFor="projectLocation">Duration</label>
                 <input
                   type="text"
                   id="projectLocation"
@@ -167,34 +187,67 @@ const ManpowerReq = () => {
               </div>
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="manpowerType">Type of Manpower</label>
-                <input
-                  type="text"
-                  id="manpowerType"
-                  name="manpowerType"
-                  placeholder="Requested Manpower"
-                  value={formData.manpowerType}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="manpowerQuantity">Quantity of Manpower</label>
-                <input
-                  type="text"
-                  id="manpowerQuantity"
-                  name="manpowerQuantity"
-                  placeholder="How many Manpower"
-                  value={formData.manpowerQuantity}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-            </div>
-
+{/* Dynamic Manpower Rows */}
+<div style={{ marginTop: '18px' }}>
+  {/* Header labels */}
+  <div className="form-row">
+    <div className="form-group">
+      <label>Type of Manpower</label>
+    </div>
+    <div className="form-group">
+      <label>Quantity</label>
+    </div>
+    <div style={{ width: '80px' }}></div> {/* Spacer for remove button */}
+  </div>
+  
+  {/* Dynamic input rows */}
+  {formData.manpowers.map((mp, idx) => (
+    <div className="form-row manpower-row" key={idx}>
+      <div className="form-group">
+        <input
+          type="text"
+          name={`manpowerType_${idx}`}
+          placeholder="Type of Manpower"
+          value={mp.type}
+          onChange={e => handleManpowerChange(idx, 'type', e.target.value)}
+          required
+        />
+      </div>
+      <div className="form-group">
+        <input
+          type="number"
+          name={`manpowerQuantity_${idx}`}
+          placeholder="Quantity"
+          min="1"
+          value={mp.quantity}
+          onChange={e => handleManpowerChange(idx, 'quantity', e.target.value)}
+          required
+        />
+      </div>
+      {formData.manpowers.length > 1 && (
+        <button
+          type="button"
+          onClick={() => removeManpowerRow(idx)}
+          className="remove-btn"
+          title="Remove this manpower requirement"
+        >
+          Remove
+        </button>
+      )}
+    </div>
+  ))}
+  
+  <div className="button-container">
+    <button
+      type="button"
+      onClick={addManpowerRow}
+      className="add-btn"
+    >
+      <span>+</span> Add Another
+    </button>
+  </div>
+</div>
+            {/* Description */}
             <div className="form-row">
               <div className="form-group" style={{ width: '100%' }}>
                 <label htmlFor="description">Request Description</label>
@@ -209,7 +262,6 @@ const ManpowerReq = () => {
                 ></textarea>
               </div>
             </div>
-        
 
             <div className="form-row submit-row">
               <button type="submit" className="submit-button">Add Manpower Request</button>

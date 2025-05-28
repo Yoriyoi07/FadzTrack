@@ -1,204 +1,189 @@
-/* Header styling */
-.ceo-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 50px;
-    background-color: white;
-    border-bottom: 1px solid #eaeaea;
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
-  }
-  
-  .logo {
-    display: flex;
-    align-items: center;
-  }
-  
-  .logo-img {
-    width: 48px;
-    margin-right: 12px;
-  }
-  
-  .logo h1 {
-    font-size: 26px;
-    font-weight: bold;
-    color: #333;
-    margin: 0;
-  }
-  
-  .ceo-header nav ul {
-    list-style: none;
-    display: flex;
-    gap: 30px;
-    margin: 0;
-    padding: 0;
-  }
-  
-  .ceo-header nav ul li {
-    display: inline;
-  }
-  
-  .ceo-header nav ul li a {
-    text-decoration: none;
-    color: #333;
-    font-weight: 500;
-    font-size: 18px;
-  }
-  
-  /* Main container */
-  .container {
+/* Add Another Button Styling */
+.add-btn {
+  background-color: #28a745;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+}
+
+.add-btn:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+}
+
+.add-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+}
+
+/* Remove Button Styling */
+.remove-btn {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+  height: 36px;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+}
+
+.remove-btn:hover {
+  background-color: #c82333;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+.remove-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+}
+
+/* Alternative: Outlined button styles (if you prefer a lighter look) */
+.add-btn-outlined {
+  background-color: transparent;
+  color: #28a745;
+  border: 2px solid #28a745;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.add-btn-outlined:hover {
+  background-color: #28a745;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.2);
+}
+
+.remove-btn-outlined {
+  background-color: transparent;
+  color: #dc3545;
+  border: 2px solid #dc3545;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+  height: 36px;
+}
+
+.remove-btn-outlined:hover {
+  background-color: #dc3545;
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.2);
+}
+
+/* Icon-only remove button (more minimal) */
+.remove-btn-icon {
+  background-color: #f8f9fa;
+  color: #dc3545;
+  border: 1px solid #dee2e6;
+  padding: 8px;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.remove-btn-icon:hover {
+  background-color: #dc3545;
+  color: white;
+  border-color: #dc3545;
+  transform: scale(1.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .add-btn {
     width: 100%;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-    font-size: 18px;
+    justify-content: center;
+    margin-top: 16px;
   }
   
-  /* Manpower Request Container */
-  .manpower-request-container {
-    max-width: 1200px;
-    margin: 60px auto;
-    padding: 0 30px;
-    display: grid;
-    grid-template-columns: 350px 1fr;
-    gap: 60px;
+  .remove-btn {
+    min-width: 70px;
+    font-size: 13px;
+    padding: 6px 12px;
   }
-  
-  /* Left side with title and description */
-  .manpower-request-left {
-    padding-top: 120px;
-  }
-  
-  .manpower-request-left h1 {
-    font-size: 42px;
-    font-weight: 600;
-    margin-bottom: 16px;
-    color: #333;
-  }
-  
-  .manpower-request-left p {
-    color: #666;
-    font-size: 20px;
-    margin-top: 0;
-  }
-  
-  /* Right side with form */
-  .manpower-request-right {
-    width: 100%;
-  }
-  
-  /* Form fields */
-  .form-group {
-    margin-bottom: 32px;
-  }
-  
-  .form-group label {
-    display: block;
-    font-weight: 500;
-    margin-bottom: 14px;
-    color: #444;
-    font-size: 18px;
-  }
-  
-  .form-group input[type="text"],
-  .form-group textarea {
-    width: 100%;
-    padding: 16px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 16px;
-    box-sizing: border-box;
-  }
-  
-  .form-group .field-hint {
-    font-size: 14px;
-    color: #777;
-    margin-top: 8px;
-  }
-  
-  textarea {
-    resize: vertical;
-    min-height: 150px;
-  }
-  
-  /* Category options */
-  .category-options {
-    display: flex;
-    gap: 16px;
-    margin-top: 12px;
-  }
-  
-  .category-option {
-    display: inline-block;
-    padding: 12px 20px;
-    background-color: #f5f5f5;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 16px;
-    border: 1px solid #e0e0e0;
-  }
-  
-  .category-option.selected {
-    background-color: #e6e6e6;
-    border-color: #cccccc;
-  }
-  
-  .category-option input[type="radio"] {
-    display: none;
-  }
-  
-  /* Submit button */
-  .submit-button {
-    background-color: #4267B2;
-    color: white;
-    border: none;
-    padding: 16px 32px;
-    border-radius: 6px;
-    font-size: 18px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    width: 100%;
-    max-width: 250px;
-  }
-  
-  .submit-button:hover {
-    background-color: #365899;
-  }
-  
-  /* Responsive adjustments */
-  @media (max-width: 900px) {
-    .manpower-request-container {
-      grid-template-columns: 1fr;
-      gap: 30px;
-    }
-    
-    .manpower-request-left {
-      padding-top: 0;
-    }
-    
-    .category-options {
-      flex-direction: column;
-    }
-    
-    .category-option {
-      width: 100%;
-    }
-  }
-  
-  /* Additional adjustments for larger screens */
-  @media (min-width: 1400px) {
-    .manpower-request-container {
-      max-width: 1400px;
-    }
-    
-    .form-group input[type="text"],
-    .form-group textarea {
-      padding: 18px 20px;
-      font-size: 18px;
-    }
-    
-    .submit-button {
-      padding: 18px 36px;
-      font-size: 20px;
-      width: 280px;
-    }
-  }
+}
+
+/* Button container for better spacing */
+.button-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  margin-bottom: 24px;
+}
+
+/* Form row adjustments for better button alignment */
+.form-row.manpower-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-row.manpower-row .form-group {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+/* Header row for labels */
+.form-row:not(.manpower-row) .form-group {
+  flex: 1;
+  margin-bottom: 8px;
+}
+
+/* Ensure input fields in manpower rows have consistent sizing */
+.form-row.manpower-row .form-group input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Remove button positioning */
+.form-row.manpower-row .remove-btn {
+  flex-shrink: 0;
+  margin-top: 0;
+  align-self: center;
+  width: 80px;
+}
+
+/* Ensure all form-row elements use flexbox consistently */
+.form-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}

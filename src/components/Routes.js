@@ -29,6 +29,7 @@ import Ceo_Material_List from './ceo/Ceo_Material_List';
 import Ceo_MaterialRequestDetail from './ceo/Ceo_MaterialRequestDetail';
 import Pm_MaterialRequestDetail from './pm/Pm_MatRequest';
 import ApproveDenyAction from './ApproveDenyActions';
+import Pm_Manpower_List from './pm/Pm_Manpower_List';
 import { Link } from 'react-router-dom';
 import Area_Manpower_ReqDetails from './am/Area_Manpower_ReqDetails';
 import Hr_ManpowerList from './hr/Hr_ManpowerList';
@@ -46,6 +47,7 @@ const AppRoutes = () => {
       <Route path="/k" element={<PmIncidentReport />} />
       <Route path="/j" element={<PmViewProjects />} />
       <Route path="/q" element={<PmDailyReports />} />
+      <Route path="/pm/manpower-list" element={<Pm_Manpower_List />} />
       <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDash /></PrivateRoute>}/>
 
       {/* PIC */}
