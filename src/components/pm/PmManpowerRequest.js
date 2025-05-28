@@ -65,8 +65,6 @@ const ManpowerReq = () => {
       const response = await fetch('http://localhost:5000/api/manpower-requests', {
         method: 'POST',
         body: requestFormData
-        // Note: Don't set Content-Type header when using FormData, 
-        // browser will set it automatically with the correct boundary
       });
   
       const result = await response.json();

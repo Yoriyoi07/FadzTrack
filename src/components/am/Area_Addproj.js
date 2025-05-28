@@ -5,11 +5,10 @@ import Papa from 'papaparse';
 
 const Area_Addproj = () => {
   const navigate = useNavigate();
-
   // Get logged-in user info from localStorage
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
-  const userId = user?._id; // This will be the areamanager
+  const userId = user?._id;
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projectManagers, setProjectManagers] = useState([]);

@@ -30,10 +30,10 @@ import Ceo_MaterialRequestDetail from './ceo/Ceo_MaterialRequestDetail';
 import Pm_MaterialRequestDetail from './pm/Pm_MatRequest';
 import ApproveDenyAction from './ApproveDenyActions';
 import { Link } from 'react-router-dom';
-
-
+import Area_Manpower_ReqDetails from './am/Area_Manpower_ReqDetails';
 import Hr_ManpowerList from './hr/Hr_ManpowerList';
 import Hr_Dash from './hr/Hr_Dash';
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -64,7 +64,7 @@ const AppRoutes = () => {
       <Route path="/am/manreq" element={<Area_Manpower_List />} />
       <Route path="/am/viewproj" element={<AreasPage />} />
       <Route path="/am/viewproj/:id" element={<AreasPage />} />
-
+      <Route path="/am/manreqdetails/" element={<Area_Manpower_ReqDetails />} />
       {/* IT */}
       <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><It_Dash /></PrivateRoute>}/>
 
