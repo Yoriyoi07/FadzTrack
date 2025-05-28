@@ -13,6 +13,8 @@ const Area_Addproj = () => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projectManagers, setProjectManagers] = useState([]);
   const [pics, setPics] = useState([]);
+  const [assignedLocations, setAssignedLocations] = useState([]);
+  const [manpowerList, setManpowerList] = useState([]);
 
   // Initialize formData and include areamanager from the start
   const [formData, setFormData] = useState({
@@ -23,7 +25,7 @@ const Area_Addproj = () => {
     location: '',
     startDate: '',
     endDate: '',
-    manpower: '',
+    manpower: [],
     projectmanager: '',
     areamanager: userId || ''
   });
@@ -50,6 +52,42 @@ const Area_Addproj = () => {
       pic: selectedPics
     }));
   };
+
+  const handleChangeMultipleManpower = (e) => {
+  const options = e.target.options;
+  const selected = [];
+  for (let i = 0; i < options.length; i++) {
+    if (options[i].selected) {
+      selected.push(options[i].value);
+    }
+  }
+  setFormData(prevState => ({
+    ...prevState,
+    manpower: selected
+  }));
+};
+
+
+  useEffect(() => {
+  fetch('http://localhost:5000/api/manpower')
+    .then(res => res.json())
+    .then(data => setManpowerList(data))
+    .catch(err => console.error('Failed to fetch manpower:', err));
+}, []);
+
+
+useEffect(() => {
+  if (userId) {
+    fetch(`http://localhost:5000/api/users/${userId}/locations`)
+      .then(res => res.json())
+      .then(setAssignedLocations)
+      .catch(err => {
+        setAssignedLocations([]);
+        console.error('Failed to fetch assigned locations:', err);
+      });
+  }
+}, [userId]);
+
 
   // Handle input change for text, date, number, etc.
   const handleChange = (e) => {
@@ -281,14 +319,20 @@ const Area_Addproj = () => {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="location">Location</label>
-                <input
-                  type="text"
-                  id="location"
-                  name="location"
-                  placeholder="Enter location"
-                  value={formData.location}
-                  onChange={handleChange}
-                />
+               <select
+                    id="location"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">-- Select Location --</option>
+                    {assignedLocations.map(loc => (
+                      <option key={loc._id} value={loc._id}>
+                        {loc.name} ({loc.region})
+                      </option>
+                    ))}
+                  </select>
               </div>
               <div className="form-group">
                 <label htmlFor="startDate">Start Date</label>
@@ -314,18 +358,24 @@ const Area_Addproj = () => {
                 />
               </div>
             </div>
-            <div className="form-row single-column">
-              <div className="form-group">
-                <label htmlFor="manpower">Manpower</label>
-                <textarea
-                  id="manpower"
-                  name="manpower"
-                  placeholder="Add manpower details"
-                  value={formData.manpower}
-                  onChange={handleChange}
-                ></textarea>
-              </div>
-            </div>
+           <div className="form-row single-column">
+  <div className="form-group">
+    <label htmlFor="manpower">Manpower</label>
+    <select
+      id="manpower"
+      name="manpower"
+      multiple
+      value={formData.manpower}
+      onChange={handleChangeMultipleManpower}
+    >
+      {manpowerList.map(mp => (
+        <option key={mp._id} value={mp._id}>
+          {mp.name} — {mp.position}
+        </option>
+      ))}
+    </select>
+  </div>
+</div>
             <div className="form-row submit-row">
               <button type="submit" className="submit-button">Add Project</button>
             </div>

@@ -7,7 +7,8 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  status: { type: String, default: 'Active' }
+  status: { type: String, default: 'Active' },
+  locations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Location' }],
 }, {
   timestamps: true  
 });

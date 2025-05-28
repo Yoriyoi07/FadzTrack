@@ -13,6 +13,7 @@
   const materialRequestRoutes = require('./route/materialRequest');
   const { verifyToken } = require('./middleware/authMiddleware');
   const userRoutes = require('./route/user');
+  const locationRoutes = require('./route/location');
   const manpowerRoutes = require('./route/manpower');
   const app = express();
 
@@ -40,6 +41,7 @@
   app.use('/api/manpower-requests', manpowerRequestRoutes);
   app.use('/api/requests', materialRequestRoutes);
   app.use('/api/manpower', manpowerRoutes);
+  app.use('/api/locations', locationRoutes);
   app.use('/uploads', express.static('uploads'));
   app.get('/', (req, res) => res.send('API is working'));
 

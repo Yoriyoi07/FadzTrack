@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User'); // make sure this path is correct
+const User = require('../models/User'); 
+const Project = require('../models/Project');
+const Location = require('../models/Location');
 
 // Fetch users by role
 router.get('/role/:role', async (req, res) => {
@@ -11,6 +13,31 @@ router.get('/role/:role', async (req, res) => {
   } catch (err) {
     console.error('Error fetching users by role:', err);
     res.status(500).json({ message: 'Failed to fetch users' });
+  }
+});
+
+router.get('/:userId/locations', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId).populate('locations');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user.locations);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch locations' });
+  }
+});
+
+router.put('/:userId/locations', async (req, res) => {
+  try {
+    const { locations } = req.body; // array of location ObjectIds 
+    const user = await User.findByIdAndUpdate(
+      req.params.userId,
+      { locations },
+      { new: true }
+    ).populate('locations');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user.locations);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to update locations' });
   }
 });
 
@@ -43,6 +70,20 @@ router.get('/assigned/:userId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching assigned projects:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/:userId/locations', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Assuming assignedLocations is an array of ObjectIds or strings
+    const locations = await Location.find({ _id: { $in: user.assignedLocations || [] } });
+    res.json(locations);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch assigned locations' });
   }
 });
 

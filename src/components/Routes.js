@@ -18,7 +18,7 @@ import AreasPage from './am/Area_Proj_Area';
 import Ceo_Proj from './ceo/Ceo_Proj';
 import Ceo_ViewSpecific from './ceo/Ceo_ViewSpecific';
 import Ceo_Dash from './ceo/Ceo_Dash';
-import Ceo_Addproject from './ceo/Ceo_Addproj';
+import Ceo_AddArea from './ceo/Ceo_AddArea';
 import Pic_Dailylogs from './pic/Pic_Dailylogs';
 import PrivateRoute from "./PrivateRoute";
 import It_Dash from './it/It_Dash';
@@ -71,7 +71,7 @@ const AppRoutes = () => {
       {/* CEO */}
       <Route path="/ceo/proj" element={<Ceo_Proj />} />
       <Route path="/ceo/dash" element={<Ceo_Dash />} />
-      <Route path="/ceo/addproj" element={<Ceo_Addproject />} />
+      <Route path="/ceo/addarea" element={<Ceo_AddArea />} />
       <Route path="/ceo/proj/:id" element={<Ceo_ViewSpecific />} />
       <Route path="/ceo/material-list" element={<Ceo_Material_List />} />
       <Route path="/ceo/material-request/:id" element={<Ceo_MaterialRequestDetail />} />

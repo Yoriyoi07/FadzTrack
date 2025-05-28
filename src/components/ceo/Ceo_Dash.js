@@ -194,9 +194,9 @@ const Ceo_Dash = () => {
           <h2>Dashboard</h2>
           <button 
             className="add-project-btn" 
-            onClick={() => navigate('/ceo/addproj')}
+            onClick={() => navigate('/ceo/addarea')}
           >
-            Add New Project
+            Add New Area
           </button>
           <div className="project-list">
             {sidebarProjects.map(project => (
