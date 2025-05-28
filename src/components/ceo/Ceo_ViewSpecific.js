@@ -111,7 +111,12 @@ const Ceo_ViewSpecific = () => {
 
           <div className="project-details-grid">
             <div className="details-column">
-              <p className="detail-item"><span className="detail-label">Location:</span> {project.location}</p>
+              <p className="detail-item">
+              <span className="detail-label">Location:</span>
+              {project.location?.name 
+                ? `${project.location.name} (${project.location.region})` 
+                : 'No Location'}
+            </p>
 
               <div className="detail-group">
                 <p className="detail-label">Project Manager:</p>
@@ -148,7 +153,11 @@ const Ceo_ViewSpecific = () => {
 
           <div className="manpower-section">
             <p className="detail-label">Manpower:</p>
-            <p className="manpower-list">{project.manpower}</p>
+            <p className="manpower-list">
+            {Array.isArray(project.manpower) && project.manpower.length > 0
+              ? project.manpower.map(mp => `${mp.name} (${mp.position})`).join(', ')
+              : 'No Manpower Assigned'}
+          </p>
           </div>
         </div>
       </main>

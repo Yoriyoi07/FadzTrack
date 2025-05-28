@@ -71,7 +71,9 @@ router.get('/:id', async (req, res) => {
   try {
     const project = await Project.findById(req.params.id)
       .populate('projectmanager', 'name email')
-      .populate('pic', 'name email');
+      .populate('pic', 'name email')
+      .populate('location', 'name region')
+      .populate('manpower', 'name position');
 
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
@@ -103,7 +105,9 @@ router.get('/', async (req, res) => {
   try {
     const projects = await Project.find()
       .populate('projectmanager', 'name email') 
-      .populate('pic', 'name email'); 
+      .populate('pic', 'name email')
+      .populate('location', 'name region')
+      .populate('manpower', 'name position');
 
     const formattedProjects = projects.map(p => ({
       id: p._id,

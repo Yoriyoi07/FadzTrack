@@ -177,7 +177,11 @@ useEffect(() => {
             <div className="project-details">
               <div className="left-details">
                 <h3 className="project-name">{project.name}</h3>
-                <p className="project-location">{project.location}</p>
+                <p className="project-location">
+                {project.location?.name 
+                  ? `${project.location.name} (${project.location.region})` 
+                  : 'No Location'}
+              </p>
                 
                 <div className="project-info-grid">
                   <div className="info-column">
@@ -197,7 +201,11 @@ useEffect(() => {
                   
                   <div className="manpower-section">
                     <span className="manpower-header">Manpower:</span>
-                    <span className="manpower-value">{project.manpower}</span>
+                    <span className="manpower-value">
+                    {Array.isArray(project.manpower) && project.manpower.length > 0
+                      ? project.manpower.map(mp => `${mp.name} (${mp.position})`).join(', ')
+                      : 'No Manpower Assigned'}
+                  </span>
                   </div>
                 </div>
               </div>
