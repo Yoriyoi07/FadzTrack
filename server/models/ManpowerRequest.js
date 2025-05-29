@@ -9,7 +9,8 @@ const manpowerRequestSchema = new mongoose.Schema({
     quantity: { type: Number, required: true }
   }],
   description: { type: String, required: true },
-  attachments: [String]
+  attachments: [String],
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, { timestamps: true });
 
 module.exports = mongoose.model('ManpowerRequest', manpowerRequestSchema);

@@ -20,14 +20,15 @@ const createManpowerRequest = async (req, res) => {
     }
 
     const attachments = req.files?.map(file => file.filename) || [];
-
+    const createdBy = req.user?.id;
     const newRequest = new ManpowerRequest({
       acquisitionDate,
       duration,
       project,
       manpowers: manpowerArr,
       description,
-      attachments
+      attachments,
+      createdBy
     });
 
     await newRequest.save();
@@ -44,7 +45,7 @@ const getAllManpowerRequests = async (req, res) => {
     const requests = await ManpowerRequest.find()
       .sort({ createdAt: -1 })
       .populate('project', 'projectName location')       
-      .populate('assignedTo', 'name email');             
+      .populate('createdBy', 'name email role');             
     res.status(200).json(requests);
   } catch (error) {
     console.error('❌ Error fetching requests:', error);

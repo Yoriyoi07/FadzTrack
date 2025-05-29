@@ -14,14 +14,14 @@ const materialRequestSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: [
-      'Pending PM', 'Denied by PM', 'Pending AM',
-      'Denied by AM', 'Pending CEO', 'Denied by CEO', 'Approved'
+      'Pending Project Manager', 'Denied by Project Manager', 'Pending Area Manager',
+      'Denied by Area Manager', 'Pending CEO', 'Denied by CEO', 'Approved'
     ],
-    default: 'Pending PM'
+    default: 'Pending Project Manager'
   },
   approvals: [
     {
-      role: { type: String, enum: ['PM', 'AM', 'CEO'] },
+      role: { type: String, enum: ['Project Manager', 'Area Manager', 'CEO'] },
       user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       decision: { type: String, enum: ['approved', 'denied'] },
       reason: String,

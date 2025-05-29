@@ -143,7 +143,6 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
 router.get('/mine', verifyToken, async (req, res) => {
   const userId = req.user.id;
   const userRole = req.user.role;
-  console.log('User ID:', userId, 'User Role:', userRole);
   try {
     let requests = [];
 

@@ -44,7 +44,7 @@ const AppRoutes = () => {
       {/* PROJECT MANAGER */}
       <Route path="/pm/material-request/:id" element={<Pm_MaterialRequestDetail />} />
       <Route path="/pm/request/:id" element={<Pm_ViewRequest />} />
-      <Route path="/d" element={<PmManpowerRequest />} />
+      <Route path="/pm/manpower-request" element={<PmManpowerRequest />} />
       <Route path="/k" element={<PmIncidentReport />} />
       <Route path="/j" element={<PmViewProjects />} />
       <Route path="/q" element={<PmDailyReports />} />
