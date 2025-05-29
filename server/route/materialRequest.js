@@ -66,7 +66,7 @@ router.post('/', verifyToken, upload.array('attachments'), async (req, res) => {
       description,
       attachments,
       project,
-      createdBy: req.user.id, // assuming `req.user.id` is the logged-in user
+      createdBy: req.user.id, 
     });
 
     await newRequest.save();
@@ -143,6 +143,7 @@ router.post('/:id/approve', verifyToken, async (req, res) => {
 router.get('/mine', verifyToken, async (req, res) => {
   const userId = req.user.id;
   const userRole = req.user.role;
+  console.log('User ID:', userId, 'User Role:', userRole);
   try {
     let requests = [];
 
@@ -152,6 +153,7 @@ router.get('/mine', verifyToken, async (req, res) => {
         .populate('createdBy');
     } else if (userRole === 'PM' || userRole === 'Project Manager') {
       const projects = await Project.find({ projectmanager: userId });
+      console.log('User ID:', userId, 'Projects found:', projects.map(p => p._id));
       requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
         .populate('project')
         .populate('createdBy');

@@ -34,6 +34,7 @@ import { Link } from 'react-router-dom';
 import Area_Manpower_ReqDetails from './am/Area_Manpower_ReqDetails';
 import Hr_ManpowerList from './hr/Hr_ManpowerList';
 import Hr_Dash from './hr/Hr_Dash';
+import Area_Manpower_Request_List from './am/Area_Manpower_Request_List';
 
 const AppRoutes = () => {
   return (
@@ -67,6 +68,8 @@ const AppRoutes = () => {
       <Route path="/am/viewproj" element={<AreasPage />} />
       <Route path="/am/viewproj/:id" element={<AreasPage />} />
       <Route path="/am/manreqdetails/" element={<Area_Manpower_ReqDetails />} />
+      <Route path="/am/manpower-requests" element={<Area_Manpower_Request_List />} />
+
       {/* IT */}
       <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><It_Dash /></PrivateRoute>}/>
 

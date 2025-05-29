@@ -204,7 +204,9 @@ const Pic_MatReq = () => {
           {project && (
             <div className="project-details-box" style={{ marginBottom: '20px' }}>
               <h2 style={{ margin: 0 }}>{project.name}</h2>
-              <p style={{ margin: 0, fontStyle: 'italic' }}>{project.location}</p>
+              <p style={{ margin: 0, fontStyle: 'italic' }}>
+  {project.location?.name} ({project.location?.region})
+</p>
               <p style={{ margin: 0, color: '#555' }}>{project.targetDate}</p>
             </div>
           )}

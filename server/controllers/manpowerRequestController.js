@@ -1,22 +1,31 @@
 const ManpowerRequest = require('../models/ManpowerRequest');
+const Project = require('../models/Project'); 
+
 
 const createManpowerRequest = async (req, res) => {
   try {
     const {
-      requestTitle,
-      projectLocation,
-      manpowerType,
-      manpowerQuantity,
+      acquisitionDate,
+      duration,
+      project,
+      manpowers,  
       description
     } = req.body;
+
+    let manpowerArr = [];
+    try {
+      manpowerArr = typeof manpowers === 'string' ? JSON.parse(manpowers) : manpowers;
+    } catch {
+      return res.status(400).json({ message: 'Invalid manpowers format.' });
+    }
 
     const attachments = req.files?.map(file => file.filename) || [];
 
     const newRequest = new ManpowerRequest({
-      requestTitle,
-      projectLocation,
-      manpowerType,
-      manpowerQuantity,
+      acquisitionDate,
+      duration,
+      project,
+      manpowers: manpowerArr,
       description,
       attachments
     });
@@ -32,7 +41,10 @@ const createManpowerRequest = async (req, res) => {
 // READ - Get all manpower requests
 const getAllManpowerRequests = async (req, res) => {
   try {
-    const requests = await ManpowerRequest.find().sort({ createdAt: -1 });
+    const requests = await ManpowerRequest.find()
+      .sort({ createdAt: -1 })
+      .populate('project', 'projectName location')       
+      .populate('assignedTo', 'name email');             
     res.status(200).json(requests);
   } catch (error) {
     console.error('❌ Error fetching requests:', error);
@@ -44,7 +56,21 @@ const getAllManpowerRequests = async (req, res) => {
 const updateManpowerRequest = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = { ...req.body };
+
+    // If updating manpowers as JSON string, parse it
+    if (typeof updates.manpowers === 'string') {
+      try {
+        updates.manpowers = JSON.parse(updates.manpowers);
+      } catch {
+        return res.status(400).json({ message: 'Invalid manpowers format' });
+      }
+    }
+
+    // If updating attachments via upload
+    if (req.files && req.files.length > 0) {
+      updates.attachments = req.files.map(file => file.filename);
+    }
 
     const updatedRequest = await ManpowerRequest.findByIdAndUpdate(id, updates, { new: true });
 

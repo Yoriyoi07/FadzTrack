@@ -1,12 +1,15 @@
 const mongoose = require('mongoose');
 
 const manpowerRequestSchema = new mongoose.Schema({
-  requestTitle: { type: String, required: true },
-  projectLocation: { type: String, required: true },
-  manpowerType: { type: String, required: true },
-  manpowerQuantity: { type: String, required: true },
+  acquisitionDate: { type: Date, required: true },
+  duration: { type: Number, required: true },
+  project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
+  manpowers: [{
+    type: { type: String, required: true },
+    quantity: { type: Number, required: true }
+  }],
   description: { type: String, required: true },
-  attachments: [String] // Store filenames if you're using file upload
+  attachments: [String]
 }, { timestamps: true });
 
 module.exports = mongoose.model('ManpowerRequest', manpowerRequestSchema);
