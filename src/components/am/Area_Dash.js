@@ -185,10 +185,7 @@ useEffect(() => {
       {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
-          <div className="logo">
-            <div className="logo-building"></div>
-            <div className="logo-flag"></div>
-          </div>
+          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
@@ -200,16 +197,6 @@ useEffect(() => {
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="search-profile">
-          <div className="search-container">
-            <input type="text" placeholder="Search in site" className="search-input" />
-            <button className="search-button">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </button>
-          </div>
           <div className="profile-menu-container">
             <div 
               className="profile-circle" 
@@ -217,14 +204,12 @@ useEffect(() => {
             >
               Z
             </div>
-            
             {profileMenuOpen && (
               <div className="profile-menu">
                 <button onClick={handleLogout}>Logout</button>
               </div>
             )}
           </div>
-        </div>
       </header>
 
       {/* Main Content */}

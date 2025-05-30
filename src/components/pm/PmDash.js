@@ -149,7 +149,7 @@ useEffect(() => {
       document.removeEventListener("click", handleClickOutside);
     };
   }, []);
-
+        
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -168,13 +168,10 @@ useEffect(() => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
+          <Link to="/pm" className="nav-link">Dashboard</Link>
           <Link to="/pm/request/:id" className="nav-link">Requests</Link>
-    {projects.length > 0 && (
-          <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">
-            View Project
-          </Link>
-        )}
+          {projects.length > 0 && (
+          <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>)}
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
@@ -196,6 +193,7 @@ useEffect(() => {
             >
               Z
             </div>
+            
             {profileMenuOpen && (
               <div className="profile-menu">
                 <button onClick={handleLogout}>Logout</button>

@@ -8,154 +8,107 @@
   background-position: center;
 }
 
-/* Header – updated for new structure */
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 2rem;
-  background-color: #1e3a8a;
-  color: white;
-  margin-bottom: 1rem;
+/* Top Navbar Styles */
+.logo-img {
+  height: 60px !important;
+  max-height: 65px;
+  object-fit: contain;
 }
 
 .logo-container {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 10px;
+  min-height: 65px;
 }
 
-.logo {
-  position: relative;
-  height: 2rem;
-  width: 2rem;
-}
-
-.logo-building {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 2rem;
-  height: 1.5rem;
-  background-color: #dc2626;
-  border-radius: 0.375rem;
-}
-
-.logo-flag {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 0.25rem;
-  height: 0.5rem;
-  background-color: #ef4444;
-}
 
 .brand-name {
-  margin-left: 0.5rem;
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: 0;
+  font-size: 1.6rem;
+  font-weight: bold;
+  margin-top: 4px; /* Slight nudge for vertical alignment */
 }
 
-/* Navigation Menu */
-.nav-menu {
+.header {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.4rem 2rem;
+  background-color: #000466; /* Dark blue as in image */
+  color: white;
+  padding: 0.8rem 2.5rem;
+}
+
+.nav-menu {
+  display: flex;
+  gap: 1.8rem;
+  align-items: center;
 }
 
 .nav-link {
-  padding: 0.5rem 1rem;
-  background: none;
-  border: none;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: color 0.2s;
   color: white;
   text-decoration: none;
-  font-weight: 700;
+  font-size: 0.95rem;
+  font-weight: 500;
 }
 
 .nav-link:hover {
-  color: #d1d5db;
+  color: #c0c0c0;
 }
 
-/* Search and Profile */
-.search-profile {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-/* Search */
-.search-container {
-  position: relative;
-  margin-right: 15px;
-}
-
-.search-input {
-  padding: 0.25rem 1rem;
-  padding-left: 1rem;
-  padding-right: 2.5rem;
-  border-radius: 0.375rem;
-  background-color: #1f2937;
-  color: white;
-  width: 16rem;
-  border: none;
-}
-
-.search-button {
-  position: absolute;
-  right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-
-/* Profile Menu */
 .profile-menu-container {
   position: relative;
 }
 
 .profile-circle {
-  height: 2rem;
-  width: 2rem;
-  border-radius: 9999px;
-  background-color: #9333ea;
+  width: 40px;
+  height: 40px;
+  background-color: #555;
+  color: white;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-weight: 700;
   cursor: pointer;
+  font-weight: bold;
 }
 
 .profile-menu {
   position: absolute;
-  top: 100%;
   right: 0;
-  background: white;
-  border-radius: 0.375rem;
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-  margin-top: 0.25rem;
+  margin-top: 10px;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   z-index: 10;
 }
 
 .profile-menu button {
-  padding: 0.5rem 1rem;
-  border: none;
   background: none;
+  border: none;
+  padding: 5px 10px;
   cursor: pointer;
   width: 100%;
   text-align: left;
-  color: #1f2937;
 }
 
 .profile-menu button:hover {
-  background-color: #f3f4f6;
+  background-color: #f0f0f0;
+}
+
+
+.profile-circle {
+  width: 32px;
+  height: 32px;
+  background-color: #9c27b0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
 }
 
 /* Main Content */

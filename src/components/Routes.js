@@ -8,7 +8,6 @@ import PmDailyReports from './pm/PmDailyReports';
 import PmIncidentReport from './pm/PmIncidentReport';
 import Pm_RequestManpower from './pm/Pm_RequestManpower';
 import AreaManagerDashboard from './am/Area_Dash';
-import Area_ViewAll from './am/Area_Viewall';
 import LoginPage from './Login';
 import Area_Manpower_List from './am/Area_Manpower_List'
 import Area_Material_list from './am/Area_Material_List';
@@ -65,7 +64,6 @@ const AppRoutes = () => {
 
       {/* AREA */}
       <Route path="/am" element={<AreaManagerDashboard />} />
-      <Route path="/am/viewall" element={<Area_ViewAll />} />
       <Route path="/am/addproj" element={<AddProject />} />
       <Route path="/am/matreq" element={<Area_Material_list />} />
       <Route path="/am/manpower-requests" element={<Area_Manpower_List />} />
