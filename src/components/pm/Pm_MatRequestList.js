@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/pm_style/Pm_ViewRequest.css';
 
-const Pm_ViewRequest = () => {
+const Pm_MatRequestList = () => {
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
@@ -109,8 +109,9 @@ const Pm_ViewRequest = () => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
-          <Link to="/pm/requests" className="nav-link active">Requests</Link>
+          <Link to="/pm" className="nav-link">Dashboard</Link>
+          <Link to="/pm/request/:id" className="nav-link">Material</Link>
+          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
           <Link to="/ceo/proj" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
@@ -228,4 +229,4 @@ const Pm_ViewRequest = () => {
   );
 };
 
-export default Pm_ViewRequest;
+export default Pm_MatRequestList;

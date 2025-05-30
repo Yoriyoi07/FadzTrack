@@ -6,127 +6,68 @@
   background: linear-gradient(to bottom, #1e3a8a, #1e40af);
 }
 
-/* Header – Updated to match UI design */
-.navbar {
-  position: absolute;         /* Place header at the top */
-  top: 0;
-  left: 0;
-  width: 100%;
-  padding: 1rem 2rem;          /* Extra horizontal padding for a balanced look */
-  background: transparent;    /* No background so underlying gradient shows through */
-  color: #ffffff;
+/* Header Styles */
+.header {
+  position: relative;
+  z-index: 10;
+  width: 100vw;
+  background: #00205b;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  z-index: 10;
-  /* Optional: a very subtle shadow to add depth */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 0.6rem 2.5rem;
+  min-height: 62px;
 }
 
-/* Logo container remains largely the same but adjusted spacing if needed */
 .logo-container {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
 }
-
-/* Adjust logo sizes if the design calls for it */
 .logo {
-  position: relative;
-  height: 2rem;
-  width: 2rem;
+  width: 36px; height: 36px; margin-right: 8px; position: relative;
 }
-
-.logo-base {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 2rem;
-  height: 1.5rem;
-  background-color: #dc2626;
-  border-radius: 0.375rem;
+.logo-building {
+  position: absolute; bottom: 0; left: 5px; width: 25px; height: 28px; background: #ff3333; border-radius: 3px 3px 0 0;
 }
-
-.logo-top {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 0.25rem;
-  height: 0.5rem;
-  background-color: #ef4444;
+.logo-flag {
+  position: absolute; top: 0; left: 14px; width: 4px; height: 16px; background: #fff;
 }
-
-/* Increase brand name font size and weight to match design */
+.logo-flag::after {
+  content: ''; position: absolute; top: 0; left: 4px; width: 12px; height: 7px; background: #ff3333;
+}
 .brand-name {
-  margin-left: 0.5rem;
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 1.5rem; font-weight: bold; letter-spacing: 0.5px;
 }
-
-/* Navigation Items – subtle contrast between active and inactive */
-.nav-items {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+.nav-menu {
+  display: flex; gap: 2rem; align-items: center;
 }
-
-.nav-button {
-  background: none;
-  border: none;
-  padding: 0.5rem 1rem;
-  font-size: 1rem;
-  cursor: pointer;
-  color: #d1d5db; /* Inactive state */
-  transition: color 0.2s;
+.nav-link {
+  color: #fff; text-decoration: none; font-weight: 500; font-size: 1rem; transition: color 0.2s;
 }
-
-.nav-button.active {
-  color: #ffffff;
-  font-weight: 600;
-}
-
-.nav-button.inactive {
-  color: #d1d5db;
-}
-
-
+.nav-link:hover { color: #ffd46f; }
+.search-profile { display: flex; align-items: center; gap: 1.5rem; }
 .search-container {
-  position: relative;
-  margin-right: 15px;
+  display: flex; align-items: center; background: rgba(255,255,255,0.18); border-radius: 18px; padding: 0.2rem 0.7rem;
 }
-
 .search-input {
-  padding: 0.25rem 1rem;
-  padding-left: 2.5rem;
-  padding-right: 0.75rem;
-  border-radius: 0.375rem;
-  background-color: #1f2937;
-  color: white;
-  width: 16rem;
-  margin-left: 20px;
+  background: transparent; border: none; color: #fff; padding: 0.3rem 0.5rem; width: 140px; outline: none;
 }
-
-.search-icon {
-  position: absolute;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
-  height: 1rem;
-  width: 1rem;
+.search-input::placeholder { color: rgba(255,255,255,0.8); }
+.search-button { background: none; border: none; color: #fff; cursor: pointer; }
+.profile-menu-container { position: relative; }
+.profile-circle {
+  width: 34px; height: 34px; background: #9c27b0; color: #fff; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.08rem; cursor: pointer;
 }
-
-.user-avatar {
-  height: 2rem;
-  width: 2rem;
-  border-radius: 9999px;
-  background-color: #9333ea;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 700;
+.profile-menu {
+  position: absolute; right: 0; top: 110%; background: #fff; border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.14); border: 1px solid #ddd; z-index: 100;
 }
+.profile-menu button {
+  background: none; border: none; padding: 10px 22px; color: #333; font-size: 1rem; cursor: pointer; width: 100%; text-align: left;
+}
+.profile-menu button:hover { background: #f4f4f8; }
 
 /* Main Content */
 .main-content {

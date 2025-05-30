@@ -9,8 +9,11 @@ const manpowerRequestSchema = new mongoose.Schema({
     quantity: { type: Number, required: true }
   }],
   description: { type: String, required: true },
-  attachments: [String],
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  status: { type: String, default: 'Pending' },
+  approvedBy: { type: String, default: '' }, // Store AM's name or ID
+  received: { type: Boolean, default: false },
+  returnDate: { type: Date }
 }, { timestamps: true });
 
 module.exports = mongoose.model('ManpowerRequest', manpowerRequestSchema);

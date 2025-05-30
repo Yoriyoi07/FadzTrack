@@ -1,113 +1,96 @@
-import React, { useState } from 'react';
-import { Search, List, LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { List, LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react';
 import '../style/am_style/Area_Manpower_List.css';
 
 export default function Area_Manpower_List() {
-  // State for filter selection and view mode
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('All');
   const [viewMode, setViewMode] = useState('list');
+  const navigate = useNavigate();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
 
-  // Sample data
-  const [requests] = useState([
-    {
-      id: 1,
-      type: 'Calatagan Towhomes',
-      project: 'Calatagan Towhomes',
-      requester: 'Rychca Miralles',
-      date: '09/15/2022',
-      status: 'Pending',
-      icon: '📦',
-    },
-    {
-      id: 2,
-      type: 'Cement',
-      project: 'Building A',
-      requester: 'John Doe',
-      date: '09/15/2022',
-      status: 'Approved',
-      icon: '📦',
-    },
-    {
-      id: 3,
-      type: 'Cement',
-      project: 'Building A',
-      requester: 'John Doe',
-      date: '09/15/2022',
-      status: 'Rejected',
-      icon: '📦',
-    },
-    {
-      id: 4,
-      type: 'Steel Bars',
-      project: 'Infrastructure Project B',
-      requester: 'Jane Smith',
-      date: '09/20/2022',
-      status: 'Rejected',
-      icon: '🔧',
-    },
-    {
-      id: 5,
-      type: 'Steel Bars',
-      project: 'Infrastructure Project B',
-      requester: 'Jane Smith',
-      date: '09/20/2022',
-      status: 'Approved',
-      icon: '🔧',
-    },
-    {
-      id: 6,
-      type: 'Bricks',
-      project: 'Residential Development C',
-      requester: 'Emily Brown',
-      date: '09/25/2022',
-      status: 'Rejected',
-      icon: '🧱',
-    },
-    {
-      id: 7,
-      type: 'Bricks',
-      project: 'Residential Development C',
-      requester: 'Emily Brown',
-      date: '09/25/2022',
-      status: 'Approved',
-      icon: '🧱',
-    },
-  ]);
+  useEffect(() => {
+    if (!user._id) return;
+    setLoading(true);
+    fetch(`http://localhost:5000/api/manpower-requests/area?areaManager=${user._id}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    })
+      .then(res => res.json())
+      .then(data => setRequests(Array.isArray(data) ? data : []))
+      .catch(() => setRequests([]))
+      .finally(() => setLoading(false));
+  }, [user._id]);
 
-  // Filter the items based on the selected status
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
+
+  // Optionally filter by status (if you have a status field)
   const filteredRequests = requests.filter((request) =>
     filterStatus === 'All' ? true : request.status === filterStatus
   );
 
-  // Navigation items
-  const navItems = ['Requests', 'Projects', 'Chat', 'Logs', 'Reports'];
-
   return (
     <div className="app-container">
-      {/* Navbar */}
-      <nav className="navbar">
+      {/* Header with Navigation */}
+      <header className="header">
+        {/* ...same header code... */}
         <div className="logo-container">
           <div className="logo">
-            <div className="logo-base"></div>
-            <div className="logo-top"></div>
+            <div className="logo-building"></div>
+            <div className="logo-flag"></div>
           </div>
-          <span className="brand-name">FadzTrack</span>
+          <h1 className="brand-name">FadzTrack</h1>
         </div>
-        <ul className="nav-items">
-          {navItems.map((item, idx) => (
-            <li key={idx}>
-              <button className={`nav-button ${item === 'Requests' ? 'active' : 'inactive'}`}>
-                {item}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <div className="search-container">
-          <input type="text" placeholder="Search in site" className="search-input" />
-          <Search className="search-icon" />
+           <nav className="nav-menu">
+            <Link to="/am" className="nav-link">Dashboard</Link>
+            <Link to="/am/matreq" className="nav-link">Material</Link>
+            <Link to="/am/manpower-requests" className="nav-link">Manpower</Link>
+            <Link to="/ceo/proj" className="nav-link">Projects</Link>
+            <Link to="/chat" className="nav-link">Chat</Link>
+            <Link to="/logs" className="nav-link">Logs</Link>
+            <Link to="/reports" className="nav-link">Reports</Link>
+          </nav>
+        <div className="search-profile">
+          <div className="search-container">
+            <input type="text" placeholder="Search in site" className="search-input" />
+            <button className="search-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+          </div>
+          <div className="profile-menu-container">
+            <div
+              className="profile-circle"
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="user-avatar">Z</div>
-      </nav>
+      </header>
 
       {/* Main Content */}
       <main className="main-content">
@@ -115,22 +98,7 @@ export default function Area_Manpower_List() {
           {/* Filters */}
           <div className="filters-container">
             <div className="filter-options">
-              <span className="filter-label">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="filter-icon"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
-                  />
-                </svg>
-                Date Filter
-              </span>
+              <span className="filter-label">Date Filter</span>
               {['All', 'Pending', 'Rejected', 'Approved'].map((status, index) => (
                 <button
                   key={index}
@@ -154,68 +122,51 @@ export default function Area_Manpower_List() {
             </div>
           </div>
 
-          {/* Request List - Wrapped in a scrollable container */}
+          {/* Request List */}
           <div className="request-list scrollable">
-            {filteredRequests.map((request) => (
-              <div key={request.id} className="request-item">
-                <div className="request-info">
-                  <div className="request-icon">{request.icon}</div>
-                  <div className="request-details">
-                    <h3 className="request-title">Request for {request.type}</h3>
-                    <p className="request-project">Project: {request.project}</p>
-                  </div>
-                </div>
-                <div className="request-meta">
-                  <div className="requester-info">
-                    <p className="requester-name">{request.requester}</p>
-                    <p className="request-date">{request.date}</p>
-                  </div>
-                  {request.status === 'Pending' && (
-                    <div className="request-actions">
-                      <button className="approve-button">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="approve-icon"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      </button>
-                      <button className="reject-button">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="reject-icon"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </button>
+            {loading ? (
+              <div>Loading...</div>
+            ) : filteredRequests.length === 0 ? (
+              <div>No requests found.</div>
+            ) : (
+              filteredRequests.map((request) => (
+                <div
+                  key={request._id}
+                  className="request-item"
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => navigate(`/am/manpower-requests/${request._id}`)}
+                >
+                  <div className="request-info">
+                    <div className="request-details">
+                      <h3 className="request-title">Request for {request.manpowers && request.manpowers.map(mp => `${mp.quantity} ${mp.type}`).join(', ')}</h3>
+                      <p className="request-project">Project: {request.project?.projectName || 'N/A'}</p>
+                      <p className="request-date">
+                        {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : ''}
+                      </p>
                     </div>
-                  )}
-                  {request.status === 'Approved' && (
-                    <div className="status-badge status-approved">Approved</div>
-                  )}
-                  {request.status === 'Rejected' && (
-                    <div className="status-badge status-declined">Declined</div>
-                  )}
+                  </div>
+                  <div className="request-meta">
+                    <div className="requester-info">
+                      <p className="requester-name">
+                        Requested by: {request.createdBy?.name || 'N/A'}
+                      </p>
+                    </div>
+                    {request.status === 'Pending' && (
+                      <div className="status-badge status-pending">Pending</div>
+                    )}
+                    {request.status === 'Approved' && (
+                      <div className="status-badge status-approved">Approved</div>
+                    )}
+                    {request.status === 'Rejected' && (
+                      <div className="status-badge status-declined">Declined</div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
-          {/* Pagination */}
+          {/* Pagination - keep as is if you plan to use later */}
           <div className="pagination">
             <button className="pagination-arrow">
               <ChevronLeft className="pagination-arrow-icon" />

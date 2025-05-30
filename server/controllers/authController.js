@@ -140,7 +140,7 @@ exports.loginUser = async (req, res) => {
 
     // Send 2FA code to user's email
     await sendTwoFACode(email, twoFACode);
-
+    console.log(twoFACode)
     res.json({
       msg: '2FA code sent to email',
       requires2FA: true,

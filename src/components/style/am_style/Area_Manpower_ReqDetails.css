@@ -1,16 +1,13 @@
-/* FadzTrack UI Styles - Scoped to avoid global conflicts */
-
 .fadztrack-app {
   min-height: 100vh;
-  background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800"><defs><linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:%2387CEEB;stop-opacity:1" /><stop offset="100%" style="stop-color:%23E0F6FF;stop-opacity:1" /></linearGradient></defs><rect width="1200" height="400" fill="url(%23sky)"/><polygon points="0,400 1200,400 1200,500 800,480 400,520 0,500" fill="%23D2B48C"/><rect x="200" y="480" width="800" height="120" fill="%238B4513" rx="8"/><rect x="220" y="500" width="760" height="80" fill="%23DEB887" rx="4"/><rect x="100" y="460" width="80" height="140" fill="%23654321"/><rect x="1020" y="460" width="80" height="140" fill="%23654321"/><circle cx="80" cy="350" r="30" fill="%2332CD32"/><circle cx="1120" cy="380" r="25" fill="%2332CD32"/><rect x="900" y="450" width="60" height="30" fill="%23C0C0C0" rx="15"/></svg>');
-  background-size: cover;
-  background-position: center;
-  position: relative;
+  background: #f6f8fa;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Header Styles */
 .header {
-  position: relative;
+  position: sticky;
+  top: 0;
   z-index: 10;
   width: 100vw;
   background: #00205b;
@@ -18,8 +15,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 2.5rem;
-  min-height: 62px;
+  padding: 1.3rem 3.3rem 1.3rem 2.5rem;
+  min-height: 68px;
+  box-shadow: 0 1px 10px 0 #0001;
 }
 
 .logo-container {
@@ -27,94 +25,110 @@
   align-items: center;
 }
 .logo {
-  width: 36px; height: 36px; margin-right: 8px; position: relative;
+  width: 38px; height: 38px; margin-right: 12px; position: relative;
 }
 .logo-building {
-  position: absolute; bottom: 0; left: 5px; width: 25px; height: 28px; background: #ff3333; border-radius: 3px 3px 0 0;
+  position: absolute; bottom: 0; left: 6px; width: 27px; height: 32px; background: #ff3333; border-radius: 3px 3px 0 0;
 }
 .logo-flag {
-  position: absolute; top: 0; left: 14px; width: 4px; height: 16px; background: #fff;
+  position: absolute; top: 0; left: 15px; width: 4px; height: 17px; background: #fff;
 }
 .logo-flag::after {
   content: ''; position: absolute; top: 0; left: 4px; width: 12px; height: 7px; background: #ff3333;
 }
 .brand-name {
-  font-size: 1.5rem; font-weight: bold; letter-spacing: 0.5px;
+  font-size: 1.6rem; font-weight: bold; letter-spacing: 0.6px;
 }
 .nav-menu {
-  display: flex; gap: 2rem; align-items: center;
+  display: flex; gap: 2.2rem; align-items: center;
 }
 .nav-link {
-  color: #fff; text-decoration: none; font-weight: 500; font-size: 1rem; transition: color 0.2s;
+  color: #fff; text-decoration: none; font-weight: 500; font-size: 1.09rem; transition: color 0.2s;
 }
 .nav-link:hover { color: #ffd46f; }
-.search-profile { display: flex; align-items: center; gap: 1.5rem; }
+.search-profile { display: flex; align-items: center; gap: 1.6rem; }
 .search-container {
-  display: flex; align-items: center; background: rgba(255,255,255,0.18); border-radius: 18px; padding: 0.2rem 0.7rem;
+  display: flex; align-items: center; background: rgba(255,255,255,0.20); border-radius: 18px; padding: 0.25rem 0.8rem;
 }
 .search-input {
-  background: transparent; border: none; color: #fff; padding: 0.3rem 0.5rem; width: 140px; outline: none;
+  background: transparent; border: none; color: #fff; padding: 0.35rem 0.5rem; width: 150px; outline: none; font-size: 1.04rem;
 }
 .search-input::placeholder { color: rgba(255,255,255,0.8); }
 .search-button { background: none; border: none; color: #fff; cursor: pointer; }
 .profile-menu-container { position: relative; }
 .profile-circle {
-  width: 34px; height: 34px; background: #9c27b0; color: #fff; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.08rem; cursor: pointer;
+  width: 38px; height: 38px; background: #9c27b0; color: #fff; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.18rem; cursor: pointer;
+  transition: background 0.19s;
 }
+.profile-circle:hover { background: #7a1ea1; }
 .profile-menu {
-  position: absolute; right: 0; top: 110%; background: #fff; border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.14); border: 1px solid #ddd; z-index: 100;
+  position: absolute; right: 0; top: 110%; background: #fff; border-radius: 10px;
+  box-shadow: 0 2px 14px rgba(0,0,0,0.13); border: 1px solid #eee; z-index: 100;
 }
 .profile-menu button {
-  background: none; border: none; padding: 10px 22px; color: #333; font-size: 1rem; cursor: pointer; width: 100%; text-align: left;
+  background: none; border: none; padding: 12px 24px; color: #222; font-size: 1.08rem; cursor: pointer; width: 100%; text-align: left;
 }
-.profile-menu button:hover { background: #f4f4f8; }
+.profile-menu button:hover { background: #f7f7fa; }
 
-/* Main Content Styles */
 .fadztrack-main {
+  min-height: 80vh;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  min-height: 100vh;
-  padding: 80px 16px;
+  background: transparent;
 }
 
-.fadztrack-card {
-  background-color: white;
-  border-radius: 8px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  padding: 32px;
-  width: 100%;
-  max-width: 672px;
+.details-card {
+  width: 98vw;
+  max-width: 1100px;
+  margin: 38px auto 30px auto;
+  background: #fff;
+  border-radius: 18px;
+  padding: 3.2rem 3.6rem 3.2rem 3.6rem;
+  box-shadow: 0 10px 38px rgba(0,0,0,0.16);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  font-size: 1.19rem;
 }
 
 .fadztrack-header-section {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 1.9rem;
 }
-
 .fadztrack-title {
-  font-size: 30px;
-  font-weight: bold;
-  color: #1f2937;
-  margin-bottom: 8px;
+  font-size: 2.6rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  color: #2d3c7a;
+  letter-spacing: 0.03em;
 }
-
+.fadztrack-title .highlight-id {
+  font-size: 1.25rem;
+  color: #3251c2;
+  font-weight: 700;
+  margin-left: 9px;
+}
 .fadztrack-subtitle {
-  color: #6b7280;
+  color: #3d475c;
+  font-size: 1.23rem;
+  margin-bottom: 1.1rem;
 }
 
-.fadztrack-form {
+.fadztrack-form-row.center-row {
   display: flex;
-  flex-direction: column;
-  gap: 24px;
+  justify-content: center;
+  gap: 90px;
+  margin-bottom: 1.8rem;
+  margin-top: 0.2rem;
 }
 
 .fadztrack-form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 25px;
+  margin-bottom: 1.3rem;
 }
 
 .fadztrack-form-group {
@@ -124,115 +138,138 @@
 
 .fadztrack-label {
   display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #3c4160;
+  margin-bottom: 6px;
 }
 
 .fadztrack-input,
 .fadztrack-select {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
+  padding: 11px 15px;
+  border: 1.2px solid #d1d5db;
+  border-radius: 7px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
+  font-size: 1.07rem;
+  background: #fafbfc;
 }
-
 .fadztrack-input:focus,
 .fadztrack-select:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.fadztrack-select {
-  color: #6b7280;
-  background-color: white;
+  border-color: #466ee0;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.08);
 }
 
 .fadztrack-summary-section {
-  margin-bottom: 0;
+  margin-bottom: 2.2rem;
 }
-
 .fadztrack-summary-label {
+  font-size: 1.19rem;
+  font-weight: 700;
+  margin-bottom: 0.55rem;
   display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 12px;
 }
 
 .fadztrack-summary-box {
-  background-color: #f9fafb;
-  padding: 16px;
-  border-radius: 6px;
-}
-
-.fadztrack-summary-list {
+  border: 1.6px solid #d5dbe7;
+  border-radius: 10px;
+  background: #fafbfc;
+  padding: 1.32rem;
+  margin: 0.4rem auto 0.6rem auto;
+  min-height: 80px;
+  width: 83%;
+  max-width: 740px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  font-size: 1.15rem;
+}
+.fadztrack-summary-list {
+  width: 100%;
+  text-align: center;
+}
+.fadztrack-summary-item {
+  font-size: 1.12rem;
+  color: #1b233c;
+  margin-bottom: 2px;
 }
 
-.fadztrack-summary-item {
-  font-size: 14px;
-  color: #6b7280;
+.fadztrack-summary-description {
+  width: 83%;
+  max-width: 740px;
+  min-height: 90px;
+  border-radius: 10px;
+  border: 1.3px solid #d5dbe7;
+  background: #fafbfc;
+  font-size: 1.07rem;
+  padding: 1.2rem;
+  margin: 0.4rem auto 0.7rem auto;
+  display: block;
 }
 
 .fadztrack-buttons {
   display: flex;
   justify-content: center;
-  gap: 16px;
-  padding-top: 24px;
+  gap: 36px;
+  margin-top: 2.8rem;
 }
-
 .fadztrack-button {
-  padding: 12px 32px;
-  background-color: #2563eb;
-  color: white;
-  border-radius: 6px;
+  background: #3251c2;
+  color: #fff;
+  font-size: 1.22rem;
+  font-weight: 700;
   border: none;
-  font-weight: 500;
+  border-radius: 9px;
+  padding: 1.07rem 0;
   cursor: pointer;
-  transition: background-color 0.2s;
+  min-width: 185px;
+  box-shadow: 0 2px 6px #2d417e13;
+  transition: background 0.18s, box-shadow 0.18s;
+}
+.fadztrack-button.deny-btn {
+  background: #be3543;
+}
+.fadztrack-button.deny-btn:hover {
+  background: #a6222e;
+}
+.fadztrack-button.review-btn:hover,
+.fadztrack-button:hover {
+  background: #23398d;
 }
 
-.fadztrack-button:hover {
-  background-color: #1d4ed8;
+.status-badge {
+  padding: 7px 21px;
+  border-radius: 22px;
+  font-weight: 700;
+  font-size: 1.13rem;
+  display: inline-block;
+  margin-bottom: 18px;
+  text-transform: capitalize;
+  letter-spacing: 0.05em;
+  margin-top: 0.5rem;
 }
+.status-approved { background: #31c86a1f; color: #167c45; border: 1.5px solid #1ebe6c; }
+.status-rejected { background: #ffe7e6; color: #d23b32; border: 1.5px solid #d23b32; }
+.status-pending { background: #f1f3fb; color: #4a579e; border: 1.5px solid #3a539b; }
 
 /* Responsive Design */
-@media (max-width: 768px) {
-  .fadztrack-header {
-    flex-direction: column;
-    gap: 16px;
-    padding: 16px;
+@media (max-width: 1100px) {
+  .details-card {
+    padding: 2rem 1.5rem;
+    max-width: 96vw;
   }
-  
-  .fadztrack-header-left {
-    flex-direction: column;
-    gap: 16px;
-  }
-  
-  .fadztrack-nav {
-    gap: 16px;
-  }
-  
-  .fadztrack-search-input {
-    width: 200px;
-  }
-  
-  .fadztrack-form-row {
-    grid-template-columns: 1fr;
-  }
-  
-  .fadztrack-buttons {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .fadztrack-button {
-    width: 200px;
-  }
+  .fadztrack-title { font-size: 2.05rem; }
+  .fadztrack-header-section { margin-bottom: 1.2rem; }
+  .fadztrack-main { align-items: flex-start; }
+}
+@media (max-width: 800px) {
+  .details-card { padding: 1.4rem 0.4rem; }
+  .fadztrack-form-row { grid-template-columns: 1fr; gap: 13px; }
+  .fadztrack-summary-description, .fadztrack-summary-box { width: 97%; min-width: 0; }
+  .fadztrack-buttons { flex-direction: column; gap: 20px; }
+}
+@media (max-width: 480px) {
+  .details-card { padding: 0.6rem 0.1rem; }
+  .fadztrack-title { font-size: 1.3rem; }
 }
