@@ -5,14 +5,18 @@ import '../style/pm_style/Pm_ViewRequest.css';
 const Pm_MatRequestList = () => {
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-
+  const token = localStorage.getItem('token');
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const userId = user?._id;
   // State for requests
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
-
+  const [projects, setProjects] = useState([]);
+  const [project, setProject] = useState(null);
   // Fetch all requests for this PM
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -65,6 +69,52 @@ const Pm_MatRequestList = () => {
     navigate('/');
   };
 
+    useEffect(() => {
+      if (!token || !user) return;
+      const fetchProjects = async () => {
+        try {
+          const res = await fetch('http://localhost:5000/api/projects', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          console.log('Fetched projects:', data); 
+          // Filter for projects where this user is the Project Manager
+          const filtered = data.filter(
+      (p) => p.projectManager && (
+        (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
+        p.projectManager === userId // in case it's just an ID string
+      )
+    );
+          console.log('Filtered projects:', filtered); 
+          setProjects(filtered);
+        } catch (err) {
+          console.error('Failed to fetch projects:', err);
+        }
+      };
+      fetchProjects();
+    }, [token, user, userId]);
+  
+  
+  
+    useEffect(() => {
+    if (!token || !userId) return;
+    const fetchAssigned = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/projects/assigned/${userId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const data = await res.json();
+        console.log('Assigned project from API:', data);
+        setProject(data[0] || null);
+      } catch (err) {
+        console.error('Failed to fetch assigned project:', err);
+        setProject(null);
+      }
+    };
+    fetchAssigned();
+  }, [token, userId]);
+  
   // Utility: Show an emoji for the first material type
   const getIconForType = (request) => {
     if (!request.materials || request.materials.length === 0) return '📄';
@@ -99,43 +149,25 @@ const Pm_MatRequestList = () => {
 
   return (
     <div className="app-container">
-      {/* Header */}
+      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
-          <div className="logo">
-            <div className="logo-building"></div>
-            <div className="logo-flag"></div>
-          </div>
+          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
-        </div>
-        <nav className="nav-menu">
-          <Link to="/pm" className="nav-link">Dashboard</Link>
-          <Link to="/pm/request/:id" className="nav-link">Material</Link>
-          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
-          <Link to="/ceo/proj" className="nav-link">Projects</Link>
-          <Link to="/chat" className="nav-link">Chat</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
-          <Link to="/reports" className="nav-link">Reports</Link>
-        </nav>
-        <div className="search-profile">
-          <div className="search-container">
-            <input
-              type="text"
-              placeholder="Search in requests"
-              className="search-input"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-            <button className="search-button">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </button>
           </div>
+            <nav className="nav-menu">
+              <Link to="/pm" className="nav-link">Dashboard</Link>
+              <Link to="/pm/request/:id" className="nav-link">Material</Link>
+              <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
+              {projects.length > 0 && (
+              <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>)}
+              <Link to="/chat" className="nav-link">Chat</Link>
+              <Link to="/logs" className="nav-link">Logs</Link>
+              <Link to="/reports" className="nav-link">Reports</Link>
+            </nav>
           <div className="profile-menu-container">
-            <div
-              className="profile-circle"
+            <div 
+              className="profile-circle" 
               onClick={() => setProfileMenuOpen(!profileMenuOpen)}
             >
               Z
@@ -146,7 +178,6 @@ const Pm_MatRequestList = () => {
               </div>
             )}
           </div>
-        </div>
       </header>
 
       {/* Main Content */}

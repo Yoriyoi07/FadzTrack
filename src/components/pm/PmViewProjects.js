@@ -3,9 +3,15 @@ import "../style/pic_style/Pic_Project.css";
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 const Pm_Project = () => {
+  const token = localStorage.getItem('token');
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const userId = user?._id;
+
   const { id } = useParams();
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [projects, setProjects] = useState([]);
   const [project, setProject] = useState(null);
   const [showEditFields, setShowEditFields] = useState(false);
   const [editTasks, setEditTasks] = useState([{ name: '', percent: '' }]);
@@ -25,6 +31,50 @@ const Pm_Project = () => {
     };
     fetchProject();
   }, [id]);
+
+  useEffect(() => {
+    if (!token || !user) return;
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/projects', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        console.log('Fetched projects:', data); 
+        // Filter for projects where this user is the Project Manager
+        const filtered = data.filter(
+    (p) => p.projectManager && (
+      (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
+      p.projectManager === userId // in case it's just an ID string
+    )
+  );
+        console.log('Filtered projects:', filtered); 
+        setProjects(filtered);
+      } catch (err) {
+        console.error('Failed to fetch projects:', err);
+      }
+    };
+    fetchProjects();
+  }, [token, user, userId]);
+
+  useEffect(() => {
+    if (!token || !userId) return;
+    const fetchAssigned = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/projects/assigned/${userId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const data = await res.json();
+        console.log('Assigned project from API:', data);
+        setProject(data[0] || null);
+      } catch (err) {
+        console.error('Failed to fetch assigned project:', err);
+        setProject(null);
+      }
+    };
+    fetchAssigned();
+  }, [token, userId]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -91,32 +141,27 @@ const Pm_Project = () => {
 
   return (
     <div className="app-container">
+      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
-          <div className="logo">
-            <div className="logo-building"></div>
-            <div className="logo-flag"></div>
-          </div>
+          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
-        </div>
-        <nav className="nav-menu">
-          <Link to="/pic" className="nav-link">Dashboard</Link>
-          <Link to="/requests" className="nav-link">Requests</Link>
-          <Link to={`/pic/${project._id}`}>View Project</Link>
-          <Link to="/chat" className="nav-link">Chat</Link>
-        </nav>
-        <div className="search-profile">
-          <div className="search-container">
-            <input type="text" placeholder="Search in site" className="search-input" />
-            <button className="search-button">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </button>
           </div>
+            <nav className="nav-menu">
+              <Link to="/pm" className="nav-link">Dashboard</Link>
+              <Link to="/pm/request/:id" className="nav-link">Material</Link>
+              <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
+              {projects.length > 0 && (
+              <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>)}
+              <Link to="/chat" className="nav-link">Chat</Link>
+              <Link to="/logs" className="nav-link">Logs</Link>
+              <Link to="/reports" className="nav-link">Reports</Link>
+            </nav>
           <div className="profile-menu-container">
-            <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
               Z
             </div>
             {profileMenuOpen && (
@@ -125,7 +170,6 @@ const Pm_Project = () => {
               </div>
             )}
           </div>
-        </div>
       </header>
 
       <main className="main">
