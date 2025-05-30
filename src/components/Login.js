@@ -78,7 +78,7 @@ const LoginPage = () => {
     else if (role === "CEO") {
       navigate("/ceo/dash");
     }else if (role ==="HR"){
-      navigate("/hr/mlist")
+      navigate("/hr/dash")
     } else {
       setLoginError("Unknown user role");
     }

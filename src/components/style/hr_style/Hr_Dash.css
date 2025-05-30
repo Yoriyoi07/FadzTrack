@@ -17,123 +17,61 @@ body {
 }
 
 /* Top Navbar Styles */
-.hr-dash-header {
+.logo-img {
+  height: 60px !important;
+  max-height: 65px;
+  object-fit: contain;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 65px;
+}
+
+
+.brand-name {
+  font-size: 1.6rem;
+  font-weight: bold;
+  margin-top: 4px; /* Slight nudge for vertical alignment */
+}
+
+.header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 2rem;
-  background-color: #00205b;
+  padding: 0.4rem 2rem;
+  background-color: #000466; /* Dark blue as in image */
   color: white;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-  min-height: 70px;
-  flex-shrink: 0;
+  padding: 0.8rem 2.5rem;
 }
 
-.hr-dash-logo-container {
+.nav-menu {
   display: flex;
+  gap: 1.8rem;
   align-items: center;
 }
 
-.hr-dash-logo {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  margin-right: 10px;
-}
-
-.hr-dash-logo-building {
-  position: absolute;
-  bottom: 0;
-  left: 5px;
-  width: 30px;
-  height: 35px;
-  background-color: #ff3333;
-  border-radius: 3px 3px 0 0;
-}
-
-.hr-dash-logo-flag {
-  position: absolute;
-  top: 0;
-  left: 18px;
-  width: 4px;
-  height: 20px;
-  background-color: #ffffff;
-}
-
-.hr-dash-logo-flag::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 4px;
-  width: 15px;
-  height: 10px;
-  background-color: #ff3333;
-}
-
-.hr-dash-brand-name {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: white;
-}
-
-.hr-dash-nav-menu {
-  display: flex;
-  gap: 2rem;
-  align-items: center;
-}
-
-.hr-dash-nav-link {
+.nav-link {
   color: white;
   text-decoration: none;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 500;
-  transition: color 0.2s;
-  padding: 0.5rem 0;
 }
 
-.hr-dash-nav-link:hover {
+.nav-link:hover {
   color: #c0c0c0;
 }
 
-.hr-dash-search-profile {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.hr-dash-search-container {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.hr-dash-search-input {
-  padding: 0.5rem 2.5rem 0.5rem 1rem;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  width: 200px;
-}
-
-.hr-dash-search-button {
-  position: absolute;
-  right: 0.5rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #666;
-}
-
-.hr-dash-profile-menu-container {
+.profile-menu-container {
   position: relative;
 }
 
-.hr-dash-profile-circle {
+.profile-circle {
   width: 40px;
   height: 40px;
-  background-color: #9c27b0;
+  background-color: #555;
   color: white;
   border-radius: 50%;
   display: flex;
@@ -143,32 +81,42 @@ body {
   font-weight: bold;
 }
 
-.hr-dash-profile-menu {
+.profile-menu {
   position: absolute;
   right: 0;
-  top: calc(100% + 10px);
+  margin-top: 10px;
   background-color: white;
   border: 1px solid #ccc;
   border-radius: 8px;
   padding: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   z-index: 10;
-  min-width: 120px;
 }
 
-.hr-dash-profile-menu button {
+.profile-menu button {
   background: none;
   border: none;
-  padding: 8px 12px;
+  padding: 5px 10px;
   cursor: pointer;
   width: 100%;
   text-align: left;
-  border-radius: 4px;
-  transition: background-color 0.2s;
 }
 
-.hr-dash-profile-menu button:hover {
+.profile-menu button:hover {
   background-color: #f0f0f0;
+}
+
+
+.profile-circle {
+  width: 32px;
+  height: 32px;
+  background-color: #9c27b0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
 }
 
 .hr-dash-dashboard-container {

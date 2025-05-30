@@ -169,47 +169,32 @@ const Hr_Dash = () => {
   return (
     <div className="hr-dash-container">
       {/* Header with Navigation */}
-      <header className="hr-dash-header">
-        <div className="hr-dash-logo-container">
-          <div className="hr-dash-logo">
-            <div className="hr-dash-logo-building"></div>
-            <div className="hr-dash-logo-flag"></div>
-          </div>
-          <h1 className="hr-dash-brand-name">FadzTrack</h1>
+      <header className="header">
+        <div className="logo-container">
+          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
+          <h1 className="brand-name">FadzTrack</h1>
         </div>
-        <nav className="hr-dash-nav-menu">
-          <Link to="/hr/dash" className="hr-dash-nav-link">Dashboard</Link>
-          <Link to="/requests" className="hr-dash-nav-link">Movement</Link>
-          <Link to="/ceo/proj" className="hr-dash-nav-link">Projects</Link>
-          <Link to="/chat" className="hr-dash-nav-link">Chat</Link>
-          <Link to="/logs" className="hr-dash-nav-link">Logs</Link>
-          <Link to="/hr/mlist" className="hr-dash-nav-link">Manpower</Link>
-        </nav>
-        <div className="hr-dash-search-profile">
-          <div className="hr-dash-search-container">
-            <input type="text" placeholder="Search in site" className="hr-dash-search-input" />
-            <button className="hr-dash-search-button">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </button>
-          </div>
-          <div className="hr-dash-profile-menu-container">
+          <nav className="nav-menu">
+            <Link to="/hr/dash" className="nav-link">Dashboard</Link>
+            <Link to="/hr/mlist" className="nav-link">Manpower</Link>
+            <Link to="/requests" className="nav-link">Movement</Link>
+            <Link to="/ceo/proj" className="nav-link">Projects</Link>
+            <Link to="/chat" className="nav-link">Chat</Link>
+            <Link to="/logs" className="nav-link">Logs</Link>
+          </nav>
+          <div className="profile-menu-container">
             <div 
-              className="hr-dash-profile-circle" 
+              className="profile-circle" 
               onClick={() => setProfileMenuOpen(!profileMenuOpen)}
             >
               Z
             </div>
-            
             {profileMenuOpen && (
-              <div className="hr-dash-profile-menu">
+              <div className="profile-menu">
                 <button onClick={handleLogout}>Logout</button>
               </div>
             )}
           </div>
-        </div>
       </header>
 
       <div className="hr-dash-dashboard-container">

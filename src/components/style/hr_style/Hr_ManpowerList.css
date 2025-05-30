@@ -16,77 +16,47 @@
 }
 
 /* Top Navbar Styles */
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 2rem;
-  background-color: #00205b;
-  color: white;
-  position: relative;
-  z-index: 2;
-  margin: 0;
-  border-bottom: none;
+.logo-img {
+  height: 60px !important;
+  max-height: 65px;
+  object-fit: contain;
 }
 
 .logo-container {
   display: flex;
   align-items: center;
+  gap: 10px;
+  min-height: 65px;
 }
 
-.logo {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  margin-right: 10px;
-}
-
-.logo-building {
-  position: absolute;
-  bottom: 0;
-  left: 5px;
-  width: 30px;
-  height: 35px;
-  background-color: #ff3333;
-  border-radius: 3px 3px 0 0;
-}
-
-.logo-flag {
-  position: absolute;
-  top: 0;
-  left: 18px;
-  width: 4px;
-  height: 20px;
-  background-color: #ffffff;
-}
-
-.logo-flag::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 4px;
-  width: 15px;
-  height: 10px;
-  background-color: #ff3333;
-}
 
 .brand-name {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: bold;
+  margin-top: 4px; /* Slight nudge for vertical alignment */
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 2rem;
+  background-color: #000466; /* Dark blue as in image */
   color: white;
+  padding: 0.8rem 2.5rem;
 }
 
 .nav-menu {
   display: flex;
-  gap: 2rem;
+  gap: 1.8rem;
+  align-items: center;
 }
 
 .nav-link {
   color: white;
   text-decoration: none;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 500;
-  transition: color 0.2s;
 }
 
 .nav-link:hover {
@@ -134,6 +104,7 @@
 .profile-menu button:hover {
   background-color: #f0f0f0;
 }
+
 
 .profile-circle {
   width: 32px;
