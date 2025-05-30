@@ -17,7 +17,6 @@ import Ceo_Proj from './ceo/Ceo_Proj';
 import Ceo_ViewSpecific from './ceo/Ceo_ViewSpecific';
 import Ceo_Dash from './ceo/Ceo_Dash';
 import Ceo_AddArea from './ceo/Ceo_AddArea';
-import Pic_Dailylogs from './pic/Pic_Dailylogs';
 import PrivateRoute from "./PrivateRoute";
 import It_Dash from './it/It_Dash';
 import Pic_Project from './pic/Pic_Project';
@@ -58,7 +57,6 @@ const AppRoutes = () => {
       <Route path="/pic" element={<PicDash />} />
       <Route path="/chat" element={<PicChat />} />
       <Route path="/pic/request/:id" element={<PicReq />} />
-      <Route path="/daily-logs" element={<Pic_Dailylogs />} />
       <Route path="/pic/:id" element={<Pic_Project />} />
       <Route path="/pic/projects/:projectId/request" element={<Pic_MatReq />} />
 

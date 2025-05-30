@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import '../style/pic_style/Pic_MatReq.css';
 
 const Pic_MatReq = () => {
@@ -20,6 +20,24 @@ const Pic_MatReq = () => {
   useEffect(() => {
     if (!token || !user) navigate('/');
   }, [navigate, token, user]);
+
+  useEffect(() => {
+    if (!token || !userId) return;
+    const fetchAssigned = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5000/api/projects/assigned/${userId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const data = await res.json();
+        setProject(data[0] || null);
+      } catch (err) {
+        console.error('Failed to fetch assigned project:', err);
+        setProject(null);
+      }
+    };
+    fetchAssigned();
+  }, [token, userId]);
 
   useEffect(() => {
     if (!token) return;
@@ -155,32 +173,18 @@ const Pic_MatReq = () => {
 
   return (
     <div className="app-container">
+      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
-          <div className="logo">
-            <div className="logo-building"></div>
-            <div className="logo-flag"></div>
-          </div>
+          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
-        <nav className="nav-menu">
-          <a href="/ceo/dash" className="nav-link">Dashboard</a>
-          <a href="/requests" className="nav-link active">Requests</a>
-          <a href="/ceo/proj" className="nav-link">Projects</a>
-          <a href="/chat" className="nav-link">Chat</a>
-          <a href="/logs" className="nav-link">Logs</a>
-          <a href="/reports" className="nav-link">Reports</a>
-        </nav>
-        <div className="search-profile">
-          <div className="search-container">
-            <input type="text" placeholder="Search in site" className="search-input" />
-            <button className="search-button">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </button>
-          </div>
+          <nav className="nav-menu">
+            <Link to="/pic" className="nav-link">Dashboard</Link>
+            <Link to="/pic/projects/:projectId/request" className="nav-link">Requests</Link>
+            {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
+            <Link to="/chat" className="nav-link">Chat</Link>
+          </nav>
           <div className="profile-menu-container">
             <div 
               className="profile-circle" 
@@ -193,7 +197,6 @@ const Pic_MatReq = () => {
                 <button onClick={handleLogout}>Logout</button>
               </div>
             )}
-          </div>
         </div>
       </header>
 

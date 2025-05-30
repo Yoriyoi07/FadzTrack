@@ -8,119 +8,52 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* Header styling - keeping as is */
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 2rem;
-  background-color: #00205b;
-  color: white;
-  position: relative;
-  z-index: 2;
-  margin: 0;
-  border-bottom: none;
+/* Top Navbar Styles */
+.logo-img {
+  height: 60px !important;
+  max-height: 65px;
+  object-fit: contain;
 }
 
 .logo-container {
   display: flex;
   align-items: center;
+  gap: 10px;
+  min-height: 65px;
 }
 
-.logo {
-  position: relative;
-  width: 40px;
-  height: 40px;
-  margin-right: 10px;
-}
-
-.logo-building {
-  position: absolute;
-  bottom: 0;
-  left: 5px;
-  width: 30px;
-  height: 35px;
-  background-color: #ff3333;
-  border-radius: 3px 3px 0 0;
-}
-
-.logo-flag {
-  position: absolute;
-  top: 0;
-  left: 18px;
-  width: 4px;
-  height: 20px;
-  background-color: #ffffff;
-}
-
-.logo-flag::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 4px;
-  width: 15px;
-  height: 10px;
-  background-color: #ff3333;
-}
 
 .brand-name {
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: bold;
+  margin-top: 4px; /* Slight nudge for vertical alignment */
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 2rem;
+  background-color: #000466; /* Dark blue as in image */
   color: white;
+  padding: 0.8rem 2.5rem;
 }
 
 .nav-menu {
   display: flex;
-  gap: 2rem;
+  gap: 1.8rem;
+  align-items: center;
 }
 
 .nav-link {
   color: white;
   text-decoration: none;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 500;
-  transition: color 0.2s;
 }
 
 .nav-link:hover {
   color: #c0c0c0;
-}
-
-.search-profile {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.search-container {
-  display: flex;
-  align-items: center;
-  background-color: rgba(255, 255, 255, 0.2);
-  border-radius: 20px;
-  padding: 0.2rem 0.5rem;
-}
-
-.search-input {
-  background: transparent;
-  border: none;
-  color: white;
-  padding: 0.3rem 0.5rem;
-  width: 180px;
-  outline: none;
-}
-
-.search-input::placeholder {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.search-button {
-  background: transparent;
-  border: none;
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .profile-menu-container {
@@ -130,7 +63,7 @@
 .profile-circle {
   width: 40px;
   height: 40px;
-  background-color: #9c27b0;
+  background-color: #555;
   color: white;
   border-radius: 50%;
   display: flex;
@@ -163,6 +96,18 @@
 
 .profile-menu button:hover {
   background-color: #f0f0f0;
+}
+
+.profile-circle {
+  width: 32px;
+  height: 32px;
+  background-color: #9c27b0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
 }
 
 /* Dashboard Layout */
