@@ -138,7 +138,6 @@ router.get('/', async (req, res) => {
   }
 });
 
-// --- This CATCH-ALL dynamic route goes LAST! ---
 // Get one project by ID
 router.get('/:id', async (req, res) => {
   try {

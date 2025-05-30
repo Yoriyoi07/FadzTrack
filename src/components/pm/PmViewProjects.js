@@ -1,184 +1,316 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import '../style/pm_style/Pm_ViewProjects.css';
-import { FiMoreHorizontal } from 'react-icons/fi';
-import { Link } from 'react-router-dom';
-import L from 'leaflet';
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import "../style/pic_style/Pic_Project.css";
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
-const DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-});
+const Pm_Project = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [project, setProject] = useState(null);
+  const [showEditFields, setShowEditFields] = useState(false);
+  const [editTasks, setEditTasks] = useState([{ name: '', percent: '' }]);
 
-L.Marker.prototype.options.icon = DefaultIcon;
+  useEffect(() => {
+    if (!id) return;
+    const fetchProject = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/projects/${id}`);
+        if (!res.ok) throw new Error('Project not found');
+        const data = await res.json();
+        setProject(data);
+        console.log('Fetched Project:', data);
+      } catch (err) {
+        setProject(null);
+      }
+    };
+    fetchProject();
+  }, [id]);
 
-const PmViewProjects = () => {
-    const [projectData, setProjectData] = useState({
-        name: 'Project ABC',
-        description: 'A large-scale construction project in downtown area',
-        company: 'Bris & Projects',
-        location: [13.7565, 121.0583], // Batangas coordinates
-    });
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
 
-    const [projectTeam, setProjectTeam] = useState([
-        { id: 1, name: 'John Doe', role: 'Project Manager', avatar: null },
-        { id: 2, name: 'Jane Smith', role: 'Architect', avatar: null },
-        { id: 3, name: 'Mike Johnson', role: 'Contractor', avatar: null },
-        { id: 4, name: 'Sarah Brown', role: 'Area Manager', avatar: null },
-        { id: 5, name: 'Adam White', role: 'Laborer', avatar: null },
-        { id: 6, name: 'Emily Green', role: 'Painter', avatar: null },
-        { id: 7, name: 'Alex Black', role: 'Mason', avatar: null },
-    ]);
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
-    const [manpowerList, setManpowerList] = useState([
-        { id: 1, name: 'Vito Camy' },
-        { id: 2, name: 'Carlos Williams' },
-        { id: 3, name: 'Loreeta Labanda' },
-        { id: 4, name: 'John Lapid Doe' },
-        { id: 5, name: 'Kuby Dilag' },
-        { id: 6, name: 'Julius Lagad' },
-        { id: 7, name: 'Edward Santos' },
-        { id: 8, name: 'Anthony Joseph' },
-        { id: 9, name: 'Vincent Garcia' },
-        { id: 10, name: 'Theodore Rosa' },
-        { id: 11, name: 'Joku Slanensy' },
-        { id: 12, name: 'Nadine Bernardo' },
-        { id: 13, name: 'Neal Pasqualino' },
-        { id: 14, name: 'Efreen Bernardez' },
-        { id: 15, name: 'Harlin Briggs' },
-        { id: 16, name: 'Frachie Edmundo' },
-        { id: 17, name: 'Manual Tsoukon' },
-    ]);
+  // ---- TASK PERCENT VALIDATION ----
+  // Calculate the total percent of all fields
+  const totalPercent = editTasks.reduce(
+    (sum, task) => sum + (parseInt(task.percent) || 0),
+    0
+  );
 
-    // Use useEffect to handle map initialization if needed
-    useEffect(() => {
-        // This is where you would fetch data from API
-        // fetchProjectData();
-        // fetchProjectTeam();
-        // fetchManpowerList();
-    }, []);
-
-    return (
-        <div className="container">
-            <header className="ceo-header">
-                <div className="logo">
-                    <img src="/images/FadzLogo 1.png" alt="FadzTrack Logo" className="logo-img" />
-                    <h1>FadzTrack</h1>
-                </div>
-                <nav>
-                    <ul>
-                        <li><Link to="/pm-dash">Home</Link></li>
-                        <li><Link to="/cprojects">View Projects</Link></li>
-                        <li><Link to="/crecords">View Records</Link></li>
-                        <li><Link to="/cchat">Chat</Link></li>
-                    </ul>
-                </nav>
-                <div className="search-container">
-                    <input type="text" placeholder="Search in site" className="search-input" />
-                    <button className="search-btn">🔍</button>
-                </div>
-            </header>
-
-            <div className="project-view-container">
-                {/* Project Overview */}
-                <div className="project-overview">
-                    <div className="overview-content">
-                        <div className="overview-image-container">
-                            <img
-                                src="../../assets/images/login_picture.png"
-                                alt="Project Building"
-                                className="overview-image"
-                            />
-                        </div>
-                        <div className="overview-details">
-                            <h2 className="section-title">Project Overview</h2>
-                            <p className="overview-description">Detailed information about the current project</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Project Team */}
-                <div className="project-team">
-                    <h2 className="section-title centered">Project Team</h2>
-                    <div className="team-members">
-                        {projectTeam.map((member) => (
-                            <div key={member.id} className="team-member">
-                                <div className="avatar-container">
-                                    <div className="avatar">
-                                        {member.avatar ? (
-                                            <img src={member.avatar} alt={member.name} className="avatar-image" />
-                                        ) : (
-                                            <span className="avatar-placeholder">{member.name.charAt(0)}</span>
-                                        )}
-                                    </div>
-                                    <button className="avatar-menu">
-                                        <FiMoreHorizontal className="menu-icon" />
-                                    </button>
-                                </div>
-                                <div className="member-details">
-                                    <p className="member-name">{member.name}</p>
-                                    <p className="member-role">{member.role}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Project Details */}
-                <div className="project-details">
-                    <div className="project-icon"></div>
-                    <div className="project-info">
-                        <h3 className="project-title">{projectData.name}</h3>
-                        <p className="project-subtitle">{projectData.company}</p>
-                        <p className="project-description">{projectData.description}</p>
-                    </div>
-                </div>
-
-                {/* Map */}
-                <div className="map-container">
-                    <div className="map">
-                        {/* Ensure map has explicit height and width */}
-                        <div style={{ height: '100%', width: '100%', position: 'relative' }}>
-                            <MapContainer 
-                                center={projectData.location} 
-                                zoom={10} 
-                                style={{ height: '100%', width: '100%' }}
-                                className="leaflet-map"
-                            >
-                                <TileLayer
-                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                />
-                                <Marker position={projectData.location}>
-                                    <Popup>
-                                        Location of {projectData.name}
-                                    </Popup>
-                                </Marker>
-                            </MapContainer>
-                        </div>
-                        <div className="map-label">
-                            <span>Location of Project</span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Manpower/Labor */}
-                <div className="manpower">
-                    <h2 className="section-title centered">Manpower/Labor</h2>
-                    <div className="manpower-grid">
-                        {manpowerList.map((worker) => (
-                            <div key={worker.id} className="worker">{worker.name}</div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </div>
+  // Handler for each task's name or percent field
+  const handleEditTaskChange = (idx, field, value) => {
+    setEditTasks(tasks =>
+      tasks.map((t, i) => {
+        if (i !== idx) return t;
+        if (field === 'percent') {
+          // Calculate sum of all except this task
+          const otherTotal = tasks.reduce(
+            (sum, task, j) => (j === idx ? sum : sum + (parseInt(task.percent) || 0)),
+            0
+          );
+          let valNum = Number(value);
+          if (otherTotal + valNum > 100) {
+            valNum = 100 - otherTotal;
+          }
+          if (valNum < 0) valNum = 0;
+          return { ...t, percent: valNum.toString() };
+        }
+        return { ...t, [field]: value };
+      })
     );
+  };
+
+  // Add a new empty task field
+  const handleAddTaskField = () => {
+    setEditTasks(tasks => [...tasks, { name: '', percent: '' }]);
+  };
+
+  // Submit logic (placeholder)
+  const handleSubmitTasks = () => {
+    console.log('Submitting tasks:', editTasks);
+    // Optionally reset:
+    // setEditTasks([{ name: '', percent: '' }]);
+    // setShowEditFields(false);
+  };
+
+  if (!project) return <div>Loading...</div>;
+
+  return (
+    <div className="app-container">
+      <header className="header">
+        <div className="logo-container">
+          <div className="logo">
+            <div className="logo-building"></div>
+            <div className="logo-flag"></div>
+          </div>
+          <h1 className="brand-name">FadzTrack</h1>
+        </div>
+        <nav className="nav-menu">
+          <Link to="/pic" className="nav-link">Dashboard</Link>
+          <Link to="/requests" className="nav-link">Requests</Link>
+          <Link to={`/pic/${project._id}`}>View Project</Link>
+          <Link to="/chat" className="nav-link">Chat</Link>
+        </nav>
+        <div className="search-profile">
+          <div className="search-container">
+            <input type="text" placeholder="Search in site" className="search-input" />
+            <button className="search-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
+          </div>
+          <div className="profile-menu-container">
+            <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+              Z
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="main">
+        <div className="project-detail-container">
+          <div className="back-button" onClick={() => navigate('/Pic')} style={{ cursor: 'pointer' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
+              <path d="M19 12H5"></path>
+              <path d="M12 19l-7-7 7-7"></path>
+            </svg>
+          </div>
+
+          <div className="project-image-container">
+            <img 
+              alt={project.projectName} 
+              className="project-image"
+            />
+            <button className="favorite-button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+              </svg>
+            </button>
+          </div>
+
+          <h1 className="project-title">{project.projectName}</h1>
+
+          <div className="project-details-grid">
+            <div className="details-column">
+             <p className="detail-item">
+                <span className="detail-label">Location:</span> 
+                {typeof project.location === 'object'
+                  ? project.location.name 
+                  : project.location}
+              </p>
+              <div className="detail-group">
+                <p className="detail-label">Project Manager:</p>
+                <p className="detail-value">{project.projectManager?.name || 'N/A'}</p>
+              </div>
+              <div className="detail-group">
+                <p className="detail-label">Contractor:</p>
+                <p className="detail-value">{project.contractor}</p>
+              </div>
+              <div className="detail-group">
+                <span className="detail-label">Target Date:</span>
+                <span className="detail-value">
+                  {project.targetDate || 'N/A'}
+                </span>
+              </div>
+            </div>
+
+            <div className="details-column">
+              <div className="budget-container">
+                <p className="budget-amount">{project.budget?.toLocaleString() || '0'}</p>
+                <p className="budget-label">Estimated Budget</p>
+              </div>
+              <div className="detail-group">
+                <p className="detail-value">
+                  <p className="detail-label">PIC:</p>
+                  {project.pic && project.pic.length > 0 
+                    ? project.pic.map(p => p.name).join(', ') 
+                    : 'N/A'}
+                </p>
+              </div>
+
+              {/* Edit Task Button and Fields */}
+              <button
+                className="edit-task-btn"
+                style={{
+                  background: "#2E7D32",
+                  color: "white",
+                  padding: "10px 28px",
+                  border: "none",
+                  borderRadius: "8px",
+                  fontWeight: "bold",
+                  fontSize: "1rem",
+                  cursor: "pointer",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                  marginTop: 10
+                }}
+                onClick={() => setShowEditFields(!showEditFields)}
+              >
+                Edit Task
+              </button>
+
+              {showEditFields && (
+                <div style={{ marginTop: 16 }}>
+                  {editTasks.map((task, idx) => {
+                    // Calc total without current field for max percent input
+                    const othersTotal = editTasks.reduce(
+                      (sum, t, i) => (i === idx ? sum : sum + (parseInt(t.percent) || 0)), 0
+                    );
+                    const maxValue = 100 - othersTotal;
+                    return (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                        <input
+                          type="text"
+                          value={task.name}
+                          onChange={e => handleEditTaskChange(idx, 'name', e.target.value)}
+                          placeholder="Enter Task"
+                          style={{
+                            padding: "10px",
+                            borderRadius: "8px",
+                            border: "1px solid #ccc",
+                            fontSize: "1rem",
+                            minWidth: "250px"
+                          }}
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          max={maxValue}
+                          value={task.percent}
+                          onChange={e => handleEditTaskChange(idx, 'percent', e.target.value)}
+                          placeholder="%"
+                          style={{
+                            padding: "10px",
+                            borderRadius: "8px",
+                            border: "1px solid #ccc",
+                            fontSize: "1rem",
+                            width: "80px"
+                          }}
+                        />
+                        {/* Plus button only on last field */}
+                        {idx === editTasks.length - 1 && (
+                          <button
+                            onClick={handleAddTaskField}
+                            style={{
+                              background: "#1976d2",
+                              color: "white",
+                              border: "none",
+                              borderRadius: "50%",
+                              width: 36,
+                              height: 36,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "1.5rem",
+                              cursor: totalPercent >= 100 ? "not-allowed" : "pointer",
+                              opacity: totalPercent >= 100 ? 0.5 : 1
+                            }}
+                            type="button"
+                            title="Add Task Field"
+                            disabled={totalPercent >= 100}
+                          >
+                            +
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div style={{ marginTop: 8, fontWeight: 500 }}>
+                    Total: {totalPercent}%
+                  </div>
+                  <button
+                    onClick={handleSubmitTasks}
+                    style={{
+                      marginTop: 8,
+                      background: "#388e3c",
+                      color: "white",
+                      padding: "8px 32px",
+                      border: "none",
+                      borderRadius: "8px",
+                      fontWeight: "bold",
+                      fontSize: "1rem",
+                      cursor: "pointer"
+                    }}
+                  >
+                    Submit Task
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="manpower-section">
+            <p className="detail-label">Manpower:</p>
+            <p className="manpower-list">
+              {Array.isArray(project.manpower)
+                ? project.manpower.map(m => m.name + (m.position ? ` (${m.position})` : '')).join(', ')
+                : (typeof project.manpower === 'object' ? project.manpower.name : project.manpower)}
+            </p>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
 };
 
-export default PmViewProjects;
+export default Pm_Project;

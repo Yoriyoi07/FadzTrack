@@ -5,11 +5,10 @@ import PicReq from './pic/PicReq';
 import PicChat from './pic/PicChat';
 import PmDash from './pm/PmDash';
 import PmDailyReports from './pm/PmDailyReports';
-import PmViewProjects from './pm/PmViewProjects';
 import PmIncidentReport from './pm/PmIncidentReport';
 import Pm_RequestManpower from './pm/Pm_RequestManpower';
 import AreaManagerDashboard from './am/Area_Dash';
-import Area_ViewAll from './am/Area_ViewAll';
+import Area_ViewAll from './am/Area_Viewall';
 import LoginPage from './Login';
 import Area_Manpower_List from './am/Area_Manpower_List'
 import Area_Material_list from './am/Area_Material_List';
@@ -35,7 +34,9 @@ import Area_Manpower_ReqDetails from './am/Area_Manpower_ReqDetails';
 import Hr_ManpowerList from './hr/Hr_ManpowerList';
 import Hr_Dash from './hr/Hr_Dash';
 import Area_Manpower_Request_List from './am/Area_Manpower_Request_List';
+import PmViewProjects from './pm/PmViewProjects';
 import Pm_RequestedManpowerDetail from './pm/Pm_RequestedManpowerDetail';
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -50,9 +51,9 @@ const AppRoutes = () => {
       <Route path="/pm/manpower-list" element={<Pm_Manpower_List />} />
       <Route path="/pm/request-manpower/edit/:id" element={<Pm_RequestManpower />} />
       <Route path="/k" element={<PmIncidentReport />} />
-      <Route path="/j" element={<PmViewProjects />} />
       <Route path="/q" element={<PmDailyReports />} />
       <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDash /></PrivateRoute>}/>
+      <Route path="/pm/viewprojects/:id" element={<PmViewProjects />} />
 
       {/* PIC */}
       <Route path="/pic" element={<PicDash />} />

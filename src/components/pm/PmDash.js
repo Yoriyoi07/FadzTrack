@@ -11,6 +11,8 @@ const PmDash = () => {
 
 
   const [userName, setUserName] = useState('ALECK');
+  const [projects, setProjects] = useState([]);
+  const [project, setProject] = useState(null);
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
@@ -19,10 +21,59 @@ const PmDash = () => {
     navigate('/');
     return;
   }
-  setUserName(user.name); // Display PM's name!
+  setUserName(user.name); 
 }, [navigate, token, user]);
 
-console.log("Loaded user from localStorage:", user);
+
+useEffect(() => {
+  if (!token || !user) return;
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/projects', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      console.log('Fetched projects:', data); 
+      // Filter for projects where this user is the Project Manager
+      const filtered = data.filter(
+  (p) => p.projectManager && (
+    (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
+    p.projectManager === userId // in case it's just an ID string
+  )
+);
+      console.log('Filtered projects:', filtered); 
+      setProjects(filtered);
+    } catch (err) {
+      console.error('Failed to fetch projects:', err);
+    }
+  };
+  fetchProjects();
+}, [token, user, userId]);
+
+
+
+  useEffect(() => {
+  if (!token || !userId) return;
+  const fetchAssigned = async () => {
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/projects/assigned/${userId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json();
+      console.log('Assigned project from API:', data);
+      setProject(data[0] || null);
+    } catch (err) {
+      console.error('Failed to fetch assigned project:', err);
+      setProject(null);
+    }
+  };
+  fetchAssigned();
+}, [token, userId]);
+
+  
+
+
 
   // Sidebar Projects, Activities, Reports, and Chats remain static or can be dynamic
   const [sidebarProjects] = useState([
@@ -117,10 +168,13 @@ console.log("Loaded user from localStorage:", user);
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/pm" className="nav-link">Dashboard</Link>
-          <Link to="/pm/request/:id" className="nav-link">Material</Link>
-          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
-          <Link to="/ceo/proj" className="nav-link">Projects</Link>
+          <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
+          <Link to="/pm/request/:id" className="nav-link">Requests</Link>
+    {projects.length > 0 && (
+          <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">
+            View Project
+          </Link>
+        )}
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>

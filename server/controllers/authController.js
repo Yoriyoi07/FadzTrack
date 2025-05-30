@@ -248,7 +248,7 @@ async function sendTwoFACode(email, code) {
     subject: 'Your FadzTrack 2FA Code',
     text: `Your 2FA code is: ${code}`
   };
-
+console.log(code);
   try {
     const info = await transporter.sendMail(mailOptions);
     console.log('2FA email sent:', info.response);
