@@ -1,19 +1,61 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import '../style/pm_style/Pm_ViewRequest.css';
+import '../style/ceo_style/Ceo_Material_List.css';
+
+const ITEMS_PER_PAGE = 5;
+
+const Pagination = ({ currentPage, totalPages, totalEntries, onPageChange, showingRange }) => {
+  const visiblePages = [];
+
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) visiblePages.push(i);
+  } else {
+    visiblePages.push(1);
+    if (currentPage > 3) visiblePages.push('...');
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) visiblePages.push(i);
+    if (currentPage < totalPages - 2) visiblePages.push('...');
+    visiblePages.push(totalPages);
+  }
+
+  return (
+    <div className="pagination-wrapper" style={{ flexDirection: 'column', alignItems: 'center' }}>
+      <span className="pagination-info">
+        Showing {showingRange.start} to {showingRange.end} of {totalEntries} entries.
+      </span>
+      <div className="pagination">
+        <button className="pagination-btn" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}>
+          &lt;
+        </button>
+        {visiblePages.map((page, index) => (
+          <button
+            key={index}
+            className={`pagination-btn ${page === currentPage ? 'active' : ''} ${page === '...' ? 'dots' : ''}`}
+            disabled={page === '...'}
+            onClick={() => typeof page === 'number' && onPageChange(page)}
+          >
+            {page}
+          </button>
+        ))}
+        <button className="pagination-btn" onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages}>
+          &gt;
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const Ceo_Material_List = () => {
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-
-  // State for requests
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Fetch all requests for this PM
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -48,7 +90,6 @@ const Ceo_Material_List = () => {
       });
   }, []);
 
-  // Profile dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
@@ -65,7 +106,6 @@ const Ceo_Material_List = () => {
     navigate('/');
   };
 
-  // Utility: Show an emoji for the first material type
   const getIconForType = (request) => {
     if (!request.materials || request.materials.length === 0) return '📄';
     const name = request.materials[0].materialName?.toLowerCase() || '';
@@ -76,9 +116,7 @@ const Ceo_Material_List = () => {
     return '📦';
   };
 
-  // Filtering and searching
   const filteredRequests = requests.filter(request => {
-    // Status filter
     const status = (request.status || '').toLowerCase();
     const matchesFilter =
       filter === 'All' ||
@@ -86,69 +124,44 @@ const Ceo_Material_List = () => {
       (filter === 'Approved' && status.includes('approved')) ||
       (filter === 'Cancelled' && status.includes('denied')) ||
       (filter === 'Cancelled' && status.includes('cancel'));
-    // Search
     const searchTarget = [
-      request.materials && request.materials.map(m => m.materialName).join(', '),
+      request.materials?.map(m => m.materialName).join(', '),
       request.description,
       request.createdBy?.name,
       request.project?.projectName,
     ].join(' ').toLowerCase();
-    const matchesSearch = searchTarget.includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
+    return matchesFilter && searchTarget.includes(searchTerm.toLowerCase());
   });
 
+  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const currentRequests = filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   return (
-    <div className="app-container">
-      {/* Header */}
+    <div>
       <header className="header">
         <div className="logo-container">
-          <div className="logo">
-            <div className="logo-building"></div>
-            <div className="logo-flag"></div>
-          </div>
+          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
           <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
-          <Link to="/pm/requests" className="nav-link active">Requests</Link>
+          <Link to="/ceo/material-list" className="nav-link">Material</Link>
           <Link to="/ceo/proj" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="search-profile">
-          <div className="search-container">
-            <input
-              type="text"
-              placeholder="Search in requests"
-              className="search-input"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-            <button className="search-button">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </button>
-          </div>
-          <div className="profile-menu-container">
-            <div
-              className="profile-circle"
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
+        <div className="profile-menu-container">
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="main-content">
         <div className="requests-container">
           <div className="requests-header">
@@ -166,72 +179,64 @@ const Ceo_Material_List = () => {
             </div>
           </div>
 
-          {/* Request List */}
-         <div className="requests-list">
+          <div className="requests-list">
             {loading ? (
-                <div>Loading requests...</div>
+              <div className="loading-msg">Loading requests...</div>
             ) : error ? (
-                <div style={{ color: 'red', marginBottom: 20 }}>{error}</div>
-            ) : filteredRequests.length === 0 ? (
-                <div className="no-requests">
+              <div className="error-msg">{error}</div>
+            ) : currentRequests.length === 0 ? (
+              <div className="no-requests">
                 <p>No requests found matching your criteria.</p>
-                </div>
+              </div>
             ) : (
-                filteredRequests.map(request => (
-                <Link
-                    to={`/pm/material-request/${request._id}`}
-                    className="request-item"
-                    key={request._id}
-                    style={{ textDecoration: 'none', color: 'inherit' }}
-                >
-                    <div className="request-icon">{getIconForType(request)}</div>
-                    <div className="request-details">
+              currentRequests.map(request => (
+                <Link to={`/pm/material-request/${request._id}`} className="request-item" key={request._id}>
+                  <div className="request-icon">{getIconForType(request)}</div>
+                  <div className="request-details">
                     <h3 className="request-title">
-                        {request.materials && request.materials.length > 0
+                      {request.materials?.length > 0
                         ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
                         : 'Material Request'}
                     </h3>
                     <p className="request-description">{request.description}</p>
-                    </div>
-                    <div className="request-meta">
+                  </div>
+                  <div className="request-meta">
                     <div className="request-author">{request.createdBy?.name || 'Unknown'}</div>
                     <div className="request-project">{request.project?.projectName || '-'}</div>
                     <div className="request-date">
-                    <div>Requested: {request.createdAt ? new Date(request.createdAt).toLocaleString() : ''}</div>
-                    {request.approvals && request.approvals.find(a => a.role === 'PM' && a.decision === 'approved') && (
+                      <div>Requested: {request.createdAt ? new Date(request.createdAt).toLocaleString() : ''}</div>
+                      {request.approvals?.find(a => a.role === 'PM' && a.decision === 'approved') && (
                         <div>
-                       PM Approved: {new Date(request.approvals.find(a => a.role === 'PM' && a.decision === 'approved').timestamp).toLocaleString()}
+                          PM Approved: {new Date(request.approvals.find(a => a.role === 'PM' && a.decision === 'approved').timestamp).toLocaleString()}
                         </div>
-                    )}
-                    {request.approvals && request.approvals.find(a => a.role === 'AM' && a.decision === 'approved') && (
+                      )}
+                      {request.approvals?.find(a => a.role === 'AM' && a.decision === 'approved') && (
                         <div>
-                        AM Approved: {new Date(request.approvals.find(a => a.role === 'AM' && a.decision === 'approved').timestamp).toLocaleString()}
+                          AM Approved: {new Date(request.approvals.find(a => a.role === 'AM' && a.decision === 'approved').timestamp).toLocaleString()}
                         </div>
-                    )}
+                      )}
                     </div>
-                    </div>
-                    <div className="request-actions">
-                    <span
-                        className={`status-badge ${
-                        (request.status || '').replace(/\s/g, '').toLowerCase()
-                        }`}
-                    >
-                        {request.status}
+                  </div>
+                  <div className="request-actions">
+                    <span className={`status-badge ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
+                      {request.status}
                     </span>
-                    </div>
+                  </div>
                 </Link>
-                ))
+              ))
             )}
-            </div>
-
-          {/* Pagination Placeholder */}
-          <div className="pagination">
-            <div className="pagination-dots">
-              <span className="dot active"></span>
-              <span className="dot"></span>
-              <span className="dot"></span>
-            </div>
           </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalEntries={filteredRequests.length}
+            showingRange={{
+              start: startIndex + 1,
+              end: Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)
+            }}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </main>
     </div>

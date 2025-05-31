@@ -22,7 +22,6 @@ import It_Dash from './it/It_Dash';
 import Pic_Project from './pic/Pic_Project';
 import Pic_MatReq from './pic/Pic_MatReq';
 import Pm_MatRequestList from './pm/Pm_MatRequestList';
-import Ceo_Material_List from './ceo/Ceo_Material_List';
 import Ceo_MaterialRequestDetail from './ceo/Ceo_MaterialRequestDetail';
 import Pm_MaterialRequestDetail from './pm/Pm_MatRequestDetail';
 import ApproveDenyAction from './ApproveDenyActions';
@@ -34,7 +33,7 @@ import Hr_Dash from './hr/Hr_Dash';
 import Area_Manpower_Request_List from './am/Area_Manpower_Request_List';
 import PmViewProjects from './pm/PmViewProjects';
 import Pm_RequestedManpowerDetail from './pm/Pm_RequestedManpowerDetail';
-
+import Ceo_Material_List from './ceo/Ceo_Material_List';
 const AppRoutes = () => {
   return (
     <Routes>
@@ -77,7 +76,7 @@ const AppRoutes = () => {
       <Route path="/ceo/dash" element={<Ceo_Dash />} />
       <Route path="/ceo/addarea" element={<Ceo_AddArea />} />
       <Route path="/ceo/proj/:id" element={<Ceo_ViewSpecific />} />
-      <Route path="/ceo/material-list" element={<Ceo_Material_List />} />
+      <Route path="/ceo/material-list" element={<Ceo_Material_List/>} />
       <Route path="/ceo/material-request/:id" element={<Ceo_MaterialRequestDetail />} />
 
       {/* HR */}
