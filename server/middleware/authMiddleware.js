@@ -10,8 +10,6 @@ exports.verifyToken = async (req, res, next) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     // Option 1: Attach id directly from JWT (if your payload contains user id)
     req.user = { id: decoded.id, name: decoded.name, role: decoded.role };
-    // Option 2: Or fetch user from DB if needed
-    // req.user = await User.findById(decoded.id);
     next();
   } catch (err) {
     return res.status(401).json({ message: 'Token not valid' });

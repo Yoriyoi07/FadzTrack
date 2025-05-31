@@ -33,6 +33,7 @@ import Hr_Dash from './hr/Hr_Dash';
 import Area_Manpower_Request_List from './am/Area_Manpower_Request_List';
 import PmViewProjects from './pm/PmViewProjects';
 import Pm_RequestedManpowerDetail from './pm/Pm_RequestedManpowerDetail';
+import Ceo_AuditLogs from './ceo/Ceo_AuditLogs';
 import Ceo_Material_List from './ceo/Ceo_Material_List';
 const AppRoutes = () => {
   return (
@@ -78,6 +79,7 @@ const AppRoutes = () => {
       <Route path="/ceo/proj/:id" element={<Ceo_ViewSpecific />} />
       <Route path="/ceo/material-list" element={<Ceo_Material_List/>} />
       <Route path="/ceo/material-request/:id" element={<Ceo_MaterialRequestDetail />} />
+      <Route path="/ceo/audit-logs" element={<Ceo_AuditLogs />} />
 
       {/* HR */}
       <Route path="/hr/dash" element={<Hr_Dash />} />

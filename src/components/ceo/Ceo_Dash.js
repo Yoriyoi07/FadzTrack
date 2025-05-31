@@ -154,7 +154,7 @@ const Ceo_Dash = () => {
           <Link to="/ceo/material-list" className="nav-link">Material</Link>
           <Link to="/ceo/proj" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/ceo/audit-logs" className="nav-link">Audit Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
           <div className="profile-menu-container">

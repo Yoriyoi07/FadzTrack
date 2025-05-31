@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const MaterialRequest = require('../models/MaterialRequest');
 const { verifyToken } = require('../middleware/authMiddleware');
-const Project = require('../models/Project');
+const controller = require('../controllers/materialRequestController');
 
 // File storage config
 const storage = multer.diskStorage({
@@ -17,216 +16,27 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// PUT - Update material request by ID
-router.put('/:id', verifyToken, upload.array('newAttachments'), async (req, res) => {
-  try {
-    const { materials, description, attachments } = req.body;
-    let updatedAttachments = [];
-    try {
-      updatedAttachments = JSON.parse(attachments || '[]');
-    } catch {
-      updatedAttachments = [];
-    }
+// CREATE
+router.post('/', verifyToken, upload.array('attachments'), controller.createMaterialRequest);
 
-    if (req.files && req.files.length > 0) {
-      updatedAttachments = [
-        ...updatedAttachments,
-        ...req.files.map(file => file.filename)
-      ];
-    }
+// GET ALL
+router.get('/', verifyToken, controller.getAllMaterialRequests);
 
-    const updated = await MaterialRequest.findByIdAndUpdate(
-      req.params.id,
-      {
-        materials: JSON.parse(materials),
-        description,
-        attachments: updatedAttachments,
-      },
-      { new: true }
-    ).populate('project').populate('createdBy');
-    res.json(updated);
-  } catch (err) {
-    console.error('Error updating request:', err);
-    res.status(500).json({ message: 'Failed to update material request' });
-  }
-});
+router.get('/mine', verifyToken, controller.getMyMaterialRequests);
 
-// POST - Create a new material request
-router.post('/', verifyToken, upload.array('attachments'), async (req, res) => {
-  try {
-    const { materials, description, project } = req.body;
+// GET ONE
+router.get('/:id', verifyToken, controller.getMaterialRequestById);
 
-    let attachments = [];
-    if (req.files && req.files.length > 0) {
-      attachments = req.files.map(file => file.filename);
-    }
+// UPDATE
+router.put('/:id', verifyToken, upload.array('newAttachments'), controller.updateMaterialRequest);
 
-    const newRequest = new MaterialRequest({
-      materials: JSON.parse(materials),
-      description,
-      attachments,
-      project,
-      createdBy: req.user.id, 
-    });
+// DELETE
+router.delete('/:id', verifyToken, controller.deleteMaterialRequest);
 
-    await newRequest.save();
-    res.status(201).json(newRequest);
-  } catch (err) {
-    console.error('Error creating material request:', err);
-    res.status(500).json({ message: 'Failed to create material request' });
-  }
-});
+// APPROVE
+router.post('/:id/approve', verifyToken, controller.approveMaterialRequest);
 
-// Approval route
-router.post('/:id/approve', verifyToken, async (req, res) => {
-  const { decision, reason } = req.body;
-  const userId = req.user.id;
-  const userRole = req.user.role;
-
-  try {
-    const request = await MaterialRequest.findById(req.params.id).populate('project');
-    if (!request) return res.status(404).json({ message: 'Request not found' });
-
-    const { project } = request;
-    if (!project) {
-      return res.status(500).json({ message: 'Material Request has no linked project.' });
-    }
-    if (!project.projectmanager) {
-      return res.status(500).json({ message: 'Project has no projectmanager assigned.' });
-    }
-    if (!project.areamanager) {
-      return res.status(500).json({ message: 'Project has no areamanager assigned.' });
-    }
-
-    const isPM = project.projectmanager && project.projectmanager.toString() === userId;
-    const isAM = project.areamanager && project.areamanager.toString() === userId;
-    const isCEO = userRole === 'CEO';
-
-    let nextStatus = '';
-    let currentStatus = request.status;
-
-    if (currentStatus === 'Pending PM' && isPM) {
-      nextStatus = decision === 'approved' ? 'Pending AM' : 'Denied by PM';
-    } else if (currentStatus === 'Pending AM' && isAM) {
-      nextStatus = decision === 'approved' ? 'Pending CEO' : 'Denied by AM';
-    } else if (currentStatus === 'Pending CEO' && isCEO) {
-      nextStatus = decision === 'approved' ? 'Approved' : 'Denied by CEO';
-    } else {
-      return res.status(403).json({ message: 'Unauthorized or invalid state' });
-    }
-
-    const roleMap = {
-      'Project Manager': 'PM',
-      'Area Manager': 'AM',
-      'CEO': 'CEO'
-    };
-    const approvalRole = roleMap[userRole] || userRole;
-
-    request.approvals.push({
-      role: approvalRole,
-      user: userId,
-      decision,
-      reason,
-      timestamp: new Date()
-    });
-
-    request.status = nextStatus;
-    await request.save();
-
-    res.status(200).json({ message: `Request ${decision} by ${userRole}` });
-  } catch (error) {
-    console.error('Approval error:', error);
-    res.status(500).json({ message: 'Failed to process approval' });
-  }
-});
-
-router.get('/mine', verifyToken, async (req, res) => {
-  const userId = req.user.id;
-  const userRole = req.user.role;
-  try {
-    let requests = [];
-
-    if (userRole === 'PIC' || userRole === 'Person in Charge') {
-      requests = await MaterialRequest.find({ createdBy: userId })
-        .populate('project')
-        .populate('createdBy');
-    } else if (userRole === 'PM' || userRole === 'Project Manager') {
-      const projects = await Project.find({ projectmanager: userId });
-      console.log('User ID:', userId, 'Projects found:', projects.map(p => p._id));
-      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
-        .populate('project')
-        .populate('createdBy');
-    } else if (userRole === 'AM' || userRole === 'Area Manager') {
-      const projects = await Project.find({ areamanager: userId });
-      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
-        .populate('project')
-        .populate('createdBy');
-    } else if (userRole === 'CEO') {
-      requests = await MaterialRequest.find()
-        .populate('project')
-        .populate('createdBy');
-    } else {
-      return res.status(403).json({ message: 'Unauthorized' });
-    }
-
-    res.json(requests);
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching requests' });
-  }
-});
-
-
-// GET /api/requests/:id
-router.get('/:id', verifyToken, async (req, res) => {
-  try {
-    const request = await MaterialRequest.findById(req.params.id)
-      .populate('project')
-      .populate('createdBy')
-      .populate('approvals.user', 'name role');
-    if (!request) {
-      return res.status(404).json({ message: 'Material Request not found' });
-    }
-
-    res.json(request);
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching material request' });
-  }
-});
-
-// DELETE /api/requests/:id
-router.delete('/:id', require('../middleware/authMiddleware').verifyToken, async (req, res) => {
-  try {
-    const result = await MaterialRequest.findByIdAndDelete(req.params.id);
-    if (!result) {
-      return res.status(404).json({ message: 'Request not found' });
-    }
-    res.json({ message: 'Request cancelled successfully' });
-  } catch (err) {
-    res.status(500).json({ message: 'Error cancelling request', err });
-  }
-});
-
-// PATCH /api/requests/:id/received
-router.patch('/:id/received', verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const request = await MaterialRequest.findById(id);
-    if (!request) return res.status(404).json({ message: 'Material request not found' });
-    if (request.status !== 'Approved') return res.status(400).json({ message: 'Request is not approved yet.' });
-    if (request.createdBy.toString() !== req.user.id) return res.status(403).json({ message: 'Not your request.' });
-    if (request.receivedByPIC) return res.status(400).json({ message: 'Already marked as received.' });
-
-    request.receivedByPIC = true;
-    request.receivedDate = new Date();  
-    await request.save();
-    res.json({ message: 'Marked as received.' });
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to mark as received', error: err.message });
-  }
-});
-
-
-
-
+// MARK AS RECEIVED
+router.patch('/:id/received', verifyToken, controller.markReceived);
 
 module.exports = router;

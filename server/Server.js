@@ -15,13 +15,14 @@
   const userRoutes = require('./route/user');
   const locationRoutes = require('./route/location');
   const manpowerRoutes = require('./route/manpower');
+  const auditLogRoutes = require('./route/auditlog');
   const app = express();
 
   app.use(cors({
     origin: 'http://localhost:3000',
     credentials: true
   }));
-  app.use(express.json({ limit: '10mb' }));
+  app.use(express.json({ limit: '5mb' }));
   app.use(express.urlencoded({ extended: true }));
 
   const PORT = process.env.PORT || 5000;
@@ -42,6 +43,7 @@
   app.use('/api/requests', materialRequestRoutes);
   app.use('/api/manpower', manpowerRoutes);
   app.use('/api/locations', locationRoutes);
+  app.use('/api/audit-logs', auditLogRoutes);
   app.use('/uploads', express.static('uploads'));
   app.get('/', (req, res) => res.send('API is working'));
 

@@ -111,8 +111,11 @@ const Pic_Project = () => {
 
           <div className="project-details-grid">
             <div className="details-column">
-              <p className="detail-item"><span className="detail-label">Location:</span> {project.location}</p>
-
+             <p className="detail-item">
+              <span className="detail-label">Location:</span>
+              {project.location?.name || 'N/A'}
+            </p>
+            
               <div className="detail-group">
                 <p className="detail-label">Project Manager:</p>
                 <p className="detail-value">{project.projectmanager?.name || 'N/A'}</p>
@@ -138,20 +141,24 @@ const Pic_Project = () => {
               </div>
 
               <div className="detail-group">
-                <p className="detail-value">
-                <p className="detail-label">PIC:</p>
-  {project.pic && project.pic.length > 0 
-    ? project.pic.map(p => p.name).join(', ') 
-    : 'N/A'}
-</p>
+              <span className="detail-label">PIC:</span>
+              <div className="detail-value">
+                {project.pic && project.pic.length > 0
+                  ? project.pic.map((p, idx) => <div key={p._id || idx}>{p.name}</div>)
+                  : 'N/A'}
               </div>
+            </div>
             </div>
           </div>
 
           <div className="manpower-section">
-            <p className="detail-label">Manpower:</p>
-            <p className="manpower-list">{project.manpower}</p>
-          </div>
+            <span className="detail-label">Manpower:</span>
+            <div className="manpower-list">
+              {project.manpower && project.manpower.length > 0
+                ? project.manpower.map((m, idx) => <div key={m._id || idx}>{m.name} {m.position ? `(${m.position})` : ''}</div>)
+                : 'N/A'}
+            </div>
+          </div>  
         </div>
       </main>
     </div>

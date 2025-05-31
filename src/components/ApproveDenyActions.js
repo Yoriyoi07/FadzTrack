@@ -27,8 +27,8 @@ const ApproveDenyActions = ({
 
   const status = requestData?.status;
   const isPendingForMe =
-    (status === 'Pending PM' && roleKey === 'PM') ||
-    (status === 'Pending AM' && roleKey === 'AM') ||
+    (status === 'Pending Project Manager' && roleKey === 'PM') ||
+    (status === 'Pending Area Manager' && roleKey === 'AM') ||
     (status === 'Pending CEO' && roleKey === 'CEO');
 
   const hasActed = requestData?.approvals?.some(
@@ -106,7 +106,7 @@ const ApproveDenyActions = ({
     : null;
 
   // --- DENIAL INFO ---
-  const deniedStatuses = ['Denied by PM', 'Denied by AM', 'Denied by CEO'];
+  const deniedStatuses = ['Denied by Project Manager', 'Denied by Area Manager', 'Denied by CEO'];
   const isDenied = deniedStatuses.includes(requestData?.status);
   let deniedApproval = null;
   if (isDenied) {
@@ -119,9 +119,9 @@ const ApproveDenyActions = ({
   const getDenierDisplay = (approval) => {
     if (!approval) return '';
     let role =
-      approval.role === 'PM'
+      approval.role === 'Project Manager'
         ? 'Project Manager'
-        : approval.role === 'AM'
+        : approval.role === 'Area Manager'
         ? 'Area Manager'
         : approval.role === 'CEO'
         ? 'CEO'

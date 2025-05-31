@@ -1,6 +1,8 @@
 const ManpowerRequest = require('../models/ManpowerRequest');
 const Project = require('../models/Project'); 
+const { logAction } = require('../utils/auditLogger');
 
+// CREATE Manpower Request
 const createManpowerRequest = async (req, res) => {
   try {
     const {
@@ -23,8 +25,6 @@ const createManpowerRequest = async (req, res) => {
     } catch {
       return res.status(400).json({ message: 'Invalid manpowers format.' });
     }
-
-    // 🟢 Fix is here!
     const createdBy = req.user?.id || req.user?._id;
     if (!createdBy) {
       return res.status(400).json({ message: 'No user authenticated' });
@@ -47,13 +47,45 @@ const createManpowerRequest = async (req, res) => {
     });
 
     await newRequest.save();
+
+    // Project name for description
+    let projectName = project;
+    let projectDoc = null;  
+    try {
+      projectDoc = await Project.findById(project).select('projectName');  
+      if (projectDoc) {
+        projectName = projectDoc.projectName;
+      }
+    } catch (err) {
+      projectName = project;
+    }
+
+    // Regular log
+    await logAction({
+      action: 'CREATED_MANPOWER_REQUEST',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `Created manpower request for project ${projectName}`,
+      meta: { requestId: newRequest._id, projectName }
+    });
+
+    // CEO-only audit log
+    if (req.user.role === 'CEO') {
+      await logAction({
+        action: 'CEO_CREATED_MANPOWER_REQUEST',
+        performedBy: req.user.id,
+        performedByRole: req.user.role,
+        description: `CEO created manpower request for project ${projectName}`,
+        meta: { requestId: newRequest._id, projectName }
+      });
+    }
+
     res.status(201).json({ message: '✅ Manpower request created successfully' });
   } catch (error) {
     console.error('❌ Error creating request:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
-
 
 // READ - Get all manpower requests
 const getAllManpowerRequests = async (req, res) => {
@@ -72,19 +104,15 @@ const getAllManpowerRequests = async (req, res) => {
 // GET manpower requests assigned to the area manager's projects
 const getManpowerRequestsForAreaManager = async (req, res) => {
   try {
-    // Get area manager's user ID from query param
     const areaManagerId = req.query.areaManager;
-
     if (!areaManagerId) {
       return res.status(400).json({ message: 'Area manager ID is required.' });
     }
-
-    // Find projects assigned to this area manager
     const projects = await Project.find({ areamanager: areaManagerId }).select('_id');
     const projectIds = projects.map(p => p._id);
 
     if (projectIds.length === 0) {
-      return res.status(200).json([]); // No projects for this manager
+      return res.status(200).json([]);
     }
 
     const requests = await ManpowerRequest.find({ project: { $in: projectIds } })
@@ -103,8 +131,6 @@ const updateManpowerRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = { ...req.body };
-
-    // If updating manpowers as JSON string, parse it
     if (typeof updates.manpowers === 'string') {
       try {
         updates.manpowers = JSON.parse(updates.manpowers);
@@ -112,11 +138,28 @@ const updateManpowerRequest = async (req, res) => {
         return res.status(400).json({ message: 'Invalid manpowers format' });
       }
     }
-
     const updatedRequest = await ManpowerRequest.findByIdAndUpdate(id, updates, { new: true });
-
     if (!updatedRequest) {
       return res.status(404).json({ message: 'Request not found' });
+    }
+
+    await logAction({
+      action: 'UPDATE_MANPOWER_REQUEST',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `Updated manpower request for project ${updatedRequest.project}`,
+      meta: { requestId: updatedRequest._id }
+    });
+
+    // CEO-only audit log
+    if (req.user.role === 'CEO') {
+      await logAction({
+        action: 'CEO_UPDATED_MANPOWER_REQUEST',
+        performedBy: req.user.id,
+        performedByRole: req.user.role,
+        description: `CEO updated manpower request for project ${updatedRequest.project}`,
+        meta: { requestId: updatedRequest._id }
+      });
     }
 
     res.status(200).json({ message: '✅ Request updated successfully', data: updatedRequest });
@@ -130,11 +173,29 @@ const updateManpowerRequest = async (req, res) => {
 const deleteManpowerRequest = async (req, res) => {
   try {
     const { id } = req.params;
-
     const deletedRequest = await ManpowerRequest.findByIdAndDelete(id);
 
     if (!deletedRequest) {
       return res.status(404).json({ message: 'Request not found' });
+    }
+
+    await logAction({
+      action: 'DELETE_MANPOWER_REQUEST',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `Deleted manpower request for project ${deletedRequest.project}`,
+      meta: { requestId: deletedRequest._id }
+    });
+
+    // CEO-only audit log
+    if (req.user.role === 'CEO') {
+      await logAction({
+        action: 'CEO_DELETED_MANPOWER_REQUEST',
+        performedBy: req.user.id,
+        performedByRole: req.user.role,
+        description: `CEO deleted manpower request for project ${deletedRequest.project}`,
+        meta: { requestId: deletedRequest._id }
+      });
     }
 
     res.status(200).json({ message: '🗑️ Request deleted successfully' });
@@ -146,10 +207,8 @@ const deleteManpowerRequest = async (req, res) => {
 
 // Approve Manpower Request
 const approveManpowerRequest = async (req, res) => {
-  console.log('approveManpowerRequest called');
   try {
     const { id } = req.params;
-    // Example: save extra info if needed (area, manpower provided, etc.)
     const updates = {
       status: "Approved",
       approvedBy: req.user?.name || req.body.approvedBy || "Unknown",
@@ -159,6 +218,26 @@ const approveManpowerRequest = async (req, res) => {
     };
     const updated = await ManpowerRequest.findByIdAndUpdate(id, updates, { new: true });
     if (!updated) return res.status(404).json({ message: "Request not found" });
+
+    await logAction({
+      action: 'APPROVE_MANPOWER_REQUEST',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `Approved manpower request for project ${updated.project}`,
+      meta: { requestId: updated._id }
+    });
+
+    // CEO-only audit log
+    if (req.user.role === 'CEO') {
+      await logAction({
+        action: 'CEO_APPROVED_MANPOWER_REQUEST',
+        performedBy: req.user.id,
+        performedByRole: req.user.role,
+        description: `CEO approved manpower request for project ${updated.project}`,
+        meta: { requestId: updated._id }
+      });
+    }
+
     res.status(200).json({ message: "Request approved", data: updated });
   } catch (error) {
     console.error("Error approving request:", error);
@@ -166,6 +245,7 @@ const approveManpowerRequest = async (req, res) => {
   }
 };
 
+// --- The rest remains unchanged (No CEO log needed for simple reads) ---
 
 const getSingleManpowerRequest = async (req, res) => {
   try {
@@ -199,12 +279,9 @@ const getMyManpowerRequests = async (req, res) => {
   }
 };
 
-
-// PUT - Mark manpower request as received
 const markManpowerRequestReceived = async (req, res) => {
   try {
     const { id } = req.params;
-    // For toggling, expect { received: true/false } in body
     const { received } = req.body;
     const updated = await ManpowerRequest.findByIdAndUpdate(
       id,
@@ -219,7 +296,6 @@ const markManpowerRequestReceived = async (req, res) => {
   }
 };
 
-// PUT - Schedule manpower return
 const scheduleManpowerReturn = async (req, res) => {
   try {
     const { id } = req.params;
@@ -227,7 +303,7 @@ const scheduleManpowerReturn = async (req, res) => {
     if (!returnDate) return res.status(400).json({ message: "No return date provided" });
     const updated = await ManpowerRequest.findByIdAndUpdate(
       id,
-      { returnDate }, // Add this field to your schema if not present
+      { returnDate },
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: "Request not found" });
@@ -237,7 +313,6 @@ const scheduleManpowerReturn = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-
 
 module.exports = {
   createManpowerRequest,
