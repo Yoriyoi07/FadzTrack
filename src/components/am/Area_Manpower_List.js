@@ -8,8 +8,11 @@ export default function Area_Manpower_List() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('All');
   const [viewMode, setViewMode] = useState('list');
-  const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
+  const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   useEffect(() => {
@@ -26,7 +29,7 @@ export default function Area_Manpower_List() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
+      if (!event.target.closest(".am-manpower-profile-menu-container")) {
         setProfileMenuOpen(false);
       }
     };
@@ -40,131 +43,138 @@ export default function Area_Manpower_List() {
     navigate('/');
   };
 
-  // Optionally filter by status (if you have a status field)
   const filteredRequests = requests.filter((request) =>
     filterStatus === 'All' ? true : request.status === filterStatus
   );
 
+  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedRequests = filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const goToPage = (pageNumber) => {
+    if (pageNumber >= 1 && pageNumber <= totalPages) {
+      setCurrentPage(pageNumber);
+    }
+  };
+
   return (
-    <div className="app-container">
-      {/* Header with Navigation */}
-      <header className="header">
-        <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-          <h1 className="brand-name">FadzTrack</h1>
+    <div>
+      <header className="am-manpower-header">
+        <div className="am-manpower-logo-container">
+          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="am-manpower-logo-img" />
+          <h1 className="am-manpower-brand-name">FadzTrack</h1>
         </div>
-        <nav className="nav-menu">
-          <Link to="/am" className="nav-link">Dashboard</Link>
-          <Link to="/am/matreq" className="nav-link">Material</Link>
-          <Link to="/am/manpower-requests" className="nav-link">Manpower</Link>
-          <Link to="/am/addproj" className="nav-link">Projects</Link>
-          <Link to="/chat" className="nav-link">Chat</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
-          <Link to="/reports" className="nav-link">Reports</Link>
+        <nav className="am-manpower-nav-menu">
+          <Link to="/am" className="am-manpower-nav-link">Dashboard</Link>
+          <Link to="/am/matreq" className="am-manpower-nav-link">Material</Link>
+          <Link to="/am/manpower-requests" className="am-manpower-nav-link">Manpower</Link>
+          <Link to="/am/addproj" className="am-manpower-nav-link">Projects</Link>
+          <Link to="/chat" className="am-manpower-nav-link">Chat</Link>
+          <Link to="/logs" className="am-manpower-nav-link">Logs</Link>
+          <Link to="/reports" className="am-manpower-nav-link">Reports</Link>
         </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
+        <div className="am-manpower-profile-menu-container">
+          <div className="am-manpower-profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          {profileMenuOpen && (
+            <div className="am-manpower-profile-menu">
+              <button onClick={handleLogout}>Logout</button>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
-          </div>
+          )}
+        </div>
       </header>
 
-      {/* Main Content */}
-      <main className="main-content">
-        <div className="content-card">
-          {/* Filters */}
-          <div className="filters-container">
-            <div className="filter-options">
-              <span className="filter-label">Date Filter</span>
+      <main className="am-manpower-main-content">
+        <div className="am-manpower-content-card">
+          <div className="am-manpower-filters-container">
+            <div className="am-manpower-filter-options">
+              <span className="am-manpower-filter-label">Date Filter</span>
               {['All', 'Pending', 'Rejected', 'Approved'].map((status, index) => (
                 <button
                   key={index}
-                  className={`filter-button ${filterStatus === status ? 'active' : 'inactive'}`}
+                  className={`am-manpower-filter-button ${filterStatus === status ? 'active' : 'inactive'}`}
                   onClick={() => setFilterStatus(status)}>
                   {status}
                 </button>
               ))}
             </div>
-            <div className="view-options">
+            <div className="am-manpower-view-options">
               <button
-                className={`view-button ${viewMode === 'list' ? 'active' : ''}`}
+                className={`am-manpower-view-button ${viewMode === 'list' ? 'active' : ''}`}
                 onClick={() => setViewMode('list')}>
-                <List className="view-icon" />
+                <List className="am-manpower-view-icon" />
               </button>
               <button
-                className={`view-button ${viewMode === 'grid' ? 'active' : ''}`}
+                className={`am-manpower-view-button ${viewMode === 'grid' ? 'active' : ''}`}
                 onClick={() => setViewMode('grid')}>
-                <LayoutGrid className="view-icon" />
+                <LayoutGrid className="am-manpower-view-icon" />
               </button>
             </div>
           </div>
 
-          {/* Request List */}
-          <div className="request-list scrollable">
+          <div className="am-manpower-request-list am-manpower-scrollable">
             {loading ? (
               <div>Loading...</div>
-            ) : filteredRequests.length === 0 ? (
+            ) : paginatedRequests.length === 0 ? (
               <div>No requests found.</div>
             ) : (
-              filteredRequests.map((request) => (
+              paginatedRequests.map((request) => (
                 <div
                   key={request._id}
-                  className="request-item"
+                  className="am-manpower-request-item"
                   style={{ cursor: 'pointer' }}
                   onClick={() => navigate(`/am/manpower-requests/${request._id}`)}
                 >
-                  <div className="request-info">
-                    <div className="request-details">
-                      <h3 className="request-title">Request for {request.manpowers && request.manpowers.map(mp => `${mp.quantity} ${mp.type}`).join(', ')}</h3>
-                      <p className="request-project">Project: {request.project?.projectName || 'N/A'}</p>
-                      <p className="request-date">
+                  <div className="am-manpower-request-info">
+                    <div className="am-manpower-request-details">
+                      <h3 className="am-manpower-request-title">Request for {request.manpowers && request.manpowers.map(mp => `${mp.quantity} ${mp.type}`).join(', ')}</h3>
+                      <p className="am-manpower-request-project">Project: {request.project?.projectName || 'N/A'}</p>
+                      <p className="am-manpower-request-date">
                         {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : ''}
                       </p>
                     </div>
                   </div>
-                  <div className="request-meta">
-                    <div className="requester-info">
-                      <p className="requester-name">
+                  <div className="am-manpower-request-meta">
+                    <div className="am-manpower-requester-info">
+                      <p className="am-manpower-requester-name">
                         Requested by: {request.createdBy?.name || 'N/A'}
                       </p>
                     </div>
-                    {request.status === 'Pending' && (
-                      <div className="status-badge status-pending">Pending</div>
-                    )}
-                    {request.status === 'Approved' && (
-                      <div className="status-badge status-approved">Approved</div>
-                    )}
-                    {request.status === 'Rejected' && (
-                      <div className="status-badge status-declined">Declined</div>
-                    )}
+                    <div className={`am-manpower-status-badge am-manpower-status-${(request.status || '').toLowerCase()}`}>{request.status}</div>
                   </div>
                 </div>
               ))
             )}
           </div>
 
-          {/* Pagination - keep as is if you plan to use later */}
-          <div className="pagination">
-            <button className="pagination-arrow">
-              <ChevronLeft className="pagination-arrow-icon" />
-            </button>
-            <button className="pagination-number active">1</button>
-            <button className="pagination-number">2</button>
-            <button className="pagination-number">3</button>
-            <button className="pagination-number">4</button>
-            <span className="pagination-ellipsis">...</span>
-            <button className="pagination-number">40</button>
-            <button className="pagination-arrow">
-              <ChevronRight className="pagination-arrow-icon" />
-            </button>
+          <div className="am-manpower-pagination">
+            <span className="am-manpower-pagination-info">
+              Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries.
+            </span>
+            <div className="am-manpower-pagination-controls">
+              <button
+                className="am-manpower-pagination-btn"
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map(page => (
+                <button
+                  key={page}
+                  className={`am-manpower-pagination-btn ${page === currentPage ? 'active' : ''}`}
+                  onClick={() => goToPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+              <button
+                className="am-manpower-pagination-btn"
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         </div>
       </main>

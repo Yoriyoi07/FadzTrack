@@ -9,7 +9,6 @@ const Pm_Manpower_List = () => {
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
-  // State for requests
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -17,8 +16,33 @@ const Pm_Manpower_List = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState([]);
   const [project, setProject] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
 
-  // Fetch all manpower requests for this PM
+  // --- FILTERED REQUESTS MUST COME BEFORE PAGINATION VARIABLES ---
+  const filteredRequests = requests.filter(request => {
+    const status = (request.status || '').toLowerCase();
+    const matchesFilter =
+      filter === 'All' ||
+      (filter === 'Pending' && status.includes('pending')) ||
+      (filter === 'Approved' && status.includes('approved')) ||
+      (filter === 'Declined' && (status.includes('declined') || status.includes('denied')));
+
+    const searchTarget = [
+      request.manpowerType,
+      request.description,
+      request.createdBy?.name,
+      request.project?.projectName,
+      request.quantity?.toString(),
+    ].join(' ').toLowerCase();
+    const matchesSearch = searchTarget.includes(searchTerm.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedRequests = filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) {
@@ -53,7 +77,6 @@ const Pm_Manpower_List = () => {
       });
   }, []);
 
-  // Profile dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
@@ -69,34 +92,30 @@ const Pm_Manpower_List = () => {
     localStorage.removeItem('user');
     navigate('/');
   };
-    useEffect(() => {
-      if (!token || !user) return;
-      const fetchProjects = async () => {
-        try {
-          const res = await fetch('http://localhost:5000/api/projects', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const data = await res.json();
-          console.log('Fetched projects:', data); 
-          // Filter for projects where this user is the Project Manager
-          const filtered = data.filter(
-      (p) => p.projectManager && (
-        (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
-        p.projectManager === userId // in case it's just an ID string
-      )
-    );
-          console.log('Filtered projects:', filtered); 
-          setProjects(filtered);
-        } catch (err) {
-          console.error('Failed to fetch projects:', err);
-        }
-      };
-      fetchProjects();
-    }, [token, user, userId]);
 
+  useEffect(() => {
+    if (!token || !user) return;
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/projects', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const filtered = data.filter(
+          (p) => p.projectManager && (
+            (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
+            p.projectManager === userId
+          )
+        );
+        setProjects(filtered);
+      } catch (err) {
+        console.error('Failed to fetch projects:', err);
+      }
+    };
+    fetchProjects();
+  }, [token, user, userId]);
 
-
-    useEffect(() => {
+  useEffect(() => {
     if (!token || !userId) return;
     const fetchAssigned = async () => {
       try {
@@ -105,7 +124,6 @@ const Pm_Manpower_List = () => {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const data = await res.json();
-        console.log('Assigned project from API:', data);
         setProject(data[0] || null);
       } catch (err) {
         console.error('Failed to fetch assigned project:', err);
@@ -114,19 +132,7 @@ const Pm_Manpower_List = () => {
     };
     fetchAssigned();
   }, [token, userId]);
-  // Utility: Show an emoji/icon for manpower type
-  const getIconForType = (request) => {
-    if (!request.manpowerType) return '👷';
-    const type = request.manpowerType.toLowerCase();
-    if (type.includes('engineer')) return '👨‍💼';
-    if (type.includes('worker')) return '👷';
-    if (type.includes('supervisor')) return '👨‍💼';
-    if (type.includes('technician')) return '🔧';
-    if (type.includes('operator')) return '⚙️';
-    return '👥';
-  };
 
-  // Get status color class
   const getStatusClass = (status) => {
     if (!status) return '';
     const statusLower = status.toLowerCase();
@@ -136,79 +142,40 @@ const Pm_Manpower_List = () => {
     return statusLower.replace(/\s/g, '');
   };
 
-  // Filtering and searching
-  const filteredRequests = requests.filter(request => {
-    // Status filter
-    const status = (request.status || '').toLowerCase();
-    const matchesFilter =
-      filter === 'All' ||
-      (filter === 'Pending' && status.includes('pending')) ||
-      (filter === 'Approved' && status.includes('approved')) ||
-      (filter === 'Declined' && (status.includes('declined') || status.includes('denied')));
-    
-    // Search
-    const searchTarget = [
-      request.manpowerType,
-      request.description,
-      request.createdBy?.name,
-      request.project?.projectName,
-      request.quantity?.toString(),
-    ].join(' ').toLowerCase();
-    const matchesSearch = searchTarget.includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
   return (
     <div className="app-container">
-      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
-          </div>
-            <nav className="nav-menu">
-              <Link to="/pm" className="nav-link">Dashboard</Link>
-              <Link to="/pm/request/:id" className="nav-link">Material</Link>
-              <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
-              {projects.length > 0 && (
-              <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>)}
-              <Link to="/chat" className="nav-link">Chat</Link>
-              <Link to="/logs" className="nav-link">Logs</Link>
-              <Link to="/reports" className="nav-link">Reports</Link>
-            </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
+        </div>
+        <nav className="nav-menu">
+          <Link to="/pm" className="nav-link">Dashboard</Link>
+          <Link to="/pm/request/:id" className="nav-link">Material</Link>
+          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
+          {projects.length > 0 && (
+            <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>
+          )}
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/reports" className="nav-link">Reports</Link>
+        </nav>
+        <div className="profile-menu-container">
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
-          </div>
+          )}
+        </div>
       </header>
 
-      {/* Main Content */}
       <main className="main-content">
         <div className="requests-container">
           <div className="requests-header">
             <h2 className="page-title">Manpower Requests</h2>
             <button
               className="request-manpower-btn"
-              style={{
-                marginLeft: 16,
-                padding: '8px 16px',
-                backgroundColor: '#4CAF50',
-                color: 'white',
-                border: 'none',
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: 16
-              }}
               onClick={() => navigate('/pm/request-manpower')}
             >
               + Request Manpower
@@ -226,7 +193,6 @@ const Pm_Manpower_List = () => {
             </div>
           </div>
 
-          {/* Request List */}
           <div className="requests-list">
             {loading ? (
               <div>Loading manpower requests...</div>
@@ -237,67 +203,79 @@ const Pm_Manpower_List = () => {
                 <p>No manpower requests found matching your criteria.</p>
               </div>
             ) : (
-              filteredRequests.map(request => (
-              <Link
-                to={`/pm/manpower-request/${request._id}`}
-                className="request-item"
-                key={request._id}
-                style={{ textDecoration: 'none', color: 'inherit' }}
-              >
-                <div className="request-icon">{/* You may want a summary icon, or use first mp.type */}👷</div>
-                <div className="request-details">
-                  <h3 className="request-title">
-                    Manpower Request {request.requestNumber || request._id?.slice(-3)}
-                  </h3>
-                  <p className="request-description">
-                    {Array.isArray(request.manpowers)
-                      ? request.manpowers.map((mp, i) => (
+              paginatedRequests.map(request => (
+                <Link
+                  to={`/pm/manpower-request/${request._id}`}
+                  className="request-item"
+                  key={request._id}
+                >
+                  <div className="request-icon">👷</div>
+                  <div className="request-details">
+                    <h3 className="request-title">
+                      Manpower Request {request.requestNumber || request._id?.slice(-3)}
+                    </h3>
+                    <p className="request-description">
+                      {Array.isArray(request.manpowers)
+                        ? request.manpowers.map((mp, i) => (
                           <span key={i}>
                             {mp.type} {mp.quantity && `(${mp.quantity})`}
                             {i < request.manpowers.length - 1 ? ', ' : ''}
                           </span>
                         ))
-                      : 'No manpowers'}
-                  </p>
-                  <div className="request-date">
-                    {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+                        : 'No manpowers'}
+                    </p>
+                    <div className="request-date">
+                      {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+                    </div>
                   </div>
-                </div>
-                <div className="request-meta">
-                  <div className="approval-status">
-                    {request.status?.toLowerCase().includes('pending') && (
-                      <span>to be approved by</span>
-                    )}
-                    {request.status?.toLowerCase().includes('declined') && (
-                      <span>Declined by</span>
-                    )}
-                    {request.status?.toLowerCase().includes('approved') && request.approvals && (
-                      <div className="approval-checkmark">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="20,6 9,17 4,12"></polyline>
-                        </svg>
-                      </div>
-                    )}
+                  <div className="request-meta">
+                    <div className="approval-status">
+                      {request.status?.toLowerCase().includes('pending') && <span>to be approved by</span>}
+                      {request.status?.toLowerCase().includes('declined') && <span>Declined by</span>}
+                      {request.status?.toLowerCase().includes('approved') && request.approvals && (
+                        <div className="approval-checkmark">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="20,6 9,17 4,12"></polyline>
+                          </svg>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="request-actions">
-                  <span className={`status-badge ${getStatusClass(request.status)}`}>
-                    {request.status || 'Pending'}
-                  </span>
-                </div>
-              </Link>
+                  <div className="request-actions">
+                    <span className={`status-badge ${getStatusClass(request.status)}`}>
+                      {request.status || 'Pending'}
+                    </span>
+                  </div>
+                </Link>
               ))
             )}
           </div>
 
-          {/* Pagination */}
-          <div className="pagination">
-            <div className="pagination-dots">
-              <span className="dot active"></span>
-              <span className="dot"></span>
-              <span className="dot"></span>
+          {/* Pagination UI */}
+          {filteredRequests.length > 0 && (
+            <div className="pagination">
+              <span className="pagination-info">
+                Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries
+              </span>
+              <div className="pagination-controls">
+                <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>
+                  &lt;
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    className={page === currentPage ? 'active' : ''}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>
+                  &gt;
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>

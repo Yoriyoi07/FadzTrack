@@ -9,7 +9,6 @@ const Pm_MatRequestList = () => {
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
-  // State for requests
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -17,9 +16,33 @@ const Pm_MatRequestList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [projects, setProjects] = useState([]);
   const [project, setProject] = useState(null);
-  // Fetch all requests for this PM
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
+  // --- MUST COME FIRST ---
+  const filteredRequests = requests.filter(request => {
+    const status = (request.status || '').toLowerCase();
+    const matchesFilter =
+      filter === 'All' ||
+      (filter === 'Pending' && status.includes('pending')) ||
+      (filter === 'Approved' && status.includes('approved')) ||
+      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel')));
+
+    const searchTarget = [
+      request.materials?.map(m => m.materialName).join(', ') || '',
+      request.description || '',
+      request.createdBy?.name || '',
+      request.project?.projectName || '',
+    ].join(' ').toLowerCase();
+
+    return matchesFilter && searchTarget.includes(searchTerm.toLowerCase());
+  });
+
+  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedRequests = filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   useEffect(() => {
-    const token = localStorage.getItem('token');
     if (!token) {
       setError('Session expired. Please log in.');
       setLoading(false);
@@ -52,7 +75,6 @@ const Pm_MatRequestList = () => {
       });
   }, []);
 
-  // Profile dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
@@ -69,34 +91,29 @@ const Pm_MatRequestList = () => {
     navigate('/');
   };
 
-    useEffect(() => {
-      if (!token || !user) return;
-      const fetchProjects = async () => {
-        try {
-          const res = await fetch('http://localhost:5000/api/projects', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          const data = await res.json();
-          console.log('Fetched projects:', data); 
-          // Filter for projects where this user is the Project Manager
-          const filtered = data.filter(
-      (p) => p.projectManager && (
-        (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
-        p.projectManager === userId // in case it's just an ID string
-      )
-    );
-          console.log('Filtered projects:', filtered); 
-          setProjects(filtered);
-        } catch (err) {
-          console.error('Failed to fetch projects:', err);
-        }
-      };
-      fetchProjects();
-    }, [token, user, userId]);
-  
-  
-  
-    useEffect(() => {
+  useEffect(() => {
+    if (!token || !user) return;
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/projects', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const filtered = data.filter(
+          (p) => p.projectManager && (
+            (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
+            p.projectManager === userId
+          )
+        );
+        setProjects(filtered);
+      } catch (err) {
+        console.error('Failed to fetch projects:', err);
+      }
+    };
+    fetchProjects();
+  }, [token, user, userId]);
+
+  useEffect(() => {
     if (!token || !userId) return;
     const fetchAssigned = async () => {
       try {
@@ -105,7 +122,6 @@ const Pm_MatRequestList = () => {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const data = await res.json();
-        console.log('Assigned project from API:', data);
         setProject(data[0] || null);
       } catch (err) {
         console.error('Failed to fetch assigned project:', err);
@@ -114,8 +130,7 @@ const Pm_MatRequestList = () => {
     };
     fetchAssigned();
   }, [token, userId]);
-  
-  // Utility: Show an emoji for the first material type
+
   const getIconForType = (request) => {
     if (!request.materials || request.materials.length === 0) return '📄';
     const name = request.materials[0].materialName?.toLowerCase() || '';
@@ -126,61 +141,34 @@ const Pm_MatRequestList = () => {
     return '📦';
   };
 
-  // Filtering and searching
-  const filteredRequests = requests.filter(request => {
-    // Status filter
-    const status = (request.status || '').toLowerCase();
-    const matchesFilter =
-      filter === 'All' ||
-      (filter === 'Pending' && status.includes('pending')) ||
-      (filter === 'Approved' && status.includes('approved')) ||
-      (filter === 'Cancelled' && status.includes('denied')) ||
-      (filter === 'Cancelled' && status.includes('cancel'));
-    // Search
-    const searchTarget = [
-      request.materials && request.materials.map(m => m.materialName).join(', '),
-      request.description,
-      request.createdBy?.name,
-      request.project?.projectName,
-    ].join(' ').toLowerCase();
-    const matchesSearch = searchTarget.includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
   return (
     <div className="app-container">
-      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
-          </div>
-            <nav className="nav-menu">
-              <Link to="/pm" className="nav-link">Dashboard</Link>
-              <Link to="/pm/request/:id" className="nav-link">Material</Link>
-              <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
-              {projects.length > 0 && (
-              <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>)}
-              <Link to="/chat" className="nav-link">Chat</Link>
-              <Link to="/logs" className="nav-link">Logs</Link>
-              <Link to="/reports" className="nav-link">Reports</Link>
-            </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
+        </div>
+        <nav className="nav-menu">
+          <Link to="/pm" className="nav-link">Dashboard</Link>
+          <Link to="/pm/request/:id" className="nav-link">Material</Link>
+          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
+          {projects.length > 0 && (
+            <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>
+          )}
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/reports" className="nav-link">Reports</Link>
+        </nav>
+        <div className="profile-menu-container">
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
-          </div>
+          )}
+        </div>
       </header>
 
-      {/* Main Content */}
       <main className="main-content">
         <div className="requests-container">
           <div className="requests-header">
@@ -198,62 +186,78 @@ const Pm_MatRequestList = () => {
             </div>
           </div>
 
-          {/* Request List */}
-         <div className="requests-list">
+          <div className="requests-list">
             {loading ? (
-                <div>Loading requests...</div>
+              <div>Loading requests...</div>
             ) : error ? (
-                <div style={{ color: 'red', marginBottom: 20 }}>{error}</div>
+              <div style={{ color: 'red', marginBottom: 20 }}>{error}</div>
             ) : filteredRequests.length === 0 ? (
-                <div className="no-requests">
+              <div className="no-requests">
                 <p>No requests found matching your criteria.</p>
-                </div>
+              </div>
             ) : (
-                filteredRequests.map(request => (
+              paginatedRequests.map(request => (
                 <Link
-                    to={`/pm/material-request/${request._id}`}
-                    className="request-item"
-                    key={request._id}
-                    style={{ textDecoration: 'none', color: 'inherit' }}
+                  to={`/pm/material-request/${request._id}`}
+                  className="request-item"
+                  key={request._id}
+                  style={{ textDecoration: 'none', color: 'inherit' }}
                 >
-                    <div className="request-icon">{getIconForType(request)}</div>
-                    <div className="request-details">
+                  <div className="request-icon">{getIconForType(request)}</div>
+                  <div className="request-details">
                     <h3 className="request-title">
-                        {request.materials && request.materials.length > 0
+                      {request.materials && request.materials.length > 0
                         ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
                         : 'Material Request'}
                     </h3>
                     <p className="request-description">{request.description}</p>
-                    </div>
-                    <div className="request-meta">
+                  </div>
+                  <div className="request-meta">
                     <div className="request-author">{request.createdBy?.name || 'Unknown'}</div>
                     <div className="request-project">{request.project?.projectName || '-'}</div>
                     <div className="request-date">
-                        {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+                      {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
                     </div>
-                    </div>
-                    <div className="request-actions">
+                  </div>
+                  <div className="request-actions">
                     <span
-                        className={`status-badge ${
+                      className={`status-badge ${
                         (request.status || '').replace(/\s/g, '').toLowerCase()
-                        }`}
+                      }`}
                     >
-                        {request.status}
+                      {request.status}
                     </span>
-                    </div>
+                  </div>
                 </Link>
-                ))
+              ))
             )}
-            </div>
-
-          {/* Pagination Placeholder */}
-          <div className="pagination">
-            <div className="pagination-dots">
-              <span className="dot active"></span>
-              <span className="dot"></span>
-              <span className="dot"></span>
-            </div>
           </div>
+
+          {/* Pagination UI */}
+          {filteredRequests.length > 0 && (
+            <div className="pagination">
+              <span className="pagination-info">
+                Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries
+              </span>
+              <div className="pagination-controls">
+                <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>
+                  &lt;
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    className={page === currentPage ? 'active' : ''}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>
+                  &gt;
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
