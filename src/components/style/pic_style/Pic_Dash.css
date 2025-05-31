@@ -295,31 +295,45 @@
 }
 
 /* Pagination */
-.pagination {
+.pagination-controls {
   display: flex;
-  justify-content: center;
-  margin-top: 20px;
-  gap: 5px;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  flex-wrap: wrap;
 }
 
-.pagination-button {
-  width: 30px;
-  height: 30px;
-  border: 1px solid #ddd;
+.pagination-info {
+  font-size: 0.875rem;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.pagination-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.pagination-buttons button {
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  border: 1px solid #ccc;
   background-color: white;
-  border-radius: 4px;
   cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
 }
 
-.pagination-button:hover {
-  background-color: #f5f5f5;
+.pagination-buttons button:hover {
+  background-color: #f0f0f0;
 }
 
-.pagination-button.active {
-  background-color: #5E4FDB;
+.pagination-buttons button.active {
+  background-color: #003366;
   color: white;
-  border: none;
+  border: 1px solid #003366;
 }
+
 
 /* Chats Section */
 .chats-section {

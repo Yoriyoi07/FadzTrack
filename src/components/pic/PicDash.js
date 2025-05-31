@@ -9,14 +9,25 @@ const PicDash = () => {
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
-
+  // Load real requests from backend
+  const [requests, setRequests] = useState([]);
   const [userName, setUserName] = useState(user?.name || '');
   const [projects, setProjects] = useState([]);
   const [project, setProject] = useState(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
-  // Load real requests from backend
-  const [requests, setRequests] = useState([]);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentRequests = requests.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(requests.length / itemsPerPage);
+
+  const goToPage = (pageNumber) => {
+    if (pageNumber > 0 && pageNumber <= totalPages) {
+      setCurrentPage(pageNumber);
+    }
+  };
 
   // Auth guard: redirect if not logged in
   useEffect(() => {
@@ -170,57 +181,69 @@ const PicDash = () => {
             <div>
               <h2 className="section-title">Request Overview</h2>
 
-  <div className="request-list">
-  {requests.map(request => (
-    <div key={request._id} className="request-item"
-      style={{ cursor: "pointer" }}
-      onClick={() => navigate(`/pic/request/${request._id}`)}>
-      <div className="request-icon">
-        {"📦"}
-      </div>
-      <div className="request-details">
-        <div className="request-name">
-          <p>request for</p>{request.materials && request.materials.length > 0
-            ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
-            : '-'}
-        </div>
-        <div className="request-project" style={{ fontSize: "13px", color: "#666", marginTop: "6px" }}>
-          {/* Show Project Name */}
-          {request.project?.projectName || '-'}
-        </div>
-      </div>
-      <div className="request-requester" style={{ textAlign: 'right' }}>
-        <div className="request-requester-name">
-          {/* Show User Name */}
-          {request.createdBy?.name || '-'}
-        </div>
-        <div className="request-date">
-          {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
-        </div>
-      </div>
-      <div className={`badge badge-${(request.status || '').toLowerCase()}`}>
-        {request.status}
-      </div>
-    </div>
-  ))}
-</div>
-
-
-              {/* Pagination */}
-              <div className="pagination">
-                <button className="pagination-button">«</button>
-                <button className="pagination-button active">1</button>
-                <button className="pagination-button">2</button>
-                <button className="pagination-button">3</button>
-                <button className="pagination-button">4</button>
-                <button className="pagination-button">5</button>
-                <button className="pagination-button">»</button>
+        <div className="request-list">
+          {currentRequests.map(request => (
+            <div key={request._id} className="request-item"
+              style={{ cursor: "pointer" }}
+              onClick={() => navigate(`/pic/request/${request._id}`)}>
+              <div className="request-icon">📦</div>
+              <div className="request-details">
+                <div className="request-name">
+                  <p>request for</p>
+                  {request.materials && request.materials.length > 0
+                    ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
+                    : '-'}
+                </div>
+                <div className="request-project" style={{ fontSize: "13px", color: "#666", marginTop: "6px" }}>
+                  {request.project?.projectName || '-'}
+                </div>
+              </div>
+              <div className="request-requester" style={{ textAlign: 'right' }}>
+                <div className="request-requester-name">{request.createdBy?.name || '-'}</div>
+                <div className="request-date">
+                  {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+                </div>
+              </div>
+              <div className={`badge badge-${(request.status || '').toLowerCase()}`}>
+                {request.status}
               </div>
             </div>
+          ))}
+        </div>
+        <div className="pagination-controls">
+          <span className="pagination-info">
+            Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, requests.length)} of {requests.length} entries.
+          </span>
+          <div className="pagination-buttons">
+            <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>
+              &lt;
+            </button>
+            {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
+              let pageNum = index + 1;
+              if (currentPage > 3 && totalPages > 5) {
+                pageNum = (currentPage + index) - 2;
+                if (pageNum > totalPages) pageNum = totalPages - 4 + index;
+              }
+              return (
+                <button
+                  key={index}
+                  onClick={() => goToPage(pageNum)}
+                  className={pageNum === currentPage ? 'active' : ''}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>
+              &gt;
+            </button>
           </div>
         </div>
       </div>
     </div>
+  </div>
+ </div>
+</div>
   );
 };
 
