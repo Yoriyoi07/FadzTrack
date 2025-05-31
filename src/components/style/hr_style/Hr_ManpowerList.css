@@ -385,6 +385,12 @@
   flex-shrink: 0;
 }
 
+.pagination-info {
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
 .pagination {
   display: flex;
   align-items: center;

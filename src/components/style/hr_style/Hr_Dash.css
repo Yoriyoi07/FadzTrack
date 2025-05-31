@@ -4,6 +4,7 @@ body {
   color: #2d3748;
   overflow: hidden;
   line-height: 1.6;
+  overflow-y: auto;
 }
 
 .hr-dash-container {

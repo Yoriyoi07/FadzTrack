@@ -32,74 +32,48 @@ function ManpowerRow({ manpower }) {
   );
 }
 
-function Pagination({ currentPage, totalPages, onPageChange }) {
-  const getVisiblePages = () => {
-    const delta = 2;
-    const range = [];
-    const rangeWithDots = [];
-    
-    for (let i = Math.max(2, currentPage - delta); 
-         i <= Math.min(totalPages - 1, currentPage + delta); 
-         i++) {
-      range.push(i);
-    }
+function Pagination({ currentPage, totalPages, totalEntries, onPageChange, showingRange }) {
+  const visiblePages = [];
 
-    if (currentPage - delta > 2) {
-      rangeWithDots.push(1, '...');
-    } else {
-      rangeWithDots.push(1);
-    }
-
-    rangeWithDots.push(...range);
-
-    if (currentPage + delta < totalPages - 1) {
-      rangeWithDots.push('...', totalPages);
-    } else {
-      rangeWithDots.push(totalPages);
-    }
-
-    return rangeWithDots;
-  };
-
-  if (totalPages <= 1) return null;
-
-  const visiblePages = getVisiblePages();
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) visiblePages.push(i);
+  } else {
+    visiblePages.push(1);
+    if (currentPage > 3) visiblePages.push('...');
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) visiblePages.push(i);
+    if (currentPage < totalPages - 2) visiblePages.push('...');
+    visiblePages.push(totalPages);
+  }
 
   return (
-    <div className="pagination-wrapper">
+    <div className="pagination-wrapper" style={{ flexDirection: 'column', alignItems: 'center' }}>
+      <span className="pagination-info">
+        Showing {showingRange.start} to {showingRange.end} of {totalEntries} entries.
+      </span>
       <div className="pagination">
-        <button
-          className="pagination-btn"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-        >
+        <button className="pagination-btn" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}>
           &lt;
         </button>
-        
         {visiblePages.map((page, index) => (
           <button
             key={index}
-            className={`pagination-btn ${
-              page === '...' ? 'dots' : ''
-            } ${page === currentPage ? 'active' : ''}`}
-            onClick={() => typeof page === 'number' ? onPageChange(page) : null}
+            className={`pagination-btn ${page === currentPage ? 'active' : ''} ${page === '...' ? 'dots' : ''}`}
             disabled={page === '...'}
+            onClick={() => typeof page === 'number' && onPageChange(page)}
           >
             {page}
           </button>
         ))}
-        
-        <button
-          className="pagination-btn"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-        >
+        <button className="pagination-btn" onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages}>
           &gt;
         </button>
       </div>
     </div>
   );
 }
+
 
 
 export default function Hr_ManpowerList() {
@@ -148,6 +122,25 @@ export default function Hr_ManpowerList() {
     }
   };
 
+  const handleExportCSV = () => {
+    const csvData = (manpowers || []).map(mp => ({
+      name: mp.name,
+      position: mp.position,
+      status: mp.status,
+      project: mp.project,
+      avatar: mp.avatar
+    }));
+
+    const csv = Papa.unparse(csvData);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'manpower_export.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
 
   const filteredManpower = useMemo(() => {
@@ -244,6 +237,9 @@ export default function Hr_ManpowerList() {
               style={{ display: 'none' }}
               onChange={handleCSVUpload}
             />
+            <button className="upload-btn" onClick={handleExportCSV}>
+              Export CSV
+            </button>
 
             <div className="search-container">
               <input 
@@ -277,15 +273,20 @@ export default function Hr_ManpowerList() {
                 </div>
               ) : (
                 currentManpower.map(manpower => (
-                  <ManpowerRow key={manpower._id} manpower={manpower} />
+                  <ManpowerRow key={manpower._id || manpower.name} manpower={manpower} />
                 ))
               )}
             </div>
           </div>
 
-          <Pagination 
+          <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
+            totalEntries={filteredManpower.length}
+            showingRange={{
+              start: startIndex + 1,
+              end: Math.min(startIndex + ITEMS_PER_PAGE, filteredManpower.length)
+            }}
             onPageChange={handlePageChange}
           />
         </div>
