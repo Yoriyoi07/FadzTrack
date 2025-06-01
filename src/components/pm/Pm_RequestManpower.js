@@ -118,26 +118,24 @@ const Pm_RequestManpower = () => {
   };
 
   useEffect(() => {
-    if (!token || !user) return;
-    const fetchProjects = async () => {
-      try {
-        const res = await fetch('http://localhost:5000/api/projects', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        const filtered = data.filter(
-          (p) => p.projectManager && (
-            (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
-            p.projectManager === userId
-          )
-        );
-        setProjects(filtered);
-      } catch (err) {
-        console.error('Failed to fetch projects:', err);
-      }
-    };
-    fetchProjects();
-  }, [token, user, userId]);
+  if (!token || !user) return;
+  const fetchProjects = async () => {
+    try {
+      const { data } = await api.get('/projects');
+      const filtered = data.filter(
+        (p) => p.projectManager && (
+          (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
+          p.projectManager === userId
+        )
+      );
+      setProjects(filtered);
+    } catch (err) {
+      console.error('Failed to fetch projects:', err);
+    }
+  };
+  fetchProjects();
+}, [token, user, userId]);
+
 
   // Submit Handler
   const handleSubmit = async (e) => {

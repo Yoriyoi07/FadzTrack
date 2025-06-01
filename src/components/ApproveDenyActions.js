@@ -43,61 +43,49 @@ const ApproveDenyActions = ({
 
   // Approve
   const handleApprove = async () => {
-    if (!window.confirm('Are you sure you want to APPROVE this request?')) return;
-    const token = localStorage.getItem('token');
-    try {
-      const res = await fetch(
-        `http://localhost:5000/api/requests/${requestData._id}/approve`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ decision: 'approved' })
-        }
-      );
-      if (!res.ok) throw new Error('Approval failed');
-      alert('Request approved.');
-      if (onActionComplete) onActionComplete();
-      else onBack();
-    } catch (err) {
-      alert('Failed to approve request.');
-      console.error(err);
-    }
-  };
+  if (!window.confirm('Are you sure you want to APPROVE this request?')) return;
+  const token = localStorage.getItem('token');
+  try {
+    await api.post(
+      `/requests/${requestData._id}/approve`,
+      { decision: 'approved' },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    alert('Request approved.');
+    if (onActionComplete) onActionComplete();
+    else onBack();
+  } catch (err) {
+    alert('Failed to approve request.');
+    console.error(err);
+  }
+};
+
 
   // Deny
   const handleDeny = () => setShowDenyReason(true);
-  const submitDeny = async () => {
-    if (!denyReason.trim()) {
-      alert('Please provide a reason for denial.');
-      return;
-    }
-    const token = localStorage.getItem('token');
-    try {
-      const res = await fetch(
-        `http://localhost:5000/api/requests/${requestData._id}/approve`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ decision: 'denied', reason: denyReason })
+      const submitDeny = async () => {
+        if (!denyReason.trim()) {
+          alert('Please provide a reason for denial.');
+          return;
         }
-      );
-      if (!res.ok) throw new Error('Denial failed');
-      alert('Request denied.');
-      setShowDenyReason(false);
-      setDenyReason('');
-      if (onActionComplete) onActionComplete();
-      else onBack();
-    } catch (err) {
-      alert('Failed to deny request.');
-      console.error(err);
-    }
-  };
+        const token = localStorage.getItem('token');
+        try {
+          await api.post(
+            `/requests/${requestData._id}/approve`,
+            { decision: 'denied', reason: denyReason },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          alert('Request denied.');
+          setShowDenyReason(false);
+          setDenyReason('');
+          if (onActionComplete) onActionComplete();
+          else onBack();
+        } catch (err) {
+          alert('Failed to deny request.');
+          console.error(err);
+        }
+      };
+
 
   // --- RECEIVED BY PIC INFO ---
   const isReceived = !!requestData?.receivedDate;

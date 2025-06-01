@@ -132,30 +132,27 @@ const Ceo_Dash = () => {
 };
 
   useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch("http://localhost:5000/api/audit-logs", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        const sliced = data.slice(0, 3).map((log, i) => ({
-          id: i,
-          user: {
-            name: log.performedBy?.name || "Unknown",
-            initial: (log.performedBy?.name || "U")[0]
-          },
-          date: new Date(log.timestamp).toLocaleString(),
-          activity: `${log.action} - ${log.description}`,
-          details: log.meta ? Object.entries(log.meta).map(([key, val]) => `${key}: ${val}`) : []
-        }));
-        setActivities(sliced);
-      } catch (err) {
-        console.error("Failed to fetch logs", err);
-      }
-    };
-    fetchLogs();
-  }, []);
+  const fetchLogs = async () => {
+    try {
+      const { data } = await api.get("/audit-logs");
+      const sliced = data.slice(0, 3).map((log, i) => ({
+        id: i,
+        user: {
+          name: log.performedBy?.name || "Unknown",
+          initial: (log.performedBy?.name || "U")[0]
+        },
+        date: new Date(log.timestamp).toLocaleString(),
+        activity: `${log.action} - ${log.description}`,
+        details: log.meta ? Object.entries(log.meta).map(([key, val]) => `${key}: ${val}`) : []
+      }));
+      setActivities(sliced);
+    } catch (err) {
+      console.error("Failed to fetch logs", err);
+    }
+  };
+  fetchLogs();
+}, []);
+
 
   return (
     <div className="head">
