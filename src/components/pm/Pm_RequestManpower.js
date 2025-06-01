@@ -5,9 +5,14 @@ import '../style/pm_style/Pm_ManpowerRequest.css';
 
 const Pm_RequestManpower = () => {
   const navigate = useNavigate();
+  const token = localStorage.getItem('token');
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const userId = user?._id;
   const { id } = useParams(); // <--- ID from /edit/:id, undefined on create
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [project, setProject] = useState(null);
+  const [projects, setProjects] = useState('');
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(!!id);
   const [formData, setFormData] = useState({
@@ -112,6 +117,28 @@ const Pm_RequestManpower = () => {
     navigate('/');
   };
 
+  useEffect(() => {
+    if (!token || !user) return;
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/projects', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const filtered = data.filter(
+          (p) => p.projectManager && (
+            (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
+            p.projectManager === userId
+          )
+        );
+        setProjects(filtered);
+      } catch (err) {
+        console.error('Failed to fetch projects:', err);
+      }
+    };
+    fetchProjects();
+  }, [token, user, userId]);
+
   // Submit Handler
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -168,10 +195,36 @@ const Pm_RequestManpower = () => {
 
   if (loading) return <div>Loading...</div>;
 
+  
   return (
     <div className="app-container">
-      {/* ... same header as before ... */}
-      <header className="header"> {/* ... keep your code here ... */} </header>
+      <header className="header">
+        <div className="logo-container">
+          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
+          <h1 className="brand-name">FadzTrack</h1>
+        </div>
+        <nav className="nav-menu">
+          <Link to="/pm" className="nav-link">Dashboard</Link>
+          <Link to="/pm/request/:id" className="nav-link">Material</Link>
+          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
+          {projects.length > 0 && (
+            <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>
+          )}
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/reports" className="nav-link">Reports</Link>
+        </nav>
+        <div className="profile-menu-container">
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
+      </header>
+
+
       <main className="main-content">
         <div className="form-container">
           <h2 className="page-title">{editMode ? "Edit Manpower Request" : "Request Manpower"}</h2>

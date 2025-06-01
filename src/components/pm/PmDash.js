@@ -1,66 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../../api/axiosInstance'; // adjust path if needed
 import '../style/pm_style/Pm_Dash.css';
+import api from '../../api/axiosInstance';
 
 const PmDash = () => {
-
   const token = localStorage.getItem('token');
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
 
-  const [userName, setUserName] = useState('ALECK');
+  const [userName, setUserName] = useState(user?.name || 'ALECK');
+  const [userRole, setUserRole] = useState(user?.role || '');
   const [projects, setProjects] = useState([]);
   const [project, setProject] = useState(null);
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    if (!token || !user) {
-      navigate('/');
-      return;
-    }
-    setUserName(user.name);
-  }, [navigate, token, user]);
-
-  useEffect(() => {
-    if (!token || !user) return;
-    const fetchProjects = async () => {
-      try {
-        const res = await api.get('/projects');
-        const data = res.data;
-        // Filter for projects where this user is the Project Manager
-        const filtered = data.filter(
-          (p) => p.projectManager && (
-            (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
-            p.projectManager === userId // in case it's just an ID string
-          )
-        );
-        setProjects(filtered);
-      } catch (err) {
-        console.error('Failed to fetch projects:', err);
-      }
-    };
-    fetchProjects();
-  }, [token, user, userId]);
-
-  useEffect(() => {
-    if (!token || !userId) return;
-    const fetchAssigned = async () => {
-      try {
-        const res = await api.get(`/projects/assigned/${userId}`);
-        const data = res.data;
-        setProject(data[0] || null);
-      } catch (err) {
-        console.error('Failed to fetch assigned project:', err);
-        setProject(null);
-      }
-    };
-    fetchAssigned();
-  }, [token, userId]);
-
-  // Sidebar Projects, Activities, Reports, and Chats remain static or can be dynamic
+  // Static sidebar data
   const [sidebarProjects] = useState([
     { id: 1, name: 'Batangas', engineer: 'Engr. Daryll Miralles' },
     { id: 2, name: 'Twin Lakes Project', engineer: 'Engr. Shaquille' },
@@ -69,56 +25,114 @@ const PmDash = () => {
     { id: 5, name: 'Cavite', engineer: 'Engr. Zenarose Miranda' },
     { id: 6, name: 'Taguig', engineer: 'Engr. Third Castellar' }
   ]);
-  const [activities] = useState([
-    {
-      id: 1,
-      user: { name: 'Daniel Pocon', initial: 'D' },
-      date: 'July 1, 2029',
-      activity: 'Submitted Daily Logs for San Miguel Corporation Project B',
-      details: [
-        'Weather: Cloudy in AM, Light Rain in PM ☁️',
-        '1. 📊 Site Attendance Log',
-        'Total Workers: 16',
-        'Trades on Site...'
-      ]
-    }
-  ]);
+
   const [reports] = useState([
     { id: 1, name: 'BGC Hotel', dateRange: '7/13/25 - 7/27/25', engineer: 'Engr.' },
     { id: 2, name: 'Protacio Townhomes', dateRange: '7/13/25 - 7/27/25', engineer: 'Engr.' },
     { id: 3, name: 'Fegarido Residences', dateRange: '7/13/25 - 7/27/25', engineer: 'Engr.' }
   ]);
+
   const [chats] = useState([
     { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
     { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
     { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
   ]);
 
-  // --- DYNAMIC: Material Requests ---
   const [materialRequests, setMaterialRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [requestsError, setRequestsError] = useState(null);
 
+  const [manpowerRequests, setManpowerRequests] = useState([]);
+  const [loadingManpower, setLoadingManpower] = useState(true);
+  const [manpowerError, setManpowerError] = useState(null);
+
+  // Auth and name setup
+  useEffect(() => {
+    if (!token || !user) {
+      navigate('/');
+      return;
+    }
+    setUserName(user.name);
+    setUserRole(user.role);
+  }, [navigate, token, user]);
+
+  // Fetch projects
+  useEffect(() => {
+    if (!token || !user) return;
+    const fetchProjects = async () => {
+      try {
+        const { data } = await api.get('/projects');
+        const filtered = data.filter(p =>
+          (typeof p.projectManager === 'object' &&
+            (p.projectManager._id === userId || p.projectManager.id === userId)) ||
+          p.projectManager === userId
+        );
+        setProjects(filtered);
+      } catch (err) {
+        setProjects([]);
+        // Optional: set an error message if needed
+      }
+    };
+    fetchProjects();
+  }, [token, user, userId]);
+
+  // Fetch assigned project
+  useEffect(() => {
+    if (!token || !userId) return;
+    const fetchAssigned = async () => {
+      try {
+        const { data } = await api.get(`/projects/assigned/${userId}`);
+        setProject(data[0] || null);
+      } catch (err) {
+        setProject(null);
+      }
+    };
+    fetchAssigned();
+  }, [token, userId]);
+
+  // Fetch material requests
   useEffect(() => {
     const fetchRequests = async () => {
-      const token = localStorage.getItem('token');
       if (!token) {
         setRequestsError('Session expired. Please log in again.');
         setLoadingRequests(false);
         return;
       }
       try {
-        const res = await api.get('/requests/mine');
-        setMaterialRequests(res.data);
+        const { data } = await api.get('/requests/mine');
+        setMaterialRequests(Array.isArray(data) ? data : []);
         setRequestsError(null);
       } catch (error) {
         setRequestsError('Error loading material requests');
+        setMaterialRequests([]);
       }
       setLoadingRequests(false);
     };
     fetchRequests();
-  }, []);
+  }, [token]);
 
+  // Fetch manpower requests
+  useEffect(() => {
+    const fetchManpower = async () => {
+      if (!token) {
+        setManpowerError('Session expired. Please log in again.');
+        setLoadingManpower(false);
+        return;
+      }
+      try {
+        const { data } = await api.get('/manpower-requests/mine');
+        setManpowerRequests(Array.isArray(data) ? data : []);
+        setManpowerError(null);
+      } catch (error) {
+        setManpowerError('Error loading manpower requests');
+        setManpowerRequests([]);
+      }
+      setLoadingManpower(false);
+    };
+    fetchManpower();
+  }, [token]);
+
+  // Profile menu close on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
@@ -126,9 +140,7 @@ const PmDash = () => {
       }
     };
     document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -139,7 +151,6 @@ const PmDash = () => {
 
   return (
     <div className="head">
-      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -150,16 +161,14 @@ const PmDash = () => {
           <Link to="/pm/request/:id" className="nav-link">Material</Link>
           <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
           {projects.length > 0 && (
-            <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>)}
+            <Link to={`/pm/viewprojects/${projects[0]._id || projects[0].id}`} className="nav-link">View Project</Link>
+          )}
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container">
-          <div
-            className="profile-circle"
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
             Z
           </div>
           {profileMenuOpen && (
@@ -172,13 +181,9 @@ const PmDash = () => {
 
       {/* Main Content */}
       <div className="dashboard-layout">
-        {/* Left Sidebar */}
         <div className="sidebar">
           <h2>Dashboard</h2>
-          <button
-            className="add-project-btn"
-            onClick={() => navigate('/ceo/addproj')}
-          >
+          <button className="add-project-btn" onClick={() => navigate('/ceo/addproj')}>
             Add New Project
           </button>
           <div className="project-list">
@@ -197,21 +202,18 @@ const PmDash = () => {
           </div>
         </div>
 
-        {/* Center Content */}
         <div className="main1">
           <div className="greeting-section">
             <h1>Good Morning, {userName}!</h1>
+            <p style={{ margin: 0, fontSize: '14px', color: '#666' }}>
+              Currently logged in as <strong>{userRole}</strong>
+            </p>
 
-            {/* Material Request Section - Dynamic */}
+            {/* Material Requests */}
             <div className="material-request-section">
               <div className="section-header">
                 <h2>Material Request</h2>
-                <button
-                  className="view-all-btn"
-                  onClick={() => navigate('/pm/request/:id')}
-                >
-                  View All Requests
-                </button>
+                <button className="view-all-btn" onClick={() => navigate('/pm/request/:id')}>View All Requests</button>
               </div>
               <div className="material-requests-container">
                 {loadingRequests ? (
@@ -222,39 +224,18 @@ const PmDash = () => {
                   <div>No material requests found.</div>
                 ) : (
                   materialRequests.map(request => (
-                    <Link
-                      to={`/requests/${request._id}`}
-                      key={request._id}
-                      className="material-request-item"
-                      style={{ textDecoration: 'none', color: 'inherit' }}
-                    >
+                    <Link to={`/requests/${request._id}`} key={request._id} className="material-request-item">
                       <div className="requester-initial">
-                        {request.createdBy?.name
-                          ? request.createdBy.name.charAt(0)
-                          : 'U'}
+                        {request.createdBy?.name?.charAt(0) || 'U'}
                       </div>
                       <div className="request-details">
                         <h4>
-                          {request.materials && request.materials.length > 0
-                            ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
-                            : 'No Materials'}
+                          {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ') || 'No Materials'}
                         </h4>
                         <div className="request-meta">
-                          <span>
-                            {request.createdBy?.name || 'Unknown'}
-                            {request.project?.projectName ? ` · ${request.project.projectName}` : ''}
-                          </span>
-                          <span>
-                            {new Date(request.createdAt).toLocaleDateString()}
-                          </span>
-                          <span style={{
-                            background: '#e3e6f0',
-                            color: '#0056b3',
-                            padding: '2px 8px',
-                            borderRadius: '8px',
-                            fontSize: '0.85em',
-                            marginLeft: 8
-                          }}>{request.status}</span>
+                          <span>{request.createdBy?.name || 'Unknown'} · {request.project?.projectName || ''}</span>
+                          <span>{new Date(request.createdAt).toLocaleDateString()}</span>
+                          <span className="status-pill">{request.status}</span>
                         </div>
                       </div>
                     </Link>
@@ -264,26 +245,52 @@ const PmDash = () => {
             </div>
           </div>
 
-          {/* Recent Activities */}
-          <div className="recent-activities-section">
-            <h2>Recent Activities</h2>
-            {activities.map(activity => (
-              <div key={activity.id} className="activity-item">
-                <div className="user-initial">{activity.user.initial}</div>
-                <div className="activity-details">
-                  <div className="activity-header">
-                    <span className="user-name">{activity.user.name}</span>
-                    <span className="activity-date">{activity.date}</span>
-                  </div>
-                  <div className="activity-description">{activity.activity}</div>
-                  <div className="activity-extra-details">
-                    {activity.details.map((detail, index) => (
-                      <div key={index} className="detail-item">{detail}</div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ))}
+          {/* Manpower Requests Section */}
+          <div className="material-request-section">
+            <div className="section-header">
+              <h2>Manpower Request</h2>
+              <button 
+                className="view-all-btn" 
+                onClick={() => navigate('/pm/manpower-list')}
+              >
+                View All Requests
+              </button>
+            </div>
+            <div className="material-requests-container horizontal-scroll">
+              {loadingManpower ? (
+                <div>Loading manpower requests...</div>
+              ) : manpowerError ? (
+                <div style={{ color: 'red' }}>{manpowerError}</div>
+              ) : manpowerRequests.length === 0 ? (
+                <div>No manpower requests found.</div>
+              ) : (
+                manpowerRequests
+                  .slice(0, 4)
+                  .map(request => (
+                    <Link
+                      to={`/manpower-requests/${request._id}`}
+                      key={request._id}
+                      className="material-request-item"
+                    >
+                      <div className="requester-initial">
+                        {request.createdBy?.name?.charAt(0) || 'U'}
+                      </div>
+                      <div className="request-details">
+                        <h4>
+                          {Array.isArray(request.manpowers)
+                            ? request.manpowers.map(m => `${m.type} (${m.quantity})`).join(', ')
+                            : 'No Manpower'}
+                        </h4>
+                        <div className="request-meta">
+                          <span>{request.createdBy?.name || 'Unknown'} · {request.project?.projectName || ''}</span>
+                          <span>{new Date(request.createdAt).toLocaleDateString()}</span>
+                          <span className="status-pill">{request.status}</span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))
+              )}
+            </div>
           </div>
         </div>
 

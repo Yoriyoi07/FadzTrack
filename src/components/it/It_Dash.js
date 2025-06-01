@@ -255,101 +255,115 @@ const It_Dash = () => {
       );
     } else {
       return (
-        <div className="create-account-sidebar-IT">
-          <h2>{isEditing ? 'Update Account' : 'Create New Account'}</h2>
-          <div className="form-group-IT">
-            <input
-              type="text"
-              name="name"
-              placeholder="Enter Name"
-              value={newAccount.name}
-              onChange={handleInputChange}
-              className="form-control-IT"
-            />
-            {errors.name && <div className="error-msg-IT">{errors.name}</div>}
+          <div className="create-account-sidebar-IT">
+            <h2>{isEditing ? 'Update Account' : 'Create New Account'}</h2>
+
+            <div className="form-group-IT">
+              <label className="form-label-IT">Name</label>
+              <input
+                type="text"
+                name="name"
+                placeholder="Enter Name"
+                value={newAccount.name}
+                onChange={handleInputChange}
+                className="form-control-IT"
+              />
+              {errors.name && <div className="error-msg-IT">{errors.name}</div>}
+            </div>
+
+            <div className="form-group-IT">
+              <label className="form-label-IT">Position</label>
+              <select
+                name="position"
+                value={newAccount.position}
+                onChange={handleInputChange}
+                className="form-control-IT"
+              >
+                <option value="">Select Position</option>
+                <option value="Project Manager">Project Manager</option>
+                <option value="Area Manager">Area Manager</option>
+                <option value="Person in Charge">Person in Charge</option>
+              </select>
+              {errors.position && <div className="error-msg-IT">{errors.position}</div>}
+            </div>
+
+            <div className="form-group-IT">
+              <label className="form-label-IT">Phone Number</label>
+              <input
+                type="text"
+                name="phone"
+                placeholder="Enter Phone Number"
+                value={newAccount.phone}
+                onChange={handleInputChange}
+                className="form-control-IT"
+                maxLength="11"
+              />
+              {errors.phone && <div className="error-msg-IT">{errors.phone}</div>}
+            </div>
+
+            <div className="form-group-IT">
+              <label className="form-label-IT">Email</label>
+              <input
+                type="email"
+                name="email"
+                placeholder="Enter Email"
+                value={newAccount.email}
+                onChange={handleInputChange}
+                className="form-control-IT"
+              />
+              {errors.email && <div className="error-msg-IT">{errors.email}</div>}
+            </div>
+
+            <div className="form-group-IT">
+              <label className="form-label-IT">Password</label>
+              <input
+                type="password"
+                name="password"
+                placeholder="Enter Password"
+                value={newAccount.password}
+                onChange={handleInputChange}
+                className="form-control-IT"
+              />
+              {errors.password && <div className="error-msg-IT">{errors.password}</div>}
+            </div>
+
+            <div className="form-group-IT">
+              <label className="form-label-IT">Confirm Password</label>
+              <input
+                type="password"
+                name="confirmPassword"
+                placeholder="Confirm Password"
+                value={newAccount.confirmPassword}
+                onChange={handleInputChange}
+                className="form-control-IT"
+              />
+              {errors.confirmPassword && <div className="error-msg-IT">{errors.confirmPassword}</div>}
+            </div>
+
+            <div className="form-group-IT button-group-IT">
+              <button className="create-account-btn-IT" onClick={handleSaveAccount}>
+                {isEditing ? 'Update Account' : 'Create New Account'}
+              </button>
+              <button
+                className="back-btn-IT"
+                onClick={() => {
+                  setShowCreateAccount(false);
+                  setIsEditing(false);
+                  setEditingAccount(null);
+                  setNewAccount({
+                    name: '',
+                    position: '',
+                    phone: '',
+                    email: '',
+                    password: '',
+                    confirmPassword: ''
+                  });
+                }}
+              >
+                <span className="back-arrow-IT">←</span> Back
+              </button>
+            </div>
           </div>
-          <div className="form-group-IT">
-            <select
-              name="position"
-              value={newAccount.position}
-              onChange={handleInputChange}
-              className="form-control-IT"
-            >
-              <option value="">Position</option>
-              <option value="Project Manager">Project Manager</option>
-              <option value="Area Manager">Area Manager</option>
-              <option value="Person in Charge">Person in Charge</option>
-            </select>
-          </div>
-          <div className="form-group-IT">
-            <input
-              type="text"
-              name="phone"
-              placeholder="Enter Phone Number"
-              value={newAccount.phone}
-              onChange={handleInputChange}
-              className="form-control-IT"
-              maxLength="11"
-            />
-            {errors.phone && <div className="error-msg-IT">{errors.phone}</div>}
-          </div>
-          <div className="form-group-IT">
-            <input
-              type="email"
-              name="email"
-              placeholder="Enter Email"
-              value={newAccount.email}
-              onChange={handleInputChange}
-              className="form-control-IT"
-            />
-            {errors.email && <div className="error-msg-IT">{errors.email}</div>}
-          </div>
-          <div className="form-group-IT">
-            <input
-              type="password"
-              name="password"
-              placeholder="Enter Password"
-              value={newAccount.password}
-              onChange={handleInputChange}
-              className="form-control-IT"
-            />
-            {errors.password && <div className="error-msg-IT">{errors.password}</div>}
-          </div>
-          <div className="form-group-IT">
-            <input
-              type="password"
-              name="confirmPassword"
-              placeholder="Confirm Password"
-              value={newAccount.confirmPassword}
-              onChange={handleInputChange}
-              className="form-control-IT"
-            />
-            {errors.confirmPassword && <div className="error-msg-IT">{errors.confirmPassword}</div>}
-          </div>
-          <div className="form-group-IT button-group-IT">
-            <button className="create-account-btn-IT" onClick={handleSaveAccount}>
-              {isEditing ? 'Update Account' : 'Create New Account'}
-            </button>
-            <button
-              className="back-btn-IT"
-              onClick={() => {
-                setShowCreateAccount(false);
-                setIsEditing(false);
-                setEditingAccount(null);
-                setNewAccount({
-                  name: '',
-                  position: '',
-                  phone: '',
-                  email: '',
-                  password: '',
-                  confirmPassword: ''
-                });
-              }}
-            >
-              <span className="back-arrow-IT">←</span> Back
-            </button>
-          </div>
-        </div>
       );
     }
   };
@@ -358,44 +372,30 @@ const It_Dash = () => {
     <div className="fadztrack-app-IT">
       <div className="head-IT">
         {/* Header with Navigation */}
-        <header className="header-IT">
-          <div className="logo-container-IT">
-            <div className="logo-IT">
-              <div className="logo-building-IT"></div>
-              <div className="logo-flag-IT"></div>
-            </div>
-            <h1 className="brand-name-IT">FadzTrack</h1>
+        <header className="header">
+          <div className="logo-container">
+            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
+            <h1 className="brand-name">FadzTrack</h1>
           </div>
-          <nav className="nav-menu-IT">
-            <a href="#" className="nav-link-IT">Dashboard</a>
-            <a href="#" className="nav-link-IT">Chat</a>
+          <nav className="nav-menu">
+            <Link to="/it" className="nav-link">Dashboard</Link>
+            <Link to="/chat" className="nav-link">Chat</Link>
           </nav>
-          <div className="search-profile-IT">
-            <div className="search-container-IT">
-              <input type="text" placeholder="Search in site" className="search-input-IT" />
-              <button className="search-button-IT">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8"></circle>
-                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                </svg>
-              </button>
-            </div>
-            <div className="profile-menu-container-IT">
-              <div
-                className="profile-circle-IT"
+            <div className="profile-menu-container">
+              <div 
+                className="profile-circle" 
                 onClick={() => setProfileMenuOpen(!profileMenuOpen)}
               >
                 Z
               </div>
               {profileMenuOpen && (
-                <div className="profile-menu-IT">
+                <div className="profile-menu">
                   <button onClick={handleLogout}>Logout</button>
                 </div>
               )}
             </div>
-          </div>
         </header>
-      </div>
+</div>
       <div className="main-content-IT">
         <aside className="sidebar-IT">
           {renderSidebar()}

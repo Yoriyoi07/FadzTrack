@@ -86,7 +86,6 @@ const LoginPage = () => {
         className="login-left"
         style={{ backgroundImage: `url(${backgroundImage})` }}
       >
-        <img src="/images/Fadz-logo.png" alt="Fadz Logo" className="left-logo" />
       </div>
 
       {/* Right side login form */}
