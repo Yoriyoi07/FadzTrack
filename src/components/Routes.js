@@ -35,6 +35,7 @@ import PmViewProjects from './pm/PmViewProjects';
 import Pm_RequestedManpowerDetail from './pm/Pm_RequestedManpowerDetail';
 import Ceo_AuditLogs from './ceo/Ceo_AuditLogs';
 import Ceo_Material_List from './ceo/Ceo_Material_List';
+import Hr_Movement_List from './hr/Hr_Movement_List';
 const AppRoutes = () => {
   return (
     <Routes>
@@ -84,7 +85,7 @@ const AppRoutes = () => {
       {/* HR */}
       <Route path="/hr/dash" element={<Hr_Dash />} />
       <Route path="/hr/mlist" element={<Hr_ManpowerList />} />
-
+      <Route path="/hr/movement" element={<Hr_Movement_List />} />
       {/*Reusable*/}
       <Route path="/approve-deny/:id" element={<ApproveDenyAction />} />
     </Routes>

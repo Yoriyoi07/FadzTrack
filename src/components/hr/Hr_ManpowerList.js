@@ -1,32 +1,32 @@
+// Hr_ManpowerList.jsx
+// This is your updated React component with fixed layout, horizontal pagination, and visible controls
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import axios from 'axios';
 import Papa from 'papaparse';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Calendar, Grid, List, Upload, Filter } from 'lucide-react';
+import { Search, Grid, List, Filter } from 'lucide-react';
 import '../style/hr_style/Hr_ManpowerList.css';
-import FadzLogo1 from '../../assets/images/FadzLogo1.png';
 
 const ITEMS_PER_PAGE = 7;
 
 function ManpowerRow({ manpower }) {
   return (
-    <div className="employee-row">
-      <div className="employee-info-cell">
-        <img src={manpower.avatar} alt={manpower.name} className="employee-avatar" />
-        <div className="employee-details">
-          <h4 className="employee-name">{manpower.name}</h4>
-          <p className="employee-position">Position: {manpower.position}</p>
+    <div className="hr-mlist-employee-row">
+      <div className="hr-mlist-employee-info-cell">
+        <img src={manpower.avatar} alt={manpower.name} className="hr-mlist-employee-avatar" />
+        <div className="hr-mlist-employee-details">
+          <h4 className="hr-mlist-employee-name">{manpower.name}</h4>
+          <p className="hr-mlist-employee-position">Position: {manpower.position}</p>
         </div>
       </div>
-      
-      <div className="project-cell">
-        <span className="project-name">{manpower.project}</span>
+      <div className="hr-mlist-project-cell">
+        <span className="hr-mlist-project-name">{manpower.project}</span>
       </div>
-      
-      <div className="status-cell">
-        <span className={`status-badge status-${manpower.status.toLowerCase()}`}>
-          {manpower.status}
-        </span>
+      <div className="hr-mlist-status-cell">
+      <span className={`status-badge ${manpower.status.toLowerCase() === 'active' ? 'status-active' : 'status-inactive'}`}>
+        {manpower.status}
+      </span>
       </div>
     </div>
   );
@@ -34,7 +34,6 @@ function ManpowerRow({ manpower }) {
 
 function Pagination({ currentPage, totalPages, totalEntries, onPageChange, showingRange }) {
   const visiblePages = [];
-
   if (totalPages <= 7) {
     for (let i = 1; i <= totalPages; i++) visiblePages.push(i);
   } else {
@@ -48,11 +47,11 @@ function Pagination({ currentPage, totalPages, totalEntries, onPageChange, showi
   }
 
   return (
-    <div className="pagination-wrapper" style={{ flexDirection: 'column', alignItems: 'center' }}>
-      <span className="pagination-info">
+    <div className="hr-mlist-pagination-wrapper">
+      <span className="hr-mlist-pagination-info">
         Showing {showingRange.start} to {showingRange.end} of {totalEntries} entries.
       </span>
-      <div className="pagination">
+      <div className="hr-mlist-pagination">
         <button className="pagination-btn" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}>
           &lt;
         </button>
@@ -74,8 +73,6 @@ function Pagination({ currentPage, totalPages, totalEntries, onPageChange, showi
   );
 }
 
-
-
 export default function Hr_ManpowerList() {
   const [manpowers, setManpowers] = useState();
   const [currentPage, setCurrentPage] = useState(1);
@@ -86,16 +83,11 @@ export default function Hr_ManpowerList() {
 
   useEffect(() => {
     axios.get('http://localhost:5000/api/manpower')
-      .then(response => {
-        setManpowers(response.data);
-      })
-      .catch(error => {
-        console.error('Error fetching manpower:', error);
-      });
+      .then(response => setManpowers(response.data))
+      .catch(error => console.error('Error fetching manpower:', error));
   }, []);
 
-
-    const handleCSVUpload = (event) => {
+  const handleCSVUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
       Papa.parse(file, {
@@ -109,14 +101,9 @@ export default function Hr_ManpowerList() {
             project: item.project || 'N/A',
             avatar: item.avatar
           }));
-
           axios.post('http://localhost:5000/api/manpower/bulk', { manpowers: parsedManpower })
-            .then(response => {
-              setManpowers(prev => [...prev, ...response.data]);
-            })
-            .catch(error => {
-              console.error('Error uploading manpower CSV data:', error);
-            });
+            .then(response => setManpowers(prev => [...prev, ...response.data]))
+            .catch(error => console.error('Error uploading manpower CSV data:', error));
         }
       });
     }
@@ -130,7 +117,6 @@ export default function Hr_ManpowerList() {
       project: mp.project,
       avatar: mp.avatar
     }));
-
     const csv = Papa.unparse(csvData);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -142,10 +128,9 @@ export default function Hr_ManpowerList() {
     document.body.removeChild(link);
   };
 
-
   const filteredManpower = useMemo(() => {
     if (!manpowers) return [];
-      return manpowers.filter(manpower =>
+    return manpowers.filter(manpower =>
       manpower.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       manpower.position.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -160,22 +145,14 @@ export default function Hr_ManpowerList() {
     setCurrentPage(1);
   };
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-  };
+  const handlePageChange = (page) => setCurrentPage(page);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
-        setProfileMenuOpen(false);
-      }
+      if (!event.target.closest('.profile-menu-container')) setProfileMenuOpen(false);
     };
-    
-    document.addEventListener("click", handleClickOutside);
-    
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -185,89 +162,55 @@ export default function Hr_ManpowerList() {
   };
 
   return (
-   <div className="fadztrack-container">
-      {/* Header with Navigation */}
+    <div className="fadztrack-container">
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
-          <nav className="nav-menu">
-            <Link to="/hr/dash" className="nav-link">Dashboard</Link>
-            <Link to="/hr/mlist" className="nav-link">Manpower</Link>
-            <Link to="/requests" className="nav-link">Movement</Link>
-            <Link to="/ceo/proj" className="nav-link">Projects</Link>
-            <Link to="/chat" className="nav-link">Chat</Link>
-            <Link to="/logs" className="nav-link">Logs</Link>
-          </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
+        <nav className="nav-menu">
+          <Link to="/hr/dash" className="nav-link">Dashboard</Link>
+          <Link to="/hr/mlist" className="nav-link">Manpower</Link>
+          <Link to="/hr/movement" className="nav-link">Movement</Link>
+          <Link to="/ceo/proj" className="nav-link">Projects</Link>
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
+        </nav>
+        <div className="profile-menu-container">
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
-          </div>
+          )}
+        </div>
       </header>
 
-
-      <main className="main-content">
-        <div className="top-section">
-          <div className="content-header">
-            <button className="filter-btn">
-              <Filter size={16} />
-              Date Filter
-            </button>
-            
-            <button
-              className="upload-btn"
-              onClick={() => fileInputRef.current && fileInputRef.current.click()}
-            >
-              Upload CSV
-            </button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept=".csv"
-              style={{ display: 'none' }}
-              onChange={handleCSVUpload}
-            />
-            <button className="upload-btn" onClick={handleExportCSV}>
-              Export CSV
-            </button>
-
-            <div className="search-container">
-              <input 
-                type="text" 
-                className="search-input" 
+      <main className="hr-mlist-main-content">
+        <div className="hr-mlist-top-section">
+          <div className="hr-mlist-content-header">
+            <button className="hr-mlist-filter-btn"><Filter size={16} /> Date Filter</button>
+            <button className="hr-mlist-upload-btn" onClick={() => fileInputRef.current?.click()}>Upload CSV</button>
+            <input type="file" ref={fileInputRef} accept=".csv" style={{ display: 'none' }} onChange={handleCSVUpload} />
+            <button className="hr-mlist-upload-btn" onClick={handleExportCSV}>Export CSV</button>
+            <div className="hr-mlist-search-container">
+              <input
+                type="text"
+                className="hr-mlist-search-input"
                 placeholder="Search Manpower"
                 value={searchTerm}
                 onChange={handleSearchChange}
               />
-              <Search className="search-icon" size={20} />
-            </div>
-
-            <div className="view-controls">
-              <button className="view-btn">
-                <Grid size={18} />
-              </button>
-              <button className="view-btn">
-                <List size={18} />
-              </button>
+              <Search className="hr-mlist-search-icon" size={20} />
             </div>
           </div>
         </div>
 
-        <div className="bottom-section">
-          <div className="employee-list-container">
-            <div className="employee-list">
+        <div className="hr-mlist-bottom-section">
+          <div className="hr-mlist-employee-list-container">
+            <div className="hr-mlist-employee-list">
               {currentManpower.length === 0 ? (
-                <div className="empty-state">
+                <div className="hr-mlist-empty-state">
                   <h3>No manpower found</h3>
                   <p>Try adjusting your search criteria</p>
                 </div>
@@ -277,18 +220,17 @@ export default function Hr_ManpowerList() {
                 ))
               )}
             </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalEntries={filteredManpower.length}
+              showingRange={{
+                start: startIndex + 1,
+                end: Math.min(startIndex + ITEMS_PER_PAGE, filteredManpower.length)
+              }}
+              onPageChange={handlePageChange}
+            />
           </div>
-
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalEntries={filteredManpower.length}
-            showingRange={{
-              start: startIndex + 1,
-              end: Math.min(startIndex + ITEMS_PER_PAGE, filteredManpower.length)
-            }}
-            onPageChange={handlePageChange}
-          />
         </div>
       </main>
     </div>

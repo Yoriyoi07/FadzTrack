@@ -221,7 +221,7 @@ const It_Dash = () => {
       alert('An error occurred. Please try again.');
     }
   };
-
+  
   const filteredAccounts = accounts.filter(account => {
     return account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       account.position.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -12,20 +12,37 @@ const Hr_Dash = () => {
   });
   const navigate = useNavigate();
 
-  // Simulate real-time updates
   useEffect(() => {
-    const interval = setInterval(() => {
-      setStats(prevStats => ({
-        ...prevStats,
-        totalStaff: Math.max(0, prevStats.totalStaff + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0)),
-        assigned: Math.max(0, prevStats.assigned + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0)),
-        available: Math.max(0, prevStats.available + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0)),
-        requests: Math.max(0, prevStats.requests + (Math.random() > 0.7 ? (Math.random() > 0.5 ? 1 : -1) : 0))
-      }));
-    }, 10000);
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem('token');
 
-    return () => clearInterval(interval);
+        const [manpowerRes, movementRes] = await Promise.all([
+          fetch('http://localhost:5000/api/manpower', {
+            headers: { Authorization: `Bearer ${token}` }
+          }),
+          fetch('http://localhost:5000/api/manpower-requests', {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+        ]);
+
+        const manpower = await manpowerRes.json();
+        const movements = await movementRes.json();
+
+        const totalStaff = manpower.length;
+        const assigned = manpower.filter(mp => mp.status === 'Active').length;
+        const available = manpower.filter(mp => mp.status === 'Inactive').length;
+        const requests = movements.filter(mv => mv.status === 'Approved').length;
+
+        setStats({ totalStaff, assigned, available, requests });
+      } catch (error) {
+        console.error('Failed to fetch HR stats:', error);
+      }
+    };
+
+    fetchData();
   }, []);
+
 
   const handleAction = (action) => {
     if (action.includes('Assign') || action.includes('Review')) {
@@ -168,33 +185,27 @@ const Hr_Dash = () => {
 
   return (
     <div className="hr-dash-container">
-      {/* Header with Navigation */}
-      <header className="header">
+     <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
-          <nav className="nav-menu">
-            <Link to="/hr/dash" className="nav-link">Dashboard</Link>
-            <Link to="/hr/mlist" className="nav-link">Manpower</Link>
-            <Link to="/requests" className="nav-link">Movement</Link>
-            <Link to="/ceo/proj" className="nav-link">Projects</Link>
-            <Link to="/chat" className="nav-link">Chat</Link>
-            <Link to="/logs" className="nav-link">Logs</Link>
-          </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
+        <nav className="nav-menu">
+          <Link to="/hr/dash" className="nav-link">Dashboard</Link>
+          <Link to="/hr/mlist" className="nav-link">Manpower</Link>
+          <Link to="/hr/movement" className="nav-link">Movement</Link>
+          <Link to="/ceo/proj" className="nav-link">Projects</Link>
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
+        </nav>
+        <div className="profile-menu-container">
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
-          </div>
+          )}
+        </div>
       </header>
 
       <div className="hr-dash-dashboard-container">
@@ -249,6 +260,7 @@ const Hr_Dash = () => {
         </div>
 
         {/* Critical Alerts */}
+        {/* 
         <div className="hr-dash-card hr-dash-alerts-section">
           <div className="hr-dash-card-header">
             <h3 className="hr-dash-card-title hr-dash-alert-title">⚠️ Critical Alerts</h3>
@@ -277,7 +289,7 @@ const Hr_Dash = () => {
             </div>
           </div>
         </div>
-
+        */}
         {/* Main Dashboard Grid */}
         <div className="hr-dash-dashboard-grid">
           {/* Project Assignment Overview */}
