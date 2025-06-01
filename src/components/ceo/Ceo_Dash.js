@@ -1,17 +1,17 @@
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell } from 'recharts';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
 
 const Ceo_Dash = () => {
-
   const navigate = useNavigate();
   const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState('');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
   const [projects, setProjects] = useState([
-    { 
-      id: 1, 
+    {
+      id: 1,
       name: 'Twin Lakes Project',
       engineer: 'Engr. Shaquille',
       progress: [
@@ -20,8 +20,8 @@ const Ceo_Dash = () => {
         { name: 'On Going', value: 20, color: '#5E4FDB' }
       ]
     },
-    { 
-      id: 2, 
+    {
+      id: 2,
       name: 'Calatagan Townhomes',
       engineer: 'Engr. Rychea Miralles',
       progress: [
@@ -30,8 +30,8 @@ const Ceo_Dash = () => {
         { name: 'On Going', value: 30, color: '#5E4FDB' }
       ]
     },
-    { 
-      id: 3, 
+    {
+      id: 3,
       name: 'BGC Hotel',
       engineer: 'Engr.',
       progress: [
@@ -51,62 +51,47 @@ const Ceo_Dash = () => {
     { id: 6, name: 'Taguig', engineer: 'Engr. Third Castellar' }
   ]);
 
-  const [activities, setActivities] = useState([
+  const [activities, setActivities] = useState([]);
+
+  const [reports, setReports] = useState([
     {
       id: 1,
-      user: { name: 'Daniel Pocon', initial: 'D' },
-      date: 'July 1, 2029',
-      activity: 'Submitted Daily Logs for San Miguel Corporation Project B',
-      details: [
-        'Weather: Cloudy in AM, Light Rain in PM ☁️',
-        '1. 📊 Site Attendance Log',
-        'Total Workers: 16',
-        'Trades on Site...'
-      ]
+      name: 'BGC Hotel',
+      dateRange: '7/13/25 - 7/27/25',
+      engineer: 'Engr.'
+    },
+    {
+      id: 2,
+      name: 'Protacio Townhomes',
+      dateRange: '7/13/25 - 7/27/25',
+      engineer: 'Engr.'
+    },
+    {
+      id: 3,
+      name: 'Fegarido Residences',
+      dateRange: '7/13/25 - 7/27/25',
+      engineer: 'Engr.'
     }
   ]);
 
-  // Reports data
-  const [reports, setReports] = useState([
-    { 
-      id: 1, 
-      name: 'BGC Hotel', 
-      dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.' 
-    },
-    { 
-      id: 2, 
-      name: 'Protacio Townhomes', 
-      dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.' 
-    },
-    { 
-      id: 3, 
-      name: 'Fegarido Residences', 
-      dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.' 
-    }
-  ]);
-
-  // Chats data
   const [chats, setChats] = useState([
-    { 
-      id: 1, 
-      name: 'Rychea Miralles', 
+    {
+      id: 1,
+      name: 'Rychea Miralles',
       initial: 'R',
       message: 'Hello Good Morning po! As...',
       color: '#4A6AA5'
     },
-    { 
-      id: 2, 
-      name: 'Third Castellar', 
+    {
+      id: 2,
+      name: 'Third Castellar',
       initial: 'T',
       message: 'Hello Good Morning po! As...',
       color: '#2E7D32'
     },
-    { 
-      id: 3, 
-      name: 'Zenarose Miranda', 
+    {
+      id: 3,
+      name: 'Zenarose Miranda',
       initial: 'Z',
       message: 'Hello Good Morning po! As...',
       color: '#9C27B0'
@@ -114,36 +99,57 @@ const Ceo_Dash = () => {
   ]);
 
   useEffect(() => {
-  const user = JSON.parse(localStorage.getItem("user"));
-  if (user) {
-    setUserName(user.name || 'User'); 
-  }
-}, []);
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user) {
+      setUserName(user.name || 'User');
+      setUserRole(user.role || 'N/A');
+    }
+  }, []);
 
   useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (!event.target.closest(".profile-menu-container")) {
-          setProfileMenuOpen(false);
-        }
-      };
-      
-      document.addEventListener("click", handleClickOutside);
-      
-      return () => {
-        document.removeEventListener("click", handleClickOutside);
-      };
-    }, []);
-  
-    const handleLogout = () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
     };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
+
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch("http://localhost:5000/api/audit-logs", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        const sliced = data.slice(0, 3).map((log, i) => ({
+          id: i,
+          user: {
+            name: log.performedBy?.name || "Unknown",
+            initial: (log.performedBy?.name || "U")[0]
+          },
+          date: new Date(log.timestamp).toLocaleString(),
+          activity: `${log.action} - ${log.description}`,
+          details: log.meta ? Object.entries(log.meta).map(([key, val]) => `${key}: ${val}`) : []
+        }));
+        setActivities(sliced);
+      } catch (err) {
+        console.error("Failed to fetch logs", err);
+      }
+    };
+    fetchLogs();
+  }, []);
 
   return (
-     <div className="head">
-      {/* Header with Navigation */}
+    <div className="head">
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -157,32 +163,20 @@ const Ceo_Dash = () => {
           <Link to="/ceo/audit-logs" className="nav-link">Audit Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
+        <div className="profile-menu-container">
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
-          </div>
+          )}
+        </div>
       </header>
 
-      {/* Main Content */}
       <div className="dashboard-layout">
-        {/* Left Sidebar */}
         <div className="sidebar">
           <h2>Dashboard</h2>
-          <button 
-            className="add-project-btn" 
-            onClick={() => navigate('/ceo/addarea')}
-          >
-            Add New Area
-          </button>
+          <button className="add-project-btn" onClick={() => navigate('/ceo/addarea')}>Add New Area</button>
           <div className="project-list">
             {sidebarProjects.map(project => (
               <div key={project.id} className="project-item">
@@ -199,14 +193,12 @@ const Ceo_Dash = () => {
           </div>
         </div>
 
-        {/* Center Content */}
         <div className="main1">
           <div className="greeting-section">
             <h1>Good Morning, {userName}!</h1>
-            
+            <p className="logged-in-role">Currently logged in as: {userRole}</p>
             <div className="progress-tracking-section">
               <h2>Progress Tracking</h2>
-              
               <div className="latest-projects-progress">
                 <h3>Latest Projects Progress</h3>
                 <div className="project-charts">
@@ -245,7 +237,6 @@ const Ceo_Dash = () => {
             </div>
           </div>
 
-          {/* Recent Activities section moved below progress tracking */}
           <div className="recent-activities-section">
             <h2>Recent Activities</h2>
             {activities.map(activity => (
@@ -268,7 +259,6 @@ const Ceo_Dash = () => {
           </div>
         </div>
 
-        {/* Right Sidebar */}
         <div className="right-sidebar">
           <div className="reports-section">
             <h3>Reports</h3>

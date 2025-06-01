@@ -434,6 +434,28 @@ body {
   cursor: not-allowed;
 }
 
+.request-manpower-btn {
+  background-color: #4a6da7;
+  color: white;
+  padding: 0.6rem 1.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s ease-in-out;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.request-manpower-btn:hover {
+  background-color: #3c5a8a;
+  transform: translateY(-1px);
+}
+
+.request-manpower-btn:active {
+  background-color: #324b73;
+  transform: translateY(0);
+}
 
 /* Responsive styles */
 @media (max-width: 900px) {
