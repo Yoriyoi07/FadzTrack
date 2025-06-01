@@ -13,5 +13,7 @@ router.get('/role/:role', controller.getUsersByRole);
 router.post('/', verifyToken, controller.addProject);
 router.get('/', controller.getAllProjects);
 router.get('/:id', controller.getProjectById);
+router.patch('/:id/tasks', verifyToken, controller.updateProjectTasks);
+
 
 module.exports = router;

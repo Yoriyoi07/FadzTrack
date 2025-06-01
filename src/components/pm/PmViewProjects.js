@@ -17,6 +17,7 @@ const Pm_Project = () => {
   const [showEditFields, setShowEditFields] = useState(false);
   const [editTasks, setEditTasks] = useState([{ name: '', percent: '' }]);
 
+
   // Single project fetch by ID
   useEffect(() => {
     if (!id) return;
@@ -122,13 +123,35 @@ const Pm_Project = () => {
     setEditTasks(tasks => [...tasks, { name: '', percent: '' }]);
   };
 
-  // Submit logic (placeholder)
-  const handleSubmitTasks = () => {
-    console.log('Submitting tasks:', editTasks);
-    // Optionally reset:
-    // setEditTasks([{ name: '', percent: '' }]);
-    // setShowEditFields(false);
-  };
+const handleSubmitTasks = async () => {
+  try {
+    // Make sure all fields filled and total 100%
+    if (
+      editTasks.some(t => !t.name.trim() || t.percent === '') ||
+      totalPercent !== 100
+    ) {
+      alert('Fill all fields and make sure total percent is 100%.');
+      return;
+    }
+    // Prepare data as array of { name, percent: Number }
+    const formattedTasks = editTasks.map(t => ({
+      name: t.name,
+      percent: Number(t.percent)
+    }));
+    await api.patch(`/projects/${project._id}/tasks`, { tasks: formattedTasks });
+
+    // Refresh project data from backend (so UI reflects changes)
+    const res = await api.get(`/projects/${project._id}`);
+    setProject(res.data);
+
+    setShowEditFields(false);
+    alert('Tasks updated successfully!');
+  } catch (err) {
+    alert('Failed to update tasks!');
+    console.error(err);
+  }
+};
+
 
   if (!project) return <div>Loading...</div>;
 
@@ -198,16 +221,18 @@ const Pm_Project = () => {
               </p>
               <div className="detail-group">
                 <p className="detail-label">Project Manager:</p>
-                <p className="detail-value">{project.projectManager?.name || 'N/A'}</p>
+                <p className="detail-value">{project.projectmanager?.name || 'N/A'}</p>
               </div>
               <div className="detail-group">
                 <p className="detail-label">Contractor:</p>
                 <p className="detail-value">{project.contractor}</p>
               </div>
-              <div className="detail-group">
-                <span className="detail-label">Target Date:</span>
-                <span className="detail-value">
-                  {project.targetDate || 'N/A'}
+             <div className="detail-group">
+                <span className="detail-label">Target Date:</span><br/>
+                  <span className="detail-value">
+                  {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A'}
+                  {" - "}
+                  {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}
                 </span>
               </div>
             </div>
@@ -217,14 +242,15 @@ const Pm_Project = () => {
                 <p className="budget-amount">{project.budget?.toLocaleString() || '0'}</p>
                 <p className="budget-label">Estimated Budget</p>
               </div>
-              <div className="detail-group">
-                <p className="detail-value">
-                  <p className="detail-label">PIC:</p>
-                  {project.pic && project.pic.length > 0 
-                    ? project.pic.map(p => p.name).join(', ') 
-                    : 'N/A'}
-                </p>
-              </div>
+           <div className="detail-group">
+            <span className="detail-label">PIC:</span><br/>
+            <span className="detail-value">
+              {project.pic && project.pic.length > 0 
+                ? project.pic.map(p => p.name).join(', ') 
+                : 'N/A'}
+            </span>
+          </div>
+
 
               {/* Edit Task Button and Fields */}
               <button
@@ -241,10 +267,23 @@ const Pm_Project = () => {
                   boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                   marginTop: 10
                 }}
-                onClick={() => setShowEditFields(!showEditFields)}
-              >
-                Edit Task
-              </button>
+               onClick={() => {
+                setShowEditFields(!showEditFields);
+                // When opening, preload tasks from project (if any), or default
+                if (!showEditFields) {
+                  if (project.tasks && project.tasks.length > 0) {
+                    setEditTasks(project.tasks.map(t => ({
+                      name: t.name,
+                      percent: t.percent.toString()
+                    })));
+                  } else {
+                    setEditTasks([{ name: '', percent: '' }]);
+                  }
+                }
+              }}
+            >
+              Edit Task
+            </button>
 
               {showEditFields && (
                 <div style={{ marginTop: 16 }}>

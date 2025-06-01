@@ -232,3 +232,42 @@ exports.getUsersByRole = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch users' });
   }
 };
+
+
+// UPDATE ONLY TASKS OF A PROJECT
+exports.updateProjectTasks = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tasks } = req.body;
+    if (!Array.isArray(tasks)) {
+      return res.status(400).json({ message: 'Tasks must be an array' });
+    }
+    const project = await Project.findByIdAndUpdate(
+      id,
+      { tasks },
+      { new: true }
+    )
+    .populate('projectmanager', 'name email')
+    .populate('pic', 'name email')
+    .populate('areamanager', 'name email')
+    .populate('location', 'name region')
+    .populate('manpower', 'name position');
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    await logAction({
+      action: 'UPDATE_PROJECT_TASKS',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `Updated tasks for project ${project.projectName}`,
+      meta: { projectId: project._id }
+    });
+
+    res.json(project);
+  } catch (error) {
+    console.error('❌ Error updating project tasks:', error);
+    res.status(500).json({ message: 'Failed to update project tasks' });
+  }
+};
+

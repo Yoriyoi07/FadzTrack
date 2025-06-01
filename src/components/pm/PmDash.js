@@ -63,8 +63,8 @@ const PmDash = () => {
       try {
         const { data } = await api.get('/projects');
         const filtered = data.filter(p =>
-          (typeof p.projectManager === 'object' &&
-            (p.projectManager._id === userId || p.projectManager.id === userId)) ||
+          (typeof p.projectmanager === 'object' &&
+            (p.projectmanager._id === userId || p.projectmanager.id === userId)) ||
           p.projectManager === userId
         );
         setProjects(filtered);
