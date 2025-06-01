@@ -17,6 +17,7 @@
   const locationRoutes = require('./route/location');
   const manpowerRoutes = require('./route/manpower');
   const auditLogRoutes = require('./route/auditlog');
+  const dailyReportRoutes = require('./route/dailyReport');
   const app = express();
 
   app.use(cors({
@@ -37,6 +38,7 @@
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
   // Routes
+  app.use('/api/daily-reports', dailyReportRoutes);
   app.use('/api/auth', authRoutes);
   app.use('/api/users',  userRoutes);
   app.use('/api/projects', projectRoutes);

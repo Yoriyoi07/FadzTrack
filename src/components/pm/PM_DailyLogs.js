@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import api from '../../api/axiosInstance'; // Adjust path as needed!
 import '../style/pm_style/Pm_DailyLogs.css';
 
 const PM_DailyLogs = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  
+
   // Get logged-in user info from localStorage
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
@@ -31,76 +32,35 @@ const PM_DailyLogs = () => {
   useEffect(() => {
     const fetchProjectData = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('No authentication token found');
-        }
-
         console.log('Fetching project for user:', userId);
+
         // Get project assigned to the project manager
-        const projectResponse = await fetch(`http://localhost:5000/api/projects/assigned/projectmanager/${userId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!projectResponse.ok) {
-          const errorData = await projectResponse.json();
-          throw new Error(`Failed to fetch project data: ${errorData.message || projectResponse.statusText}`);
-        }
-        
-        const projectData = await projectResponse.json();
-        console.log('Project data received:', projectData);
+        const projectResponse = await api.get(`/projects/assigned/projectmanager/${userId}`);
+        const projectData = projectResponse.data;
         setCurrentProject(projectData);
 
         if (projectData._id) {
           console.log('Fetching additional project data for:', projectData._id);
-          // Fetch manpower
-          const manpowerResponse = await fetch(`http://localhost:5000/api/daily-reports/project/${projectData._id}/manpower`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          if (!manpowerResponse.ok) {
-            throw new Error('Failed to fetch manpower data');
-          }
-          const manpowerData = await manpowerResponse.json();
-          console.log('Manpower data received:', manpowerData);
-          setProjectManpower(manpowerData);
 
-          // Fetch material deliveries
-          const deliveriesResponse = await fetch(`http://localhost:5000/api/daily-reports/project/${projectData._id}/material-deliveries`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          if (!deliveriesResponse.ok) {
-            throw new Error('Failed to fetch material deliveries data');
-          }
-          const deliveriesData = await deliveriesResponse.json();
-          console.log('Material deliveries data received:', deliveriesData);
-          setMaterialDeliveries(deliveriesData);
+          // Fetch manpower
+          const manpowerResponse = await api.get(`/daily-reports/project/${projectData._id}/manpower`);
+          setProjectManpower(manpowerResponse.data);
+
+          // Fetch material deliveries (approved only)
+          const deliveriesResponse = await api.get(`/daily-reports/project/${projectData._id}/material-deliveries`);
+          setMaterialDeliveries(deliveriesResponse.data);
 
           // Fetch project tasks
-          const tasksResponse = await fetch(`http://localhost:5000/api/daily-reports/project/${projectData._id}/tasks`, {
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          if (!tasksResponse.ok) {
-            throw new Error('Failed to fetch project tasks data');
-          }
-          const tasksData = await tasksResponse.json();
-          console.log('Project tasks data received:', tasksData);
-          setProjectTasks(tasksData);
+          const tasksResponse = await api.get(`/daily-reports/project/${projectData._id}/tasks`);
+          setProjectTasks(tasksResponse.data);
         }
       } catch (error) {
         console.error('Error details:', {
-          message: error.message,
+          message: error?.message,
           userId: userId,
           hasToken: !!localStorage.getItem('token')
         });
-        alert(`Error loading project data: ${error.message}`);
+        alert(`Error loading project data: ${error?.response?.data?.message || error.message}`);
       }
     };
 
@@ -125,13 +85,13 @@ const PM_DailyLogs = () => {
     setFormData(prev => {
       const attendance = [...prev.siteAttendance];
       const index = attendance.findIndex(a => a.manpower === manpowerId);
-      
+
       if (index >= 0) {
         attendance[index].status = status;
       } else {
         attendance.push({ manpower: manpowerId, status });
       }
-      
+
       return { ...prev, siteAttendance: attendance };
     });
   };
@@ -141,13 +101,13 @@ const PM_DailyLogs = () => {
     setFormData(prev => {
       const deliveries = [...prev.materialDeliveries];
       const index = deliveries.findIndex(d => d.delivery === deliveryId);
-      
+
       if (index >= 0) {
         deliveries[index].status = status;
       } else {
         deliveries.push({ delivery: deliveryId, status });
       }
-      
+
       return { ...prev, materialDeliveries: deliveries };
     });
   };
@@ -186,34 +146,20 @@ const PM_DailyLogs = () => {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/daily-reports', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          ...formData,
-          project: currentProject._id,
-          submittedBy: userId,
-          date: new Date()
-        })
+      await api.post('/daily-reports', {
+        ...formData,
+        project: currentProject._id,
+        submittedBy: userId,
+        date: new Date()
       });
-
-      if (response.ok) {
-        alert('Daily report submitted successfully!');
-        // Reset form
-        setFormData({
-          siteAttendance: [],
-          materialDeliveries: [],
-          workPerformed: [],
-          weatherCondition: 'Sunny',
-          remarks: ''
-        });
-      } else {
-        throw new Error('Failed to submit daily report');
-      }
+      alert('Daily report submitted successfully!');
+      setFormData({
+        siteAttendance: [],
+        materialDeliveries: [],
+        workPerformed: [],
+        weatherCondition: 'Sunny',
+        remarks: ''
+      });
     } catch (error) {
       console.error('Error submitting daily report:', error);
       alert('Error submitting daily report. Please try again.');
@@ -328,12 +274,12 @@ const PM_DailyLogs = () => {
             <h2 className="section-title">Material Deliveries</h2>
             {materialDeliveries.length > 0 ? (
               materialDeliveries.map(delivery => (
-                <div key={delivery._id} className="delivery-entry">
-                  <span>{delivery.materialName}</span>
+                <div key={delivery._id || delivery.requestId} className="delivery-entry">
+                  <span>{delivery.materialName || delivery.name}</span>
                   <select
                     className="form-input"
-                    value={formData.materialDeliveries.find(d => d.delivery === delivery._id)?.status || ''}
-                    onChange={(e) => handleMaterialDeliveryChange(delivery._id, e.target.value)}
+                    value={formData.materialDeliveries.find(d => d.delivery === (delivery._id || delivery.requestId))?.status || ''}
+                    onChange={(e) => handleMaterialDeliveryChange(delivery._id || delivery.requestId, e.target.value)}
                   >
                     <option value="">Select Status</option>
                     <option value="Received">Received</option>
@@ -357,9 +303,11 @@ const PM_DailyLogs = () => {
                   onChange={(e) => handleWorkPerformedChange(index, 'task', e.target.value)}
                 >
                   <option value="">Select Task</option>
-                  {projectTasks.map((task, i) => (
-                    <option key={i} value={task}>{task}</option>
-                  ))}
+                  {projectTasks.map((task, i) =>
+                    typeof task === 'string'
+                      ? <option key={i} value={task}>{task}</option>
+                      : <option key={i} value={task.name}>{task.name}</option>
+                  )}
                 </select>
                 <select
                   className="form-input"

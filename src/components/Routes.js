@@ -36,6 +36,7 @@ import Pm_RequestedManpowerDetail from './pm/Pm_RequestedManpowerDetail';
 import Ceo_AuditLogs from './ceo/Ceo_AuditLogs';
 import Ceo_Material_List from './ceo/Ceo_Material_List';
 import Hr_Movement_List from './hr/Hr_Movement_List';
+import PM_DailyLogs from './pm/PM_DailyLogs';
 const AppRoutes = () => {
   return (
     <Routes>
@@ -53,6 +54,7 @@ const AppRoutes = () => {
       <Route path="/q" element={<PmDailyReports />} />
       <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDash /></PrivateRoute>}/>
       <Route path="/pm/viewprojects/:id" element={<PmViewProjects />} />
+      <Route path="/pm/daily-logs" element={<PM_DailyLogs />} />
 
       {/* PIC */}
       <Route path="/pic" element={<PicDash />} />

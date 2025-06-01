@@ -76,6 +76,7 @@ exports.getApprovedMaterialDeliveries = async (req, res) => {
 };
 
 // Get project tasks
+
 exports.getProjectTasks = async (req, res) => {
   try {
     const project = await Project.findById(req.params.projectId);
@@ -83,23 +84,33 @@ exports.getProjectTasks = async (req, res) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    // For now, returning a static list of common construction tasks
-    // In a real application, you would want to store tasks in the database
-    const tasks = [
-      'Foundation Work',
-      'Structural Work',
-      'Electrical Installation',
-      'Plumbing Installation',
-      'HVAC Installation',
-      'Interior Finishing',
-      'Exterior Finishing',
-      'Landscaping',
-      'Site Preparation',
-      'Demolition'
-    ];
+    // Map to return only task names
+    const tasks = (project.tasks || []).map(t => t.name);
 
     res.json(tasks);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-}; 
+};
+
+exports.getApprovedMaterialDeliveries = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    // Get only material requests for this project that are "Approved"
+    const deliveries = await MaterialRequest.find({
+      project: projectId,
+      status: 'Approved'
+    }).select('materials _id'); // Optionally, select only fields you need
+    res.json(
+      // Flatten to an array of materials if you want, or send as is
+      deliveries.flatMap(delivery =>
+        (delivery.materials || []).map(mat => ({
+          ...mat.toObject(),
+          requestId: delivery._id // add reference to parent request
+        }))
+      )
+    );
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
