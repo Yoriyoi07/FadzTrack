@@ -1,6 +1,7 @@
 // src/components/am/Area_Material_Req.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import api from '../../api/axiosInstance'; 
 import ApproveDenyActions from '../ApproveDenyActions';
 
 const Ceo_Material_Req = () => {
@@ -13,13 +14,9 @@ const Ceo_Material_Req = () => {
   const userRole = user?.role;
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`http://localhost:5000/api/requests/${id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => {
-        setRequestData(data);
+    api.get(`/requests/${id}`)
+      .then(res => {
+        setRequestData(res.data);
         setLoading(false);
       })
       .catch(() => setLoading(false));

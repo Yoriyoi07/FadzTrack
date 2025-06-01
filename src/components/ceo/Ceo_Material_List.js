@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import api from '../../api/axiosInstance'; // adjust the import path as needed
 import '../style/ceo_style/Ceo_Material_List.css';
 
 const ITEMS_PER_PAGE = 5;
@@ -57,34 +58,19 @@ const Ceo_Material_List = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('Session expired. Please log in.');
-      setLoading(false);
-      return;
-    }
-
-    fetch('http://localhost:5000/api/requests/mine', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(async res => {
-        if (!res.ok) {
-          if (res.status === 403 || res.status === 401) {
-            setError('Session expired or unauthorized. Please login.');
-            setRequests([]);
-            setLoading(false);
-            return;
-          }
-          throw new Error('Failed to fetch requests');
-        }
-        const data = await res.json();
-        setRequests(Array.isArray(data) ? data : []);
+    api.get('/requests/mine')
+      .then(res => {
+        setRequests(Array.isArray(res.data) ? res.data : []);
         setLoading(false);
         setError('');
       })
       .catch(err => {
-        setError('Failed to load requests');
-        setRequests([]);
+        if (err.response && (err.response.status === 403 || err.response.status === 401)) {
+          setError('Session expired or unauthorized. Please login.');
+          setRequests([]);
+        } else {
+          setError('Failed to load requests');
+        }
         setLoading(false);
         console.error(err);
       });

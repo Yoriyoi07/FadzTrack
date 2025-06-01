@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from '../api/axiosInstance';
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import "./style/Loginpage.css";
 import backgroundImage from "../assets/images/login_picture.png";
@@ -30,30 +30,25 @@ const LoginPage = () => {
   };
 
   // Submit login credentials to backend
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoginError("");
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoginError("");
 
-    try {
-      const res = await axios.post("http://localhost:5000/api/auth/login", { email, password });
-      console.log("Login response:", res.data); 
-      const { token, user, requires2FA } = res.data;
-
-      if (requires2FA) {
-        // Show 2FA component if backend requires verification
-        setShow2FA(true);
-      } else {
-        // Store token and user data locally and redirect
-        localStorage.setItem("token", token);
-        localStorage.setItem("user", JSON.stringify(user));
-        redirectBasedOnRole(user.role);
-      }
-    } catch (err) {
-      console.log(err.response?.data); 
-      // Display any login errors returned by server
-      setLoginError(err.response?.data?.msg || "Login failed");
+  try {
+    const res = await api.post("/auth/login", { email, password });
+    const { token, user, requires2FA } = res.data;
+    if (requires2FA) {
+      setShow2FA(true);
+    } else {
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+      redirectBasedOnRole(user.role);
     }
-  };
+  } catch (err) {
+    setLoginError(err.response?.data?.msg || "Login failed");
+  }
+};
+
 
   // Called after successful 2FA verification
   const handle2FASuccess = () => {

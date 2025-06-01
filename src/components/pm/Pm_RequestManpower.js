@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
+import api from '../../api/axiosInstance'; // Adjust the path if needed
 import '../style/pm_style/Pm_ManpowerRequest.css';
 
 const Pm_RequestManpower = () => {
@@ -22,9 +23,9 @@ const Pm_RequestManpower = () => {
     const user = JSON.parse(localStorage.getItem('user'));
     if (!user || !user._id) return;
 
-    fetch(`http://localhost:5000/api/projects/assigned/projectmanager/${user._id}`)
-      .then(res => res.json())
-      .then(data => {
+    api.get(`/projects/assigned/projectmanager/${user._id}`)
+      .then(res => {
+        const data = res.data;
         if (data && data._id) {
           setProject(data);
           setFormData(prev => ({
@@ -39,11 +40,9 @@ const Pm_RequestManpower = () => {
   // If in edit mode, fetch the existing request and prefill
   useEffect(() => {
     if (id) {
-      fetch(`http://localhost:5000/api/manpower-requests/${id}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      })
-        .then(res => res.json())
-        .then(data => {
+      api.get(`/manpower-requests/${id}`)
+        .then(res => {
+          const data = res.data;
           if (data) {
             setEditMode(true);
             setFormData({
@@ -63,7 +62,7 @@ const Pm_RequestManpower = () => {
     }
   }, [id]);
 
-  // Dynamic Manpower Handlers (same as before)
+  // Dynamic Manpower Handlers
   const handleManpowerChange = (idx, field, value) => {
     setFormData(prev => {
       const newManpowers = prev.manpowers.map((mp, i) =>
@@ -146,29 +145,20 @@ const Pm_RequestManpower = () => {
     };
 
     try {
-      let url = 'http://localhost:5000/api/manpower-requests';
-      let method = 'POST';
+      let url = '/manpower-requests';
+      let method = 'post';
       if (editMode) {
-        url = `http://localhost:5000/api/manpower-requests/${id}`;
-        method = 'PUT';
+        url = `/manpower-requests/${id}`;
+        method = 'put';
       }
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify(body)
-      });
+      const response = await api[method](url, body);
 
-      const result = await response.json();
-
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         alert(editMode ? '✅ Manpower request updated!' : '✅ Manpower request submitted!');
         navigate('/pm/manpower-list');
       } else {
-        alert(`❌ Error: ${result.message || 'Failed to submit request'}`);
+        alert(`❌ Error: ${response.data.message || 'Failed to submit request'}`);
       }
     } catch (error) {
       console.error('❌ Submission error:', error);

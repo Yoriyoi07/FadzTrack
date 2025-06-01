@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import '../style/pic_style/Pic_Dash.css';
 import { useNavigate, Link } from 'react-router-dom';
+import api from '../../api/axiosInstance';
 
 const PicDash = () => {
   const navigate = useNavigate();
-
   const token = localStorage.getItem('token');
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
-  // Load real requests from backend
+
   const [requests, setRequests] = useState([]);
   const [userName, setUserName] = useState(user?.name || '');
   const [projects, setProjects] = useState([]);
@@ -18,18 +18,17 @@ const PicDash = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
+  // Pagination helpers
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentRequests = requests.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(requests.length / itemsPerPage);
 
   const goToPage = (pageNumber) => {
-    if (pageNumber > 0 && pageNumber <= totalPages) {
-      setCurrentPage(pageNumber);
-    }
+    if (pageNumber > 0 && pageNumber <= totalPages) setCurrentPage(pageNumber);
   };
 
-  // Auth guard: redirect if not logged in
+  // Auth guard
   useEffect(() => {
     if (!token || !user) {
       navigate('/');
@@ -38,65 +37,52 @@ const PicDash = () => {
     setUserName(user.name);
   }, [navigate, token, user]);
 
-  // Fetch all projects
+  // Fetch all projects where this user is PIC
   useEffect(() => {
     if (!token || !user) return;
     const fetchProjects = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/projects', {
+        const { data } = await api.get('/projects', {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const data = await res.json();
-        // Filter only projects where this user is a PIC
         const filtered = data.filter(
           (p) => Array.isArray(p.pic) && p.pic.some((picUser) => picUser._id === userId)
         );
         setProjects(filtered);
       } catch (err) {
-        console.error('Failed to fetch projects:', err);
+        setProjects([]);
       }
     };
     fetchProjects();
   }, [token, user, userId]);
 
-  // Fetch assigned project for navigation links
+  // Fetch assigned project for nav links
   useEffect(() => {
     if (!token || !userId) return;
     const fetchAssigned = async () => {
       try {
-        const res = await fetch(
-          `http://localhost:5000/api/projects/assigned/${userId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const data = await res.json();
+        const { data } = await api.get(`/projects/assigned/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         setProject(data[0] || null);
       } catch (err) {
-        console.error('Failed to fetch assigned project:', err);
         setProject(null);
       }
     };
     fetchAssigned();
   }, [token, userId]);
 
-  // Fetch requests from backend (just replace the static list)
+  // Fetch requests for this PIC
   useEffect(() => {
     if (!token) return;
-    fetch('http://localhost:5000/api/requests/mine', {
-  headers: { Authorization: `Bearer ${token}` }
-})
-.then(async res => {
-  if (!res.ok) throw new Error(res.statusText);
-  // Check if response has a body
-  const text = await res.text();
-  if (!text) throw new Error('No response body');
-  return JSON.parse(text);
-})
-.then(data => setRequests(Array.isArray(data) ? data : []))
-.catch(err => console.error('❌ Failed to load requests:', err));
-
+    api.get('/requests/mine', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(({ data }) => setRequests(Array.isArray(data) ? data : []))
+      .catch(() => setRequests([]));
   }, [token]);
 
-// Sample chats data
+  // Sample chats data
   const [chats] = useState([
     { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
     { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
@@ -110,32 +96,38 @@ const PicDash = () => {
     navigate('/');
   };
 
+  // Profile menu close on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
   return (
-     <div className="head">
+    <div className="head">
       {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
-          <nav className="nav-menu">
-            <Link to="/pic" className="nav-link">Dashboard</Link>
-            <Link to="/pic/projects/:projectId/request" className="nav-link">Requests</Link>
-            {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
-            <Link to="/chat" className="nav-link">Chat</Link>
-          </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
+        <nav className="nav-menu">
+          <Link to="/pic" className="nav-link">Dashboard</Link>
+          <Link to="/pic/projects/:projectId/request" className="nav-link">Requests</Link>
+          {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
+          <Link to="/chat" className="nav-link">Chat</Link>
+        </nav>
+        <div className="profile-menu-container">
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
+          )}
         </div>
       </header>
 
@@ -147,9 +139,7 @@ const PicDash = () => {
           <button
             className="add-project-btn"
             onClick={() => {
-              if (project) {
-                navigate(`/pic/projects/${project._id}/request`);
-              }
+              if (project) navigate(`/pic/projects/${project._id}/request`);
             }}
             disabled={!project}
           >
@@ -181,69 +171,65 @@ const PicDash = () => {
             <div>
               <h2 className="section-title">Request Overview</h2>
 
-        <div className="request-list">
-          {currentRequests.map(request => (
-            <div key={request._id} className="request-item"
-              style={{ cursor: "pointer" }}
-              onClick={() => navigate(`/pic/request/${request._id}`)}>
-              <div className="request-icon">📦</div>
-              <div className="request-details">
-                <div className="request-name">
-                  <p>request for</p>
-                  {request.materials && request.materials.length > 0
-                    ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
-                    : '-'}
-                </div>
-                <div className="request-project" style={{ fontSize: "13px", color: "#666", marginTop: "6px" }}>
-                  {request.project?.projectName || '-'}
-                </div>
+              <div className="request-list">
+                {currentRequests.map(request => (
+                  <div key={request._id} className="request-item"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => navigate(`/pic/request/${request._id}`)}>
+                    <div className="request-icon">📦</div>
+                    <div className="request-details">
+                      <div className="request-name">
+                        <p>request for</p>
+                        {request.materials && request.materials.length > 0
+                          ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
+                          : '-'}
+                      </div>
+                      <div className="request-project" style={{ fontSize: "13px", color: "#666", marginTop: "6px" }}>
+                        {request.project?.projectName || '-'}
+                      </div>
+                    </div>
+                    <div className="request-requester" style={{ textAlign: 'right' }}>
+                      <div className="request-requester-name">{request.createdBy?.name || '-'}</div>
+                      <div className="request-date">
+                        {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+                      </div>
+                    </div>
+                    <div className={`badge badge-${(request.status || '').toLowerCase()}`}>
+                      {request.status}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="request-requester" style={{ textAlign: 'right' }}>
-                <div className="request-requester-name">{request.createdBy?.name || '-'}</div>
-                <div className="request-date">
-                  {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+              <div className="pagination-controls">
+                <span className="pagination-info">
+                  Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, requests.length)} of {requests.length} entries.
+                </span>
+                <div className="pagination-buttons">
+                  <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>&lt;</button>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
+                    let pageNum = index + 1;
+                    if (currentPage > 3 && totalPages > 5) {
+                      pageNum = (currentPage + index) - 2;
+                      if (pageNum > totalPages) pageNum = totalPages - 4 + index;
+                    }
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => goToPage(pageNum)}
+                        className={pageNum === currentPage ? 'active' : ''}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>&gt;</button>
                 </div>
-              </div>
-              <div className={`badge badge-${(request.status || '').toLowerCase()}`}>
-                {request.status}
               </div>
             </div>
-          ))}
-        </div>
-        <div className="pagination-controls">
-          <span className="pagination-info">
-            Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, requests.length)} of {requests.length} entries.
-          </span>
-          <div className="pagination-buttons">
-            <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>
-              &lt;
-            </button>
-            {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
-              let pageNum = index + 1;
-              if (currentPage > 3 && totalPages > 5) {
-                pageNum = (currentPage + index) - 2;
-                if (pageNum > totalPages) pageNum = totalPages - 4 + index;
-              }
-              return (
-                <button
-                  key={index}
-                  onClick={() => goToPage(pageNum)}
-                  className={pageNum === currentPage ? 'active' : ''}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-            <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>
-              &gt;
-            </button>
           </div>
         </div>
       </div>
     </div>
-  </div>
- </div>
-</div>
   );
 };
 

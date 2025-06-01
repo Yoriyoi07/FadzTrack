@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Manpower_List.css';
+import api from '../../api/axiosInstance'; // <- Make sure this path matches your setup
 
 const ITEMS_PER_PAGE = 5;
 
@@ -22,29 +23,20 @@ const Area_Material_List = () => {
       return;
     }
 
-    fetch('http://localhost:5000/api/requests/mine', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(async res => {
-        if (!res.ok) {
-          if (res.status === 403 || res.status === 401) {
-            setError('Session expired or unauthorized. Please login.');
-            setRequests([]);
-            setLoading(false);
-            return;
-          }
-          throw new Error('Failed to fetch requests');
-        }
-        const data = await res.json();
-        setRequests(Array.isArray(data) ? data : []);
+    api.get('/requests/mine')
+      .then(res => {
+        setRequests(Array.isArray(res.data) ? res.data : []);
         setLoading(false);
         setError('');
       })
       .catch(err => {
-        setError('Failed to load requests');
+        if (err.response && (err.response.status === 403 || err.response.status === 401)) {
+          setError('Session expired or unauthorized. Please login.');
+        } else {
+          setError('Failed to load requests');
+        }
         setRequests([]);
         setLoading(false);
-        console.error(err);
       });
   }, []);
 

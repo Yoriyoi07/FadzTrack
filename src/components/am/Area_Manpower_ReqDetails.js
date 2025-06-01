@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
 import '../style/am_style/Area_Manpower_ReqDetails.css';
+import api from '../../api/axiosInstance'; // ✅ Import axios instance
 
 export default function Area_Manpower_ReqDetails() {
   const navigate = useNavigate();
@@ -40,15 +41,9 @@ export default function Area_Manpower_ReqDetails() {
 
   // Fetch data
   const fetchRequest = async () => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`http://localhost:5000/api/manpower-requests/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setReqData(data);
-      }
+      const res = await api.get(`/manpower-requests/${id}`);
+      setReqData(res.data);
     } finally {
       setLoading(false);
     }
@@ -81,18 +76,11 @@ export default function Area_Manpower_ReqDetails() {
     if (!window.confirm("Are you sure you want to deny this request?")) return;
     setApproveLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/manpower-requests/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: "Rejected" })
-      });
-      if (res.ok) {
-        alert("Request Denied!");
-        navigate('/am/manpower-requests');
-      } else {
-        alert("Failed to deny.");
-      }
+      await api.put(`/manpower-requests/${id}`, { status: "Rejected" });
+      alert("Request Denied!");
+      navigate('/am/manpower-requests');
+    } catch {
+      alert("Failed to deny.");
     } finally {
       setApproveLoading(false);
     }
@@ -106,25 +94,18 @@ export default function Area_Manpower_ReqDetails() {
     }
     setApproveLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/manpower-requests/${id}/approve`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          approvedBy: user?.name || '',
-          status: "Approved",
-          area: selectedArea,
-          project: selectedProject,
-          manpowerProvided: manpowerToLend
-        })
+      await api.put(`/manpower-requests/${id}/approve`, {
+        approvedBy: user?.name || '',
+        status: "Approved",
+        area: selectedArea,
+        project: selectedProject,
+        manpowerProvided: manpowerToLend
       });
-      if (res.ok) {
-        alert("Request Approved!");
-        setReviewMode(false);
-        fetchRequest(); // Refetch the data to get updated status
-      } else {
-        alert("Failed to approve.");
-      }
+      alert("Request Approved!");
+      setReviewMode(false);
+      fetchRequest(); // Refetch the data to get updated status
+    } catch {
+      alert("Failed to approve.");
     } finally {
       setApproveLoading(false);
     }

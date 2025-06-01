@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
+import api from '../../api/axiosInstance';
 
 const Ceo_Dash = () => {
 
@@ -134,11 +135,15 @@ const Ceo_Dash = () => {
       };
     }, []);
   
-    const handleLogout = () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
-    };
+    const handleLogout = async () => {
+  try {
+    await api.post('/auth/logout');
+  } catch (e) {
+  }
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  navigate('/');
+};
 
 
   return (

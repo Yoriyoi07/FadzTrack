@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import api from '../../api/axiosInstance'; // <<== Make sure you have this
 import '../style/pic_style/Pic_MatReq.css';
 
 const Pic_MatReq = () => {
@@ -21,55 +21,33 @@ const Pic_MatReq = () => {
     if (!token || !user) navigate('/');
   }, [navigate, token, user]);
 
+  // Load project
   useEffect(() => {
-    if (!token || !userId) return;
-    const fetchAssigned = async () => {
-      try {
-        const res = await fetch(
-          `http://localhost:5000/api/projects/assigned/${userId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const data = await res.json();
-        setProject(data[0] || null);
-      } catch (err) {
-        console.error('Failed to fetch assigned project:', err);
-        setProject(null);
-      }
-    };
-    fetchAssigned();
-  }, [token, userId]);
-
-  useEffect(() => {
-    if (!token) return;
-    const fetchProject = async () => {
-      try {
-        const res = await fetch(
-          `http://localhost:5000/api/projects/${projectId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const data = await res.json();
-        setProject(data);
-      } catch (err) {
-        console.error('Failed to load project:', err);
-      }
-    };
-    fetchProject();
+    if (!token || !projectId) return;
+    api.get(`/projects/${projectId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(res => setProject(res.data))
+      .catch(() => setProject(null));
   }, [projectId, token]);
 
-  useEffect(() => () => previewImages.forEach(URL.revokeObjectURL), [previewImages]);
+  // Image preview cleanup
+  useEffect(() => {
+    return () => previewImages.forEach(url => URL.revokeObjectURL(url));
+    // eslint-disable-next-line
+  }, [previewImages.length]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Restrict quantity to numbers and 7 digits max
+  // Only allow numbers for quantity, max 7 digits
   const handleMaterialChange = (id, field, value) => {
     setMaterials(prev =>
       prev.map(m => {
         if (m.id === id) {
           if (field === 'quantity') {
-            // Remove all non-digits, then trim to 7 digits
             let filtered = value.replace(/\D/g, '').slice(0, 7);
             return { ...m, [field]: filtered };
           }
@@ -81,7 +59,7 @@ const Pic_MatReq = () => {
   };
 
   const addMaterial = () => {
-    const newId = Math.max(...materials.map(m => m.id)) + 1;
+    const newId = materials.length ? Math.max(...materials.map(m => m.id)) + 1 : 1;
     setMaterials(prev => [...prev, { id: newId, materialName: '', quantity: '' }]);
   };
 
@@ -100,7 +78,10 @@ const Pic_MatReq = () => {
 
   const removeFile = (index) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-    setPreviewImages(prev => prev.filter((_, i) => i !== index));
+    setPreviewImages(prev => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   useEffect(() => {
@@ -110,9 +91,7 @@ const Pic_MatReq = () => {
       }
     };
     document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -128,13 +107,11 @@ const Pic_MatReq = () => {
       navigate('/');
       return;
     }
-
     const validMaterials = materials.filter(m => m.materialName.trim() && m.quantity.trim());
     if (validMaterials.length === 0) {
       alert('Please add at least one material with quantity');
       return;
     }
-
     const data = new FormData();
     uploadedFiles.forEach(file => data.append('attachments', file));
     data.append('description', formData.description);
@@ -142,31 +119,22 @@ const Pic_MatReq = () => {
     data.append('project', projectId);
 
     try {
-      const res = await fetch('http://localhost:5000/api/requests', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: data,
+      const res = await api.post('/requests', data, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-
-      const result = await res.json();
-
-      if (result.msg === 'Invalid token') {
+      if (res.data.msg === 'Invalid token') {
         alert('Session expired. Please login again.');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         navigate('/');
         return;
       }
-
       alert('✅ Material request submitted successfully!');
       setFormData({ description: '' });
       setMaterials([{ id: 1, materialName: '', quantity: '' }]);
       setUploadedFiles([]);
       setPreviewImages([]);
     } catch (err) {
-      console.error('❌ Upload failed:', err);
       alert('❌ Upload failed');
     }
   };
@@ -179,41 +147,39 @@ const Pic_MatReq = () => {
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
-          <nav className="nav-menu">
-            <Link to="/pic" className="nav-link">Dashboard</Link>
-            <Link to="/pic/projects/:projectId/request" className="nav-link">Requests</Link>
-            {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
-            <Link to="/chat" className="nav-link">Chat</Link>
-          </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
+        <nav className="nav-menu">
+          <Link to="/pic" className="nav-link">Dashboard</Link>
+          <Link to="/pic/projects/:projectId/request" className="nav-link">Requests</Link>
+          {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
+          <Link to="/chat" className="nav-link">Chat</Link>
+        </nav>
+        <div className="profile-menu-container">
+          <div
+            className="profile-circle"
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            Z
+          </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
+          )}
         </div>
       </header>
 
       <main className="main-content-picmatreq">
         <div className="request-materials-container-picmatreq">
           <h1 className="page-title-picmatreq">Request Materials</h1>
-
           {project && (
             <div className="project-details-box" style={{ marginBottom: '20px' }}>
               <h2 style={{ margin: 0 }}>{project.name}</h2>
               <p style={{ margin: 0, fontStyle: 'italic' }}>
-  {project.location?.name} ({project.location?.region})
-</p>
+                {project.location?.name} ({project.location?.region})
+              </p>
               <p style={{ margin: 0, color: '#555' }}>{project.targetDate}</p>
             </div>
           )}
-          
           <div className="materials-form-picmatreq">
             <div className="form-group-picmatreq">
               <label className="form-label-picmatreq">Material to be Requested</label>
@@ -271,7 +237,6 @@ const Pic_MatReq = () => {
                 </button>
               </div>
             </div>
-
             <div className="form-group-picmatreq">
               <label className="form-label-picmatreq">Attachment Proof</label>
               <div className="upload-section-picmatreq">
@@ -327,7 +292,6 @@ const Pic_MatReq = () => {
                 <p className="upload-hint-picmatreq">You can attach files such as documents or images</p>
               </div>
             </div>
-
             <div className="form-group-picmatreq">
               <label className="form-label-picmatreq">Request Description</label>
               <textarea
@@ -339,7 +303,6 @@ const Pic_MatReq = () => {
                 placeholder="Provide a detailed description of your request"
               />
             </div>
-
             <div className="form-actions-picmatreq">
               <button onClick={handleSubmit} className="publish-button-picmatreq">
                 Publish Request

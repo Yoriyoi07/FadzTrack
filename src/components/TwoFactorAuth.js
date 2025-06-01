@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api/axiosInstance';
 import './style/TwoFactorAuth.css';
 
 const TwoFactorAuth = ({ email, onSuccess }) => {
@@ -7,34 +7,34 @@ const TwoFactorAuth = ({ email, onSuccess }) => {
   const [message, setMessage] = useState('');
   const [cooldown, setCooldown] = useState(0);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const { data } = await axios.post(
-        'http://localhost:5000/api/auth/verify-2fa',
-        { email, code }
-      );
-      // delegate storage & redirect back to parent
-      onSuccess(data.accessToken, {
-  ...data.user,
-  _id: data.user._id || data.user.id 
-});} catch (error) {
-      setMessage(error.response?.data?.msg || 'Verification failed.');
-    }
-  };
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  try {
+    const { data } = await api.post(
+      '/auth/verify-2fa',
+      { email, code }
+    );
+    onSuccess(data.accessToken, {
+      ...data.user,
+      _id: data.user._id || data.user.id
+    });
+  } catch (error) {
+    setMessage(error.response?.data?.msg || 'Verification failed.');
+  }
+};
 
-  const handleResend = async () => {
-    try {
-      const res = await axios.post(
-        'http://localhost:5000/api/auth/resend-2fa',
-        { email }
-      );
-      setMessage(res.data.msg);
-      setCooldown(30);
-    } catch (err) {
-      setMessage(err.response?.data?.msg || 'Error resending code.');
-    }
-  };
+const handleResend = async () => {
+  try {
+    const res = await api.post(
+      '/auth/resend-2fa',
+      { email }
+    );
+    setMessage(res.data.msg);
+    setCooldown(30);
+  } catch (err) {
+    setMessage(err.response?.data?.msg || 'Error resending code.');
+  }
+};
 
   useEffect(() => {
     if (!cooldown) return;

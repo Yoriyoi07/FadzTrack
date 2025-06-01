@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import api from '../../api/axiosInstance'; // Make sure this path matches your project
 import '../style/pm_style/Pm_ViewRequest.css';
 
 const Pm_Manpower_List = () => {
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const token = localStorage.getItem('token');
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
@@ -19,7 +19,7 @@ const Pm_Manpower_List = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
 
-  // --- FILTERED REQUESTS MUST COME BEFORE PAGINATION VARIABLES ---
+  // --- FILTERED REQUESTS ---
   const filteredRequests = requests.filter(request => {
     const status = (request.status || '').toLowerCase();
     const matchesFilter =
@@ -44,33 +44,18 @@ const Pm_Manpower_List = () => {
   const paginatedRequests = filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('Session expired. Please log in.');
-      setLoading(false);
-      return;
-    }
-
-    fetch('http://localhost:5000/api/manpower-requests', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(async res => {
-        if (!res.ok) {
-          if (res.status === 403 || res.status === 401) {
-            setError('Session expired or unauthorized. Please login.');
-            setRequests([]);
-            setLoading(false);
-            return;
-          }
-          throw new Error('Failed to fetch manpower requests');
-        }
-        const data = await res.json();
-        setRequests(Array.isArray(data) ? data : []);
+    api.get('/manpower-requests')
+      .then(res => {
+        setRequests(Array.isArray(res.data) ? res.data : []);
         setLoading(false);
         setError('');
       })
       .catch(err => {
-        setError('Failed to load manpower requests');
+        if (err.response && (err.response.status === 403 || err.response.status === 401)) {
+          setError('Session expired or unauthorized. Please login.');
+        } else {
+          setError('Failed to load manpower requests');
+        }
         setRequests([]);
         setLoading(false);
         console.error(err);
@@ -94,13 +79,11 @@ const Pm_Manpower_List = () => {
   };
 
   useEffect(() => {
-    if (!token || !user) return;
+    if (!user) return;
     const fetchProjects = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/projects', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
+        const res = await api.get('/projects');
+        const data = res.data;
         const filtered = data.filter(
           (p) => p.projectManager && (
             (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
@@ -113,17 +96,14 @@ const Pm_Manpower_List = () => {
       }
     };
     fetchProjects();
-  }, [token, user, userId]);
+  }, [user, userId]);
 
   useEffect(() => {
-    if (!token || !userId) return;
+    if (!userId) return;
     const fetchAssigned = async () => {
       try {
-        const res = await fetch(
-          `http://localhost:5000/api/projects/assigned/${userId}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const data = await res.json();
+        const res = await api.get(`/projects/assigned/${userId}`);
+        const data = res.data;
         setProject(data[0] || null);
       } catch (err) {
         console.error('Failed to fetch assigned project:', err);
@@ -131,7 +111,7 @@ const Pm_Manpower_List = () => {
       }
     };
     fetchAssigned();
-  }, [token, userId]);
+  }, [userId]);
 
   const getStatusClass = (status) => {
     if (!status) return '';

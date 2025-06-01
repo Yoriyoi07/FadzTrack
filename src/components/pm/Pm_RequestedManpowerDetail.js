@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import api from '../../api/axiosInstance'; // Adjust the path if needed!
 
 const Pm_RequestedManpowerDetail = () => {
   const { id } = useParams();
@@ -12,25 +13,19 @@ const Pm_RequestedManpowerDetail = () => {
   const [selectedDate, setSelectedDate] = useState('');
   const [error, setError] = useState('');
 
-  const token = localStorage.getItem('token');
-
   // Fetch the specific manpower request
   useEffect(() => {
     const fetchRequest = async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/manpower-requests/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('Failed to fetch request');
-        const data = await res.json();
-        setRequest(data);
+        const res = await api.get(`/manpower-requests/${id}`);
+        setRequest(res.data);
       } catch (err) {
         setError('Failed to load request');
       }
       setLoading(false);
     };
     fetchRequest();
-  }, [id, token]);
+  }, [id]);
 
   // Profile dropdown logic
   useEffect(() => {
@@ -59,37 +54,23 @@ const Pm_RequestedManpowerDetail = () => {
   const handleScheduleReturn = () => setShowCalendar(true);
 
   const handleDateConfirm = async () => {
-      if (!selectedDate) return;
-      try {
-        const res = await fetch(`http://localhost:5000/api/manpower-requests/${id}/return`, {
-          method: 'PUT',
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ returnDate: selectedDate }),
-        });
-        if (!res.ok) throw new Error('Failed to set return date');
-        setShowCalendar(false);
-        const refreshed = await fetch(`http://localhost:5000/api/manpower-requests/${id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const updatedData = await refreshed.json();
-        setRequest(updatedData);
-        alert(`Return scheduled for ${selectedDate}`);
-      } catch (e) {
-        alert("Failed to set return date");
-      }
-    };
-
+    if (!selectedDate) return;
+    try {
+      await api.put(`/manpower-requests/${id}/return`, { returnDate: selectedDate });
+      setShowCalendar(false);
+      const refreshed = await api.get(`/manpower-requests/${id}`);
+      setRequest(refreshed.data);
+      alert(`Return scheduled for ${selectedDate}`);
+    } catch (e) {
+      alert("Failed to set return date");
+    }
+  };
 
   const handleEdit = () => navigate(`/pm/request-manpower/edit/${id}`);
+
   const handleCancel = () => {
     if (window.confirm('Are you sure you want to cancel this request?')) {
-      fetch(`http://localhost:5000/api/manpower-requests/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(() => navigate('/pm/manpower-list'));
+      api.delete(`/manpower-requests/${id}`).then(() => navigate('/pm/manpower-list'));
     }
   };
 

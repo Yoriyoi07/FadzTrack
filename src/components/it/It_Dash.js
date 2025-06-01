@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import api from '../../api/axiosInstance'; // Use Axios instance!
 import '../style/it_style/It_Dash.css';
 
 const It_Dash = () => {
@@ -77,11 +78,8 @@ const It_Dash = () => {
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/auth/Users');
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.msg || 'Failed to fetch accounts');
-        }
+        const response = await api.get('/auth/Users');
+        const data = response.data;
         const formattedAccounts = data.map(user => ({
           id: user._id,
           name: user.name,
@@ -125,33 +123,16 @@ const It_Dash = () => {
       return;
     }
     try {
-      const method = isEditing ? 'PUT' : 'POST';
-      const endpoint = isEditing
-        ? `http://localhost:5000/api/auth/users/${editingAccount.id}`
-        : 'http://localhost:5000/api/auth/register';
-
-      const response = await fetch(endpoint, {
-        method: method,
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      let response, data;
+      if (isEditing) {
+        response = await api.put(`/auth/users/${editingAccount.id}`, {
           name: newAccount.name,
           role: newAccount.position,
           phone: newAccount.phone,
           email: newAccount.email,
           password: newAccount.password || undefined,
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        alert(`Error: ${data.msg}`);
-        return;
-      }
-
-      if (isEditing) {
+        });
+        data = response.data;
         setAccounts(accounts.map(account =>
           account.id === editingAccount.id
             ? { ...account, ...data.user }
@@ -159,6 +140,14 @@ const It_Dash = () => {
         ));
         alert('Account updated successfully!');
       } else {
+        response = await api.post('/auth/register', {
+          name: newAccount.name,
+          role: newAccount.position,
+          phone: newAccount.phone,
+          email: newAccount.email,
+          password: newAccount.password,
+        });
+        data = response.data;
         setAccounts([...accounts, {
           id: data.user._id,
           name: data.user.name,
@@ -198,30 +187,21 @@ const It_Dash = () => {
       if (!confirm) return;
     }
     try {
-      const response = await fetch(`http://localhost:5000/api/auth/users/${account.id}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        alert(`Error: ${data.msg}`);
-        return;
+      const response = await api.put(`/auth/users/${account.id}/status`, { status: newStatus });
+      if (response.data) {
+        setAccounts(prevAccounts =>
+          prevAccounts.map(a =>
+            a.id === account.id ? { ...a, status: newStatus } : a
+          )
+        );
+        alert(`Account ${newStatus === 'Inactive' ? 'disabled' : 'enabled'} successfully.`);
       }
-      setAccounts(prevAccounts =>
-        prevAccounts.map(a =>
-          a.id === account.id ? { ...a, status: newStatus } : a
-        )
-      );
-      alert(`Account ${newStatus === 'Inactive' ? 'disabled' : 'enabled'} successfully.`);
     } catch (error) {
       console.error('Failed to toggle account status:', error);
       alert('An error occurred. Please try again.');
     }
   };
-  
+
   const filteredAccounts = accounts.filter(account => {
     return account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       account.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -377,46 +357,45 @@ const It_Dash = () => {
   return (
     <div className="fadztrack-app-IT">
       <div className="head-IT">
-  {/* Header with Navigation */}
-  <header className="header-IT">
-    <div className="logo-container-IT">
-      <div className="logo-IT">
-        <div className="logo-building-IT"></div>
-        <div className="logo-flag-IT"></div>
-      </div>
-      <h1 className="brand-name-IT">FadzTrack</h1>
-    </div>
-    <nav className="nav-menu-IT">
-      <a href="#" className="nav-link-IT">Dashboard</a>
-      <a href="#" className="nav-link-IT">Chat</a>
-
-    </nav>
-    <div className="search-profile-IT">
-      <div className="search-container-IT">
-        <input type="text" placeholder="Search in site" className="search-input-IT" />
-        <button className="search-button-IT">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-        </button>
-      </div>
-      <div className="profile-menu-container-IT">
-        <div 
-          className="profile-circle-IT"
-          onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-        >
-          Z
-        </div>
-        {profileMenuOpen && (
-          <div className="profile-menu-IT">
-            <button onClick={handleLogout}>Logout</button>
+        {/* Header with Navigation */}
+        <header className="header-IT">
+          <div className="logo-container-IT">
+            <div className="logo-IT">
+              <div className="logo-building-IT"></div>
+              <div className="logo-flag-IT"></div>
+            </div>
+            <h1 className="brand-name-IT">FadzTrack</h1>
           </div>
-        )}
+          <nav className="nav-menu-IT">
+            <a href="#" className="nav-link-IT">Dashboard</a>
+            <a href="#" className="nav-link-IT">Chat</a>
+          </nav>
+          <div className="search-profile-IT">
+            <div className="search-container-IT">
+              <input type="text" placeholder="Search in site" className="search-input-IT" />
+              <button className="search-button-IT">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </button>
+            </div>
+            <div className="profile-menu-container-IT">
+              <div
+                className="profile-circle-IT"
+                onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+              >
+                Z
+              </div>
+              {profileMenuOpen && (
+                <div className="profile-menu-IT">
+                  <button onClick={handleLogout}>Logout</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
       </div>
-    </div>
-  </header>
-</div>
       <div className="main-content-IT">
         <aside className="sidebar-IT">
           {renderSidebar()}

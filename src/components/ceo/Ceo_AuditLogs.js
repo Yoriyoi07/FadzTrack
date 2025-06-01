@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import api from '../../api/axiosInstance';
 
 const Ceo_AuditLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -8,19 +9,9 @@ const Ceo_AuditLogs = () => {
   const [actionFilter, setActionFilter] = useState("");
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    fetch("http://localhost:5000/api/audit-logs", {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
+    api.get('/audit-logs')
       .then((res) => {
-        if (!res.ok) throw new Error("Not authorized or failed to fetch");
-        return res.json();
-      })
-      .then((data) => {
-        console.log("Fetched logs:", data);
-        setLogs(data);
+        setLogs(res.data); 
         setLoading(false);
       })
       .catch(() => setLoading(false));

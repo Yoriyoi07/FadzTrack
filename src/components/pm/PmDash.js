@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import api from '../../api/axiosInstance'; // adjust path if needed
 import '../style/pm_style/Pm_Dash.css';
 
 const PmDash = () => {
@@ -9,7 +10,6 @@ const PmDash = () => {
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
 
-
   const [userName, setUserName] = useState('ALECK');
   const [projects, setProjects] = useState([]);
   const [project, setProject] = useState(null);
@@ -17,31 +17,26 @@ const PmDash = () => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   useEffect(() => {
-  if (!token || !user) {
-    navigate('/');
-    return;
-  }
-  setUserName(user.name); 
-}, [navigate, token, user]);
-
+    if (!token || !user) {
+      navigate('/');
+      return;
+    }
+    setUserName(user.name);
+  }, [navigate, token, user]);
 
   useEffect(() => {
     if (!token || !user) return;
     const fetchProjects = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/projects', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        console.log('Fetched projects:', data); 
+        const res = await api.get('/projects');
+        const data = res.data;
         // Filter for projects where this user is the Project Manager
         const filtered = data.filter(
-    (p) => p.projectManager && (
-      (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
-      p.projectManager === userId // in case it's just an ID string
-    )
-  );
-        console.log('Filtered projects:', filtered); 
+          (p) => p.projectManager && (
+            (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
+            p.projectManager === userId // in case it's just an ID string
+          )
+        );
         setProjects(filtered);
       } catch (err) {
         console.error('Failed to fetch projects:', err);
@@ -51,23 +46,19 @@ const PmDash = () => {
   }, [token, user, userId]);
 
   useEffect(() => {
-  if (!token || !userId) return;
-  const fetchAssigned = async () => {
-    try {
-      const res = await fetch(
-        `http://localhost:5000/api/projects/assigned/${userId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const data = await res.json();
-      console.log('Assigned project from API:', data);
-      setProject(data[0] || null);
-    } catch (err) {
-      console.error('Failed to fetch assigned project:', err);
-      setProject(null);
-    }
-  };
-  fetchAssigned();
-}, [token, userId]);
+    if (!token || !userId) return;
+    const fetchAssigned = async () => {
+      try {
+        const res = await api.get(`/projects/assigned/${userId}`);
+        const data = res.data;
+        setProject(data[0] || null);
+      } catch (err) {
+        console.error('Failed to fetch assigned project:', err);
+        setProject(null);
+      }
+    };
+    fetchAssigned();
+  }, [token, userId]);
 
   // Sidebar Projects, Activities, Reports, and Chats remain static or can be dynamic
   const [sidebarProjects] = useState([
@@ -117,12 +108,8 @@ const PmDash = () => {
         return;
       }
       try {
-        const res = await fetch('http://localhost:5000/api/requests/mine', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('Failed to fetch requests');
-        const data = await res.json();
-        setMaterialRequests(data);
+        const res = await api.get('/requests/mine');
+        setMaterialRequests(res.data);
         setRequestsError(null);
       } catch (error) {
         setRequestsError('Error loading material requests');
@@ -143,7 +130,7 @@ const PmDash = () => {
       document.removeEventListener("click", handleClickOutside);
     };
   }, []);
-        
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -157,30 +144,30 @@ const PmDash = () => {
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
+        </div>
+        <nav className="nav-menu">
+          <Link to="/pm" className="nav-link">Dashboard</Link>
+          <Link to="/pm/request/:id" className="nav-link">Material</Link>
+          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
+          {projects.length > 0 && (
+            <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>)}
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/reports" className="nav-link">Reports</Link>
+        </nav>
+        <div className="profile-menu-container">
+          <div
+            className="profile-circle"
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            Z
           </div>
-            <nav className="nav-menu">
-              <Link to="/pm" className="nav-link">Dashboard</Link>
-              <Link to="/pm/request/:id" className="nav-link">Material</Link>
-              <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
-              {projects.length > 0 && (
-              <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>)}
-              <Link to="/chat" className="nav-link">Chat</Link>
-              <Link to="/logs" className="nav-link">Logs</Link>
-              <Link to="/reports" className="nav-link">Reports</Link>
-            </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
-          </div>
+          )}
+        </div>
       </header>
 
       {/* Main Content */}
@@ -188,8 +175,8 @@ const PmDash = () => {
         {/* Left Sidebar */}
         <div className="sidebar">
           <h2>Dashboard</h2>
-          <button 
-            className="add-project-btn" 
+          <button
+            className="add-project-btn"
             onClick={() => navigate('/ceo/addproj')}
           >
             Add New Project
@@ -219,12 +206,12 @@ const PmDash = () => {
             <div className="material-request-section">
               <div className="section-header">
                 <h2>Material Request</h2>
-                <button 
-                className="view-all-btn"
-                onClick={() => navigate('/pm/request/:id')}
-              >
-                View All Requests
-              </button>
+                <button
+                  className="view-all-btn"
+                  onClick={() => navigate('/pm/request/:id')}
+                >
+                  View All Requests
+                </button>
               </div>
               <div className="material-requests-container">
                 {loadingRequests ? (

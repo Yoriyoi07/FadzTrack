@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Addproj.css';
 import Papa from 'papaparse';
+import api from '../../api/axiosInstance'; // ✅ USE THIS FOR ALL API CALLS
 
 const Area_Addproj = () => {
   const navigate = useNavigate();
@@ -58,45 +59,45 @@ const Area_Addproj = () => {
   };
 
   const handleChangeMultipleManpower = (e) => {
-  const options = e.target.options;
-  const selected = [];
-  for (let i = 0; i < options.length; i++) {
-    if (options[i].selected) {
-      selected.push(options[i].value);
+    const options = e.target.options;
+    const selected = [];
+    for (let i = 0; i < options.length; i++) {
+      if (options[i].selected) {
+        selected.push(options[i].value);
+      }
     }
-  }
-  setFormData(prevState => ({
-    ...prevState,
-    manpower: selected
-  }));
-};
+    setFormData(prevState => ({
+      ...prevState,
+      manpower: selected
+    }));
+  };
 
+  // ALL API CALLS BELOW ARE USING AXIOS INSTANCE
 
-useEffect(() => {
-  fetch('http://localhost:5000/api/manpower')
-    .then(res => res.json())
-    .then(data => {
-      setManpowerList(data);
-      setAvailableManpower(data);
-    })
-    .catch(err => console.error('Failed to fetch manpower:', err));
-}, []);
+  useEffect(() => {
+    api.get('/manpower')
+      .then(res => {
+        setManpowerList(res.data);
+        setAvailableManpower(res.data);
+      })
+      .catch(err => console.error('Failed to fetch manpower:', err));
+  }, []);
 
-useEffect(() => {
-  if (userId) {
-    fetch(`http://localhost:5000/api/users/${userId}/locations`)
-      .then(res => res.json())
-      .then(setAssignedLocations)
-      .catch(err => {
-        setAssignedLocations([]);
-        console.error('Failed to fetch assigned locations:', err);
-      });
-  }
-}, [userId]);
+  useEffect(() => {
+    if (userId) {
+      api.get(`/users/${userId}/locations`)
+        .then(res => setAssignedLocations(res.data))
+        .catch(err => {
+          setAssignedLocations([]);
+          console.error('Failed to fetch assigned locations:', err);
+        });
+    }
+  }, [userId]);
 
-useEffect(() => {
-  setFormData(prev => ({ ...prev, manpower: assignedManpower.map(m => m._id) }));
-}, [assignedManpower]);
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, manpower: assignedManpower.map(m => m._id) }));
+  }, [assignedManpower]);
+
   // Handle input change for text, date, number, etc.
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -111,20 +112,15 @@ useEffect(() => {
     const fetchUsers = async () => {
       try {
         const [pmRes, picRes] = await Promise.all([
-          fetch('http://localhost:5000/api/users/role/Project%20Manager'),
-          fetch('http://localhost:5000/api/users/role/Person%20in%20Charge')
+          api.get('/users/role/Project%20Manager'),
+          api.get('/users/role/Person%20in%20Charge')
         ]);
-
-        const pmData = await pmRes.json();
-        const picData = await picRes.json();
-
-        setProjectManagers(Array.isArray(pmData) ? pmData : pmData.data || []);
-        setPics(Array.isArray(picData) ? picData : picData.data || []);
+        setProjectManagers(Array.isArray(pmRes.data) ? pmRes.data : pmRes.data.data || []);
+        setPics(Array.isArray(picRes.data) ? picRes.data : picRes.data.data || []);
       } catch (err) {
         console.error('Failed to fetch users:', err);
       }
     };
-
     fetchUsers();
   }, []);
 
@@ -135,9 +131,7 @@ useEffect(() => {
         setProfileMenuOpen(false);
       }
     };
-
     document.addEventListener("click", handleClickOutside);
-
     return () => {
       document.removeEventListener("click", handleClickOutside);
     };
@@ -158,7 +152,6 @@ useEffect(() => {
     const stored = localStorage.getItem('user');
     const user = stored ? JSON.parse(stored) : null;
     const userId = user?._id;
-
     const submitData = { ...formData, areamanager: userId };
 
     // Validation
@@ -172,41 +165,27 @@ useEffect(() => {
     }
 
     try {
-      const token = localStorage.getItem('token');
-const response = await fetch('http://localhost:5000/api/projects', {
-  method: 'POST',
-  headers: { 
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`
-  },
-  body: JSON.stringify(submitData)
-});
-
-
-      const result = await response.json();
-
-      if (response.ok) {
-        alert('✅ Project added successfully!');
-        setFormData({
-          projectName: '',
-          pic: [],
-          contractor: '',
-          budget: '',
-          location: '',
-          startDate: '',
-          endDate: '',
-          manpower: '',
-          projectmanager: '',
-          areamanager: userId || ''
-        });
-        // Redirect or do something
-        navigate('/ceo/dash'); // Change to your area dashboard route if needed
-      } else {
-        alert(`❌ Error: ${result.message || 'Failed to add project'}`);
-      }
+      // Use AXIOS for POST, no need to manually add Authorization header
+      const response = await api.post('/projects', submitData);
+      alert('✅ Project added successfully!');
+      setFormData({
+        projectName: '',
+        pic: [],
+        contractor: '',
+        budget: '',
+        location: '',
+        startDate: '',
+        endDate: '',
+        manpower: '',
+        projectmanager: '',
+        areamanager: userId || ''
+      });
+      // Redirect or do something
+      navigate('/ceo/dash'); // Change to your area dashboard route if needed
     } catch (error) {
+      const result = error.response?.data;
+      alert(`❌ Error: ${result?.message || result?.error || 'Failed to add project'}`);
       console.error('❌ Submission error:', error);
-      alert('❌ Failed to connect to server.');
     }
   };
 
@@ -272,19 +251,19 @@ const response = await fetch('http://localhost:5000/api/projects', {
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
+        <div className="profile-menu-container">
+          <div 
+            className="profile-circle" 
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            Z
           </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Main Content */}
@@ -364,20 +343,20 @@ const response = await fetch('http://localhost:5000/api/projects', {
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="location">Location</label>
-               <select
-                    id="location"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleChange}
-                    required
-                  >
-                    <option value="">-- Select Location --</option>
-                    {assignedLocations.map(loc => (
-                      <option key={loc._id} value={loc._id}>
-                        {loc.name} ({loc.region})
-                      </option>
-                    ))}
-                  </select>
+                <select
+                  id="location"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">-- Select Location --</option>
+                  {assignedLocations.map(loc => (
+                    <option key={loc._id} value={loc._id}>
+                      {loc.name} ({loc.region})
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="form-group">
                 <label htmlFor="startDate">Start Date</label>
@@ -403,79 +382,79 @@ const response = await fetch('http://localhost:5000/api/projects', {
                 />
               </div>
             </div>
-           <div className="form-row single-column">
-          <div className="form-row single-column">
-            <div className="manpower-panels">
-              {/* LEFT: Available Manpower */}
-              <div className="manpower-box">
-                <label>Available Manpower</label>
-                <input
-                  type="text"
-                  placeholder="Search manpower"
-                  value={searchManpower}
-                  onChange={e => setSearchManpower(e.target.value)}
-                  style={{ width: '100%', marginBottom: 8 }}
-                />
-                <select
-                  multiple
-                  size={10}
-                  style={{ width: '100%', height: '200px' }}
-                  onDoubleClick={e => {
-                    const selectedId = e.target.value;
-                    const mp = availableManpower.find(m => m._id === selectedId);
-                    if (mp) handleAssignManpower(mp);
-                  }}
-                >
-                  {filteredAvailableManpower.map(mp => (
-                    <option key={mp._id} value={mp._id}>
-                      {mp.name} — {mp.position}
-                    </option>
-                  ))}
-                </select>
-                <div className="manpower-help">Double click to assign</div>
-              </div>
-              {/* RIGHT: Assigned Manpower */}
-              <div className="manpower-box">
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
-                  <label style={{ marginRight: 8 }}>Assigned Manpower</label>
-                  <input
-                    type="file"
-                    accept=".csv"
-                    id="csvUpload"
-                    style={{ display: 'none' }}
-                    onChange={handleCSVUpload}
-                  />
-                  <button
-                    type="button"
-                    className="csv-upload-btn"
-                    onClick={() => document.getElementById('csvUpload').click()}
-                    style={{ marginLeft: 8 }}
-                  >
-                    Upload CSV
-                  </button>
+            <div className="form-row single-column">
+              <div className="form-row single-column">
+                <div className="manpower-panels">
+                  {/* LEFT: Available Manpower */}
+                  <div className="manpower-box">
+                    <label>Available Manpower</label>
+                    <input
+                      type="text"
+                      placeholder="Search manpower"
+                      value={searchManpower}
+                      onChange={e => setSearchManpower(e.target.value)}
+                      style={{ width: '100%', marginBottom: 8 }}
+                    />
+                    <select
+                      multiple
+                      size={10}
+                      style={{ width: '100%', height: '200px' }}
+                      onDoubleClick={e => {
+                        const selectedId = e.target.value;
+                        const mp = availableManpower.find(m => m._id === selectedId);
+                        if (mp) handleAssignManpower(mp);
+                      }}
+                    >
+                      {filteredAvailableManpower.map(mp => (
+                        <option key={mp._id} value={mp._id}>
+                          {mp.name} — {mp.position}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="manpower-help">Double click to assign</div>
+                  </div>
+                  {/* RIGHT: Assigned Manpower */}
+                  <div className="manpower-box">
+                    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                      <label style={{ marginRight: 8 }}>Assigned Manpower</label>
+                      <input
+                        type="file"
+                        accept=".csv"
+                        id="csvUpload"
+                        style={{ display: 'none' }}
+                        onChange={handleCSVUpload}
+                      />
+                      <button
+                        type="button"
+                        className="csv-upload-btn"
+                        onClick={() => document.getElementById('csvUpload').click()}
+                        style={{ marginLeft: 8 }}
+                      >
+                        Upload CSV
+                      </button>
+                    </div>
+                    {csvError && <div className="manpower-error">{csvError}</div>}
+                    <select
+                      multiple
+                      size={10}
+                      style={{ width: '100%', height: '200px' }}
+                      onDoubleClick={e => {
+                        const selectedId = e.target.value;
+                        const mp = assignedManpower.find(m => m._id === selectedId);
+                        if (mp) handleRemoveManpower(mp);
+                      }}
+                    >
+                      {assignedManpower.map(mp => (
+                        <option key={mp._id} value={mp._id}>
+                          {mp.name} — {mp.position}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="manpower-help">Double click to remove</div>
+                  </div>
                 </div>
-                {csvError && <div className="manpower-error">{csvError}</div>}
-                <select
-                  multiple
-                  size={10}
-                  style={{ width: '100%', height: '200px' }}
-                  onDoubleClick={e => {
-                    const selectedId = e.target.value;
-                    const mp = assignedManpower.find(m => m._id === selectedId);
-                    if (mp) handleRemoveManpower(mp);
-                  }}
-                >
-                  {assignedManpower.map(mp => (
-                    <option key={mp._id} value={mp._id}>
-                      {mp.name} — {mp.position}
-                    </option>
-                  ))}
-                </select>
-                <div className="manpower-help">Double click to remove</div>
               </div>
             </div>
-          </div>
-  </div>
             <div className="form-row submit-row">
               <button type="submit" className="submit-button">Add Project</button>
             </div>

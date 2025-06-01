@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../../api/axiosInstance'; // <-- make sure the path is correct!
 
 const Ceo_AddArea = () => {
   const [areaManagers, setAreaManagers] = useState([]);
@@ -11,29 +12,27 @@ const Ceo_AddArea = () => {
 
   // Fetch area managers and locations
   useEffect(() => {
-  fetch('http://localhost:5000/api/users/role/Area%20Manager')
-    .then(res => res.json())
-    .then(setAreaManagers);
+    api.get('/users/role/Area%20Manager')
+      .then(res => setAreaManagers(res.data))
+      .catch(console.error);
 
-  fetch('http://localhost:5000/api/locations')
-    .then(res => res.json())
-    .then(setLocations);
-}, []);
-
+    api.get('/locations')
+      .then(res => setLocations(res.data))
+      .catch(console.error);
+  }, []);
 
   // When manager changes, load assigned locations
- useEffect(() => {
-  if (selectedManager) {
-    fetch(`http://localhost:5000/api/users/${selectedManager}/locations`)
-      .then(res => res.json())
-      .then(data => setAssignedLocations(data.map(l => l._id)));
-    setEditMode(true);
-  } else {
-    setEditMode(false);
-    setAssignedLocations([]);
-  }
-}, [selectedManager]);
-
+  useEffect(() => {
+    if (selectedManager) {
+      api.get(`/users/${selectedManager}/locations`)
+        .then(res => setAssignedLocations(res.data.map(l => l._id)))
+        .catch(console.error);
+      setEditMode(true);
+    } else {
+      setEditMode(false);
+      setAssignedLocations([]);
+    }
+  }, [selectedManager]);
 
   const toggleLocation = (locId) => {
     setAssignedLocations((prev) =>
@@ -42,14 +41,17 @@ const Ceo_AddArea = () => {
   };
 
   const handleSave = async () => {
-  await fetch(`http://localhost:5000/api/users/${selectedManager}/locations`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ locations: assignedLocations }),
-  });
-  alert('Locations updated!');
-  navigate('/ceo/dash');
-};
+    try {
+      await api.put(`/users/${selectedManager}/locations`, {
+        locations: assignedLocations,
+      });
+      alert('Locations updated!');
+      navigate('/ceo/dash');
+    } catch (err) {
+      alert('Failed to update locations.');
+      console.error(err);
+    }
+  };
 
   return (
     <div style={{ maxWidth: 600, margin: '40px auto', background: '#fff', padding: 24, borderRadius: 12 }}>

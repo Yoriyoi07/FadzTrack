@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/pm_style/Pm_ViewRequest.css';
+import api from '../../api/axiosInstance'; // <<== Make sure this is your Axios instance
 
 const Area_Manpower_Request_List = () => {
   const navigate = useNavigate();
@@ -22,29 +23,20 @@ const Area_Manpower_Request_List = () => {
       return;
     }
 
-    fetch('http://localhost:5000/api/manpower-requests/mine', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(async res => {
-        if (!res.ok) {
-          if (res.status === 403 || res.status === 401) {
-            setError('Session expired or unauthorized. Please login.');
-            setRequests([]);
-            setLoading(false);
-            return;
-          }
-          throw new Error('Failed to fetch manpower requests');
-        }
-        const data = await res.json();
-        setRequests(Array.isArray(data) ? data : []);
+    api.get('/manpower-requests/mine')
+      .then(res => {
+        setRequests(Array.isArray(res.data) ? res.data : []);
         setLoading(false);
         setError('');
       })
       .catch(err => {
-        setError('Failed to load manpower requests');
+        if (err.response && (err.response.status === 403 || err.response.status === 401)) {
+          setError('Session expired or unauthorized. Please login.');
+        } else {
+          setError('Failed to load manpower requests');
+        }
         setRequests([]);
         setLoading(false);
-        console.error(err);
       });
   }, []);
 
@@ -96,7 +88,7 @@ const Area_Manpower_Request_List = () => {
       (filter === 'Pending' && status.includes('pending')) ||
       (filter === 'Approved' && status.includes('approved')) ||
       (filter === 'Declined' && (status.includes('declined') || status.includes('denied')));
-    
+
     // Search
     const searchTarget = [
       request.manpowerType,

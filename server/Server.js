@@ -4,6 +4,7 @@
   const cors = require('cors');
   const http = require('http');
   const { Server } = require('socket.io');
+  const cookieParser = require('cookie-parser');
 
   // Route imports
   const authRoutes = require('./route/auth');
@@ -24,7 +25,7 @@
   }));
   app.use(express.json({ limit: '5mb' }));
   app.use(express.urlencoded({ extended: true }));
-
+  app.use(cookieParser());
   const PORT = process.env.PORT || 5000;
 
   // MongoDB connection

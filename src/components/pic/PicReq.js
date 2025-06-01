@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import api from '../../api/axiosInstance'; // Adjust path if needed!
 import '../style/pic_style/Pic_Req.css';
 
 const MaterialRequestDetail = () => {
@@ -18,12 +19,9 @@ const MaterialRequestDetail = () => {
   const isPIC = user?._id === requestData?.createdBy?._id;
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    fetch(`http://localhost:5000/api/requests/${id}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => res.json())
-      .then(data => {
+    api.get(`/requests/${id}`)
+      .then(res => {
+        const data = res.data;
         setRequestData(data);
         const materialsWithIds = (data.materials || []).map((mat, idx) => ({
           ...mat,
@@ -64,7 +62,7 @@ const MaterialRequestDetail = () => {
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    setNewFiles(prev => [...prev, ...files]); // Store file objects, not blob URLs
+    setNewFiles(prev => [...prev, ...files]);
   };
 
   const handleRemoveNewFile = (idx) => setNewFiles(prev => prev.filter((_, i) => i !== idx));
@@ -77,29 +75,24 @@ const MaterialRequestDetail = () => {
     file.startsWith('http') ? file : `http://localhost:5000/uploads/${file}`;
 
   const handleSaveEdit = async () => {
-    const token = localStorage.getItem('token');
     const formData = new FormData();
     const materialsToSave = materials.map(({ id, ...mat }) => mat);
     formData.append('materials', JSON.stringify(materialsToSave));
     formData.append('description', description);
     formData.append('attachments', JSON.stringify(attachments));
-    
-    newFiles.forEach(file => formData.append('newAttachments', file)); // Append files to FormData
+    newFiles.forEach(file => formData.append('newAttachments', file));
 
     try {
-      const res = await fetch(`http://localhost:5000/api/requests/${id}`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
+      const res = await api.put(`/requests/${id}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      if (!res.ok) throw new Error('Update failed');
-      const updated = await res.json();
-      setRequestData(updated);
+      const updated = res.data;
 
       const updatedMaterialsWithIds = (updated.materials || []).map((mat, idx) => ({
         ...mat,
         id: mat.id || Date.now() + idx
       }));
+      setRequestData(updated);
       setMaterials(updatedMaterialsWithIds);
       setDescription(updated.description || '');
       setAttachments(updated.attachments || []);
@@ -114,13 +107,8 @@ const MaterialRequestDetail = () => {
 
   const handleCancelRequest = () => {
     if (!window.confirm('Are you sure you want to cancel this request?')) return;
-    const token = localStorage.getItem('token');
-    fetch(`http://localhost:5000/api/requests/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Cancel failed');
+    api.delete(`/requests/${id}`)
+      .then(() => {
         alert('Request cancelled');
         navigate('/pic');
       })
@@ -131,13 +119,8 @@ const MaterialRequestDetail = () => {
   };
 
   const handleMarkReceived = async () => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`http://localhost:5000/api/requests/${id}/received`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Failed to mark as received');
+      await api.patch(`/requests/${id}/received`);
       alert('Request marked as received!');
       window.location.reload();
     } catch (err) {

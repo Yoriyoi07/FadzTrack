@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { List, LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react';
 import '../style/am_style/Area_Manpower_List.css';
+import api from '../../api/axiosInstance'; // <-- import your axios instance
 
 export default function Area_Manpower_List() {
   const [requests, setRequests] = useState([]);
@@ -18,11 +19,12 @@ export default function Area_Manpower_List() {
   useEffect(() => {
     if (!user._id) return;
     setLoading(true);
-    fetch(`http://localhost:5000/api/manpower-requests/area?areaManager=${user._id}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-    })
-      .then(res => res.json())
-      .then(data => setRequests(Array.isArray(data) ? data : []))
+    api
+      .get(`/manpower-requests/area`, {
+        params: { areaManager: user._id },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      })
+      .then(res => setRequests(Array.isArray(res.data) ? res.data : []))
       .catch(() => setRequests([]))
       .finally(() => setLoading(false));
   }, [user._id]);

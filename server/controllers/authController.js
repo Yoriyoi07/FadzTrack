@@ -187,8 +187,8 @@ exports.verify2FACode = async (req, res) => {
     res
       .cookie('refreshToken', refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        secure: false,
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
       })
       .json({
@@ -212,7 +212,7 @@ exports.refreshToken = (req, res) => {
     if (err) return res.status(403).json({ msg: 'Invalid refresh token' });
 
     // Generate new short-lived access token
-    const accessToken = jwt.sign({ id: decoded.id }, JWT_SECRET, { expiresIn: '15m' });
+    const accessToken = jwt.sign({ id: decoded.id, role: decoded.role }, JWT_SECRET, { expiresIn: '15m' });
     res.json({ accessToken });
   });
 };

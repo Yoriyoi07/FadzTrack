@@ -1,52 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import "../style/pic_style/Pic_Project.css";
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import api from '../../api/axiosInstance'; // Make sure the path matches your project structure
+import "../style/pic_style/Pic_Project.css";
 
 const Pic_Project = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [project, setProject] = useState(null);
-
- useEffect(() => {
-  const user = JSON.parse(localStorage.getItem('user'));
-  if (!id || !user?.id) return;
-
-  const fetchAssignedProjects = async () => {
-    try {
-      const res = await fetch(`http://localhost:5000/api/projects/assigned/${user.id}`);
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-      const projects = await res.json();
-      console.log('Fetched projects:', projects);
-      console.log('Looking for project with id:', id);
-
-      const matchedProject = projects.find(p => p._id === id);
-      console.log('Matched project:', matchedProject);
-
-      if (matchedProject) {
-        setProject(matchedProject);
-      } else {
-        setProject(null);
-      }
-    } catch (err) {
-      setProject(null);
-    }
-  };
-
-  fetchAssignedProjects();
-}, [id]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
+    const user = JSON.parse(localStorage.getItem('user'));
+    if (!id || !user?.id) return;
+
+    api.get(`/projects/assigned/${user.id}`)
+      .then(res => {
+        const matched = res.data.find(p => p._id === id);
+        setProject(matched || null);
+        setLoading(false);
+      })
+      .catch(() => {
+        setProject(null);
+        setLoading(false);
+      });
+  }, [id]);
+
+  useEffect(() => {
+    const handleClickOutside = event => {
       if (!event.target.closest(".profile-menu-container")) {
         setProfileMenuOpen(false);
       }
     };
-
     document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -55,34 +42,34 @@ const Pic_Project = () => {
     navigate('/');
   };
 
-  if (!project) return <div>Loading...</div>;
+  if (loading) return <div>Loading...</div>;
+  if (!project) return <div>Project not found.</div>;
 
   return (
     <div className="app-container">
-      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
-          <nav className="nav-menu">
-            <Link to="/pic" className="nav-link">Dashboard</Link>
-            <Link to="/pic/projects/:projectId/request" className="nav-link">Requests</Link>
-            {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
-            <Link to="/chat" className="nav-link">Chat</Link>
-          </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
+        <nav className="nav-menu">
+          <Link to="/pic" className="nav-link">Dashboard</Link>
+          <Link to="/pic/projects/:projectId/request" className="nav-link">Requests</Link>
+          <Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>
+          <Link to="/chat" className="nav-link">Chat</Link>
+        </nav>
+        <div className="profile-menu-container">
+          <div 
+            className="profile-circle" 
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            Z
+          </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
+          )}
         </div>
       </header>
 
@@ -94,38 +81,29 @@ const Pic_Project = () => {
               <path d="M12 19l-7-7 7-7"></path>
             </svg>
           </div>
-
           <div className="project-image-container">
-            <img 
-              alt={project.projectName} 
-              className="project-image"
-            />
+            <img alt={project.projectName} className="project-image" />
             <button className="favorite-button">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
               </svg>
             </button>
           </div>
-
           <h1 className="project-title">{project.projectName}</h1>
-
           <div className="project-details-grid">
             <div className="details-column">
-             <p className="detail-item">
-              <span className="detail-label">Location:</span>
-              {project.location?.name || 'N/A'}
-            </p>
-            
+              <p className="detail-item">
+                <span className="detail-label">Location:</span>
+                {project.location?.name || 'N/A'}
+              </p>
               <div className="detail-group">
                 <p className="detail-label">Project Manager:</p>
                 <p className="detail-value">{project.projectmanager?.name || 'N/A'}</p>
               </div>
-
               <div className="detail-group">
                 <p className="detail-label">Contractor:</p>
                 <p className="detail-value">{project.contractor}</p>
               </div>
-
               <div className="detail-group">
                 <p className="detail-label">Target Date:</p>
                 <p className="detail-value">
@@ -133,24 +111,21 @@ const Pic_Project = () => {
                 </p>
               </div>
             </div>
-
             <div className="details-column">
               <div className="budget-container">
                 <p className="budget-amount">₱{project.budget?.toLocaleString() || '0'}</p>
                 <p className="budget-label">Estimated Budget</p>
               </div>
-
               <div className="detail-group">
-              <span className="detail-label">PIC:</span>
-              <div className="detail-value">
-                {project.pic && project.pic.length > 0
-                  ? project.pic.map((p, idx) => <div key={p._id || idx}>{p.name}</div>)
-                  : 'N/A'}
+                <span className="detail-label">PIC:</span>
+                <div className="detail-value">
+                  {project.pic && project.pic.length > 0
+                    ? project.pic.map((p, idx) => <div key={p._id || idx}>{p.name}</div>)
+                    : 'N/A'}
+                </div>
               </div>
             </div>
-            </div>
           </div>
-
           <div className="manpower-section">
             <span className="detail-label">Manpower:</span>
             <div className="manpower-list">
@@ -158,7 +133,7 @@ const Pic_Project = () => {
                 ? project.manpower.map((m, idx) => <div key={m._id || idx}>{m.name} {m.position ? `(${m.position})` : ''}</div>)
                 : 'N/A'}
             </div>
-          </div>  
+          </div>
         </div>
       </main>
     </div>

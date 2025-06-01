@@ -1,56 +1,49 @@
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell } from 'recharts';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
+import api from '../../api/axiosInstance'; // ✅ Use your custom axios instance
 
 const Area_Dash = () => {
-
   const navigate = useNavigate();
   const [userName, setUserName] = useState('');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [materialRequests, setMaterialRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [requestsError, setRequestsError] = useState(null);
-  const token = localStorage.getItem('token');
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
 
   useEffect(() => {
-  if (!token || !user) {
-    navigate('/');
-    return;
-  }
-  setUserName(user.name); 
-}, [navigate, token, user]);
-
-useEffect(() => {
-  const fetchRequests = async () => {
-    if (!token) {
-      setRequestsError('Session expired. Please log in again.');
-      setLoadingRequests(false);
+    if (!user) {
+      navigate('/');
       return;
     }
-    try {
-      const res = await fetch('http://localhost:5000/api/requests/mine', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Failed to fetch requests');
-      const data = await res.json();
-      setMaterialRequests(data);
-      setRequestsError(null);
-    } catch (error) {
-      setRequestsError('Error loading material requests');
-    }
-    setLoadingRequests(false);
-  };
-  fetchRequests();
-}, []);
+    setUserName(user.name);
+  }, [navigate, user]);
 
-  const [projects, setProjects] = useState([
-    { 
-      id: 1, 
+  useEffect(() => {
+    const fetchRequests = async () => {
+      try {
+        const { data } = await api.get('/requests/mine');
+        setMaterialRequests(data);
+        setRequestsError(null);
+      } catch (error) {
+        if (error.response && error.response.status === 401) {
+          setRequestsError('Session expired. Please log in again.');
+        } else {
+          setRequestsError('Error loading material requests');
+        }
+      }
+      setLoadingRequests(false);
+    };
+    fetchRequests();
+  }, []);
+
+  const [projects] = useState([
+    {
+      id: 1,
       name: 'Twin Lakes Project',
       engineer: 'Engr. Shaquille',
       progress: [
@@ -59,8 +52,8 @@ useEffect(() => {
         { name: 'On Going', value: 20, color: '#5E4FDB' }
       ]
     },
-    { 
-      id: 2, 
+    {
+      id: 2,
       name: 'Calatagan Townhomes',
       engineer: 'Engr. Rychea Miralles',
       progress: [
@@ -69,8 +62,8 @@ useEffect(() => {
         { name: 'On Going', value: 30, color: '#5E4FDB' }
       ]
     },
-    { 
-      id: 3, 
+    {
+      id: 3,
       name: 'BGC Hotel',
       engineer: 'Engr.',
       progress: [
@@ -81,7 +74,7 @@ useEffect(() => {
     }
   ]);
 
-  const [sidebarProjects, setSidebarProjects] = useState([
+  const [sidebarProjects] = useState([
     { id: 1, name: 'Batangas', engineer: 'Engr. Daryll Miralles' },
     { id: 2, name: 'Twin Lakes Project', engineer: 'Engr. Shaquille' },
     { id: 3, name: 'Calatagan Townhomes', engineer: 'Engr. Rychea Miralles' },
@@ -90,7 +83,7 @@ useEffect(() => {
     { id: 6, name: 'Taguig', engineer: 'Engr. Third Castellar' }
   ]);
 
-  const [activities, setActivities] = useState([
+  const [activities] = useState([
     {
       id: 1,
       user: { name: 'Daniel Pocon', initial: 'D' },
@@ -106,46 +99,46 @@ useEffect(() => {
   ]);
 
   // Reports data
-  const [reports, setReports] = useState([
-    { 
-      id: 1, 
-      name: 'BGC Hotel', 
+  const [reports] = useState([
+    {
+      id: 1,
+      name: 'BGC Hotel',
       dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.' 
+      engineer: 'Engr.'
     },
-    { 
-      id: 2, 
-      name: 'Protacio Townhomes', 
+    {
+      id: 2,
+      name: 'Protacio Townhomes',
       dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.' 
+      engineer: 'Engr.'
     },
-    { 
-      id: 3, 
-      name: 'Fegarido Residences', 
+    {
+      id: 3,
+      name: 'Fegarido Residences',
       dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.' 
+      engineer: 'Engr.'
     }
   ]);
 
   // Chats data
-  const [chats, setChats] = useState([
-    { 
-      id: 1, 
-      name: 'Rychea Miralles', 
+  const [chats] = useState([
+    {
+      id: 1,
+      name: 'Rychea Miralles',
       initial: 'R',
       message: 'Hello Good Morning po! As...',
       color: '#4A6AA5'
     },
-    { 
-      id: 2, 
-      name: 'Third Castellar', 
+    {
+      id: 2,
+      name: 'Third Castellar',
       initial: 'T',
       message: 'Hello Good Morning po! As...',
       color: '#2E7D32'
     },
-    { 
-      id: 3, 
-      name: 'Zenarose Miranda', 
+    {
+      id: 3,
+      name: 'Zenarose Miranda',
       initial: 'Z',
       message: 'Hello Good Morning po! As...',
       color: '#9C27B0'
@@ -153,35 +146,32 @@ useEffect(() => {
   ]);
 
   useEffect(() => {
-  const user = JSON.parse(localStorage.getItem("user"));
-  if (user) {
-    setUserName(user.name || 'User'); 
-  }
-}, []);
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user) {
+      setUserName(user.name || 'User');
+    }
+  }, []);
 
   useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (!event.target.closest(".profile-menu-container")) {
-          setProfileMenuOpen(false);
-        }
-      };
-      
-      document.addEventListener("click", handleClickOutside);
-      
-      return () => {
-        document.removeEventListener("click", handleClickOutside);
-      };
-    }, []);
-  
-    const handleLogout = () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
     };
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
 
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   return (
-     <div className="head">
+    <div className="head">
       {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
@@ -197,19 +187,19 @@ useEffect(() => {
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
+        <div className="profile-menu-container">
+          <div
+            className="profile-circle"
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            Z
           </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Main Content */}
@@ -217,8 +207,8 @@ useEffect(() => {
         {/* Left Sidebar */}
         <div className="sidebar">
           <h2>Dashboard</h2>
-          <button 
-            className="add-project-btn" 
+          <button
+            className="add-project-btn"
             onClick={() => navigate('/am/addproj')}
           >
             Add New Project
@@ -243,10 +233,8 @@ useEffect(() => {
         <div className="main1">
           <div className="greeting-section">
             <h1>Good Morning, {userName}!</h1>
-            
             <div className="progress-tracking-section">
               <h2>Progress Tracking</h2>
-              
               <div className="latest-projects-progress">
                 <h3>Latest Projects Progress</h3>
                 <div className="project-charts">
