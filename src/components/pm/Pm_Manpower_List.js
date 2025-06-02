@@ -213,7 +213,8 @@ const Pm_Manpower_List = () => {
                     <div className="approval-status">
                       {request.project?.areamanager?.name && (
                         <p className="request-approver"><strong>Area Manager:</strong> {request.project.areamanager.name}</p>)}
-                      {request.status?.toLowerCase().includes('declined') && <span>Declined by</span>}
+                      {request.status?.toLowerCase().includes('declined') && (
+                        <p className="request-approver"><strong>Declined by:</strong> {request.approvedBy || 'Unknown'}</p>)}
                       {request.status?.toLowerCase().includes('approved') && request.approvals && (
                         <div className="approval-checkmark">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

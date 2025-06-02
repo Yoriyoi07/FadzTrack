@@ -117,9 +117,9 @@ const PicDash = () => {
         </div>
         <nav className="nav-menu">
           <Link to="/pic" className="nav-link">Dashboard</Link>
-          <Link to="/pic/projects/:projectId/request" className="nav-link">Requests</Link>
+          {project && (<Link to={`/pic/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
           {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
-          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
         <div className="profile-menu-container">
           <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>

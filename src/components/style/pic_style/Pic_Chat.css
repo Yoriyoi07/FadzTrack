@@ -1,38 +1,104 @@
-/* Global Styles */
-.container {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    font-family: Arial, sans-serif;
-  }
-  /* Header */
-  .chat-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: white;
-    padding: 15px 20px;
-    border-bottom: 1px solid #ddd;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  
-  .chat-header nav a {
-    margin-right: 50px;
-    text-decoration: none;
-    color: black;
-    font-size: 16px;
-  }
-  .logo-img{
-    height: 100px;
-    width: 100px;
-  }
-  
-  .search-input {
-    padding: 5px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-  }
+/* Top Navbar Styles */
+.logo-img {
+  height: 60px !important;
+  max-height: 65px;
+  object-fit: contain;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 65px;
+}
+
+
+.brand-name {
+  font-size: 1.6rem;
+  font-weight: bold;
+  margin-top: 4px; /* Slight nudge for vertical alignment */
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 2rem;
+  background-color: #000466; /* Dark blue as in image */
+  color: white;
+  padding: 0.8rem 2.5rem;
+}
+
+.nav-menu {
+  display: flex;
+  gap: 1.8rem;
+  align-items: center;
+}
+
+.nav-link {
+  color: white;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.nav-link:hover {
+  color: #c0c0c0;
+}
+
+.profile-menu-container {
+  position: relative;
+}
+
+.profile-circle {
+  width: 40px;
+  height: 40px;
+  background-color: #555;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.profile-menu {
+  position: absolute;
+  right: 0;
+  margin-top: 10px;
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  z-index: 10;
+}
+
+.profile-menu button {
+  background: none;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+
+.profile-menu button:hover {
+  background-color: #f0f0f0;
+}
+
+.profile-circle {
+  width: 32px;
+  height: 32px;
+  background-color: #9c27b0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+}
   
   /* Content Section */
   .content {

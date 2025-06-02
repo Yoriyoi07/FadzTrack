@@ -36,7 +36,6 @@ import Pm_RequestedManpowerDetail from './pm/Pm_RequestedManpowerDetail';
 import Ceo_AuditLogs from './ceo/Ceo_AuditLogs';
 import Ceo_Material_List from './ceo/Ceo_Material_List';
 import Hr_Movement_List from './hr/Hr_Movement_List';
-import PM_DailyLogs from './pm/PM_DailyLogs';
 const AppRoutes = () => {
   return (
     <Routes>
@@ -54,11 +53,10 @@ const AppRoutes = () => {
       <Route path="/q" element={<PmDailyReports />} />
       <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDash /></PrivateRoute>}/>
       <Route path="/pm/viewprojects/:id" element={<PmViewProjects />} />
-      <Route path="/pm/daily-logs" element={<PM_DailyLogs />} />
 
       {/* PIC */}
       <Route path="/pic" element={<PicDash />} />
-      <Route path="/chat" element={<PicChat />} />
+      <Route path="/pic/chat" element={<PicChat />} />
       <Route path="/pic/request/:id" element={<PicReq />} />
       <Route path="/pic/:id" element={<Pic_Project />} />
       <Route path="/pic/projects/:projectId/request" element={<Pic_MatReq />} />
@@ -88,6 +86,7 @@ const AppRoutes = () => {
       <Route path="/hr/dash" element={<Hr_Dash />} />
       <Route path="/hr/mlist" element={<Hr_ManpowerList />} />
       <Route path="/hr/movement" element={<Hr_Movement_List />} />
+      
       {/*Reusable*/}
       <Route path="/approve-deny/:id" element={<ApproveDenyAction />} />
     </Routes>

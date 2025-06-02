@@ -1,14 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FaPaperclip, FaPaperPlane, FaWindowMaximize, FaEllipsisH } from 'react-icons/fa';
 import io from 'socket.io-client';
 import '../style/pic_style/Pic_Chat.css';
+import api from '../../api/axiosInstance';
 
 const socket = io('http://localhost:5000'); 
 
 const PicChat = () => {
+  const navigate = useNavigate();
+  const token = localStorage.getItem('token');
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const userId = user?._id;
+
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [project, setProject] = useState(null);
+  const [userName, setUserName] = useState(user?.name || '');
+  const [projects, setProjects] = useState([]);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
 
   // Listen for incoming messages
   useEffect(() => {
@@ -35,20 +47,91 @@ const PicChat = () => {
     socket.emit('sendMessage', messageData);
     setNewMessage(''); 
   };
+  
+  // Auth guard
+  useEffect(() => {
+    if (!token || !user) {
+      navigate('/');
+      return;
+    }
+    setUserName(user.name);
+  }, [navigate, token, user]);
+
+  // Fetch all projects where this user is PIC
+  useEffect(() => {
+    if (!token || !user) return;
+    const fetchProjects = async () => {
+      try {
+        const { data } = await api.get('/projects', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const filtered = data.filter(
+          (p) => Array.isArray(p.pic) && p.pic.some((picUser) => picUser._id === userId)
+        );
+        setProjects(filtered);
+      } catch (err) {
+        setProjects([]);
+      }
+    };
+    fetchProjects();
+  }, [token, user, userId]);
+
+  // Fetch assigned project for nav links
+  useEffect(() => {
+    if (!token || !userId) return;
+    const fetchAssigned = async () => {
+      try {
+        const { data } = await api.get(`/projects/assigned/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setProject(data[0] || null);
+      } catch (err) {
+        setProject(null);
+      }
+    };
+    fetchAssigned();
+  }, [token, userId]);
+
+    // Logout handler
+    const handleLogout = () => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    };
+  
+    // Profile menu close on outside click
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (!event.target.closest(".profile-menu-container")) {
+          setProfileMenuOpen(false);
+        }
+      };
+      document.addEventListener("click", handleClickOutside);
+      return () => document.removeEventListener("click", handleClickOutside);
+    }, []);
 
   return (
     <div className="container">
-      <header className="chat-header">
-        <div className="header-left">
-          <img src="/images/FadzLogo 1.png" alt="FadzTrack Logo" className="logo-img" />
-          <h1>FadzTrack</h1>
+      {/* Header with Navigation */}
+      <header className="header">
+        <div className="logo-container">
+          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
+          <h1 className="brand-name">FadzTrack</h1>
         </div>
-        <nav>
-          <Link to="/h">Home</Link>
-          <Link to="/chat">Chat</Link>
-          <Link to="/material-request">Request for Materials</Link>
-          <input type="text" placeholder="Search in site" className="search-input" />
+        <nav className="nav-menu">
+          <Link to="/pic" className="nav-link">Dashboard</Link>
+          {project && (<Link to={`/pic/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
+          {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
+          <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
+        <div className="profile-menu-container">
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="content">

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance'; // Adjust path if needed!
 import '../style/pic_style/Pic_Req.css';
 
@@ -9,6 +9,7 @@ const MaterialRequestDetail = () => {
   const [requestData, setRequestData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
+  const [project, setProject] = useState(null);
   const [materials, setMaterials] = useState([]);
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState([]);
@@ -154,7 +155,33 @@ const MaterialRequestDetail = () => {
   }
 
   return (
-    <div className="app-container">
+    <div>
+      {/* Header with Navigation */}
+      <header className="header">
+        <div className="logo-container">
+          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
+          <h1 className="brand-name">FadzTrack</h1>
+        </div>
+        <nav className="nav-menu">
+          <Link to="/pic" className="nav-link">Dashboard</Link>
+          <Link to="/pic/projects/:projectId/request" className="nav-link">Requests</Link>
+          {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
+          <Link to="/pic/chat" className="nav-link">Chat</Link>
+        </nav>
+        <div className="profile-menu-container">
+          <div
+            className="profile-circle"
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            Z
+          </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
+      </header>
       <main className="main-content-picmatreq">
         <div className="request-materials-container-picmatreq">
           <h1 className="page-title-picmatreq">Material Request #{requestData.requestNumber}</h1>

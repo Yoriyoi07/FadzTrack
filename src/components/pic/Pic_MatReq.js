@@ -140,7 +140,7 @@ const Pic_MatReq = () => {
   };
 
   return (
-    <div className="app-container">
+    <div>
       {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
@@ -151,7 +151,7 @@ const Pic_MatReq = () => {
           <Link to="/pic" className="nav-link">Dashboard</Link>
           <Link to="/pic/projects/:projectId/request" className="nav-link">Requests</Link>
           {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
-          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
         <div className="profile-menu-container">
           <div
