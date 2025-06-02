@@ -91,12 +91,19 @@ const createManpowerRequest = async (req, res) => {
 const getAllManpowerRequests = async (req, res) => {
   try {
     const requests = await ManpowerRequest.find()
-      .sort({ createdAt: -1 })
-      .populate('project', 'projectName location')       
-      .populate('createdBy', 'name email role');             
-    res.status(200).json(requests);
+      .populate({
+        path: 'project',
+        populate: {
+          path: 'areamanager',
+          model: 'User',
+          select: 'name'
+        }
+      })
+      .populate('createdBy', 'name');
+
+    res.json(requests);
   } catch (error) {
-    console.error('❌ Error fetching requests:', error);
+    console.error('Failed to fetch manpower requests:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

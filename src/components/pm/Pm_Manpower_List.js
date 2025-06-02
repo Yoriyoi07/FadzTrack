@@ -46,6 +46,7 @@ const Pm_Manpower_List = () => {
   useEffect(() => {
     api.get('/manpower-requests')
       .then(res => {
+        console.log("SAMPLE REQUEST >>>", res.data[0]);
         setRequests(Array.isArray(res.data) ? res.data : []);
         setLoading(false);
         setError('');
@@ -210,7 +211,8 @@ const Pm_Manpower_List = () => {
                   </div>
                   <div className="request-meta">
                     <div className="approval-status">
-                      {request.status?.toLowerCase().includes('pending') && <span>to be approved by</span>}
+                      {request.project?.areamanager?.name && (
+                        <p className="request-approver"><strong>Area Manager:</strong> {request.project.areamanager.name}</p>)}
                       {request.status?.toLowerCase().includes('declined') && <span>Declined by</span>}
                       {request.status?.toLowerCase().includes('approved') && request.approvals && (
                         <div className="approval-checkmark">

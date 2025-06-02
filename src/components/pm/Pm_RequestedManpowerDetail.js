@@ -152,7 +152,7 @@ const Pm_RequestedManpowerDetail = () => {
             Manpower Req. {request.requestNumber || id?.slice(-3)}
           </h2>
           <div style={{ textAlign: 'center', fontSize: 16, fontWeight: 500, marginBottom: 15 }}>
-            {request.project?.location} | {request.project?.projectName} | Engr. {request.createdBy?.name}
+            {request.project?.projectName} | Engr. {request.createdBy?.name}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'row', gap: 40, justifyContent: 'center', marginBottom: 12 }}>
@@ -259,7 +259,7 @@ const Pm_RequestedManpowerDetail = () => {
                 </button>
                 <button
                   className="cancel-btn"
-                  style={{ width: 180, height: 40, background: '#c0392b', color: '#fff', border: 'none', borderRadius: 6, fontSize: 18 }}
+                  style={{ width: 200, height: 40, background: '#c0392b', color: '#fff', border: 'none', borderRadius: 6, fontSize: 18 }}
                   onClick={handleCancel}
                 >
                   Cancel Request
