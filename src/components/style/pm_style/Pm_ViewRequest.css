@@ -434,6 +434,16 @@ body {
   cursor: not-allowed;
 }
 
+.request-approver {
+  font-size: 0.85rem;
+  color: #444;
+  margin-top: 0.3rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
 .request-manpower-btn {
   background-color: #4a6da7;
   color: white;
