@@ -7,6 +7,7 @@ const projectSchema = new mongoose.Schema({
   areamanager: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   contractor: String,
   budget: Number,
+  photos: [String], 
   location: { type: mongoose.Schema.Types.ObjectId, ref: 'Location', required: true },
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },

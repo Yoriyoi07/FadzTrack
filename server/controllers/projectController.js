@@ -17,6 +17,8 @@ exports.addProject = async (req, res) => {
       areamanager
     } = req.body;
 
+    const photos = req.files ? req.files.map(file => '/uploads/' + file.filename) : [];
+
     const newProject = new Project({
       projectName,
       pic,
@@ -27,7 +29,8 @@ exports.addProject = async (req, res) => {
       startDate: new Date(startDate), 
       endDate: new Date(endDate),   
       manpower,
-      areamanager
+      areamanager,
+      photos
     });
 
     const savedProject = await newProject.save();

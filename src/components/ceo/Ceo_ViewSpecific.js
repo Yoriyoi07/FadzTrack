@@ -83,11 +83,20 @@ const Ceo_ViewSpecific = () => {
           </div>
 
           <div className="project-image-container">
-            <img
-              src="https://placehold.com/800x400"
-              alt={project.projectName}
-              className="project-image"
-            />
+           <img
+  src={
+    project.photos && project.photos.length > 0
+      ? `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${project.photos[0]}`
+      : 'https://placehold.co/400x250?text=No+Photo'
+  }
+  alt={project.projectName}
+  className="project-image"
+    width={250}   // or whatever size you want
+  height={150}  // or whatever size you want
+  style={{ objectFit: "cover", borderRadius: 8 }}
+/>
+
+
             <button className="favorite-button">
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
                 <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>

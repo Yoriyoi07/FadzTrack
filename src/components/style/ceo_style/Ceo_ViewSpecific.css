@@ -144,8 +144,8 @@
 }
 
 .project-image {
-  width: 100%;
-  height: auto;
+  width: 150px;
+  height: 250px;
   border-radius: 8px;
   object-fit: cover;
 }

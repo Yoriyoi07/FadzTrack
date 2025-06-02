@@ -20,6 +20,7 @@ const Area_Addproj = () => {
   const [availableManpower, setAvailableManpower] = useState([]);
   const [assignedManpower, setAssignedManpower] = useState([]);
   const [csvError, setCsvError] = useState('');
+  const [photos, setPhotos] = useState([]);
 
   // Initialize formData and include areamanager from the start
   const [formData, setFormData] = useState({
@@ -146,48 +147,63 @@ const Area_Addproj = () => {
 
   // Submit form and include areamanager in the payload
   const handleSubmit = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    // Always make sure areamanager is set to the latest userId
-    const stored = localStorage.getItem('user');
-    const user = stored ? JSON.parse(stored) : null;
-    const userId = user?._id;
-    const submitData = { ...formData, areamanager: userId };
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const userId = user?._id;
 
-    // Validation
-    if (!submitData.startDate || !submitData.endDate) {
-      alert("Please select both start and end dates.");
-      return;
-    }
-    if (new Date(submitData.endDate) < new Date(submitData.startDate)) {
-      alert("End date cannot be before start date.");
-      return;
-    }
+  // Validation (keep your existing checks)
+  if (!formData.startDate || !formData.endDate) {
+    alert("Please select both start and end dates.");
+    return;
+  }
+  if (new Date(formData.endDate) < new Date(formData.startDate)) {
+    alert("End date cannot be before start date.");
+    return;
+  }
 
-    try {
-      // Use AXIOS for POST, no need to manually add Authorization header
-      const response = await api.post('/projects', submitData);
-      alert('✅ Project added successfully!');
-      setFormData({
-        projectName: '',
-        pic: [],
-        contractor: '',
-        budget: '',
-        location: '',
-        startDate: '',
-        endDate: '',
-        manpower: '',
-        projectmanager: '',
-        areamanager: userId || ''
-      });
-      // Redirect or do something
-      navigate('/ceo/dash'); // Change to your area dashboard route if needed
-    } catch (error) {
-      const result = error.response?.data;
-      alert(`❌ Error: ${result?.message || result?.error || 'Failed to add project'}`);
-      console.error('❌ Submission error:', error);
+  // Build FormData
+  const form = new FormData();
+  Object.entries({ ...formData, areamanager: userId }).forEach(([key, value]) => {
+    // Append array values (pic, manpower) one by one
+    if (Array.isArray(value)) {
+      value.forEach(v => form.append(key, v));
+    } else {
+      form.append(key, value);
     }
-  };
+  });
+  // Add files
+  photos.forEach(file => {
+    form.append('photos', file);
+  });
+
+  try {
+    await api.post('/projects', form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    alert('✅ Project added successfully!');
+    setFormData({
+      projectName: '',
+      pic: [],
+      contractor: '',
+      budget: '',
+      location: '',
+      startDate: '',
+      endDate: '',
+      manpower: '',
+      projectmanager: '',
+      areamanager: userId || ''
+    });
+    setPhotos([]);
+    navigate('/ceo/dash');
+  } catch (error) {
+    const result = error.response?.data;
+    alert(`❌ Error: ${result?.message || result?.error || 'Failed to add project'}`);
+    console.error('❌ Submission error:', error);
+  }
+};
+
 
   // Assign manpower from left to right
   const handleAssignManpower = (mp) => {
@@ -455,6 +471,32 @@ const Area_Addproj = () => {
                 </div>
               </div>
             </div>
+
+            <div className="area-addproj-form-group">
+              <label htmlFor="photos">Project Photos</label>
+              <input
+                type="file"
+                id="photos"
+                name="photos"
+                multiple
+                accept="image/*"
+                onChange={e => setPhotos(Array.from(e.target.files))}
+              />
+            </div>
+
+          {photos.length > 0 && (
+            <div style={{ display: 'flex', gap: 10, margin: '10px 0' }}>
+              {photos.map((file, i) => (
+                <img
+                  key={i}
+                  src={URL.createObjectURL(file)}
+                  alt="preview"
+                  style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8 }}
+                />
+              ))}
+            </div>
+          )}
+
 
             <div className="area-addproj-form-row area-addproj-submit-row">
               <button type="submit" className="area-addproj-submit-button">Add Project</button>

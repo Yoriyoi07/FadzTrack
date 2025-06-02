@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../../api/axiosInstance'; // ← IMPORT YOUR AXIOS INSTANCE!
+import api from '../../api/axiosInstance';
 import '../style/ceo_style/Ceo_Proj.css';
 
 const Ceo_Proj = () => {
@@ -73,42 +73,42 @@ const Ceo_Proj = () => {
         </div>
       </header>
 
-      <div className="projects-container">
+      <div className="ceo-proj-projects-container">
         {/* Filter bar */}
-        <div className="filter-bar">
-          <div className="area-filter">
-            <span className="filter-icon">
+        <div className="ceo-proj-filter-bar">
+          <div className="ceo-proj-area-filter">
+            <span className="ceo-proj-filter-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
               </svg>
               Area Filter
             </span>
-            <div className="filter-tabs">
+            <div className="ceo-proj-filter-tabs">
               <button
-                className={filter === 'all' ? 'active' : ''}
+                className={filter === 'all' ? 'ceo-proj-active' : ''}
                 onClick={() => setFilter('all')}
               >
                 All
               </button>
-              <span className="divider">|</span>
+              <span className="ceo-proj-divider">|</span>
               <button
-                className={filter === 'completed' ? 'active' : ''}
+                className={filter === 'completed' ? 'ceo-proj-active' : ''}
                 onClick={() => setFilter('completed')}
               >
                 Completed
               </button>
-              <span className="divider">|</span>
+              <span className="ceo-proj-divider">|</span>
               <button
-                className={filter === 'ongoing' ? 'active' : ''}
+                className={filter === 'ongoing' ? 'ceo-proj-active' : ''}
                 onClick={() => setFilter('ongoing')}
               >
                 On Going
               </button>
             </div>
           </div>
-          <div className="view-mode">
+          <div className="ceo-proj-view-mode">
             <button
-              className={viewMode === 'grid' ? 'active' : ''}
+              className={viewMode === 'grid' ? 'ceo-proj-active' : ''}
               onClick={() => setViewMode('grid')}
             >
               {/* Grid icon */}
@@ -120,7 +120,7 @@ const Ceo_Proj = () => {
               </svg>
             </button>
             <button
-              className={viewMode === 'list' ? 'active' : ''}
+              className={viewMode === 'list' ? 'ceo-proj-active' : ''}
               onClick={() => setViewMode('list')}
             >
               {/* List icon */}
@@ -137,48 +137,62 @@ const Ceo_Proj = () => {
         </div>
 
         {/* Project cards */}
-        <div className={`project-cards ${viewMode}`}>
+        <div className={`ceo-proj-project-cards ${viewMode}`}>
           {projects.map(project => (
             <div
               key={project._id}
-              className="project-card"
+              className="ceo-proj-project-card"
               onClick={() => navigate(`/ceo/proj/${project._id}`)}
               style={{ cursor: 'pointer' }}
             >
-              <div className="project-image-container">
-                <img src={project.image} alt={project.name} className="project-image" />
-                <button className="favorite-btn" onClick={(e) => e.stopPropagation()}>
+              <div className="ceo-proj-project-image-container">
+                <img
+                  src={
+                    project.photos && project.photos.length > 0
+                      ? `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${project.photos[0]}`
+                      : 'https://placehold.co/400x250?text=No+Photo'
+                  }
+                  alt={project.projectName}
+                  className="ceo-proj-project-image"
+                  width={250}
+                  height={150}
+                  style={{ objectFit: "cover", borderRadius: 8 }}
+                />
+
+                <button className="ceo-proj-favorite-btn" onClick={(e) => e.stopPropagation()}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
                   </svg>
                 </button>
               </div>
-              <div className="project-details">
-                <div className="left-details">
-                  <h3 className="project-name">{project.name}</h3>
-                  <p className="project-location">
+              <div className="ceo-proj-project-details">
+                <div className="ceo-proj-left-details">
+                  <h3 className="ceo-proj-project-name">{project.name}</h3>
+                  <p className="ceo-proj-project-location">
                     {project.location?.name
                       ? `${project.location.name} (${project.location.region})`
                       : 'No Location'}
                   </p>
-                  <div className="project-info-grid">
-                    <div className="info-column">
-                      <span className="info-column-header">Project Manager:</span>
-                      <span className="info-column-value">{project.projectmanager?.name}</span>
+                  <div className="ceo-proj-project-info-grid">
+                    <div className="ceo-proj-info-column">
+                      <span className="ceo-proj-info-column-header">Project Manager:</span>
+                      <span className="ceo-proj-info-column-value">{project.projectmanager?.name}</span>
                     </div>
-                    <div className="info-column">
-                      <span className="info-column-header">Contractor:</span>
-                      <span className="info-column-value">{project.contractor}</span>
+                    <div className="ceo-proj-info-column">
+                      <span className="ceo-proj-info-column-header">Contractor:</span>
+                      <span className="ceo-proj-info-column-value">{project.contractor}</span>
                     </div>
-                    <div className="info-column">
-                      <span className="info-column-header">Target Date:</span>
-                      <span className="info-column-value">{project.startDate && project.endDate
-                    ? `${new Date(project.startDate).toLocaleDateString()} to ${new Date(project.endDate).toLocaleDateString()}`
-                    : "N/A"}</span>
+                    <div className="ceo-proj-info-column">
+                      <span className="ceo-proj-info-column-header">Target Date:</span>
+                      <span className="ceo-proj-info-column-value">
+                        {project.startDate && project.endDate
+                          ? `${new Date(project.startDate).toLocaleDateString()} to ${new Date(project.endDate).toLocaleDateString()}`
+                          : "N/A"}
+                      </span>
                     </div>
-                    <div className="manpower-section">
-                      <span className="manpower-header">Manpower:</span>
-                      <span className="manpower-value">
+                    <div className="ceo-proj-manpower-section">
+                      <span className="ceo-proj-manpower-header">Manpower:</span>
+                      <span className="ceo-proj-manpower-value">
                         {Array.isArray(project.manpower) && project.manpower.length > 0
                           ? project.manpower.map(mp => `${mp.name} (${mp.position})`).join(', ')
                           : 'No Manpower Assigned'}
@@ -186,10 +200,10 @@ const Ceo_Proj = () => {
                     </div>
                   </div>
                 </div>
-                <div className="right-details">
-                  <div className="budget">
-                    <p className="budget-amount">{project.budget}</p>
-                    <p className="budget-label">Estimated Budget</p>
+                <div className="ceo-proj-right-details">
+                  <div className="ceo-proj-budget">
+                    <p className="ceo-proj-budget-amount">{project.budget}</p>
+                    <p className="ceo-proj-budget-label">Estimated Budget</p>
                   </div>
                 </div>
               </div>
