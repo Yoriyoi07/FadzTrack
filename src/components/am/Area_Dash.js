@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell } from 'recharts';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
-import api from '../../api/axiosInstance'; // ✅ Use your custom axios instance
+import api from '../../api/axiosInstance'; 
 
 const Area_Dash = () => {
   const navigate = useNavigate();

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const ManpowerRequest = require('../models/ManpowerRequest'); 
+const Manpower = require('../models/Manpower');
 const {
   createManpowerRequest,
   getAllManpowerRequests,
@@ -53,6 +54,18 @@ router.put('/:id/return', async (req, res) => {
     res.status(500).json({ error: 'Failed to set return date' });
   }
 });
+
+router.get('/inactive', verifyToken, async (req, res) => {
+  try {
+    const manpowers = await Manpower.find({ status: 'Inactive' }).select('name position status');
+    console.log('✅ Found inactive manpowers:', manpowers);
+    res.json(manpowers);
+  } catch (err) {
+    console.error('❌ Error fetching inactive manpower:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 
 // Fetch a specific request (should be protected!)
 router.get('/:id', verifyToken, getSingleManpowerRequest);

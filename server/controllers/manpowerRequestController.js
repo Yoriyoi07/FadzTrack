@@ -1,7 +1,7 @@
 const ManpowerRequest = require('../models/ManpowerRequest');
 const Project = require('../models/Project'); 
 const { logAction } = require('../utils/auditLogger');
-
+const Manpower = require('../models/Manpower');
 // CREATE Manpower Request
 const createManpowerRequest = async (req, res) => {
   try {
@@ -205,18 +205,33 @@ const deleteManpowerRequest = async (req, res) => {
   }
 };
 
-// Approve Manpower Request
 const approveManpowerRequest = async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = {
+    const { manpowerProvided, area, project } = req.body;
+
+    // Validate manpower IDs array
+    if (!Array.isArray(manpowerProvided) || manpowerProvided.length === 0) {
+      return res.status(400).json({ message: "No manpower selected." });
+    }
+
+    // Update manpower status to active and assign to project
+    await Promise.all(manpowerProvided.map(async (manpowerId) => {
+      await Manpower.findByIdAndUpdate(manpowerId, {
+        status: 'Active',
+        assignedProject: project
+      });
+    }));
+
+    // Update manpower request
+    const updated = await ManpowerRequest.findByIdAndUpdate(id, {
       status: "Approved",
-      approvedBy: req.user?.name || req.body.approvedBy || "Unknown",
-      area: req.body.area,
-      project: req.body.project,
-      manpowerProvided: req.body.manpowerProvided
-    };
-    const updated = await ManpowerRequest.findByIdAndUpdate(id, updates, { new: true });
+      approvedBy: req.user?.name || 'Unknown',
+      manpowerProvided,
+      area,
+      project
+    }, { new: true });
+
     if (!updated) return res.status(404).json({ message: "Request not found" });
 
     await logAction({
@@ -227,25 +242,13 @@ const approveManpowerRequest = async (req, res) => {
       meta: { requestId: updated._id }
     });
 
-    // CEO-only audit log
-    if (req.user.role === 'CEO') {
-      await logAction({
-        action: 'CEO_APPROVED_MANPOWER_REQUEST',
-        performedBy: req.user.id,
-        performedByRole: req.user.role,
-        description: `CEO approved manpower request for project ${updated.project}`,
-        meta: { requestId: updated._id }
-      });
-    }
-
-    res.status(200).json({ message: "Request approved", data: updated });
+    res.status(200).json({ message: "✅ Request approved", data: updated });
   } catch (error) {
-    console.error("Error approving request:", error);
+    console.error("❌ Error approving request:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// --- The rest remains unchanged (No CEO log needed for simple reads) ---
 
 const getSingleManpowerRequest = async (req, res) => {
   try {

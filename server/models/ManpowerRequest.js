@@ -13,7 +13,8 @@ const manpowerRequestSchema = new mongoose.Schema({
   status: { type: String, default: 'Pending' },
   approvedBy: { type: String, default: '' }, 
   received: { type: Boolean, default: false },
-  returnDate: { type: Date }
+  returnDate: { type: Date },
+  manpowerProvided: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Manpower' }],
 }, { timestamps: true });
 
 module.exports = mongoose.model('ManpowerRequest', manpowerRequestSchema);

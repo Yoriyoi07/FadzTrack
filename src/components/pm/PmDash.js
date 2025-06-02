@@ -181,27 +181,6 @@ const PmDash = () => {
 
       {/* Main Content */}
       <div className="dashboard-layout">
-        <div className="sidebar">
-          <h2>Dashboard</h2>
-          <button className="add-project-btn" onClick={() => navigate('/ceo/addproj')}>
-            Add New Project
-          </button>
-          <div className="project-list">
-            {sidebarProjects.map(project => (
-              <div key={project.id} className="project-item">
-                <div className="project-icon">
-                  <span className="icon">🏗️</span>
-                  <div className="icon-bg"></div>
-                </div>
-                <div className="project-info">
-                  <div className="project-name">{project.name}</div>
-                  <div className="project-engineer">{project.engineer}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         <div className="main1">
           <div className="greeting-section">
             <h1>Good Morning, {userName}!</h1>

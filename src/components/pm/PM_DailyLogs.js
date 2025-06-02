@@ -6,6 +6,7 @@ import '../style/pm_style/Pm_DailyLogs.css';
 const PM_DailyLogs = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [projects, setProjects] = useState([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   // Get logged-in user info from localStorage
@@ -168,21 +169,17 @@ const PM_DailyLogs = () => {
     }
   };
 
-  // Profile menu logic
+  // Profile menu close on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
         setProfileMenuOpen(false);
       }
     };
-
     document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
-  // Logout
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -203,43 +200,29 @@ const PM_DailyLogs = () => {
       {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
-          <div className="logo">
-            <div className="logo-building"></div>
-            <div className="logo-flag"></div>
-          </div>
+          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/pm/dash" className="nav-link">Dashboard</Link>
-          <Link to="/requests" className="nav-link">Requests</Link>
-          <Link to="/pm/proj" className="nav-link">Projects</Link>
+          <Link to="/pm" className="nav-link">Dashboard</Link>
+          <Link to="/pm/request/:id" className="nav-link">Material</Link>
+          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
+          {projects.length > 0 && (
+            <Link to={`/pm/viewprojects/${projects[0]._id || projects[0].id}`} className="nav-link">View Project</Link>
+          )}
           <Link to="/chat" className="nav-link">Chat</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/pm/daily-logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="search-profile">
-          <div className="search-container">
-            <input type="text" placeholder="Search in site" className="search-input" />
-            <button className="search-button">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </button>
+        <div className="profile-menu-container">
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            Z
           </div>
-          <div className="profile-menu-container">
-            <div
-              className="profile-circle"
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              {user?.name?.charAt(0).toUpperCase() || 'U'}
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </header>
 

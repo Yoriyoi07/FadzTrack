@@ -235,7 +235,7 @@ const Area_Addproj = () => {
   );
 
   return (
-    <div className="app-container">
+    <div>
       {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">

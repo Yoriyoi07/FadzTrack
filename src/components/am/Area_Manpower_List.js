@@ -31,7 +31,7 @@ export default function Area_Manpower_List() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".am-manpower-profile-menu-container")) {
+      if (!event.target.closest(".profile-menu-container")) {
         setProfileMenuOpen(false);
       }
     };
@@ -61,28 +61,34 @@ export default function Area_Manpower_List() {
 
   return (
     <div>
-      <header className="am-manpower-header">
-        <div className="am-manpower-logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="am-manpower-logo-img" />
-          <h1 className="am-manpower-brand-name">FadzTrack</h1>
+      {/* Header with Navigation */}
+      <header className="header">
+        <div className="logo-container">
+          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
+          <h1 className="brand-name">FadzTrack</h1>
         </div>
-        <nav className="am-manpower-nav-menu">
-          <Link to="/am" className="am-manpower-nav-link">Dashboard</Link>
-          <Link to="/am/matreq" className="am-manpower-nav-link">Material</Link>
-          <Link to="/am/manpower-requests" className="am-manpower-nav-link">Manpower</Link>
-          <Link to="/am/addproj" className="am-manpower-nav-link">Projects</Link>
-          <Link to="/chat" className="am-manpower-nav-link">Chat</Link>
-          <Link to="/logs" className="am-manpower-nav-link">Logs</Link>
-          <Link to="/reports" className="am-manpower-nav-link">Reports</Link>
+        <nav className="nav-menu">
+          <Link to="/am" className="nav-link">Dashboard</Link>
+          <Link to="/am/matreq" className="nav-link">Material</Link>
+          <Link to="/am/manpower-requests" className="nav-link">Manpower</Link>
+          <Link to="/am/addproj" className="nav-link">Projects</Link>
+          <Link to="/chat" className="nav-link">Chat</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="am-manpower-profile-menu-container">
-          <div className="am-manpower-profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
-          {profileMenuOpen && (
-            <div className="am-manpower-profile-menu">
-              <button onClick={handleLogout}>Logout</button>
+          <div className="profile-menu-container">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
             </div>
-          )}
-        </div>
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
       </header>
 
       <main className="am-manpower-main-content">
