@@ -33,37 +33,33 @@ const Pm_Project = () => {
     fetchProject();
   }, [id]);
 
-  // List of all projects this PM manages
   useEffect(() => {
     if (!token || !user) return;
     const fetchProjects = async () => {
       try {
-        const res = await api.get('/projects');
-        const data = res.data;
-        // Filter for projects where this user is the Project Manager
-        const filtered = data.filter(
-          (p) => p.projectManager && (
-            (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
-            p.projectManager === userId // in case it's just an ID string
-          )
+        const { data } = await api.get('/projects');
+        const filtered = data.filter(p =>
+          (typeof p.projectmanager === 'object' &&
+            (p.projectmanager._id === userId || p.projectmanager.id === userId)) ||
+          p.projectManager === userId
         );
         setProjects(filtered);
       } catch (err) {
-        console.error('Failed to fetch projects:', err);
+        setProjects([]);
       }
     };
     fetchProjects();
   }, [token, user, userId]);
 
-  // Assigned project (if needed)
+  // Fetch assigned project
   useEffect(() => {
     if (!token || !userId) return;
     const fetchAssigned = async () => {
       try {
-        const res = await api.get(`/projects/assigned/${userId}`);
-        setProject(res.data[0] || null);
+        const { data } = await api.get(`/projects/assigned/${userId}`);
+        console.log('Assigned project data:', data);
+        setProject(data[0] || null);
       } catch (err) {
-        console.error('Failed to fetch assigned project:', err);
         setProject(null);
       }
     };
@@ -156,7 +152,7 @@ const handleSubmitTasks = async () => {
   if (!project) return <div>Loading...</div>;
 
   return (
-    <div className="app-container">
+    <div>
       {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
@@ -168,7 +164,8 @@ const handleSubmitTasks = async () => {
           <Link to="/pm/request/:id" className="nav-link">Material</Link>
           <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
           {projects.length > 0 && (
-            <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>)}
+            <Link to={`/pm/viewprojects/${projects[0]._id || projects[0].id}`} className="nav-link">View Project</Link>
+          )}
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>

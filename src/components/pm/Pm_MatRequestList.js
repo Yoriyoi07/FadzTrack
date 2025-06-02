@@ -6,6 +6,7 @@ import '../style/pm_style/Pm_ViewRequest.css';
 const Pm_MatRequestList = () => {
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const token = localStorage.getItem('token');
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
@@ -78,39 +79,37 @@ const Pm_MatRequestList = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!token || !user) return;
     const fetchProjects = async () => {
       try {
-        const res = await api.get('/projects');
-        const data = res.data;
-        const filtered = data.filter(
-          (p) => p.projectManager && (
-            (typeof p.projectManager === 'object' && (p.projectManager._id === userId || p.projectManager.id === userId)) ||
-            p.projectManager === userId
-          )
+        const { data } = await api.get('/projects');
+        const filtered = data.filter(p =>
+          (typeof p.projectmanager === 'object' &&
+            (p.projectmanager._id === userId || p.projectmanager.id === userId)) ||
+          p.projectManager === userId
         );
         setProjects(filtered);
       } catch (err) {
-        console.error('Failed to fetch projects:', err);
+        setProjects([]);
       }
     };
     fetchProjects();
-  }, [user, userId]);
+  }, [token, user, userId]);
 
+  // Fetch assigned project
   useEffect(() => {
-    if (!userId) return;
+    if (!token || !userId) return;
     const fetchAssigned = async () => {
       try {
-        const res = await api.get(`/projects/assigned/${userId}`);
-        const data = res.data;
+        const { data } = await api.get(`/projects/assigned/${userId}`);
+        console.log('Assigned project data:', data);
         setProject(data[0] || null);
       } catch (err) {
-        console.error('Failed to fetch assigned project:', err);
         setProject(null);
       }
     };
     fetchAssigned();
-  }, [userId]);
+  }, [token, userId]);
 
   const getIconForType = (request) => {
     if (!request.materials || request.materials.length === 0) return '📄';
@@ -123,7 +122,8 @@ const Pm_MatRequestList = () => {
   };
 
   return (
-    <div className="app-container">
+    <div>
+      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -134,14 +134,19 @@ const Pm_MatRequestList = () => {
           <Link to="/pm/request/:id" className="nav-link">Material</Link>
           <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
           {projects.length > 0 && (
-            <Link to={`/pm/viewprojects/${projects[0].id || projects[0]._id}`} className="nav-link">View Project</Link>
+            <Link to={`/pm/viewprojects/${projects[0]._id || projects[0].id}`} className="nav-link">View Project</Link>
           )}
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          <div 
+            className="profile-circle" 
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            Z
+          </div>
           {profileMenuOpen && (
             <div className="profile-menu">
               <button onClick={handleLogout}>Logout</button>
