@@ -27,6 +27,41 @@ exports.getProjectDailyReports = async (req, res) => {
   }
 };
 
+// Get project progress data
+// dailyReportController.js
+exports.getProjectProgress = async (req, res) => {
+  try {
+    const projectId = req.params.projectId;
+    const latestReport = await DailyReport.findOne({ project: projectId })
+      .sort({ date: -1 })
+      .populate('project', 'name');
+
+    if (!latestReport) {
+      return res.json({
+        name: 'No Progress Data',
+        progress: [
+          { name: 'No Data', value: 100, color: '#CCCCCC' }
+        ]
+      });
+    }
+
+    const progressData = latestReport.calculateProgress?.();
+    if (!progressData) {
+      return res.json({
+        name: 'No Tasks',
+        progress: [
+          { name: 'No Tasks', value: 100, color: '#CCCCCC' }
+        ]
+      });
+    }
+
+    res.json(progressData);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
 // Get manpower list for project
 exports.getProjectManpower = async (req, res) => {
   try {
@@ -76,7 +111,6 @@ exports.getApprovedMaterialDeliveries = async (req, res) => {
 };
 
 // Get project tasks
-
 exports.getProjectTasks = async (req, res) => {
   try {
     const project = await Project.findById(req.params.projectId);

@@ -10,7 +10,7 @@ const Pic_MatReq = () => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
-  const [materials, setMaterials] = useState([{ id: 1, materialName: '', quantity: '' }]);
+  const [materials, setMaterials] = useState([{ id: 1, materialName: '', quantity: '', unit: '' }]);
   const [formData, setFormData] = useState({ description: '' });
   const token = localStorage.getItem('token');
   const storedUser = localStorage.getItem('user');
@@ -60,7 +60,7 @@ const Pic_MatReq = () => {
 
   const addMaterial = () => {
     const newId = materials.length ? Math.max(...materials.map(m => m.id)) + 1 : 1;
-    setMaterials(prev => [...prev, { id: newId, materialName: '', quantity: '' }]);
+    setMaterials(prev => [...prev, { id: newId, materialName: '', quantity: '', unit: '' }]);
   };
 
   const removeMaterial = (id) => {
@@ -107,9 +107,9 @@ const Pic_MatReq = () => {
       navigate('/');
       return;
     }
-    const validMaterials = materials.filter(m => m.materialName.trim() && m.quantity.trim());
+    const validMaterials = materials.filter(m => m.materialName.trim() && m.quantity.trim() && m.unit.trim());
     if (validMaterials.length === 0) {
-      alert('Please add at least one material with quantity');
+      alert('Please add at least one material with quantity and unit');
       return;
     }
     const data = new FormData();
@@ -131,7 +131,7 @@ const Pic_MatReq = () => {
       }
       alert('✅ Material request submitted successfully!');
       setFormData({ description: '' });
-      setMaterials([{ id: 1, materialName: '', quantity: '' }]);
+      setMaterials([{ id: 1, materialName: '', quantity: '', unit: '' }]);
       setUploadedFiles([]);
       setPreviewImages([]);
     } catch (err) {
@@ -187,6 +187,7 @@ const Pic_MatReq = () => {
                 <div className="material-headers-picmatreq">
                   <span className="material-header-label-picmatreq">Material Name</span>
                   <span className="quantity-header-label-picmatreq">Quantity</span>
+                  <span className="unit-header-label-picmatreq">Unit</span>
                   <span className="action-header-label-picmatreq"></span>
                 </div>
                 {materials.map((material) => (
@@ -218,6 +219,31 @@ const Pic_MatReq = () => {
                         }
                       }}
                     />
+                    <select
+                      value={material.unit}
+                      onChange={(e) => handleMaterialChange(material.id, 'unit', e.target.value)}
+                      className="unit-select-picmatreq"
+                      required
+                    >
+                      <option value="">Select Unit</option>
+                      <option value="kg">Kilograms (kg)</option>
+                      <option value="g">Grams (g)</option>
+                      <option value="ton">Metric Tons (ton)</option>
+                      <option value="bag">Bags</option>
+                      <option value="piece">Pieces</option>
+                      <option value="box">Boxes</option>
+                      <option value="roll">Rolls</option>
+                      <option value="sheet">Sheets</option>
+                      <option value="m">Meters (m)</option>
+                      <option value="cm">Centimeters (cm)</option>
+                      <option value="m2">Square Meters (m²)</option>
+                      <option value="m3">Cubic Meters (m³)</option>
+                      <option value="l">Liters (L)</option>
+                      <option value="truck">Truck Loads</option>
+                      <option value="set">Sets</option>
+                      <option value="pair">Pairs</option>
+                      <option value="bundle">Bundles</option>
+                    </select>
                     <button
                       type="button"
                       onClick={() => removeMaterial(material.id)}

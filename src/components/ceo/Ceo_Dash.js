@@ -9,39 +9,8 @@ const Ceo_Dash = () => {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-
-  const [projects, setProjects] = useState([
-    {
-      id: 1,
-      name: 'Twin Lakes Project',
-      engineer: 'Engr. Shaquille',
-      progress: [
-        { name: 'Incomplete', value: 60, color: '#FF6B6B' },
-        { name: 'Complete', value: 20, color: '#4CAF50' },
-        { name: 'On Going', value: 20, color: '#5E4FDB' }
-      ]
-    },
-    {
-      id: 2,
-      name: 'Calatagan Townhomes',
-      engineer: 'Engr. Rychea Miralles',
-      progress: [
-        { name: 'Incomplete', value: 55, color: '#FF6B6B' },
-        { name: 'Complete', value: 15, color: '#4CAF50' },
-        { name: 'On Going', value: 30, color: '#5E4FDB' }
-      ]
-    },
-    {
-      id: 3,
-      name: 'BGC Hotel',
-      engineer: 'Engr.',
-      progress: [
-        { name: 'Incomplete', value: 50, color: '#FF6B6B' },
-        { name: 'Complete', value: 20, color: '#4CAF50' },
-        { name: 'On Going', value: 30, color: '#5E4FDB' }
-      ]
-    }
-  ]);
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   const [sidebarProjects, setSidebarProjects] = useState([
     { id: 1, name: 'Batangas', engineer: 'Engr. Daryll Miralles' },
@@ -100,59 +69,113 @@ const Ceo_Dash = () => {
   ]);
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user) {
-      setUserName(user.name || 'User');
-      setUserRole(user.role || 'N/A');
-    }
+    const fetchUserData = async () => {
+      try {
+        const stored = localStorage.getItem('user');
+        const user = stored ? JSON.parse(stored) : null;
+        if (user) {
+          setUserName(user.name);
+          setUserRole(user.role);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+
+    const fetchProjects = async () => {
+      try {
+        const { data: projectsData } = await api.get('/projects');
+        // Fetch progress and latest update for each project
+        const projectsWithProgress = await Promise.all(
+          projectsData.map(async (project) => {
+            try {
+              const { data: progressData } = await api.get(`/daily-reports/project/${project._id}/progress`);
+              // Fetch latest daily report for sorting
+              const { data: reports } = await api.get(`/daily-reports/project/${project._id}`);
+              let latestDate = null;
+              if (Array.isArray(reports) && reports.length > 0) {
+                latestDate = reports[reports.length - 1].date || null;
+              }
+              return {
+                id: project._id,
+                name: project.projectName,
+                engineer: project.projectmanager?.name || 'Not Assigned',
+                progress: progressData.progress,
+                latestDate
+              };
+            } catch (error) {
+              return null; // skip if error
+            }
+          })
+        );
+        // Filter out projects with no progress or no daily log
+        const filtered = projectsWithProgress.filter(
+          p => p && p.progress && Array.isArray(p.progress) && p.progress[0].name !== 'No Data' && p.latestDate
+        );
+        // Sort by latest update (descending)
+        filtered.sort((a, b) => new Date(b.latestDate) - new Date(a.latestDate));
+        setProjects(filtered);
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+    fetchProjects();
   }, []);
 
   useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (!event.target.closest(".profile-menu-container")) {
-          setProfileMenuOpen(false);
-        }
-      };
-      
-      document.addEventListener("click", handleClickOutside);
-      
-      return () => {
-        document.removeEventListener("click", handleClickOutside);
-      };
-    }, []);
-  
-    const handleLogout = async () => {
-  try {
-    await api.post('/auth/logout');
-  } catch (e) {
-  }
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-  navigate('/');
-};
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener("click", handleClickOutside);
+    
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   useEffect(() => {
-  const fetchLogs = async () => {
-    try {
-      const { data } = await api.get("/audit-logs");
-      const sliced = data.slice(0, 3).map((log, i) => ({
-        id: i,
-        user: {
-          name: log.performedBy?.name || "Unknown",
-          initial: (log.performedBy?.name || "U")[0]
-        },
-        date: new Date(log.timestamp).toLocaleString(),
-        activity: `${log.action} - ${log.description}`,
-        details: log.meta ? Object.entries(log.meta).map(([key, val]) => `${key}: ${val}`) : []
-      }));
-      setActivities(sliced);
-    } catch (err) {
-      console.error("Failed to fetch logs", err);
-    }
-  };
-  fetchLogs();
-}, []);
+    const fetchLogs = async () => {
+      try {
+        const { data } = await api.get("/audit-logs");
+        const sliced = data.slice(0, 3).map((log, i) => ({
+          id: i,
+          user: {
+            name: log.performedBy?.name || "Unknown",
+            initial: (log.performedBy?.name || "U")[0]
+          },
+          date: new Date(log.timestamp).toLocaleString(),
+          activity: `${log.action} - ${log.description}`,
+          details: log.meta ? Object.entries(log.meta).map(([key, val]) => `${key}: ${val}`) : []
+        }));
+        setActivities(sliced);
+      } catch (err) {
+        console.error("Failed to fetch logs", err);
+      }
+    };
+    fetchLogs();
+  }, []);
 
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading dashboard data...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="head">
@@ -207,38 +230,56 @@ const Ceo_Dash = () => {
               <h2>Progress Tracking</h2>
               <div className="latest-projects-progress">
                 <h3>Latest Projects Progress</h3>
-                <div className="project-charts">
-                  {projects.map(project => (
-                    <div key={project.id} className="project-chart-container">
-                      <h4>{project.name}</h4>
-                      <div className="pie-chart-wrapper">
-                        <PieChart width={160} height={160}>
-                          <Pie
-                            data={project.progress}
-                            cx={80}
-                            cy={80}
-                            innerRadius={0}
-                            outerRadius={65}
-                            paddingAngle={0}
-                            dataKey="value"
-                          >
-                            {project.progress.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                        </PieChart>
+                {projects.length === 0 ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
+                    No updated projects with progress data yet.
+                  </div>
+                ) : (
+                  <div className="project-charts scroll-x">
+                    {projects.map(project => (
+                      <div key={project.id} className="project-chart-container">
+                        <h4>{project.name}</h4>
+                        <div className="pie-chart-wrapper">
+                          <PieChart width={160} height={160}>
+                            <Pie
+                              data={project.progress}
+                              cx={80}
+                              cy={80}
+                              innerRadius={0}
+                              outerRadius={65}
+                              paddingAngle={0}
+                              dataKey="value"
+                            >
+                              {project.progress.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </div>
+                        <div className="chart-legend">
+                          {["Completed", "In Progress", "Not Started"].map((status, index) => {
+                            const item = project.progress.find(p => p.name === status);
+                            // Always show all statuses, even if value is 0
+                            const color = item ? item.color : (status === 'Completed' ? '#4CAF50' : status === 'In Progress' ? '#5E4FDB' : '#FF6B6B');
+                            const value = item ? item.value : 0;
+                            return (
+                              <div key={status} className="legend-item">
+                                <span className="color-box" style={{ backgroundColor: color }}></span>
+                                <span className="legend-text">{status}</span>
+                                <span style={{ marginLeft: 6, color: '#555', fontWeight: 500 }}>
+                                  {value.toFixed(1)}%
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#888', marginTop: 4 }}>
+                          Last updated: {project.latestDate ? new Date(project.latestDate).toLocaleString() : 'N/A'}
+                        </div>
                       </div>
-                      <div className="chart-legend">
-                        {project.progress.map((item, index) => (
-                          <div key={index} className="legend-item">
-                            <span className="color-box" style={{ backgroundColor: item.color }}></span>
-                            <span className="legend-text">{item.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -3,7 +3,8 @@ const AutoIncrement = require('mongoose-sequence')(mongoose);
 
 const MaterialSchema = new mongoose.Schema({
   materialName: { type: String, required: true },
-  quantity: { type: String, required: true }
+  quantity: { type: String, required: true },
+  unit: { type: String, required: true },
 });
 
 const materialRequestSchema = new mongoose.Schema({

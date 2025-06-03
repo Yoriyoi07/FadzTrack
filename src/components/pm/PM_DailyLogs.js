@@ -73,6 +73,23 @@ const PM_DailyLogs = () => {
     }
   }, [userId]);
 
+  // Ensure workPerformed always matches projectTasks
+  useEffect(() => {
+    if (projectTasks.length > 0) {
+      setFormData(prev => {
+        // Map each project task to a workPerformed entry
+        const newWorkPerformed = projectTasks.map((task, i) => {
+          const taskName = typeof task === 'string' ? task : task.name;
+          // Try to find existing entry
+          const existing = prev.workPerformed.find(wp => wp.task === taskName);
+          return existing || { task: taskName, status: '', remarks: '' };
+        });
+        return { ...prev, workPerformed: newWorkPerformed };
+      });
+    }
+    // eslint-disable-next-line
+  }, [projectTasks]);
+
   // Handle form field changes
   const handleFieldChange = (field, value) => {
     setFormData(prev => ({
@@ -123,22 +140,6 @@ const PM_DailyLogs = () => {
       work[index][field] = value;
       return { ...prev, workPerformed: work };
     });
-  };
-
-  // Add new work performed entry
-  const addWorkPerformed = () => {
-    setFormData(prev => ({
-      ...prev,
-      workPerformed: [...prev.workPerformed, { task: '', status: '', remarks: '' }]
-    }));
-  };
-
-  // Remove work performed entry
-  const removeWorkPerformed = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      workPerformed: prev.workPerformed.filter((_, i) => i !== index)
-    }));
   };
 
   // Handle form submission
@@ -278,51 +279,62 @@ const PM_DailyLogs = () => {
 
           <div className="log-section">
             <h2 className="section-title">Work Performed Today</h2>
-            {formData.workPerformed.map((work, index) => (
-              <div key={index} className="work-entry">
-                <select
-                  className="form-input"
-                  value={work.task}
-                  onChange={(e) => handleWorkPerformedChange(index, 'task', e.target.value)}
-                >
-                  <option value="">Select Task</option>
-                  {projectTasks.map((task, i) =>
-                    typeof task === 'string'
-                      ? <option key={i} value={task}>{task}</option>
-                      : <option key={i} value={task.name}>{task.name}</option>
-                  )}
-                </select>
-                <select
-                  className="form-input"
-                  value={work.status}
-                  onChange={(e) => handleWorkPerformedChange(index, 'status', e.target.value)}
-                >
-                  <option value="">Select Status</option>
-                  <option value="Completed">Completed</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Not Started">Not Started</option>
-                </select>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Remarks"
-                  value={work.remarks || ''}
-                  onChange={(e) => handleWorkPerformedChange(index, 'remarks', e.target.value)}
-                />
-                {formData.workPerformed.length > 1 && (
-                  <button
-                    type="button"
-                    className="remove-btn"
-                    onClick={() => removeWorkPerformed(index)}
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            ))}
-            <button type="button" className="add-btn" onClick={addWorkPerformed}>
-              Add Work Entry
-            </button>
+            <div style={{ overflowX: 'auto' }}>
+              <table className="work-table">
+                <thead>
+                  <tr>
+                    <th>Task</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formData.workPerformed.map((work, index) => (
+                    <tr key={work.task}>
+                      <td>{work.task}</td>
+                      <td>
+                        <label style={{ marginRight: 10 }}>
+                          <input
+                            type="radio"
+                            name={`status-${index}`}
+                            value="In Progress"
+                            checked={work.status === 'In Progress'}
+                            onChange={() => handleWorkPerformedChange(index, 'status', 'In Progress')}
+                          /> In Progress
+                        </label>
+                        <label style={{ marginRight: 10 }}>
+                          <input
+                            type="radio"
+                            name={`status-${index}`}
+                            value="Completed"
+                            checked={work.status === 'Completed'}
+                            onChange={() => handleWorkPerformedChange(index, 'status', 'Completed')}
+                          /> Completed
+                        </label>
+                        <label>
+                          <input
+                            type="radio"
+                            name={`status-${index}`}
+                            value="Not Started"
+                            checked={work.status === 'Not Started'}
+                            onChange={() => handleWorkPerformedChange(index, 'status', 'Not Started')}
+                          /> Not Started
+                        </label>
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder="Remarks"
+                          value={work.remarks || ''}
+                          onChange={e => handleWorkPerformedChange(index, 'remarks', e.target.value)}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="log-section">

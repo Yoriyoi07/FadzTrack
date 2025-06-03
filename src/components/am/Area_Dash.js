@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell } from 'recharts';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
-import api from '../../api/axiosInstance'; 
+import api from '../../api/axiosInstance';
 
 const Area_Dash = () => {
   const navigate = useNavigate();
   const [userName, setUserName] = useState('');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [materialRequests, setMaterialRequests] = useState([]);
-  const [loadingRequests, setLoadingRequests] = useState(true);
   const [requestsError, setRequestsError] = useState(null);
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
@@ -21,7 +22,54 @@ const Area_Dash = () => {
       return;
     }
     setUserName(user.name);
-  }, [navigate, user]);
+
+    const fetchProjects = async () => {
+      try {
+        // Get projects where the user is the area manager
+        const { data: projectsData } = await api.get('/projects');
+        const userProjects = projectsData.filter(project => 
+          project.areamanager && project.areamanager._id === userId
+        );
+
+        // Fetch progress and latest update for each project
+        const projectsWithProgress = await Promise.all(
+          userProjects.map(async (project) => {
+            try {
+              const { data: progressData } = await api.get(`/daily-reports/project/${project._id}/progress`);
+              // Fetch latest daily report for sorting
+              const { data: reports } = await api.get(`/daily-reports/project/${project._id}`);
+              let latestDate = null;
+              if (Array.isArray(reports) && reports.length > 0) {
+                latestDate = reports[reports.length - 1].date || null;
+              }
+              return {
+                id: project._id,
+                name: project.projectName,
+                engineer: project.projectmanager?.name || 'Not Assigned',
+                progress: progressData.progress,
+                latestDate
+              };
+            } catch (error) {
+              return null; // skip if error
+            }
+          })
+        );
+        // Filter out projects with no progress or no daily log
+        const filtered = projectsWithProgress.filter(
+          p => p && p.progress && Array.isArray(p.progress) && p.progress[0].name !== 'No Data' && p.latestDate
+        );
+        // Sort by latest update (descending)
+        filtered.sort((a, b) => new Date(b.latestDate) - new Date(a.latestDate));
+        setProjects(filtered);
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjects();
+  }, [navigate, user, userId]);
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -36,43 +84,9 @@ const Area_Dash = () => {
           setRequestsError('Error loading material requests');
         }
       }
-      setLoadingRequests(false);
     };
     fetchRequests();
   }, []);
-
-  const [projects] = useState([
-    {
-      id: 1,
-      name: 'Twin Lakes Project',
-      engineer: 'Engr. Shaquille',
-      progress: [
-        { name: 'Incomplete', value: 60, color: '#FF6B6B' },
-        { name: 'Complete', value: 20, color: '#4CAF50' },
-        { name: 'On Going', value: 20, color: '#5E4FDB' }
-      ]
-    },
-    {
-      id: 2,
-      name: 'Calatagan Townhomes',
-      engineer: 'Engr. Rychea Miralles',
-      progress: [
-        { name: 'Incomplete', value: 55, color: '#FF6B6B' },
-        { name: 'Complete', value: 15, color: '#4CAF50' },
-        { name: 'On Going', value: 30, color: '#5E4FDB' }
-      ]
-    },
-    {
-      id: 3,
-      name: 'BGC Hotel',
-      engineer: 'Engr.',
-      progress: [
-        { name: 'Incomplete', value: 50, color: '#FF6B6B' },
-        { name: 'Complete', value: 20, color: '#4CAF50' },
-        { name: 'On Going', value: 30, color: '#5E4FDB' }
-      ]
-    }
-  ]);
 
   const [sidebarProjects] = useState([
     { id: 1, name: 'Batangas', engineer: 'Engr. Daryll Miralles' },
@@ -146,13 +160,6 @@ const Area_Dash = () => {
   ]);
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user) {
-      setUserName(user.name || 'User');
-    }
-  }, []);
-
-  useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
         setProfileMenuOpen(false);
@@ -170,6 +177,15 @@ const Area_Dash = () => {
     navigate('/');
   };
 
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading dashboard data...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="head">
       {/* Header with Navigation */}
@@ -182,7 +198,7 @@ const Area_Dash = () => {
           <Link to="/am" className="nav-link">Dashboard</Link>
           <Link to="/am/matreq" className="nav-link">Material</Link>
           <Link to="/am/manpower-requests" className="nav-link">Manpower</Link>
-          <Link to="/am/addproj" className="nav-link">Projects</Link>
+          <Link to="/am/viewproj" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
@@ -237,38 +253,56 @@ const Area_Dash = () => {
               <h2>Progress Tracking</h2>
               <div className="latest-projects-progress">
                 <h3>Latest Projects Progress</h3>
-                <div className="project-charts">
-                  {projects.map(project => (
-                    <div key={project.id} className="project-chart-container">
-                      <h4>{project.name}</h4>
-                      <div className="pie-chart-wrapper">
-                        <PieChart width={160} height={160}>
-                          <Pie
-                            data={project.progress}
-                            cx={80}
-                            cy={80}
-                            innerRadius={0}
-                            outerRadius={65}
-                            paddingAngle={0}
-                            dataKey="value"
-                          >
-                            {project.progress.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                        </PieChart>
+                {projects.length === 0 ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
+                    No updated projects with progress data yet.
+                  </div>
+                ) : (
+                  <div className="project-charts scroll-x">
+                    {projects.map(project => (
+                      <div key={project.id} className="project-chart-container">
+                        <h4>{project.name}</h4>
+                        <div className="pie-chart-wrapper">
+                          <PieChart width={160} height={160}>
+                            <Pie
+                              data={project.progress}
+                              cx={80}
+                              cy={80}
+                              innerRadius={0}
+                              outerRadius={65}
+                              paddingAngle={0}
+                              dataKey="value"
+                            >
+                              {project.progress.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </div>
+                        <div className="chart-legend">
+                          {["Completed", "In Progress", "Not Started"].map((status, index) => {
+                            const item = project.progress.find(p => p.name === status);
+                            // Always show all statuses, even if value is 0
+                            const color = item ? item.color : (status === 'Completed' ? '#4CAF50' : status === 'In Progress' ? '#5E4FDB' : '#FF6B6B');
+                            const value = item ? item.value : 0;
+                            return (
+                              <div key={status} className="legend-item">
+                                <span className="color-box" style={{ backgroundColor: color }}></span>
+                                <span className="legend-text">{status}</span>
+                                <span style={{ marginLeft: 6, color: '#555', fontWeight: 500 }}>
+                                  {value.toFixed(1)}%
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#888', marginTop: 4 }}>
+                          Last updated: {project.latestDate ? new Date(project.latestDate).toLocaleString() : 'N/A'}
+                        </div>
                       </div>
-                      <div className="chart-legend">
-                        {project.progress.map((item, index) => (
-                          <div key={index} className="legend-item">
-                            <span className="color-box" style={{ backgroundColor: item.color }}></span>
-                            <span className="legend-text">{item.name}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

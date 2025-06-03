@@ -10,10 +10,10 @@ const { verifyToken } = require('../middleware/authMiddleware');
 router.get('/project/:projectId/manpower', verifyToken, dailyReportController.getProjectManpower);
 router.get('/project/:projectId/material-deliveries', verifyToken, dailyReportController.getApprovedMaterialDeliveries);
 router.get('/project/:projectId/tasks', verifyToken, dailyReportController.getProjectTasks);
+router.get('/project/:projectId/progress', verifyToken, dailyReportController.getProjectProgress);
 // Generic route last
 router.get('/project/:projectId', verifyToken, dailyReportController.getProjectDailyReports);
 
 // Create a new daily report
 router.post('/', verifyToken, dailyReportController.createDailyReport);
-
 module.exports = router;
