@@ -17,7 +17,12 @@ const projectSchema = new mongoose.Schema({
       name: { type: String, required: true },
       percent: { type: Number, required: true }
     }
-  ]
+  ],
+  status: {
+    type: String,
+    enum: ['Ongoing', 'Completed'],
+    default: 'Ongoing'
+  }
 }, {
   timestamps: true
 });

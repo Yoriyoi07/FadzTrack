@@ -274,3 +274,35 @@ exports.updateProjectTasks = async (req, res) => {
   }
 };
 
+// TOGGLE PROJECT STATUS
+exports.toggleProjectStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const project = await Project.findById(id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    project.status = project.status === 'Ongoing' ? 'Completed' : 'Ongoing';
+    await project.save();
+    res.json({ status: project.status });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to toggle project status' });
+  }
+};
+
+// GET PROJECT WHERE USER IS PROJECT MANAGER
+exports.getAssignedProjectManager = async (req, res) => {
+  const userId = req.params.userId;
+  try {
+    const project = await Project.findOne({ projectmanager: userId })
+      .populate('projectmanager', 'name email')
+      .populate('pic', 'name email')
+      .populate('areamanager', 'name email');
+    if (!project) {
+      return res.status(404).json({ message: 'No project assigned as Project Manager' });
+    }
+    res.json(project);
+  } catch (error) {
+    console.error('Error fetching project:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};

@@ -190,32 +190,32 @@ body {
 
 /* Left Sidebar Styles */
 .sidebar {
-  width: 200px;
+  width: 280px;
   background-color: white;
-  padding: 20px;
+  padding: 15px;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
   border-right: 1px solid #eaeaea;
   overflow-y: auto;
 }
 
 .sidebar h2 {
-  margin-bottom: 20px;
+  margin-bottom: 15px;
   color: #333;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
 }
 
 .add-project-btn {
   width: 100%;
-  padding: 10px;
+  padding: 8px;
   background-color: #4a6aa5;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-weight: 500;
-  margin-bottom: 25px;
-  font-size: 14px;
+  margin-bottom: 15px;
+  font-size: 13px;
   transition: background-color 0.2s;
 }
 
@@ -232,52 +232,62 @@ body {
 .project-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  padding: 5px;
+  gap: 8px;
+  padding: 6px;
   border-radius: 4px;
+  text-decoration: none;
+  color: inherit;
   transition: background-color 0.2s;
+  background-color: #f8f9fa;
 }
 
 .project-item:hover {
-  background-color: #f5f5f5;
+  background-color: #f0f2f5;
 }
 
 .project-icon {
   position: relative;
+  flex-shrink: 0;
 }
 
 .icon {
-  font-size: 20px;
+  font-size: 16px;
   position: relative;
   z-index: 2;
 }
 
 .icon-bg {
   position: absolute;
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   background-color: #f0f0f0;
   border-radius: 50%;
-  top: -10px;
-  left: -10px;
+  top: -6px;
+  left: -6px;
   z-index: 1;
 }
 
 .project-info {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 .project-name {
-  font-weight: 600;
-  font-size: 15px;
+  font-weight: 500;
+  font-size: 12px;
+  color: #333;
+  margin-bottom: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .project-engineer {
-  font-size: 13px;
+  font-size: 11px;
   color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Main Content Styles */
@@ -613,4 +623,261 @@ body {
   .search-input {
     width: 300px;
   }
+}
+
+.greeting-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.greeting-left {
+  flex: 1;
+}
+
+.greeting-left h1 {
+  margin: 0 0 15px 0;
+}
+
+.total-projects {
+  background-color: #f5f5f5;
+  padding: 12px 20px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin: 0;
+  align-self: flex-start;
+}
+
+.total-projects-label {
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.total-projects-count {
+  background-color: #4A6AA5;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.right-sidebar .pending-requests-section {
+  margin: 0 0 20px 0;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.right-sidebar .pending-requests-section .section-header {
+  padding: 0 0 10px 0;
+}
+
+.right-sidebar .pending-requests-section h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.right-sidebar .pending-requests-list {
+  padding: 0;
+  gap: 8px;
+}
+
+.right-sidebar .pending-request-item {
+  padding: 8px 6px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  font-size: 13px;
+  min-height: unset;
+  margin-bottom: 0;
+}
+
+.right-sidebar .request-title {
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.right-sidebar .request-description {
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.right-sidebar .request-meta {
+  font-size: 11px;
+  gap: 8px;
+}
+
+.right-sidebar .request-status {
+  margin-left: 0;
+}
+
+.right-sidebar .status-badge.pending {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.right-sidebar .no-requests {
+  padding: 10px 0;
+  font-size: 13px;
+}
+
+.location-folders {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.location-folder {
+  background-color: white;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.location-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  cursor: pointer;
+  background-color: #f8f9fa;
+  transition: background-color 0.2s;
+  min-height: 36px;
+}
+
+.location-header:hover {
+  background-color: #f0f2f5;
+}
+
+.folder-icon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.folder-arrow {
+  font-size: 10px;
+  color: #666;
+  transition: transform 0.2s;
+  width: 12px;
+  text-align: center;
+}
+
+.folder-arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.folder-icon-img {
+  font-size: 16px;
+}
+
+.location-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.location-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.location-region {
+  font-size: 11px;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+
+.project-count {
+  background-color: #e8eaf6;
+  color: #4A6AA5;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.projects-list {
+  padding: 4px 8px;
+  background-color: white;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px;
+}
+
+.project-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 4px;
+  text-decoration: none;
+  color: inherit;
+  transition: background-color 0.2s;
+  background-color: #f8f9fa;
+}
+
+.project-item:hover {
+  background-color: #f0f2f5;
+}
+
+.project-icon {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.icon {
+  font-size: 16px;
+  position: relative;
+  z-index: 2;
+}
+
+.icon-bg {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  background-color: #f0f0f0;
+  border-radius: 50%;
+  top: -6px;
+  left: -6px;
+  z-index: 1;
+}
+
+.project-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.project-name {
+  font-weight: 500;
+  font-size: 12px;
+  color: #333;
+  margin-bottom: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-engineer {
+  font-size: 11px;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

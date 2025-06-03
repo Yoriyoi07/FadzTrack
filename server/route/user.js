@@ -3,6 +3,7 @@ const router = express.Router();
 const User = require('../models/User'); 
 const Project = require('../models/Project');
 const Location = require('../models/Location');
+const userController = require('../controllers/userController');
 
 // Fetch users by role
 router.get('/role/:role', async (req, res) => {
@@ -113,5 +114,6 @@ router.get('/pics-available', async (req, res) => {
   }
 });
 
+router.get('/eligible-pms', userController.getEligiblePMs);
 
 module.exports = router;

@@ -16,6 +16,7 @@ router.post('/', verifyToken, upload.array('photos', 1), controller.addProject);
 router.get('/', controller.getAllProjects);
 router.get('/:id', controller.getProjectById);
 router.patch('/:id/tasks', verifyToken, controller.updateProjectTasks);
+router.patch('/:id/toggle-status', controller.toggleProjectStatus);
 
 
 module.exports = router;

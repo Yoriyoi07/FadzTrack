@@ -9,9 +9,14 @@ const Area_Dash = () => {
   const [userName, setUserName] = useState('');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projects, setProjects] = useState([]);
+  const [allProjects, setAllProjects] = useState([]);
+  const [enrichedAllProjects, setEnrichedAllProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [materialRequests, setMaterialRequests] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [requestsError, setRequestsError] = useState(null);
+  const [assignedLocations, setAssignedLocations] = useState([]);
+  const [expandedLocations, setExpandedLocations] = useState({});
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
@@ -23,20 +28,26 @@ const Area_Dash = () => {
     }
     setUserName(user.name);
 
+    const fetchAssignedLocations = async () => {
+      try {
+        const { data } = await api.get(`/users/${userId}/locations`);
+        setAssignedLocations(data);
+      } catch (err) {
+        setAssignedLocations([]);
+      }
+    };
+
     const fetchProjects = async () => {
       try {
-        // Get projects where the user is the area manager
         const { data: projectsData } = await api.get('/projects');
-        const userProjects = projectsData.filter(project => 
-          project.areamanager && project.areamanager._id === userId
+        setAllProjects(projectsData);
+        const userProjects = projectsData.filter(project =>
+          assignedLocations.some(loc => loc._id === (project.location?._id || project.location))
         );
-
-        // Fetch progress and latest update for each project
         const projectsWithProgress = await Promise.all(
           userProjects.map(async (project) => {
             try {
               const { data: progressData } = await api.get(`/daily-reports/project/${project._id}/progress`);
-              // Fetch latest daily report for sorting
               const { data: reports } = await api.get(`/daily-reports/project/${project._id}`);
               let latestDate = null;
               if (Array.isArray(reports) && reports.length > 0) {
@@ -47,18 +58,17 @@ const Area_Dash = () => {
                 name: project.projectName,
                 engineer: project.projectmanager?.name || 'Not Assigned',
                 progress: progressData.progress,
-                latestDate
+                latestDate,
+                location: project.location
               };
             } catch (error) {
-              return null; // skip if error
+              return null;
             }
           })
         );
-        // Filter out projects with no progress or no daily log
         const filtered = projectsWithProgress.filter(
           p => p && p.progress && Array.isArray(p.progress) && p.progress[0].name !== 'No Data' && p.latestDate
         );
-        // Sort by latest update (descending)
         filtered.sort((a, b) => new Date(b.latestDate) - new Date(a.latestDate));
         setProjects(filtered);
       } catch (error) {
@@ -68,13 +78,14 @@ const Area_Dash = () => {
       }
     };
 
-    fetchProjects();
-  }, [navigate, user, userId]);
-
-  useEffect(() => {
     const fetchRequests = async () => {
       try {
-        const { data } = await api.get('/requests/mine');
+        const { data } = await api.get('/requests');
+        const pending = data.filter(request =>
+          request.status === 'Pending AM' &&
+          request.project && assignedLocations.some(loc => loc._id === (request.project.location?._id || request.project.location))
+        );
+        setPendingRequests(pending);
         setMaterialRequests(data);
         setRequestsError(null);
       } catch (error) {
@@ -85,8 +96,30 @@ const Area_Dash = () => {
         }
       }
     };
-    fetchRequests();
-  }, []);
+
+    fetchAssignedLocations().then(() => {
+      fetchProjects();
+      fetchRequests();
+    });
+  }, [navigate, user, userId]);
+
+  useEffect(() => {
+    if (assignedLocations.length && allProjects.length) {
+      setEnrichedAllProjects(
+        allProjects
+          .filter(project => assignedLocations.some(loc => loc._id === (project.location?._id || project.location)))
+          .map(project => {
+            const loc = assignedLocations.find(l => l._id === (project.location?._id || project.location));
+            return {
+              ...project,
+              location: loc ? { ...loc } : { name: 'Unknown Location', region: '' },
+              name: project.projectName,
+              engineer: project.projectmanager?.name || 'Not Assigned',
+            };
+          })
+      );
+    }
+  }, [assignedLocations, allProjects]);
 
   const [sidebarProjects] = useState([
     { id: 1, name: 'Batangas', engineer: 'Engr. Daryll Miralles' },
@@ -186,6 +219,19 @@ const Area_Dash = () => {
     );
   }
 
+  const projectsByLocation = enrichedAllProjects.reduce((acc, project) => {
+    const locationId = project.location?._id || 'unknown';
+    if (!acc[locationId]) {
+      acc[locationId] = {
+        name: project.location?.name || 'Unknown Location',
+        region: project.location?.region || '',
+        projects: []
+      };
+    }
+    acc[locationId].projects.push(project);
+    return acc;
+  }, {});
+
   return (
     <div className="head">
       {/* Header with Navigation */}
@@ -229,17 +275,43 @@ const Area_Dash = () => {
           >
             Add New Project
           </button>
-          <div className="project-list">
-            {sidebarProjects.map(project => (
-              <div key={project.id} className="project-item">
-                <div className="project-icon">
-                  <span className="icon">🏗️</span>
-                  <div className="icon-bg"></div>
+          <div className="location-folders">
+            {Object.entries(projectsByLocation).map(([locationId, locationData]) => (
+              <div key={locationId} className="location-folder">
+                <div 
+                  className="location-header" 
+                  onClick={() => setExpandedLocations(prev => ({ ...prev, [locationId]: !prev[locationId] }))}
+                >
+                  <div className="folder-icon">
+                    <span className={`folder-arrow ${expandedLocations[locationId] ? 'expanded' : ''}`}>▶</span>
+                    <span className="folder-icon-img">📁</span>
+                  </div>
+                  <div className="location-info">
+                    <div className="location-name">{locationData.name}</div>
+                    <div className="location-region">{locationData.region}</div>
+                  </div>
+                  <div className="project-count">{locationData.projects.length}</div>
                 </div>
-                <div className="project-info">
-                  <div className="project-name">{project.name}</div>
-                  <div className="project-engineer">{project.engineer}</div>
-                </div>
+                {expandedLocations[locationId] && (
+                  <div className="projects-list">
+                    {locationData.projects.map(project => (
+                      <Link 
+                        to={`/am/projects/${project._id}`} 
+                        key={project._id} 
+                        className="project-item"
+                      >
+                        <div className="project-icon">
+                          <span className="icon">🏗️</span>
+                          <div className="icon-bg"></div>
+                        </div>
+                        <div className="project-info">
+                          <div className="project-name">{project.name}</div>
+                          <div className="project-engineer">{project.engineer}</div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -247,63 +319,68 @@ const Area_Dash = () => {
 
         {/* Center Content */}
         <div className="main1">
-          <div className="greeting-section">
-            <h1>Good Morning, {userName}!</h1>
-            <div className="progress-tracking-section">
-              <h2>Progress Tracking</h2>
-              <div className="latest-projects-progress">
-                <h3>Latest Projects Progress</h3>
-                {projects.length === 0 ? (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-                    No updated projects with progress data yet.
-                  </div>
-                ) : (
-                  <div className="project-charts scroll-x">
-                    {projects.map(project => (
-                      <div key={project.id} className="project-chart-container">
-                        <h4>{project.name}</h4>
-                        <div className="pie-chart-wrapper">
-                          <PieChart width={160} height={160}>
-                            <Pie
-                              data={project.progress}
-                              cx={80}
-                              cy={80}
-                              innerRadius={0}
-                              outerRadius={65}
-                              paddingAngle={0}
-                              dataKey="value"
-                            >
-                              {project.progress.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                          </PieChart>
-                        </div>
-                        <div className="chart-legend">
-                          {["Completed", "In Progress", "Not Started"].map((status, index) => {
-                            const item = project.progress.find(p => p.name === status);
-                            // Always show all statuses, even if value is 0
-                            const color = item ? item.color : (status === 'Completed' ? '#4CAF50' : status === 'In Progress' ? '#5E4FDB' : '#FF6B6B');
-                            const value = item ? item.value : 0;
-                            return (
-                              <div key={status} className="legend-item">
-                                <span className="color-box" style={{ backgroundColor: color }}></span>
-                                <span className="legend-text">{status}</span>
-                                <span style={{ marginLeft: 6, color: '#555', fontWeight: 500 }}>
-                                  {value.toFixed(1)}%
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        <div style={{ fontSize: '0.85rem', color: '#888', marginTop: 4 }}>
-                          Last updated: {project.latestDate ? new Date(project.latestDate).toLocaleString() : 'N/A'}
-                        </div>
+          <div className="greeting-header">
+            <div className="greeting-left">
+              <h1>Good Morning, {userName}!</h1>
+            </div>
+            <div className="total-projects">
+              <span className="total-projects-label">Total Projects:</span>
+              <span className="total-projects-count">{enrichedAllProjects.length}</span>
+            </div>
+          </div>
+          <div className="progress-tracking-section">
+            <h2>Progress Tracking</h2>
+            <div className="latest-projects-progress">
+              <h3>Latest Projects Progress</h3>
+              {projects.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
+                  No updated projects with progress data yet.
+                </div>
+              ) : (
+                <div className="project-charts scroll-x">
+                  {projects.map(project => (
+                    <div key={project.id} className="project-chart-container">
+                      <h4>{project.name}</h4>
+                      <div className="pie-chart-wrapper">
+                        <PieChart width={160} height={160}>
+                          <Pie
+                            data={project.progress}
+                            cx={80}
+                            cy={80}
+                            innerRadius={0}
+                            outerRadius={65}
+                            paddingAngle={0}
+                            dataKey="value"
+                          >
+                            {project.progress.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                        </PieChart>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      <div className="chart-legend">
+                        {["Completed", "In Progress", "Not Started"].map((status, index) => {
+                          const item = project.progress.find(p => p.name === status);
+                          const color = item ? item.color : (status === 'Completed' ? '#4CAF50' : status === 'In Progress' ? '#5E4FDB' : '#FF6B6B');
+                          const value = item ? item.value : 0;
+                          return (
+                            <div key={status} className="legend-item">
+                              <span className="color-box" style={{ backgroundColor: color }}></span>
+                              <span className="legend-text">{status}</span>
+                              <span style={{ marginLeft: 6, color: '#555', fontWeight: 500 }}>
+                                {value.toFixed(1)}%
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#888', marginTop: 4 }}>
+                        Last updated: {project.latestDate ? new Date(project.latestDate).toLocaleString() : 'N/A'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -332,19 +409,36 @@ const Area_Dash = () => {
 
         {/* Right Sidebar */}
         <div className="right-sidebar">
-          <div className="reports-section">
-            <h3>Reports</h3>
-            <div className="reports-list">
-              {reports.map(report => (
-                <div key={report.id} className="report-item">
-                  <div className="report-icon">📋</div>
-                  <div className="report-details">
-                    <div className="report-name">{report.name}</div>
-                    <div className="report-date">{report.dateRange}</div>
-                    <div className="report-engineer">{report.engineer}</div>
-                  </div>
-                </div>
-              ))}
+          <div className="pending-requests-section">
+            <div className="section-header">
+              <h2>Pending Material Requests</h2>
+              <Link to="/am/matreq" className="view-all-btn">View All</Link>
+            </div>
+            <div className="pending-requests-list">
+              {pendingRequests.length === 0 ? (
+                <div className="no-requests">No pending material requests</div>
+              ) : (
+                pendingRequests.slice(0, 3).map(request => (
+                  <Link to={`/am/material-request/${request._id}`} key={request._id} className="pending-request-item">
+                    <div className="request-icon">📦</div>
+                    <div className="request-details">
+                      <h3 className="request-title">
+                        {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
+                      </h3>
+                      <p className="request-description">{request.description}</p>
+                      <div className="request-meta">
+                        <span className="request-project">{request.project?.projectName}</span>
+                        <span className="request-date">
+                          Requested: {new Date(request.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="request-status">
+                      <span className="status-badge pending">Pending AM Approval</span>
+                    </div>
+                  </Link>
+                ))
+              )}
             </div>
           </div>
 

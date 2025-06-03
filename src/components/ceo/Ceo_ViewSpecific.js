@@ -8,12 +8,20 @@ const Ceo_ViewSpecific = () => {
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [project, setProject] = useState(null);
+  const [progress, setProgress] = useState(0);
+  const [status, setStatus] = useState('');
+  const [toggleLoading, setToggleLoading] = useState(false);
 
   useEffect(() => {
     const fetchProject = async () => {
       try {
         const { data } = await api.get(`/projects/${id}`);
         setProject(data);
+        setStatus(data.status);
+        api.get(`/daily-reports/project/${id}/progress`).then(progressRes => {
+          const completed = progressRes.data.progress.find(p => p.name === 'Completed');
+          setProgress(completed ? completed.value : 0);
+        });
         console.log("Fetched project data:", data);
       } catch (err) {
         console.error("Failed to fetch project:", err);
@@ -97,11 +105,35 @@ const Ceo_ViewSpecific = () => {
 />
 
 
-            <button className="favorite-button">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-              </svg>
-            </button>
+            {progress === 100 && (
+              <button
+                onClick={async () => {
+                  setToggleLoading(true);
+                  try {
+                    const res = await api.patch(`/projects/${project._id}/toggle-status`);
+                    setStatus(res.data.status);
+                  } finally {
+                    setToggleLoading(false);
+                  }
+                }}
+                disabled={toggleLoading}
+                style={{
+                  background: status === 'Completed' ? '#4CAF50' : '#f57c00',
+                  color: 'white',
+                  padding: '8px 16px',
+                  borderRadius: 6,
+                  border: 'none',
+                  cursor: 'pointer',
+                  position: 'absolute',
+                  top: '10px',
+                  right: '10px',
+                  zIndex: 10,
+                  fontSize: '14px',
+                }}
+              >
+                {status === 'Completed' ? 'Mark as Ongoing' : 'Mark as Completed'}
+              </button>
+            )}
           </div>
 
           <h1 className="project-title">{project.projectName}</h1>
@@ -158,6 +190,10 @@ const Ceo_ViewSpecific = () => {
                 : 'No Manpower Assigned'}
             </p>
           </div>
+
+          <p>
+            <b>Status:</b> {status}
+          </p>
         </div>
       </main>
     </div>

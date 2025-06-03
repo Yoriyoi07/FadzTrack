@@ -11,7 +11,7 @@ const Area_Addproj = () => {
   const userId = user?._id;
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [projectManagers, setProjectManagers] = useState([]);
+  const [eligiblePMs, setEligiblePMs] = useState([]);
   const [pics, setPics] = useState([]);
   const [availablePics, setAvailablePics] = useState([]);
   const [assignedPics, setAssignedPics] = useState([]);
@@ -47,8 +47,8 @@ const Area_Addproj = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const pmRes = await api.get('/users/role/Project%20Manager');
-        setProjectManagers(Array.isArray(pmRes.data) ? pmRes.data : pmRes.data.data || []);
+        const pmRes = await api.get('/users/eligible-pms');
+        setEligiblePMs(Array.isArray(pmRes.data) ? pmRes.data : pmRes.data.data || []);
         const picRes = await api.get('/users/pics-available');
         setPics(Array.isArray(picRes.data) ? picRes.data : picRes.data.data || []);
         setAvailablePics(Array.isArray(picRes.data) ? picRes.data : picRes.data.data || []);
@@ -352,9 +352,10 @@ const Area_Addproj = () => {
                   name="projectmanager"
                   value={formData.projectmanager}
                   onChange={handleChange}
+                  required
                 >
                   <option value="">-- Select Project Manager --</option>
-                  {projectManagers.map((user) => (
+                  {eligiblePMs.map((user) => (
                     <option key={user._id} value={user._id}>
                       {user.name}
                     </option>

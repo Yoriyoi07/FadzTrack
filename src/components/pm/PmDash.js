@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/pm_style/Pm_Dash.css';
 import api from '../../api/axiosInstance';
+import { PieChart, Pie, Cell } from 'recharts';
 
 const PmDash = () => {
   const token = localStorage.getItem('token');
@@ -46,6 +47,38 @@ const PmDash = () => {
   const [loadingManpower, setLoadingManpower] = useState(true);
   const [manpowerError, setManpowerError] = useState(null);
 
+  // Calculate task status counts and pie chart data
+  const taskStatusData = React.useMemo(() => {
+    if (!project?.tasks || !Array.isArray(project.tasks)) {
+      return {
+        data: [],
+        completedTasks: 0,
+        inProgressTasks: 0,
+        notStartedTasks: 0,
+        totalTasks: 0,
+      };
+    }
+
+    const completedTasks = project.tasks.filter(task => task.percent === 100).length;
+    const inProgressTasks = project.tasks.filter(task => task.percent > 0 && task.percent < 100).length;
+    const notStartedTasks = project.tasks.filter(task => task.percent === 0).length;
+    const totalTasks = project.tasks.length;
+
+    const data = [
+      { name: 'Completed', value: completedTasks, color: '#4CAF50' },
+      { name: 'In Progress', value: inProgressTasks, color: '#5E4FDB' },
+      { name: 'Not Started', value: notStartedTasks, color: '#FF6B6B' },
+    ];
+
+    return {
+      data: data.filter(item => item.value > 0),
+      completedTasks,
+      inProgressTasks,
+      notStartedTasks,
+      totalTasks,
+    };
+  }, [project?.tasks]);
+
   // Auth and name setup
   useEffect(() => {
     if (!token || !user) {
@@ -56,50 +89,37 @@ const PmDash = () => {
     setUserRole(user.role);
   }, [navigate, token, user]);
 
-  // Fetch projects
-  useEffect(() => {
-    if (!token || !user) return;
-    const fetchProjects = async () => {
-      try {
-        const { data } = await api.get('/projects');
-        const filtered = data.filter(p =>
-          (typeof p.projectmanager === 'object' &&
-            (p.projectmanager._id === userId || p.projectmanager.id === userId)) ||
-          p.projectManager === userId
-        );
-        setProjects(filtered);
-      } catch (err) {
-        setProjects([]);
-        // Optional: set an error message if needed
-      }
-    };
-    fetchProjects();
-  }, [token, user, userId]);
-
-  // Fetch assigned project
+  // Fetch project assigned as Project Manager
   useEffect(() => {
     if (!token || !userId) return;
-    const fetchAssigned = async () => {
+
+    const fetchAssignedPMProject = async () => {
       try {
-        const { data } = await api.get(`/projects/assigned/${userId}`);
-        setProject(data[0] || null);
+        const { data } = await api.get(`/projects/assigned/projectmanager/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setProject(data);
       } catch (err) {
+        console.error('Error fetching assigned PM project:', err);
         setProject(null);
       }
     };
-    fetchAssigned();
+
+    fetchAssignedPMProject();
   }, [token, userId]);
 
   // Fetch material requests
   useEffect(() => {
+    if (!token) {
+      setRequestsError('Session expired. Please log in again.');
+      setLoadingRequests(false);
+      return;
+    }
     const fetchRequests = async () => {
-      if (!token) {
-        setRequestsError('Session expired. Please log in again.');
-        setLoadingRequests(false);
-        return;
-      }
       try {
-        const { data } = await api.get('/requests/mine');
+        const { data } = await api.get('/requests/mine', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         setMaterialRequests(Array.isArray(data) ? data : []);
         setRequestsError(null);
       } catch (error) {
@@ -113,14 +133,16 @@ const PmDash = () => {
 
   // Fetch manpower requests
   useEffect(() => {
+    if (!token) {
+      setManpowerError('Session expired. Please log in again.');
+      setLoadingManpower(false);
+      return;
+    }
     const fetchManpower = async () => {
-      if (!token) {
-        setManpowerError('Session expired. Please log in again.');
-        setLoadingManpower(false);
-        return;
-      }
       try {
-        const { data } = await api.get('/manpower-requests/mine');
+        const { data } = await api.get('/manpower-requests/mine', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         setManpowerRequests(Array.isArray(data) ? data : []);
         setManpowerError(null);
       } catch (error) {
@@ -160,8 +182,8 @@ const PmDash = () => {
           <Link to="/pm" className="nav-link">Dashboard</Link>
           <Link to="/pm/request/:id" className="nav-link">Material</Link>
           <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
-          {projects.length > 0 && (
-            <Link to={`/pm/viewprojects/${projects[0]._id || projects[0].id}`} className="nav-link">View Project</Link>
+          {project && (
+            <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">View Project</Link>
           )}
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/pm/daily-logs" className="nav-link">Logs</Link>
@@ -169,7 +191,7 @@ const PmDash = () => {
         </nav>
         <div className="profile-menu-container">
           <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            Z
+            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">
@@ -188,121 +210,114 @@ const PmDash = () => {
               Currently logged in as <strong>{userRole}</strong>
             </p>
 
-            {/* Material Requests */}
-            <div className="material-request-section">
-              <div className="section-header">
-                <h2>Material Request</h2>
-                <button className="view-all-btn" onClick={() => navigate('/pm/request/:id')}>View All Requests</button>
+            
+            {/* Project Summary Section */}
+            {project && (
+              <div className="project-summary-section">
+                <h2>{project.projectName} Summary</h2>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
+                  {/* Pie Chart */}
+                  {taskStatusData.data.length > 0 ? (
+                    <PieChart width={180} height={180}>
+                    <Pie
+                      data={taskStatusData.data}
+                      cx={90}
+                      cy={90}
+                      innerRadius={60}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      paddingAngle={0}
+                      dataKey="value"
+                      label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {taskStatusData.data.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                  ) : (
+                    <div style={{ width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}>
+                      No tasks defined for this project.
+                    </div>
+                  )}
+
+                  {/* KPIs */}
+                  <div>
+                    <h3>Project KPIs</h3>
+                    <p><b>Total Tasks:</b> {taskStatusData.totalTasks}</p>
+                    <p><b>Completed:</b> {taskStatusData.completedTasks}</p>
+                    <p><b>In Progress:</b> {taskStatusData.inProgressTasks}</p>
+                    <p><b>Not Started:</b> {taskStatusData.notStartedTasks}</p>
+                    <p><b>Assigned Manpower:</b> {project.manpower?.length || 0}</p>
+                  </div>
+                </div>
               </div>
-              <div className="material-requests-container">
+            )}
+
+            {/* Recent Activities section */}
+            <div className="recent-activities-section">
+              <h2>Recent Activities</h2>
+              {/* You can map recent activities here */}
+            </div>
+          </div>
+
+          {/* Right Sidebar */}
+          <div className="right-sidebar">
+            {/* Material Requests */}
+            <div className="pending-requests-section">
+              <div className="section-header">
+                <h2>Material Requests</h2>
+                <Link to="/pm/request/:id" className="view-all-btn">View All</Link>
+              </div>
+              <div className="pending-requests-list">
                 {loadingRequests ? (
                   <div>Loading requests...</div>
                 ) : requestsError ? (
-                  <div style={{ color: 'red' }}>{requestsError}</div>
+                  <div className="error-message">{requestsError}</div>
                 ) : materialRequests.length === 0 ? (
-                  <div>No material requests found.</div>
+                  <div className="no-requests">No material requests found.</div>
                 ) : (
-                  materialRequests.map(request => (
-                    <Link to={`/requests/${request._id}`} key={request._id} className="material-request-item">
-                      <div className="requester-initial">
-                        {request.createdBy?.name?.charAt(0) || 'U'}
-                      </div>
+                  materialRequests.slice(0, 3).map(request => (
+                    <Link to={`/pm/request/${request._id}`} key={request._id} className="pending-request-item">
+                      <div className="request-icon">📦</div>
                       <div className="request-details">
-                        <h4>
-                          {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ') || 'No Materials'}
-                        </h4>
+                        <h3 className="request-title">
+                          {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
+                        </h3>
+                        <p className="request-description">{request.description}</p>
                         <div className="request-meta">
-                          <span>{request.createdBy?.name || 'Unknown'} · {request.project?.projectName || ''}</span>
-                          <span>{new Date(request.createdAt).toLocaleDateString()}</span>
-                          <span className="status-pill">{request.status}</span>
+                          <span className="request-project">{request.project?.projectName}</span>
+                          <span className="request-date">
+                            Requested: {new Date(request.createdAt).toLocaleDateString()}
+                          </span>
                         </div>
+                      </div>
+                      <div className="request-status">
+                        <span className={`status-badge ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
+                          {request.status}
+                        </span>
                       </div>
                     </Link>
                   ))
                 )}
               </div>
             </div>
-          </div>
 
-          {/* Manpower Requests Section */}
-          <div className="material-request-section">
-            <div className="section-header">
-              <h2>Manpower Request</h2>
-              <button 
-                className="view-all-btn" 
-                onClick={() => navigate('/pm/manpower-list')}
-              >
-                View All Requests
-              </button>
-            </div>
-            <div className="material-requests-container horizontal-scroll">
-              {loadingManpower ? (
-                <div>Loading manpower requests...</div>
-              ) : manpowerError ? (
-                <div style={{ color: 'red' }}>{manpowerError}</div>
-              ) : manpowerRequests.length === 0 ? (
-                <div>No manpower requests found.</div>
-              ) : (
-                manpowerRequests
-                  .slice(0, 4)
-                  .map(request => (
-                    <Link
-                      to={`/manpower-requests/${request._id}`}
-                      key={request._id}
-                      className="material-request-item"
-                    >
-                      <div className="requester-initial">
-                        {request.createdBy?.name?.charAt(0) || 'U'}
-                      </div>
-                      <div className="request-details">
-                        <h4>
-                          {Array.isArray(request.manpowers)
-                            ? request.manpowers.map(m => `${m.type} (${m.quantity})`).join(', ')
-                            : 'No Manpower'}
-                        </h4>
-                        <div className="request-meta">
-                          <span>{request.createdBy?.name || 'Unknown'} · {request.project?.projectName || ''}</span>
-                          <span>{new Date(request.createdAt).toLocaleDateString()}</span>
-                          <span className="status-pill">{request.status}</span>
-                        </div>
-                      </div>
-                    </Link>
-                  ))
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Sidebar */}
-        <div className="right-sidebar">
-          <div className="reports-section">
-            <h3>Reports</h3>
-            <div className="reports-list">
-              {reports.map(report => (
-                <div key={report.id} className="report-item">
-                  <div className="report-icon">📋</div>
-                  <div className="report-details">
-                    <div className="report-name">{report.name}</div>
-                    <div className="report-date">{report.dateRange}</div>
-                    <div className="report-engineer">{report.engineer}</div>
+            {/* Chats */}
+            <div className="chats-section">
+              <h3>Chats</h3>
+              <div className="chats-list">
+                {chats.map(chat => (
+                  <div key={chat.id} className="chat-item">
+                    <div className="chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
+                    <div className="chat-details">
+                      <div className="chat-name">{chat.name}</div>
+                      <div className="chat-message">{chat.message}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="chats-section">
-            <h3>Chats</h3>
-            <div className="chats-list">
-              {chats.map(chat => (
-                <div key={chat.id} className="chat-item">
-                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
-                  <div className="chat-details">
-                    <div className="chat-name">{chat.name}</div>
-                    <div className="chat-message">{chat.message}</div>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
