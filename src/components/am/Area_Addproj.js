@@ -12,10 +12,10 @@ const Area_Addproj = () => {
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projectManagers, setProjectManagers] = useState([]);
-  const [pics, setPics] = useState([]); // All available PICs
-  const [availablePics, setAvailablePics] = useState([]); // Unassigned to project
-  const [assignedPics, setAssignedPics] = useState([]); // For this project
-
+  const [pics, setPics] = useState([]);
+  const [availablePics, setAvailablePics] = useState([]);
+  const [assignedPics, setAssignedPics] = useState([]);
+  const [searchPIC, setSearchPIC] = useState(''); // <--- NEW
   const [assignedLocations, setAssignedLocations] = useState([]);
   const [manpowerList, setManpowerList] = useState([]);
   const [searchManpower, setSearchManpower] = useState('');
@@ -37,7 +37,6 @@ const Area_Addproj = () => {
     areamanager: userId || ''
   });
 
-  // Keep areamanager updated if user changes (edge case)
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
@@ -45,14 +44,11 @@ const Area_Addproj = () => {
     }));
   }, [userId]);
 
-  // Fetch Project Managers and UNASSIGNED PICs
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        // Get only Project Managers
         const pmRes = await api.get('/users/role/Project%20Manager');
         setProjectManagers(Array.isArray(pmRes.data) ? pmRes.data : pmRes.data.data || []);
-        // Get only UNASSIGNED PICs
         const picRes = await api.get('/users/pics-available');
         setPics(Array.isArray(picRes.data) ? picRes.data : picRes.data.data || []);
         setAvailablePics(Array.isArray(picRes.data) ? picRes.data : picRes.data.data || []);
@@ -63,7 +59,11 @@ const Area_Addproj = () => {
     fetchUsers();
   }, []);
 
-  // Assign PICs from left to right
+  // --- SEARCH LOGIC FOR PIC ---
+  const filteredAvailablePics = availablePics.filter(pic =>
+    pic.name.toLowerCase().includes(searchPIC.toLowerCase())
+  );
+
   const handleAssignPic = (pic) => {
     setAssignedPics(prev => [...prev, pic]);
     setAvailablePics(prev => prev.filter(p => p._id !== pic._id));
@@ -73,7 +73,6 @@ const Area_Addproj = () => {
     }));
   };
 
-  // Remove PICs from right to left
   const handleRemovePic = (pic) => {
     setAvailablePics(prev => [...prev, pic]);
     setAssignedPics(prev => prev.filter(p => p._id !== pic._id));
@@ -83,7 +82,6 @@ const Area_Addproj = () => {
     }));
   };
 
-  // For searching/managing manpower
   useEffect(() => {
     api.get('/manpower')
       .then(res => {
@@ -116,13 +114,11 @@ const Area_Addproj = () => {
     }));
   };
 
-  // Assign manpower from left to right
   const handleAssignManpower = (mp) => {
     setAssignedManpower(prev => [...prev, mp]);
     setAvailableManpower(prev => prev.filter(m => m._id !== mp._id));
   };
 
-  // Remove manpower from right to left
   const handleRemoveManpower = (mp) => {
     setAvailableManpower(prev => [...prev, mp]);
     setAssignedManpower(prev => prev.filter(m => m._id !== mp._id));
@@ -160,10 +156,8 @@ const Area_Addproj = () => {
     mp.position.toLowerCase().includes(searchManpower.toLowerCase())
   );
 
-  // Main Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!formData.startDate || !formData.endDate) {
       alert("Please select both start and end dates.");
       return;
@@ -219,7 +213,6 @@ const Area_Addproj = () => {
     }
   };
 
-  // Profile menu logic
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
@@ -238,7 +231,6 @@ const Area_Addproj = () => {
     navigate('/');
   };
 
-  // PIC panels filter (no search for PIC for now; can add if needed)
   return (
     <div>
       <header className="header">
@@ -256,8 +248,8 @@ const Area_Addproj = () => {
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container">
-          <div 
-            className="profile-circle" 
+          <div
+            className="profile-circle"
             onClick={() => setProfileMenuOpen(!profileMenuOpen)}
           >
             Z
@@ -286,11 +278,18 @@ const Area_Addproj = () => {
                   onChange={handleChange}
                 />
               </div>
-              {/* --- PIC selection like Manpower --- */}
+              {/* --- PIC selection like Manpower, now with SEARCH --- */}
               <div className="area-addproj-form-group">
                 <div className="area-addproj-manpower-panels">
                   <div className="area-addproj-manpower-box">
                     <label>Available PICs</label>
+                    <input
+                      type="text"
+                      placeholder="Search PIC"
+                      value={searchPIC}
+                      onChange={e => setSearchPIC(e.target.value)}
+                      style={{ width: '100%', marginBottom: 8 }}
+                    />
                     <select
                       multiple
                       size={6}
@@ -301,7 +300,7 @@ const Area_Addproj = () => {
                         if (selected) handleAssignPic(selected);
                       }}
                     >
-                      {availablePics.map(pic => (
+                      {filteredAvailablePics.map(pic => (
                         <option key={pic._id} value={pic._id}>
                           {pic.name}
                         </option>
