@@ -198,7 +198,7 @@ const Area_Dash = () => {
           <Link to="/am" className="nav-link">Dashboard</Link>
           <Link to="/am/matreq" className="nav-link">Material</Link>
           <Link to="/am/manpower-requests" className="nav-link">Manpower</Link>
-          <Link to="/am/viewproj" className="nav-link">Projects</Link>
+          <Link to="/am/projects" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>

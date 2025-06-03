@@ -36,6 +36,7 @@ import Pm_RequestedManpowerDetail from './pm/Pm_RequestedManpowerDetail';
 import Ceo_AuditLogs from './ceo/Ceo_AuditLogs';
 import Ceo_Material_List from './ceo/Ceo_Material_List';
 import Hr_Movement_List from './hr/Hr_Movement_List';
+import Area_Proj from './am/Area_Proj_Area';
 const AppRoutes = () => {
   return (
     <Routes>
@@ -69,6 +70,7 @@ const AppRoutes = () => {
       <Route path="/am/viewproj" element={<AreasPage />} />
       <Route path="/am/viewproj/:id" element={<AreasPage />} />
       <Route path="/am/manpower-requests/:id" element={<Area_Manpower_ReqDetails />} />
+      <Route path="/am/projects" element={<Area_Proj />} />
 
       {/* IT */}
       <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><It_Dash /></PrivateRoute>}/>
