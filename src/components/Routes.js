@@ -37,6 +37,9 @@ import Ceo_AuditLogs from './ceo/Ceo_AuditLogs';
 import Ceo_Material_List from './ceo/Ceo_Material_List';
 import Hr_Movement_List from './hr/Hr_Movement_List';
 import Area_Proj from './am/Area_Proj_Area';
+import ActivateAccount from './it/ActivateAccount';
+import ResetPassword from './it/ResetPassword';
+
 const AppRoutes = () => {
   return (
     <Routes>
@@ -74,6 +77,8 @@ const AppRoutes = () => {
 
       {/* IT */}
       <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><It_Dash /></PrivateRoute>}/>
+      <Route path="/activate-account" element={<ActivateAccount />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* CEO */}
       <Route path="/ceo/proj" element={<Ceo_Proj />} />

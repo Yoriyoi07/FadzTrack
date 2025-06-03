@@ -12,6 +12,8 @@ const It_Dash = () => {
   const [errors, setErrors] = useState({});
   const [editingAccount, setEditingAccount] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendError, setResendError] = useState('');
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
@@ -21,9 +23,7 @@ const It_Dash = () => {
     name: '',
     position: '',
     phone: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
+    email: ''
   });
 
   const validateField = (name, value) => {
@@ -41,12 +41,6 @@ const It_Dash = () => {
         break;
       case 'email':
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errorMsg = 'Invalid email';
-        break;
-      case 'password':
-        if (value.length < 6) errorMsg = 'Password must be at least 6 characters';
-        break;
-      case 'confirmPassword':
-        if (value !== newAccount.password || '') errorMsg = 'Passwords do not match';
         break;
       default:
         break;
@@ -106,7 +100,7 @@ const It_Dash = () => {
   };
 
   const isFormValid = () => {
-    const fieldNames = ['name', 'position', 'phone', 'email', 'password', 'confirmPassword'];
+    const fieldNames = ['name', 'position', 'phone', 'email'];
     let valid = true;
     fieldNames.forEach((field) => {
       validateField(field, newAccount[field]);
@@ -125,12 +119,12 @@ const It_Dash = () => {
     try {
       let response, data;
       if (isEditing) {
+        // Update user info WITHOUT password
         response = await api.put(`/auth/users/${editingAccount.id}`, {
           name: newAccount.name,
           role: newAccount.position,
           phone: newAccount.phone,
           email: newAccount.email,
-          password: newAccount.password || undefined,
         });
         data = response.data;
         setAccounts(accounts.map(account =>
@@ -140,12 +134,12 @@ const It_Dash = () => {
         ));
         alert('Account updated successfully!');
       } else {
+        // Create user and send activation link automatically
         response = await api.post('/auth/register', {
           name: newAccount.name,
           role: newAccount.position,
           phone: newAccount.phone,
-          email: newAccount.email,
-          password: newAccount.password,
+          email: newAccount.email
         });
         data = response.data;
         setAccounts([...accounts, {
@@ -156,23 +150,40 @@ const It_Dash = () => {
           email: data.user.email,
           status: data.user.status
         }]);
-        alert('Account created successfully!');
+        alert('Account created successfully and activation email sent!');
       }
 
       setNewAccount({
         name: '',
         position: '',
         phone: '',
-        email: '',
-        password: '',
-        confirmPassword: ''
+        email: ''
       });
       setShowCreateAccount(false);
       setIsEditing(false);
       setEditingAccount(null);
+      setResendError('');
     } catch (error) {
       console.error('Error saving account:', error);
       alert('Failed to save account. Please try again.');
+    }
+  };
+
+  const handleResendResetLink = async () => {
+    if (!newAccount.email) {
+      setResendError('Email is required to resend reset link.');
+      return;
+    }
+    setResendError('');
+    setResendLoading(true);
+    try {
+      await api.post('/auth/reset-password-request', { email: newAccount.email });
+      alert('Password reset link resent successfully!');
+    } catch (error) {
+      console.error('Error resending reset link:', error);
+      setResendError('Failed to resend password reset link.');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -203,10 +214,10 @@ const It_Dash = () => {
   };
 
   const filteredAccounts = accounts.filter(account => {
-    return account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.phone.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.email.toLowerCase().includes(searchTerm.toLowerCase());
+    return (account.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      account.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      account.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      account.email?.toLowerCase().includes(searchTerm.toLowerCase()));
   });
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -255,115 +266,103 @@ const It_Dash = () => {
       );
     } else {
       return (
-          <div className="create-account-sidebar-IT">
-            <h2>{isEditing ? 'Update Account' : 'Create New Account'}</h2>
+        <div className="create-account-sidebar-IT">
+          <h2>{isEditing ? 'Update Account' : 'Create New Account'}</h2>
 
-            <div className="form-group-IT">
-              <label className="form-label-IT">Name</label>
-              <input
-                type="text"
-                name="name"
-                placeholder="Enter Name"
-                value={newAccount.name}
-                onChange={handleInputChange}
-                className="form-control-IT"
-              />
-              {errors.name && <div className="error-msg-IT">{errors.name}</div>}
-            </div>
-
-            <div className="form-group-IT">
-              <label className="form-label-IT">Position</label>
-              <select
-                name="position"
-                value={newAccount.position}
-                onChange={handleInputChange}
-                className="form-control-IT"
-              >
-                <option value="">Select Position</option>
-                <option value="Project Manager">Project Manager</option>
-                <option value="Area Manager">Area Manager</option>
-                <option value="Person in Charge">Person in Charge</option>
-              </select>
-              {errors.position && <div className="error-msg-IT">{errors.position}</div>}
-            </div>
-
-            <div className="form-group-IT">
-              <label className="form-label-IT">Phone Number</label>
-              <input
-                type="text"
-                name="phone"
-                placeholder="Enter Phone Number"
-                value={newAccount.phone}
-                onChange={handleInputChange}
-                className="form-control-IT"
-                maxLength="11"
-              />
-              {errors.phone && <div className="error-msg-IT">{errors.phone}</div>}
-            </div>
-
-            <div className="form-group-IT">
-              <label className="form-label-IT">Email</label>
-              <input
-                type="email"
-                name="email"
-                placeholder="Enter Email"
-                value={newAccount.email}
-                onChange={handleInputChange}
-                className="form-control-IT"
-              />
-              {errors.email && <div className="error-msg-IT">{errors.email}</div>}
-            </div>
-
-            <div className="form-group-IT">
-              <label className="form-label-IT">Password</label>
-              <input
-                type="password"
-                name="password"
-                placeholder="Enter Password"
-                value={newAccount.password}
-                onChange={handleInputChange}
-                className="form-control-IT"
-              />
-              {errors.password && <div className="error-msg-IT">{errors.password}</div>}
-            </div>
-
-            <div className="form-group-IT">
-              <label className="form-label-IT">Confirm Password</label>
-              <input
-                type="password"
-                name="confirmPassword"
-                placeholder="Confirm Password"
-                value={newAccount.confirmPassword}
-                onChange={handleInputChange}
-                className="form-control-IT"
-              />
-              {errors.confirmPassword && <div className="error-msg-IT">{errors.confirmPassword}</div>}
-            </div>
-
-            <div className="form-group-IT button-group-IT">
-              <button className="create-account-btn-IT" onClick={handleSaveAccount}>
-                {isEditing ? 'Update Account' : 'Create New Account'}
-              </button>
-              <button
-                className="back-btn-IT"
-                onClick={() => {
-                  setShowCreateAccount(false);
-                  setIsEditing(false);
-                  setEditingAccount(null);
-                  setNewAccount({
-                    name: '',
-                    position: '',
-                    phone: '',
-                    email: '',
-                    password: '',
-                    confirmPassword: ''
-                  });
-                }}
-              >
-                <span className="back-arrow-IT">←</span> Back
-              </button>
-            </div>
+          <div className="form-group-IT">
+            <label className="form-label-IT">Name</label>
+            <input
+              type="text"
+              name="name"
+              placeholder="Enter Name"
+              value={newAccount.name}
+              onChange={handleInputChange}
+              className="form-control-IT"
+            />
+            {errors.name && <div className="error-msg-IT">{errors.name}</div>}
           </div>
+
+          <div className="form-group-IT">
+            <label className="form-label-IT">Position</label>
+            <select
+              name="position"
+              value={newAccount.position}
+              onChange={handleInputChange}
+              className="form-control-IT"
+            >
+              <option value="">Select Position</option>
+              <option value="Project Manager">Project Manager</option>
+              <option value="Area Manager">Area Manager</option>
+              <option value="Person in Charge">Person in Charge</option>
+            </select>
+            {errors.position && <div className="error-msg-IT">{errors.position}</div>}
+          </div>
+
+          <div className="form-group-IT">
+            <label className="form-label-IT">Phone Number</label>
+            <input
+              type="text"
+              name="phone"
+              placeholder="Enter Phone Number"
+              value={newAccount.phone}
+              onChange={handleInputChange}
+              className="form-control-IT"
+              maxLength="11"
+            />
+            {errors.phone && <div className="error-msg-IT">{errors.phone}</div>}
+          </div>
+
+          <div className="form-group-IT">
+            <label className="form-label-IT">Email</label>
+            <input
+              type="email"
+              name="email"
+              placeholder="Enter Email"
+              value={newAccount.email}
+              onChange={handleInputChange}
+              className="form-control-IT"
+            />
+            {errors.email && <div className="error-msg-IT">{errors.email}</div>}
+          </div>
+
+          <div className="form-group-IT button-group-IT">
+            <button className="create-account-btn-IT" onClick={handleSaveAccount}>
+              {isEditing ? 'Update Account' : 'Create New Account'}
+            </button>
+
+            {isEditing && (
+              <button
+                type="button"
+                className="create-account-btn-IT"
+                onClick={handleResendResetLink}
+                disabled={resendLoading}
+                style={{ marginLeft: '10px' }}
+              >
+                {resendLoading ? 'Resending...' : 'Resend Password Reset Link'}
+              </button>
+            )}
+
+            <button
+              className="back-btn-IT"
+              onClick={() => {
+                setShowCreateAccount(false);
+                setIsEditing(false);
+                setEditingAccount(null);
+                setNewAccount({
+                  name: '',
+                  position: '',
+                  phone: '',
+                  email: ''
+                });
+                setResendError('');
+              }}
+            >
+              <span className="back-arrow-IT">←</span> Back
+            </button>
+          </div>
+
+          {resendError && <p style={{ color: 'red', marginTop: '5px' }}>{resendError}</p>}
+        </div>
       );
     }
   };
@@ -381,21 +380,21 @@ const It_Dash = () => {
             <Link to="/it" className="nav-link">Dashboard</Link>
             <Link to="/chat" className="nav-link">Chat</Link>
           </nav>
-            <div className="profile-menu-container">
-              <div 
-                className="profile-circle" 
-                onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-              >
-                Z
-              </div>
-              {profileMenuOpen && (
-                <div className="profile-menu">
-                  <button onClick={handleLogout}>Logout</button>
-                </div>
-              )}
+          <div className="profile-menu-container-IT">
+            <div 
+              className="profile-circle" 
+              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            >
+              Z
             </div>
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
         </header>
-</div>
+      </div>
       <div className="main-content-IT">
         <aside className="sidebar-IT">
           {renderSidebar()}
@@ -469,9 +468,9 @@ const It_Dash = () => {
                         <td>{account.phone}</td>
                         <td>{account.email}</td>
                         <td>
-                          <span className={`status-badge-IT ${account.status.toLowerCase()}-IT`}>
-                            {account.status}
-                          </span>
+                          <span className={`status-badge-IT ${account.status?.toLowerCase() || ''}-IT`}>
+                          {account.status || 'Unknown'}
+                        </span>
                         </td>
                         <td>
                           <button
@@ -484,10 +483,9 @@ const It_Dash = () => {
                                 name: account.name,
                                 position: account.position,
                                 phone: account.phone,
-                                email: account.email,
-                                password: '',
-                                confirmPassword: ''
+                                email: account.email
                               });
+                              setResendError('');
                             }}
                           >
                             ✏️

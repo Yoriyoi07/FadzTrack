@@ -2,6 +2,17 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
+
+
+const plainPassword = '12345678'; // The password you're testing
+const storedHash = '$2b$10$dBb6f9.sopXKgwhynOHXSOG9OHIyTROgwGESeibpcJUvbZyTSxPrm';  // The stored hashed password from your database
+
+const testPassword = async () => {
+  const match = await bcrypt.compare(plainPassword, storedHash);
+};
+
+testPassword();
 
 // Load JWT secret from environment 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
@@ -86,48 +97,57 @@ exports.deleteUser = async (req, res) => {
 
 exports.registerUser = async (req, res) => {
   try {
-    const { name, email, phone, role, password } = req.body;
+    const { name, email, phone, role } = req.body;
 
-    // Check if email already exists
     const existing = await User.findOne({ email });
     if (existing) return res.status(400).json({ msg: 'User already exists' });
 
-    // Create a new user document with Active status
-        const newUser = new User({
-        name,
-        email,
-        phone,
-        role,
-        password,
-        status: 'Active' 
-      });
+    // Generate random temp password and hash it
+    const tempPassword = crypto.randomBytes(8).toString('hex');
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(tempPassword, salt);
 
-    // Save the user to the database
-    await newUser.save();
+    const user = new User({
+      name,
+      email,
+      phone,
+      role,
+      password: hashedPassword,
+      status: 'Inactive'
+    });
 
-    res.status(201).json({ msg: 'User registered successfully', user: newUser });
+    await user.save();
+
+    const activationToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '1h' });
+    const activationLink = `http://localhost:3000/activate-account?token=${activationToken}`;
+
+    await sendEmailLink(email, 'Activate Your FadzTrack Account', 'Click below to set your password and activate your account:', activationLink);
+
+    res.status(201).json({ msg: 'Activation link sent to email', user: { name, email, role, phone } });
   } catch (err) {
-    console.error('Error registering user', err);
-    res.status(500).json({ msg: 'Error registering user', err });
+    console.error('Error registering user:', err);
+    res.status(500).json({ msg: 'Registration failed', err });
   }
 };
+
 
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    // Check if user exists
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
+    if (!user) {
+      return res.status(400).json({ msg: 'Invalid credentials' });
+    }
 
-    // Check if user is active
     if (user.status !== 'Active') {
+      console.log('User inactive');
       return res.status(403).json({ msg: 'Your account is inactive. Please contact support.' });
     }
 
-    // Compare hashed passwords
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
+    if (!isMatch) {
+      return res.status(400).json({ msg: 'Invalid credentials' });
+    }
 
     // Generate a random 6-digit 2FA code
     const twoFACode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -151,6 +171,104 @@ exports.loginUser = async (req, res) => {
     res.status(500).json({ msg: 'Login error', err });
   }
 };
+
+async function sendEmailLink(to, subject, linkText, linkURL) {
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS
+    }
+  });
+
+  const mailOptions = {
+    from: '"FadzTrack" <no-reply@fadztrack.com>',
+    to,
+    subject,
+    html: `<p>${linkText}</p><a href="${linkURL}">${linkURL}</a>`
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`${subject} email sent to`, to);
+  } catch (err) {
+    console.error('Error sending email:', err);
+  }
+}
+
+exports.activateAccount = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    // Decode the token to get the email
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await User.findOne({ email: decoded.email });
+
+    if (!user) return res.status(404).json({ msg: 'User not found' });
+
+    // Check if the user is already active
+    if (user.status === 'Active') {
+      return res.status(400).json({ msg: 'Account already activated' });
+    }
+
+    // Hash the entered password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+
+    // Replace the original hash with the new user-entered password
+    user.password = hashedPassword;
+    user.status = 'Active';
+    await user.save();
+
+    res.json({ msg: 'Account activated successfully' });
+  } catch (err) {
+    console.error('Activation error:', err);
+    res.status(400).json({ msg: 'Invalid or expired token' });
+  }
+};
+
+
+
+exports.resetPasswordRequest = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ msg: 'Email not found' });
+
+    const resetToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: '15m' });
+    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
+
+    await sendEmailLink(email, 'Reset Your Password', 'Click below to reset your password:', resetLink);
+
+    res.json({ msg: 'Password reset link sent to email' });
+  } catch (err) {
+    console.error('Reset request error:', err);
+    res.status(500).json({ msg: 'Failed to send reset email' });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+    const decoded = jwt.verify(token, JWT_SECRET);
+
+    const user = await User.findOne({ email: decoded.email });
+    if (!user) return res.status(404).json({ msg: 'User not found' });
+
+    const salt = await bcrypt.genSalt(10);
+    const hashed = await bcrypt.hash(newPassword, salt);
+    user.password = hashed;
+    await user.save();
+
+    res.json({ msg: 'Password reset successful' });
+  } catch (err) {
+    console.error('Reset error:', err);
+    res.status(400).json({ msg: 'Invalid or expired token' });
+  }
+};
+
+
 
 
 //Verify the submitted 2FA code and generate tokens
