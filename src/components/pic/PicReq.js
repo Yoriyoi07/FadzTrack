@@ -14,6 +14,8 @@ const MaterialRequestDetail = () => {
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [newFiles, setNewFiles] = useState([]);
+    const [projects, setProjects] = useState([]);
+
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const user = JSON.parse(localStorage.getItem('user'));
@@ -197,6 +199,7 @@ const MaterialRequestDetail = () => {
                 <label className="form-label-picmatreq">Material to be Requested</label>
                 <div className="materials-list-picmatreq">
                   <div className="material-headers-picmatreq">
+                    
                     <div className="material-header-label-picmatreq">Material Name</div>
                     <div className="quantity-header-label-picmatreq">Quantity</div>
                   </div>

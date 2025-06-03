@@ -2,18 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Addproj.css';
 import Papa from 'papaparse';
-import api from '../../api/axiosInstance'; // ✅ USE THIS FOR ALL API CALLS
+import api from '../../api/axiosInstance';
 
 const Area_Addproj = () => {
   const navigate = useNavigate();
-  // Get logged-in user info from localStorage
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projectManagers, setProjectManagers] = useState([]);
-  const [pics, setPics] = useState([]);
+  const [pics, setPics] = useState([]); // All available PICs
+  const [availablePics, setAvailablePics] = useState([]); // Unassigned to project
+  const [assignedPics, setAssignedPics] = useState([]); // For this project
+
   const [assignedLocations, setAssignedLocations] = useState([]);
   const [manpowerList, setManpowerList] = useState([]);
   const [searchManpower, setSearchManpower] = useState('');
@@ -22,7 +24,6 @@ const Area_Addproj = () => {
   const [csvError, setCsvError] = useState('');
   const [photos, setPhotos] = useState([]);
 
-  // Initialize formData and include areamanager from the start
   const [formData, setFormData] = useState({
     projectName: '',
     pic: [],
@@ -44,37 +45,45 @@ const Area_Addproj = () => {
     }));
   }, [userId]);
 
-  // Handle multiple selection for PICs
-  const handleChangeMultiplePics = (e) => {
-    const options = e.target.options;
-    const selectedPics = [];
-    for (let i = 0; i < options.length; i++) {
-      if (options[i].selected) {
-        selectedPics.push(options[i].value);
+  // Fetch Project Managers and UNASSIGNED PICs
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        // Get only Project Managers
+        const pmRes = await api.get('/users/role/Project%20Manager');
+        setProjectManagers(Array.isArray(pmRes.data) ? pmRes.data : pmRes.data.data || []);
+        // Get only UNASSIGNED PICs
+        const picRes = await api.get('/users/pics-available');
+        setPics(Array.isArray(picRes.data) ? picRes.data : picRes.data.data || []);
+        setAvailablePics(Array.isArray(picRes.data) ? picRes.data : picRes.data.data || []);
+      } catch (err) {
+        console.error('Failed to fetch users:', err);
       }
-    }
-    setFormData(prevState => ({
-      ...prevState,
-      pic: selectedPics
+    };
+    fetchUsers();
+  }, []);
+
+  // Assign PICs from left to right
+  const handleAssignPic = (pic) => {
+    setAssignedPics(prev => [...prev, pic]);
+    setAvailablePics(prev => prev.filter(p => p._id !== pic._id));
+    setFormData(prev => ({
+      ...prev,
+      pic: [...prev.pic, pic._id]
     }));
   };
 
-  const handleChangeMultipleManpower = (e) => {
-    const options = e.target.options;
-    const selected = [];
-    for (let i = 0; i < options.length; i++) {
-      if (options[i].selected) {
-        selected.push(options[i].value);
-      }
-    }
-    setFormData(prevState => ({
-      ...prevState,
-      manpower: selected
+  // Remove PICs from right to left
+  const handleRemovePic = (pic) => {
+    setAvailablePics(prev => [...prev, pic]);
+    setAssignedPics(prev => prev.filter(p => p._id !== pic._id));
+    setFormData(prev => ({
+      ...prev,
+      pic: prev.pic.filter(id => id !== pic._id)
     }));
   };
 
-  // ALL API CALLS BELOW ARE USING AXIOS INSTANCE
-
+  // For searching/managing manpower
   useEffect(() => {
     api.get('/manpower')
       .then(res => {
@@ -99,7 +108,6 @@ const Area_Addproj = () => {
     setFormData(prev => ({ ...prev, manpower: assignedManpower.map(m => m._id) }));
   }, [assignedManpower]);
 
-  // Handle input change for text, date, number, etc.
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prevState => ({
@@ -107,103 +115,6 @@ const Area_Addproj = () => {
       [name]: value
     }));
   };
-
-  // Fetch Project Managers and PICs
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const [pmRes, picRes] = await Promise.all([
-          api.get('/users/role/Project%20Manager'),
-          api.get('/users/role/Person%20in%20Charge')
-        ]);
-        setProjectManagers(Array.isArray(pmRes.data) ? pmRes.data : pmRes.data.data || []);
-        setPics(Array.isArray(picRes.data) ? picRes.data : picRes.data.data || []);
-      } catch (err) {
-        console.error('Failed to fetch users:', err);
-      }
-    };
-    fetchUsers();
-  }, []);
-
-  // Profile menu logic
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, []);
-
-  // Logout
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
-
-  // Submit form and include areamanager in the payload
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-
-  const stored = localStorage.getItem('user');
-  const user = stored ? JSON.parse(stored) : null;
-  const userId = user?._id;
-
-  // Validation (keep your existing checks)
-  if (!formData.startDate || !formData.endDate) {
-    alert("Please select both start and end dates.");
-    return;
-  }
-  if (new Date(formData.endDate) < new Date(formData.startDate)) {
-    alert("End date cannot be before start date.");
-    return;
-  }
-
-  // Build FormData
-  const form = new FormData();
-  Object.entries({ ...formData, areamanager: userId }).forEach(([key, value]) => {
-    // Append array values (pic, manpower) one by one
-    if (Array.isArray(value)) {
-      value.forEach(v => form.append(key, v));
-    } else {
-      form.append(key, value);
-    }
-  });
-  // Add files
-  photos.forEach(file => {
-    form.append('photos', file);
-  });
-
-  try {
-    await api.post('/projects', form, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-    alert('✅ Project added successfully!');
-    setFormData({
-      projectName: '',
-      pic: [],
-      contractor: '',
-      budget: '',
-      location: '',
-      startDate: '',
-      endDate: '',
-      manpower: '',
-      projectmanager: '',
-      areamanager: userId || ''
-    });
-    setPhotos([]);
-    navigate('/ceo/dash');
-  } catch (error) {
-    const result = error.response?.data;
-    alert(`❌ Error: ${result?.message || result?.error || 'Failed to add project'}`);
-    console.error('❌ Submission error:', error);
-  }
-};
-
 
   // Assign manpower from left to right
   const handleAssignManpower = (mp) => {
@@ -229,7 +140,6 @@ const Area_Addproj = () => {
         let notFound = [];
         let foundList = [];
         csvData.forEach(row => {
-          // By name and position (case-insensitive)
           const found = availableManpower.find(mp =>
             mp.name.trim().toLowerCase() === (row.name || '').trim().toLowerCase() &&
             mp.position.trim().toLowerCase() === (row.position || '').trim().toLowerCase()
@@ -250,9 +160,87 @@ const Area_Addproj = () => {
     mp.position.toLowerCase().includes(searchManpower.toLowerCase())
   );
 
+  // Main Submit
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!formData.startDate || !formData.endDate) {
+      alert("Please select both start and end dates.");
+      return;
+    }
+    if (new Date(formData.endDate) < new Date(formData.startDate)) {
+      alert("End date cannot be before start date.");
+      return;
+    }
+
+    const stored = localStorage.getItem('user');
+    const user = stored ? JSON.parse(stored) : null;
+    const userId = user?._id;
+
+    const form = new FormData();
+    Object.entries({ ...formData, areamanager: userId }).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value.forEach(v => form.append(key, v));
+      } else {
+        form.append(key, value);
+      }
+    });
+    photos.forEach(file => {
+      form.append('photos', file);
+    });
+
+    try {
+      await api.post('/projects', form, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      alert('✅ Project added successfully!');
+      setFormData({
+        projectName: '',
+        pic: [],
+        contractor: '',
+        budget: '',
+        location: '',
+        startDate: '',
+        endDate: '',
+        manpower: '',
+        projectmanager: '',
+        areamanager: userId || ''
+      });
+      setAssignedPics([]);
+      setAvailablePics(pics);
+      setAssignedManpower([]);
+      setAvailableManpower(manpowerList);
+      setPhotos([]);
+      navigate('/ceo/dash');
+    } catch (error) {
+      const result = error.response?.data;
+      alert(`❌ Error: ${result?.message || result?.error || 'Failed to add project'}`);
+      console.error('❌ Submission error:', error);
+    }
+  };
+
+  // Profile menu logic
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
+
+  // PIC panels filter (no search for PIC for now; can add if needed)
   return (
     <div>
-      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -282,7 +270,6 @@ const Area_Addproj = () => {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="area-addproj-main-content">
         <div className="area-addproj-form-container">
           <h2 className="area-addproj-page-title">Add New Project</h2>
@@ -299,21 +286,51 @@ const Area_Addproj = () => {
                   onChange={handleChange}
                 />
               </div>
+              {/* --- PIC selection like Manpower --- */}
               <div className="area-addproj-form-group">
-                <label htmlFor="pic">PIC</label>
-                <select
-                  id="pic"
-                  name="pic"
-                  multiple
-                  value={formData.pic}
-                  onChange={handleChangeMultiplePics}
-                >
-                  {pics.map((user) => (
-                    <option key={user._id} value={user._id}>
-                      {user.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="area-addproj-manpower-panels">
+                  <div className="area-addproj-manpower-box">
+                    <label>Available PICs</label>
+                    <select
+                      multiple
+                      size={6}
+                      style={{ width: '100%', height: '120px' }}
+                      onDoubleClick={e => {
+                        const selectedId = e.target.value;
+                        const selected = availablePics.find(p => p._id === selectedId);
+                        if (selected) handleAssignPic(selected);
+                      }}
+                    >
+                      {availablePics.map(pic => (
+                        <option key={pic._id} value={pic._id}>
+                          {pic.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="area-addproj-manpower-help">Double click to assign</div>
+                  </div>
+                  <div className="area-addproj-manpower-box">
+                    <label>Assigned PICs</label>
+                    <select
+                      multiple
+                      size={6}
+                      style={{ width: '100%', height: '120px' }}
+                      onDoubleClick={e => {
+                        const selectedId = e.target.value;
+                        const selected = assignedPics.find(p => p._id === selectedId);
+                        if (selected) handleRemovePic(selected);
+                      }}
+                      value={assignedPics.map(p => p._id)}
+                    >
+                      {assignedPics.map(pic => (
+                        <option key={pic._id} value={pic._id}>
+                          {pic.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="area-addproj-manpower-help">Double click to remove</div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -430,7 +447,6 @@ const Area_Addproj = () => {
                   </select>
                   <div className="area-addproj-manpower-help">Double click to assign</div>
                 </div>
-
                 <div className="area-addproj-manpower-box">
                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
                     <label style={{ marginRight: 8 }}>Assigned Manpower</label>
@@ -496,7 +512,6 @@ const Area_Addproj = () => {
               ))}
             </div>
           )}
-
 
             <div className="area-addproj-form-row area-addproj-submit-row">
               <button type="submit" className="area-addproj-submit-button">Add Project</button>

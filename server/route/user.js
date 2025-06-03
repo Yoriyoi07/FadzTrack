@@ -87,4 +87,31 @@ router.get('/:userId/locations', async (req, res) => {
   }
 });
 
+// GET all PICs who are NOT assigned to any project
+router.get('/pics-available', async (req, res) => {
+  try {
+    // 1. Get all users with role "Person in Charge" or "PIC" (check your data)
+    // If your DB uses "Person in Charge" use that, otherwise use "PIC"
+    const allPICs = await User.find({ role: { $in: ["Person in Charge", "PIC"] } }, 'name _id');
+
+    // 2. Get all assigned PIC IDs from all projects
+    const projects = await Project.find({}, 'pic');
+    const assignedPicIds = new Set();
+    projects.forEach(proj => {
+      if (Array.isArray(proj.pic)) {
+        proj.pic.forEach(picId => assignedPicIds.add(picId.toString()));
+      }
+    });
+
+    // 3. Filter only those PICs not assigned in any project
+    const availablePICs = allPICs.filter(pic => !assignedPicIds.has(pic._id.toString()));
+
+    res.json(availablePICs);
+  } catch (err) {
+    console.error("Error fetching available PICs:", err);
+    res.status(500).json({ message: 'Failed to fetch available PICs' });
+  }
+});
+
+
 module.exports = router;
