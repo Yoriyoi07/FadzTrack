@@ -6,7 +6,14 @@ const { logAction } = require('../utils/auditLogger');
 exports.createMaterialRequest = async (req, res) => {
   try {
     const { materials, description, project } = req.body;
+    const materialsArray = JSON.parse(materials);
+    const missingUnit = materialsArray.some(m => !m.unit || m.unit.trim() === '');
     let attachments = [];
+    
+if (missingUnit) {
+  return res.status(400).json({ message: 'Each material must have a unit.' });
+}
+
     if (req.files && req.files.length > 0) {
       attachments = req.files.map(file => file.filename);
     }
@@ -80,7 +87,13 @@ exports.getMaterialRequestById = async (req, res) => {
 exports.updateMaterialRequest = async (req, res) => {
   try {
     const { materials, description, attachments } = req.body;
+    const materialsArray = JSON.parse(materials);
+    const missingUnit = materialsArray.some(m => !m.unit || m.unit.trim() === '');
     let updatedAttachments = [];
+
+    if (missingUnit) {
+  return res.status(400).json({ message: 'Each material must have a unit.' });
+}
     try {
       updatedAttachments = JSON.parse(attachments || '[]');
     } catch {
@@ -171,6 +184,8 @@ exports.approveMaterialRequest = async (req, res) => {
   try {
     const request = await MaterialRequest.findById(req.params.id).populate('project');
     if (!request) return res.status(404).json({ message: 'Request not found' });
+
+
     const { project } = request;
     if (!project) return res.status(500).json({ message: 'No linked project.' });
     if (!project.projectmanager) return res.status(500).json({ message: 'Project has no projectmanager assigned.' });
@@ -203,7 +218,7 @@ exports.approveMaterialRequest = async (req, res) => {
     request.status = nextStatus;
     await request.save();
 
-    // Regular log
+    // Logging
     await logAction({
       action: 'APPROVE_MATERIAL_REQUEST',
       performedBy: req.user.id,
@@ -212,7 +227,6 @@ exports.approveMaterialRequest = async (req, res) => {
       meta: { requestId: request._id }
     });
 
-    // CEO-specific log
     if (userRole === 'CEO') {
       await logAction({
         action: 'CEO_APPROVE_MATERIAL_REQUEST',
@@ -229,6 +243,7 @@ exports.approveMaterialRequest = async (req, res) => {
     res.status(500).json({ message: 'Failed to process approval' });
   }
 };
+
 
 // GET BY ROLE (mine)
 exports.getMyMaterialRequests = async (req, res) => {

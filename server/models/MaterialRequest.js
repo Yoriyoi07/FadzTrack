@@ -39,6 +39,7 @@ const materialRequestSchema = new mongoose.Schema({
   timestamps: true
 });
 
+
 // Attach the plugin here (AFTER schema, BEFORE model export)
 materialRequestSchema.plugin(AutoIncrement, { inc_field: 'requestNumber' });
 
