@@ -25,14 +25,13 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3000',
   'https://fadztrack.vercel.app'
-  // Add more allowed origins if needed
 ];
 
-// ---- Express CORS ----
 app.use(cors({
   origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+    if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
       return callback(null, true);
     }
     return callback(new Error('Not allowed by CORS'));
