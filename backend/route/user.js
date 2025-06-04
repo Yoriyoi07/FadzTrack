@@ -1,9 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User'); 
+const User = require('../models/User');
 const Project = require('../models/Project');
-const Location = require('../models/Location');
-const userController = require('../controllers/userController');
 
 // Fetch users by role
 router.get('/role/:role', async (req, res) => {
@@ -17,49 +15,61 @@ router.get('/role/:role', async (req, res) => {
   }
 });
 
+// GET: Locations assigned to user (for dropdown)
 router.get('/:userId/locations', async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).populate('locations');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    res.json(user.locations);
+    const { userId } = req.params;
+    const user = await User.findById(userId).populate('locations');  // Use populate to get full location data
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json(user.locations);  // Send populated locations
   } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch locations' });
+    console.error('Error fetching assigned locations:', err);
+    res.status(500).json({ message: 'Failed to fetch assigned locations' });
   }
 });
 
+// PUT: Update assigned locations for user
 router.put('/:userId/locations', async (req, res) => {
   try {
-    const { locations } = req.body; // array of location ObjectIds 
+    const { userId } = req.params;
+    const { locations } = req.body;  // Array of location IDs to be updated
+
+    // Find the user and update their locations
     const user = await User.findByIdAndUpdate(
-      req.params.userId,
-      { locations },
+      userId,
+      { locations },  // Update the locations field with the new locations
       { new: true }
-    ).populate('locations');
-    if (!user) return res.status(404).json({ message: 'User not found' });
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Return the updated user
     res.json(user.locations);
   } catch (err) {
+    console.error('Error updating locations:', err);
     res.status(500).json({ message: 'Failed to update locations' });
   }
 });
 
+// GET: Assigned projects for user (PIC or PM)
 router.get('/assigned/:userId', async (req, res) => {
   const userId = req.params.userId;
-
   try {
-    // Step 1: Find the user to check role
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    let project;
-
-    // Step 2: If role is PIC, return only one project where user is the PIC
-    if (user.role === 'PIC') {
-      project = await Project.findOne({ pic: userId });
+    if (user.role === 'PIC' || user.role === 'Person in Charge') {
+      const project = await Project.findOne({ pic: userId });
       if (!project) return res.status(404).json({ message: 'No project assigned to this PIC' });
-      return res.json([project]); // return as array to keep frontend consistent
+      return res.json([project]);
     }
 
-    // Step 3: Otherwise, return all assigned projects (e.g. for project managers)
     const projects = await Project.find({
       $or: [
         { projectmanager: userId },
@@ -74,46 +84,54 @@ router.get('/assigned/:userId', async (req, res) => {
   }
 });
 
-router.get('/:userId/locations', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    // Assuming assignedLocations is an array of ObjectIds or strings
-    const locations = await Location.find({ _id: { $in: user.assignedLocations || [] } });
-    res.json(locations);
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to fetch assigned locations' });
-  }
-});
-
 // GET all PICs who are NOT assigned to any project
-router.get('/pics-available', async (req, res) => {
+router.get('/unassigned-pics', async (req, res) => {
   try {
-    // 1. Get all users with role "Person in Charge" or "PIC" (check your data)
-    // If your DB uses "Person in Charge" use that, otherwise use "PIC"
-    const allPICs = await User.find({ role: { $in: ["Person in Charge", "PIC"] } }, 'name _id');
+    // Use aggregation to find PICs not assigned to any project
+    const unassignedPICs = await User.aggregate([
+      { $match: { role: { $in: ["PIC", "Person in Charge"] } } },
+      {
+        $lookup: {
+          from: 'projects',
+          localField: '_id',
+          foreignField: 'pic',
+          as: 'assigned_projects'
+        }
+      },
+      { $match: { 'assigned_projects': { $size: 0 } } },  // Filter out those with assigned projects
+      { $project: { name: 1, _id: 1 } }  // Select only the fields we need
+    ]);
 
-    // 2. Get all assigned PIC IDs from all projects
-    const projects = await Project.find({}, 'pic');
-    const assignedPicIds = new Set();
-    projects.forEach(proj => {
-      if (Array.isArray(proj.pic)) {
-        proj.pic.forEach(picId => assignedPicIds.add(picId.toString()));
-      }
-    });
-
-    // 3. Filter only those PICs not assigned in any project
-    const availablePICs = allPICs.filter(pic => !assignedPicIds.has(pic._id.toString()));
-
-    res.json(availablePICs);
+    res.json(unassignedPICs);
   } catch (err) {
-    console.error("Error fetching available PICs:", err);
-    res.status(500).json({ message: 'Failed to fetch available PICs' });
+    console.error("Error fetching unassigned PICs:", err);
+    res.status(500).json({ message: 'Failed to fetch unassigned PICs' });
   }
 });
 
-router.get('/eligible-pms', userController.getEligiblePMs);
+// GET all PMs who are NOT assigned as PM to any project
+router.get('/unassigned-pms', async (req, res) => {
+  try {
+    // Use aggregation to find PMs not assigned to any project
+    const unassignedPMs = await User.aggregate([
+      { $match: { role: "Project Manager" } },
+      {
+        $lookup: {
+          from: 'projects',
+          localField: '_id',
+          foreignField: 'projectmanager',
+          as: 'assigned_projects'
+        }
+      },
+      { $match: { 'assigned_projects': { $size: 0 } } },  // Filter out those with assigned projects
+      { $project: { name: 1, _id: 1 } }  // Select only the fields we need
+    ]);
+
+    res.json(unassignedPMs);
+  } catch (err) {
+    console.error("Error fetching unassigned PMs:", err);
+    res.status(500).json({ message: 'Failed to fetch unassigned PMs' });
+  }
+});
 
 module.exports = router;

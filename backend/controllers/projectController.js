@@ -19,6 +19,7 @@ exports.addProject = async (req, res) => {
 
     const photos = req.files ? req.files.map(file => '/uploads/' + file.filename) : [];
 
+    // Create the new project
     const newProject = new Project({
       projectName,
       pic,
@@ -33,10 +34,8 @@ exports.addProject = async (req, res) => {
       photos
     });
 
+    // Save project
     const savedProject = await newProject.save();
-
-    // Debug log
-    console.log("REQ.USER in addProject:", req.user);
 
     // Normal log
     await logAction({
@@ -57,7 +56,14 @@ exports.addProject = async (req, res) => {
         meta: { projectId: savedProject._id }
       });
     }
+    
+    // Update assignedProject for each manpower
+    await Manpower.updateMany(
+      { _id: { $in: manpower } },
+      { $set: { assignedProject: savedProject._id } }
+    );
 
+    // Return the saved project
     res.status(201).json(savedProject);
   } catch (err) {
     console.error('❌ Error adding project:', err);

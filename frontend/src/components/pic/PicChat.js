@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {  FaPaperPlane, FaWindowMaximize, FaEllipsisH } from 'react-icons/fa';
-import io from 'socket.io-client';
 import '../style/pic_style/Pic_Chat.css';
 import api from '../../api/axiosInstance';
 
-const socket = io('http://localhost:5000'); 
 
 const PicChat = () => {
   const navigate = useNavigate();
@@ -22,32 +20,11 @@ const PicChat = () => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
 
-  // Listen for incoming messages
-  useEffect(() => {
-    socket.on('receiveMessage', (data) => {
-      setMessages((prevMessages) => [...prevMessages, data]);
-    });
 
-    // Clean up socket on unmount
-    return () => socket.off('receiveMessage');
-  }, []);
+ 
 
-  const handleSend = () => {
-    if (!newMessage.trim()) return;
-  
-    const user = JSON.parse(localStorage.getItem('user'));
 
-    const messageData = {
-      sender: user.id, 
-      content: newMessage,
-      chatId: '64e2c7c2053f826db77d9301',
-      timestamp: new Date().toISOString()
-    };
-  
-    socket.emit('sendMessage', messageData);
-    setNewMessage(''); 
-  };
-  
+ 
   // Auth guard
   useEffect(() => {
     if (!token || !user) {
@@ -169,9 +146,8 @@ const PicChat = () => {
         className="input-box"
         value={newMessage}
         onChange={(e) => setNewMessage(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
       />
-      <button className="icon-btn" onClick={handleSend}><FaPaperPlane /></button>
+      <button className="icon-btn"><FaPaperPlane /></button>
     </div>
   </div>
 </div>

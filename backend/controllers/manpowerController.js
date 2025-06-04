@@ -22,3 +22,16 @@ exports.uploadManpowerFromCSV = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+exports.getUnassignedManpower = async (req, res) => {
+  try {
+    // Fetch manpower whose assignedProject is null (unassigned) and status is 'Inactive'
+    const unassignedInactiveManpower = await Manpower.find({ 
+      assignedProject: null, 
+      status: 'Inactive' 
+    });
+    res.json(unassignedInactiveManpower);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

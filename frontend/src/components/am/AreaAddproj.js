@@ -24,6 +24,15 @@ const AreaAddproj = () => {
   const [csvError, setCsvError] = useState('');
   const [photos, setPhotos] = useState([]);
 
+  console.log('Assigned Pics:', assignedPics);
+console.log('Available Pics:', availablePics);
+  console.log('Assigned Pics:', manpowerList);
+  console.log('Available Manpower:', availableManpower);
+  console.log('Assigned Locations:', assignedLocations);
+  console.log('Assigned Manpower:', assignedManpower);
+  console.log('Eligible PMs:', eligiblePMs);
+
+
   const [formData, setFormData] = useState({
     projectName: '',
     pic: [],
@@ -45,33 +54,49 @@ const AreaAddproj = () => {
   }, [userId]);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const pmRes = await api.get('/users/eligible-pms');
-        setEligiblePMs(Array.isArray(pmRes.data) ? pmRes.data : pmRes.data.data || []);
-        const picRes = await api.get('/users/pics-available');
-        setPics(Array.isArray(picRes.data) ? picRes.data : picRes.data.data || []);
-        setAvailablePics(Array.isArray(picRes.data) ? picRes.data : picRes.data.data || []);
-      } catch (err) {
-        console.error('Failed to fetch users:', err);
-      }
-    };
-    fetchUsers();
-  }, []);
+  console.log('Assigned Locations:', assignedLocations);
+}, [assignedLocations]);
+
+  useEffect(() => {
+  const fetchUsers = async () => {
+    try {
+      const pmRes = await api.get('/users/unassigned-pms'); // Fetch eligible PMs
+      setEligiblePMs(Array.isArray(pmRes.data) ? pmRes.data : pmRes.data.data || []);
+      
+      const picRes = await api.get('/users/unassigned-pics'); // Fetch available PICs
+      setPics(Array.isArray(picRes.data) ? picRes.data : picRes.data.data || []);
+      setAvailablePics(Array.isArray(picRes.data) ? picRes.data : picRes.data.data || []);
+      
+      const manpowerRes = await api.get('/manpower/unassigned'); // Fetch unassigned manpower
+      setManpowerList(manpowerRes.data); 
+      setAvailableManpower(manpowerRes.data);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+    }
+  };
+  fetchUsers();
+}, []);
+
+
 
   // --- SEARCH LOGIC FOR PIC ---
-  const filteredAvailablePics = availablePics.filter(pic =>
-    pic.name.toLowerCase().includes(searchPIC.toLowerCase())
-  );
+ const filteredAvailablePics = availablePics.filter(pic =>
+  !assignedPics.some(assignedPic => assignedPic._id === pic._id) &&
+  pic.name.toLowerCase().includes(searchPIC.toLowerCase())
+);
 
-  const handleAssignPic = (pic) => {
+
+ const handleAssignPic = (pic) => {
+  // Ensure the PIC is not already assigned
+  if (!assignedPics.some(p => p._id === pic._id)) {
     setAssignedPics(prev => [...prev, pic]);
     setAvailablePics(prev => prev.filter(p => p._id !== pic._id));
     setFormData(prev => ({
       ...prev,
       pic: [...prev.pic, pic._id]
     }));
-  };
+  }
+};
 
   const handleRemovePic = (pic) => {
     setAvailablePics(prev => [...prev, pic]);
@@ -83,7 +108,7 @@ const AreaAddproj = () => {
   };
 
   useEffect(() => {
-    api.get('/manpower')
+    api.get('/manpower/unassigned')
       .then(res => {
         setManpowerList(res.data);
         setAvailableManpower(res.data);
@@ -91,16 +116,21 @@ const AreaAddproj = () => {
       .catch(err => console.error('Failed to fetch manpower:', err));
   }, []);
 
-  useEffect(() => {
-    if (userId) {
-      api.get(`/users/${userId}/locations`)
-        .then(res => setAssignedLocations(res.data))
-        .catch(err => {
-          setAssignedLocations([]);
-          console.error('Failed to fetch assigned locations:', err);
-        });
-    }
-  }, [userId]);
+useEffect(() => {
+  if (userId) {
+    api.get(`/users/${userId}/locations`)
+      .then(res => {
+        console.log('Fetched locations:', res.data);
+        setAssignedLocations(res.data);
+      })
+      .catch(err => {
+        console.error('Failed to fetch assigned locations:', err);
+        setAssignedLocations([]);
+      });
+  }
+}, [userId]);
+
+
 
   useEffect(() => {
     setFormData(prev => ({ ...prev, manpower: assignedManpower.map(m => m._id) }));
@@ -114,10 +144,13 @@ const AreaAddproj = () => {
     }));
   };
 
-  const handleAssignManpower = (mp) => {
+ const handleAssignManpower = (mp) => {
+  // Ensure the manpower is not already assigned
+  if (!assignedManpower.some(m => m._id === mp._id)) {
     setAssignedManpower(prev => [...prev, mp]);
     setAvailableManpower(prev => prev.filter(m => m._id !== mp._id));
-  };
+  }
+};
 
   const handleRemoveManpower = (mp) => {
     setAvailableManpower(prev => [...prev, mp]);
@@ -152,9 +185,11 @@ const AreaAddproj = () => {
   };
 
   const filteredAvailableManpower = availableManpower.filter(mp =>
-    mp.name.toLowerCase().includes(searchManpower.toLowerCase()) ||
-    mp.position.toLowerCase().includes(searchManpower.toLowerCase())
-  );
+  !assignedManpower.some(assignedMp => assignedMp._id === mp._id) &&
+  (mp.name.toLowerCase().includes(searchManpower.toLowerCase()) ||
+  mp.position.toLowerCase().includes(searchManpower.toLowerCase()))
+);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -162,6 +197,10 @@ const AreaAddproj = () => {
       alert("Please select both start and end dates.");
       return;
     }
+      if (!formData.projectmanager || !formData.pic.length || !formData.manpower.length) {
+    alert('Please ensure all required fields are selected.');
+    return;
+  }
     if (new Date(formData.endDate) < new Date(formData.startDate)) {
       alert("End date cannot be before start date.");
       return;
@@ -205,7 +244,7 @@ const AreaAddproj = () => {
       setAssignedManpower([]);
       setAvailableManpower(manpowerList);
       setPhotos([]);
-      navigate('/ceo/dash');
+      navigate('/am');
     } catch (error) {
       const result = error.response?.data;
       alert(`❌ Error: ${result?.message || result?.error || 'Failed to add project'}`);

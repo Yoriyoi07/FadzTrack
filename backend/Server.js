@@ -8,7 +8,6 @@ const cookieParser = require('cookie-parser');
 const authRoutes = require('./route/auth');
 const projectRoutes = require('./route/project');
 const manpowerRequestRoutes = require('./route/manpowerRequest');
-const Message = require('./models/Messages');
 const materialRequestRoutes = require('./route/materialRequest');
 const { verifyToken } = require('./middleware/authMiddleware');
 const userRoutes = require('./route/user');
