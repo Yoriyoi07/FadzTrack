@@ -24,11 +24,19 @@ const app = express();
 // ---- CORS: allow both local and deployed frontend ----
 const allowedOrigins = [
   'http://localhost:3000',
-  process.env.CLIENT_ORIGIN || 'https://fadztrack.vercel.app'
+  'https://fadztrack.vercel.app'
+  // Add more allowed origins if needed
 ];
 
+// ---- Express CORS ----
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true
 }));
 
@@ -62,7 +70,13 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST'],
     credentials: true
   }
