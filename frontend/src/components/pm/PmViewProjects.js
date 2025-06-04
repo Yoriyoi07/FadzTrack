@@ -185,7 +185,7 @@ const handleSubmitTasks = async () => {
 
       <main className="main">
         <div className="project-detail-container">
-          <div className="back-button" onClick={() => navigate('/Pic')} style={{ cursor: 'pointer' }}>
+          <div className="back-button" onClick={() => navigate('/pm')} style={{ cursor: 'pointer' }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
               <path d="M19 12H5"></path>
               <path d="M12 19l-7-7 7-7"></path>

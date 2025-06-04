@@ -75,7 +75,7 @@ const PicProject = () => {
 
       <main className="main">
         <div className="project-detail-container">
-          <div className="back-button" onClick={() => navigate('/Pic')} style={{ cursor: 'pointer' }}>
+          <div className="back-button" onClick={() => navigate('/pic')} style={{ cursor: 'pointer' }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">
               <path d="M19 12H5"></path>
               <path d="M12 19l-7-7 7-7"></path>
@@ -127,12 +127,14 @@ const PicProject = () => {
             </div>
           </div>
           <div className="manpower-section">
-            <span className="detail-label">Manpower:</span>
-            <div className="manpower-list">
-              {project.manpower && project.manpower.length > 0
-                ? project.manpower.map((m, idx) => <div key={m._id || idx}>{m.name} {m.position ? `(${m.position})` : ''}</div>)
-                : 'N/A'}
-            </div>
+            <div className="manpower-section">
+            <p className="detail-label">Manpower:</p>
+            <p className="manpower-list">
+              {Array.isArray(project.manpower) && project.manpower.length > 0
+                ? project.manpower.map(mp => `${mp.name} (${mp.position})`).join(', ')
+                : 'No Manpower Assigned'}
+            </p>
+          </div>
           </div>
         </div>
       </main>
