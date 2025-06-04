@@ -51,7 +51,7 @@ const CeoViewSpecific = () => {
   if (!project) return <div>Loading...</div>;
 
   return (
-    <div className="app-container">
+    <div>
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
