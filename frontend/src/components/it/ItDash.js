@@ -14,6 +14,7 @@ const ItDash = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendError, setResendError] = useState('');
+  const [selectedUser, setSelectedUser] = useState(null);
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
@@ -83,12 +84,14 @@ const ItDash = () => {
           status: user.status || 'Active'
         }));
         setAccounts(formattedAccounts);
+         if (!selectedUser && formattedAccounts.length > 0) {
+        setSelectedUser(formattedAccounts[0]);}
       } catch (error) {
         console.error('Error fetching accounts:', error);
       }
     };
     fetchAccounts();
-  }, []);
+  }, [selectedUser]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -254,14 +257,18 @@ const ItDash = () => {
             Create New Account
           </button>
           <div className="user-profile-large-IT">
-            <div className="profile-avatar-IT">J</div>
-            <h3>Jane Cooper</h3>
-            <p className="user-email-IT">jane@microsoft.com</p>
-            <p className="user-position-IT">PM</p>
-            <div className="status-indicator-IT">
-              <span className="status-IT active-IT">Active</span>
-            </div>
+          <div className="profile-avatar-IT">
+            {(selectedUser?.name?.[0] || 'U').toUpperCase()}
           </div>
+          <h3>{selectedUser?.name || 'No User Selected'}</h3>
+          <p className="user-email-IT">{selectedUser?.email || '-'}</p>
+          <p className="user-position-IT">{selectedUser?.position || '-'}</p>
+          <div className="status-indicator-IT">
+            <span className={`status-IT ${(selectedUser?.status || 'active').toLowerCase()}-IT`}>
+              {selectedUser?.status || 'Active'}
+            </span>
+          </div>
+        </div>
         </>
       );
     } else {
@@ -462,7 +469,11 @@ const ItDash = () => {
                   </thead>
                   <tbody>
                     {currentAccounts.map(account => (
-                      <tr key={account.id}>
+                      <tr
+                          key={account.id}
+                          onClick={() => setSelectedUser(account)}
+                          style={{ cursor: 'pointer' }}
+                        >
                         <td>{account.name}</td>
                         <td>{account.position}</td>
                         <td>{account.phone}</td>
@@ -474,22 +485,23 @@ const ItDash = () => {
                         </td>
                         <td>
                           <button
-                            className="edit-button-IT"
-                            onClick={() => {
-                              setEditingAccount(account);
-                              setIsEditing(true);
-                              setShowCreateAccount(true);
-                              setNewAccount({
-                                name: account.name,
-                                position: account.position,
-                                phone: account.phone,
-                                email: account.email
-                              });
-                              setResendError('');
-                            }}
-                          >
-                            ✏️
-                          </button>
+                          className="edit-button-IT"
+                          onClick={() => {
+                            setEditingAccount(account);
+                            setIsEditing(true);
+                            setShowCreateAccount(true);
+                            setNewAccount({
+                              name: account.name,
+                              position: account.position,
+                              phone: account.phone,
+                              email: account.email
+                            });
+                            setResendError('');
+                            setSelectedUser(account); 
+                          }}
+                        >
+                          ✏️
+                        </button>
                         </td>
                         <td>
                           <button
