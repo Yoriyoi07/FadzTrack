@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FaPaperclip, FaPaperPlane, FaWindowMaximize, FaEllipsisH } from 'react-icons/fa';
+import {  FaPaperPlane, FaWindowMaximize, FaEllipsisH } from 'react-icons/fa';
 import io from 'socket.io-client';
 import '../style/pic_style/Pic_Chat.css';
 import api from '../../api/axiosInstance';
@@ -17,8 +17,8 @@ const PicChat = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [project, setProject] = useState(null);
-  const [userName, setUserName] = useState(user?.name || '');
-  const [projects, setProjects] = useState([]);
+  const [, setUserName] = useState(user?.name || '');
+  const [, setProjects] = useState([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
 

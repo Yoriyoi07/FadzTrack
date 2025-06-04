@@ -9,12 +9,11 @@ const MaterialRequestDetail = () => {
   const [requestData, setRequestData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
-  const [project, setProject] = useState(null);
+  const [project, ] = useState(null);
   const [materials, setMaterials] = useState([]);
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [newFiles, setNewFiles] = useState([]);
-    const [projects, setProjects] = useState([]);
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 

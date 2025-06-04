@@ -12,7 +12,6 @@ const PmDash = () => {
 
   const [userName, setUserName] = useState(user?.name || 'ALECK');
   const [userRole, setUserRole] = useState(user?.role || '');
-  const [projects, setProjects] = useState([]);
   const [project, setProject] = useState(null);
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -43,9 +42,9 @@ const PmDash = () => {
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [requestsError, setRequestsError] = useState(null);
 
-  const [manpowerRequests, setManpowerRequests] = useState([]);
-  const [loadingManpower, setLoadingManpower] = useState(true);
-  const [manpowerError, setManpowerError] = useState(null);
+  const [, setManpowerRequests] = useState([]);
+  const [, setLoadingManpower] = useState(true);
+  const [, setManpowerError] = useState(null);
 
   // Calculate task status counts and pie chart data
   const taskStatusData = React.useMemo(() => {

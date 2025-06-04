@@ -12,7 +12,7 @@ const AreaMaterialList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('All');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, ] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {

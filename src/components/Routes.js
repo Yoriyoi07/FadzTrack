@@ -1,11 +1,9 @@
 import React from 'react';
-import { Routes, Route, Link } from 'react-router-dom';
-
+import { Routes, Route } from 'react-router-dom';
 import PicDash from './pic/PicDash';
 import PicReq from './pic/PicReq';
 import PicChat from './pic/PicChat';
 import PmDash from './pm/PmDash';
-import PmDailyReports from './pm/PmDailyReports';
 import PmIncidentReport from './pm/PmIncidentReport';
 import PmRequestManpower from './pm/PmRequestManpower';
 import AreaManagerDashboard from './am/AreaDash';
@@ -30,7 +28,6 @@ import PmManpowerList from './pm/PmManpowerList';
 import AreaManpowerReqDetails from './am/AreaManpowerReqDetails';
 import HrManpowerList from './hr/HrManpowerList';
 import HrDash from './hr/HrDash';
-import AreaManpowerRequestList from './am/AreaManpowerRequestList';
 import PmViewProjects from './pm/PmViewProjects';
 import PmRequestedManpowerDetail from './pm/PmRequestedManpowerDetail';
 import CeoAuditLogs from './ceo/CeoAuditLogs';

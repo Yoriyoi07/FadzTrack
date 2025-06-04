@@ -4,8 +4,8 @@ import api from '../../api/axiosInstance';
 import '../style/ceo_style/Ceo_Proj.css';
 
 const AreaProj = () => {
-  const [filter, setFilter] = useState('all');
-  const [viewMode, setViewMode] = useState('grid');
+  const [filter, ] = useState('all');
+  const [viewMode,] = useState('grid');
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projects, setProjects] = useState([]);

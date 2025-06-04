@@ -12,7 +12,7 @@ const PicDash = () => {
 
   const [requests, setRequests] = useState([]);
   const [userName, setUserName] = useState(user?.name || '');
-  const [projects, setProjects] = useState([]);
+  const [, setProjects] = useState([]);
   const [project, setProject] = useState(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);

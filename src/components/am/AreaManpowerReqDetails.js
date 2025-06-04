@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
 import '../style/am_style/Area_Manpower_ReqDetails.css';
-import api from '../../api/axiosInstance'; // ✅ Import axios instance
+import api from '../../api/axiosInstance';
 
 export default function AreaManpowerReqDetails() {
   const navigate = useNavigate();
@@ -21,27 +21,19 @@ export default function AreaManpowerReqDetails() {
   const [selectedArea, setSelectedArea] = useState('');
   const [selectedProject, setSelectedProject] = useState('');
 
-  function getShortId(data) {
-    return data && data._id ? data._id.slice(-5).toUpperCase() : '';
-  }
-
   useEffect(() => {
     fetchRequest();
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchRequest = async () => {
-    const token = localStorage.getItem('token');
     try {
-      const res = await fetch(`http://localhost:5000/api/manpower-requests/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setReqData(data);
-        setSelectedProject(data.project?._id || '');
-        setSelectedArea(user?.area || '');
-      }
+      const { data } = await api.get(`/manpower-requests/${id}`);
+      setReqData(data);
+      setSelectedProject(data.project?._id || '');
+      setSelectedArea(user?.area || '');
+    } catch (error) {
+      console.error("Failed to fetch request:", error);
     } finally {
       setLoading(false);
     }
@@ -51,24 +43,14 @@ export default function AreaManpowerReqDetails() {
     if (!reqData) return;
 
     const fetchAvailable = async () => {
-      const token = localStorage.getItem('token');
-
       try {
-        const res = await fetch('http://localhost:5000/api/manpower-requests/inactive', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        const data = await res.json();
-        console.log("Fetched inactive manpowers:", data); // for debug
-
+        const { data } = await api.get('/manpower-requests/inactive');
         if (!Array.isArray(data)) {
           console.error("❌ Expected array but got:", data);
           setAvailableManpowers([]);
           return;
         }
-
-      setAvailableManpowers(data);
-
+        setAvailableManpowers(data);
       } catch (error) {
         console.error("❌ Error fetching inactive manpowers:", error);
         setAvailableManpowers([]);
@@ -78,21 +60,21 @@ export default function AreaManpowerReqDetails() {
     fetchAvailable();
   }, [reqData]);
 
-    useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (!event.target.closest(".profile-menu-container")) {
-          setProfileMenuOpen(false);
-        }
-      };
-      document.addEventListener("click", handleClickOutside);
-      return () => document.removeEventListener("click", handleClickOutside);
-    }, []);
-
-    const handleLogout = () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
     };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   const handleAddManpower = (id) => {
     const selected = availableManpowers.find(mp => mp._id === id);
@@ -104,7 +86,6 @@ export default function AreaManpowerReqDetails() {
     setSelectedManpowers(prev => [...prev, selected]);
   };
 
-
   const handleRemoveManpower = (id) => {
     setSelectedManpowers(selectedManpowers.filter(mp => mp._id !== id));
   };
@@ -114,30 +95,21 @@ export default function AreaManpowerReqDetails() {
       alert("Fill all required fields.");
       return;
     }
-    const token = localStorage.getItem('token');
     setApproveLoading(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/manpower-requests/${id}/approve`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          approvedBy: user?.name || '',
-          status: "Approved",
-          area: selectedArea,
-          project: selectedProject,
-          manpowerProvided: selectedManpowers.map(mp => mp._id)
-        })
+      await api.put(`/manpower-requests/${id}/approve`, {
+        approvedBy: user?.name || '',
+        status: "Approved",
+        area: selectedArea,
+        project: selectedProject,
+        manpowerProvided: selectedManpowers.map(mp => mp._id),
       });
-      if (res.ok) {
-        alert("✅ Request Approved!");
-        setReviewMode(false);
-        fetchRequest();
-      } else {
-        alert("❌ Failed to approve request.");
-      }
+      alert("✅ Request Approved!");
+      setReviewMode(false);
+      fetchRequest();
+    } catch (error) {
+      alert("❌ Failed to approve request.");
+      console.error(error);
     } finally {
       setApproveLoading(false);
     }
@@ -147,18 +119,12 @@ export default function AreaManpowerReqDetails() {
     if (!window.confirm("Are you sure you want to deny this request?")) return;
     setApproveLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`http://localhost:5000/api/manpower-requests/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: "Rejected" })
-      });
-      if (res.ok) {
-        alert("Request Denied!");
-        navigate('/am/manpower-requests');
-      } else {
-        alert("Failed to deny.");
-      }
+      await api.put(`/manpower-requests/${id}`, { status: "Rejected" });
+      alert("Request Denied!");
+      navigate('/am/manpower-requests');
+    } catch (error) {
+      alert("Failed to deny.");
+      console.error(error);
     } finally {
       setApproveLoading(false);
     }
@@ -171,7 +137,7 @@ export default function AreaManpowerReqDetails() {
 
   const handleReviewRequest = () => setReviewMode(true);
 
-    if (loading) return <div className="fadztrack-main"><div className="fadztrack-card">Loading...</div></div>;
+  if (loading) return <div className="fadztrack-main"><div className="fadztrack-card">Loading...</div></div>;
   if (!reqData) return <div className="fadztrack-main"><div className="fadztrack-card">Request not found.</div></div>;
 
   return (
@@ -191,19 +157,19 @@ export default function AreaManpowerReqDetails() {
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
+        <div className="profile-menu-container">
+          <div
+            className="profile-circle"
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            Z
           </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* --- Main Body --- */}
@@ -287,14 +253,13 @@ export default function AreaManpowerReqDetails() {
                 </div>
               </div>
 
-
               {selectedManpowers.length > 0 && (
                 <div className="fadztrack-form-group">
                   <label>Manpower to Lend</label>
-                  <div className="fadztrack-select" style={{ 
-                    minHeight: 50, 
-                    padding: 10, 
-                    display: 'flex', 
+                  <div className="fadztrack-select" style={{
+                    minHeight: 50,
+                    padding: 10,
+                    display: 'flex',
                     flexWrap: 'wrap',
                     gap: '8px'
                   }}>
@@ -309,22 +274,22 @@ export default function AreaManpowerReqDetails() {
                         fontSize: '0.95rem'
                       }}>
                         {mp.name} ({mp.position})
-                          <button
-                            onClick={() => handleRemoveManpower(mp._id)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              marginLeft: 8,
-                              color: '#1e3a8a',
-                              fontWeight: 'bold',
-                              fontSize: '1rem',
-                              cursor: 'pointer',
-                              lineHeight: '1'
-                            }}
-                            title="Remove"
-                          >
-                            ×
-                          </button>
+                        <button
+                          onClick={() => handleRemoveManpower(mp._id)}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            marginLeft: 8,
+                            color: '#1e3a8a',
+                            fontWeight: 'bold',
+                            fontSize: '1rem',
+                            cursor: 'pointer',
+                            lineHeight: '1'
+                          }}
+                          title="Remove"
+                        >
+                          ×
+                        </button>
                       </span>
                     ))}
                   </div>

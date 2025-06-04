@@ -6,7 +6,7 @@ import '../style/pm_style/Pm_DailyLogs.css';
 const PMDailyLogs = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [projects, setProjects] = useState([]);
+  const [projects,] = useState([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   // Get logged-in user info from localStorage

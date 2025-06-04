@@ -12,9 +12,9 @@ const AreaDash = () => {
   const [allProjects, setAllProjects] = useState([]);
   const [enrichedAllProjects, setEnrichedAllProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [materialRequests, setMaterialRequests] = useState([]);
+  const [, setMaterialRequests] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
-  const [requestsError, setRequestsError] = useState(null);
+  const [, setRequestsError] = useState(null);
   const [assignedLocations, setAssignedLocations] = useState([]);
   const [expandedLocations, setExpandedLocations] = useState({});
   const stored = localStorage.getItem('user');

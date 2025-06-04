@@ -9,8 +9,9 @@ const PmMaterialRequestDetail = () => {
   const navigate = useNavigate();
   const [requestData, setRequestData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [, setProfileMenuOpen] = useState(false);
   const user = JSON.parse(localStorage.getItem('user'));
+
   const userId = user?._id;
   const userRole = user?.role;
 
@@ -34,11 +35,7 @@ const PmMaterialRequestDetail = () => {
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
+  
   const handleBack = () => navigate(-1);
 
   // --- Attachments helpers ---

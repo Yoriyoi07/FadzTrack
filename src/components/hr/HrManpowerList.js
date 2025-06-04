@@ -5,7 +5,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import axios from 'axios';
 import Papa from 'papaparse';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Grid, List, Filter } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import '../style/hr_style/Hr_ManpowerList.css';
 
 const ITEMS_PER_PAGE = 7;
