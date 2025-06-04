@@ -37,6 +37,7 @@ import AreaProj from './am/AreaProjArea';
 import ActivateAccount from './it/ActivateAccount';
 import ResetPassword from './it/ResetPassword';
 import PmDailyLogs from './pm/PMDailyLogs';
+import HrProj from './hr/HrProj';
 
 const AppRoutes = () => {
   return (
@@ -91,6 +92,7 @@ const AppRoutes = () => {
       <Route path="/hr/dash" element={<HrDash />} />
       <Route path="/hr/mlist" element={<HrManpowerList />} />
       <Route path="/hr/movement" element={<HrMovementList />} />
+      <Route path='hr/project-records' element={<HrProj />} />
 
       {/* Reusable */}
       <Route path="/approve-deny/:id" element={<ApproveDenyAction />} />

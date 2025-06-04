@@ -61,7 +61,7 @@ export default function AreaManpowerList() {
 
   return (
     <div>
-      {/* Header with Navigation */}
+      {/* Header remains the same */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -71,24 +71,24 @@ export default function AreaManpowerList() {
           <Link to="/am" className="nav-link">Dashboard</Link>
           <Link to="/am/matreq" className="nav-link">Material</Link>
           <Link to="/am/manpower-requests" className="nav-link">Manpower</Link>
-          <Link to="/am/addproj" className="nav-link">Projects</Link>
+          <Link to="/am/viewproj" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-          <div className="profile-menu-container">
-            <div 
-              className="profile-circle" 
-              onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            >
-              Z
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
+        <div className="profile-menu-container">
+          <div
+            className="profile-circle"
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            Z
           </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
       </header>
 
       <main className="am-manpower-main-content">

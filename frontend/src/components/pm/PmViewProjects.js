@@ -4,19 +4,21 @@ import "../style/pic_style/Pic_Project.css";
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 const Pm_Project = () => {
+  const {id} = useParams();
+  const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
 
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [projects, setProjects] = useState([]);
+  const [userName, setUserName] = useState(user?.name || 'ALECK');
+  const [userRole, setUserRole] = useState(user?.role || '');
   const [project, setProject] = useState(null);
+  const [projects, setProjects] = useState([]);
+
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [showEditFields, setShowEditFields] = useState(false);
   const [editTasks, setEditTasks] = useState([{ name: '', percent: '' }]);
-
 
   // Single project fetch by ID
   useEffect(() => {
@@ -153,7 +155,6 @@ const handleSubmitTasks = async () => {
 
   return (
     <div>
-      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -163,19 +164,16 @@ const handleSubmitTasks = async () => {
           <Link to="/pm" className="nav-link">Dashboard</Link>
           <Link to="/pm/request/:id" className="nav-link">Material</Link>
           <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
-          {projects.length > 0 && (
-            <Link to={`/pm/viewprojects/${projects[0]._id || projects[0].id}`} className="nav-link">View Project</Link>
+          {project && (
+            <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">View Project</Link>
           )}
           <Link to="/chat" className="nav-link">Chat</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/pm/daily-logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container">
-          <div 
-            className="profile-circle" 
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            Z
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">

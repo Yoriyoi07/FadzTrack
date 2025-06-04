@@ -6,15 +6,18 @@ import '../style/pm_style/Pm_DailyLogs.css';
 const PMDailyLogs = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [projects,] = useState([]);
+  const [project, setProject] = useState(null);
+  const [projects, setProjects] = useState([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   // Get logged-in user info from localStorage
+  const token = localStorage.getItem('token');
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
 
   // State for project data
+  const [userName, setUserName] = useState(user?.name || 'ALECK');
   const [currentProject, setCurrentProject] = useState(null);
   const [projectManpower, setProjectManpower] = useState([]);
   const [materialDeliveries, setMaterialDeliveries] = useState([]);
@@ -28,6 +31,25 @@ const PMDailyLogs = () => {
     weatherCondition: 'Sunny',
     remarks: ''
   });
+
+  // Fetch project assigned as Project Manager
+  useEffect(() => {
+    if (!token || !userId) return;
+
+    const fetchAssignedPMProject = async () => {
+      try {
+        const { data } = await api.get(`/projects/assigned/projectmanager/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setProject(data);
+      } catch (err) {
+        console.error('Error fetching assigned PM project:', err);
+        setProject(null);
+      }
+    };
+
+    fetchAssignedPMProject();
+  }, [token, userId]);
 
   // Fetch project data
   useEffect(() => {
@@ -198,7 +220,6 @@ const PMDailyLogs = () => {
 
   return (
     <div className="app-container">
-      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -208,8 +229,8 @@ const PMDailyLogs = () => {
           <Link to="/pm" className="nav-link">Dashboard</Link>
           <Link to="/pm/request/:id" className="nav-link">Material</Link>
           <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
-          {projects.length > 0 && (
-            <Link to={`/pm/viewprojects/${projects[0]._id || projects[0].id}`} className="nav-link">View Project</Link>
+          {project && (
+            <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">View Project</Link>
           )}
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/pm/daily-logs" className="nav-link">Logs</Link>
@@ -217,7 +238,7 @@ const PMDailyLogs = () => {
         </nav>
         <div className="profile-menu-container">
           <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            Z
+            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">
@@ -364,7 +385,7 @@ const PMDailyLogs = () => {
 
           <div className="form-actions">
             <button type="submit" className="submit-btn" disabled={loading}>
-              Submit Daily Report
+              {loading ? 'Submitting...' : 'Submit Daily Report'}
             </button>
           </div>
         </form>

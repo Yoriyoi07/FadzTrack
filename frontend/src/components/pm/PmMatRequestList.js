@@ -5,18 +5,23 @@ import '../style/pm_style/Pm_ViewRequest.css';
 
 const PmMatRequestList = () => {
   const navigate = useNavigate();
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const token = localStorage.getItem('token');
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
+
+  const [userName, setUserName] = useState(user?.name || 'ALECK');
+  const [userRole, setUserRole] = useState(user?.role || '');
+  const [project, setProject] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('All');
   const [searchTerm,] = useState('');
-  const [projects, setProjects] = useState([]);
-  const [, setProject] = useState(null);
+
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
 
@@ -78,37 +83,23 @@ const PmMatRequestList = () => {
     navigate('/');
   };
 
-  useEffect(() => {
-    if (!token || !user) return;
-    const fetchProjects = async () => {
-      try {
-        const { data } = await api.get('/projects');
-        const filtered = data.filter(p =>
-          (typeof p.projectmanager === 'object' &&
-            (p.projectmanager._id === userId || p.projectmanager.id === userId)) ||
-          p.projectManager === userId
-        );
-        setProjects(filtered);
-      } catch (err) {
-        setProjects([]);
-      }
-    };
-    fetchProjects();
-  }, [token, user, userId]);
-
-  // Fetch assigned project
+  // Fetch project assigned as Project Manager
   useEffect(() => {
     if (!token || !userId) return;
-    const fetchAssigned = async () => {
+
+    const fetchAssignedPMProject = async () => {
       try {
-        const { data } = await api.get(`/projects/assigned/${userId}`);
-        console.log('Assigned project data:', data);
-        setProject(data[0] || null);
+        const { data } = await api.get(`/projects/assigned/projectmanager/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setProject(data);
       } catch (err) {
+        console.error('Error fetching assigned PM project:', err);
         setProject(null);
       }
     };
-    fetchAssigned();
+
+    fetchAssignedPMProject();
   }, [token, userId]);
 
   const getIconForType = (request) => {
@@ -123,7 +114,6 @@ const PmMatRequestList = () => {
 
   return (
     <div>
-      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -133,19 +123,16 @@ const PmMatRequestList = () => {
           <Link to="/pm" className="nav-link">Dashboard</Link>
           <Link to="/pm/request/:id" className="nav-link">Material</Link>
           <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
-          {projects.length > 0 && (
-            <Link to={`/pm/viewprojects/${projects[0]._id || projects[0].id}`} className="nav-link">View Project</Link>
+          {project && (
+            <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">View Project</Link>
           )}
           <Link to="/chat" className="nav-link">Chat</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/pm/daily-logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container">
-          <div 
-            className="profile-circle" 
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            Z
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">

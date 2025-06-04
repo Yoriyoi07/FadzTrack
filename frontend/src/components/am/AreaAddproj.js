@@ -233,6 +233,7 @@ const AreaAddproj = () => {
 
   return (
     <div>
+      {/* Header remains the same */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -242,7 +243,7 @@ const AreaAddproj = () => {
           <Link to="/am" className="nav-link">Dashboard</Link>
           <Link to="/am/matreq" className="nav-link">Material</Link>
           <Link to="/am/manpower-requests" className="nav-link">Manpower</Link>
-          <Link to="/am/addproj" className="nav-link">Projects</Link>
+          <Link to="/am/viewproj" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>

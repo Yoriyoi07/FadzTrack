@@ -194,7 +194,7 @@ const HrDash = () => {
           <Link to="/hr/dash" className="nav-link">Dashboard</Link>
           <Link to="/hr/mlist" className="nav-link">Manpower</Link>
           <Link to="/hr/movement" className="nav-link">Movement</Link>
-          <Link to="/ceo/proj" className="nav-link">Projects</Link>
+          <Link to="/hr/project-records" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
         </nav>

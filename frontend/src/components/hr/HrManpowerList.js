@@ -163,7 +163,7 @@ export default function Hr_ManpowerList() {
 
   return (
     <div className="fadztrack-container">
-      <header className="header">
+     <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
@@ -172,7 +172,7 @@ export default function Hr_ManpowerList() {
           <Link to="/hr/dash" className="nav-link">Dashboard</Link>
           <Link to="/hr/mlist" className="nav-link">Manpower</Link>
           <Link to="/hr/movement" className="nav-link">Movement</Link>
-          <Link to="/ceo/proj" className="nav-link">Projects</Link>
+          <Link to="/hr/project-records" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
         </nav>

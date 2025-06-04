@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PieChart, Pie, Cell } from 'recharts';
 import { useNavigate, Link } from 'react-router-dom';
-import '../style/ceo_style/Ceo_Dash.css';
+import '../style/am_style/Area_Dash.css';
 import api from '../../api/axiosInstance';
 
 const AreaDash = () => {
@@ -233,8 +233,8 @@ const AreaDash = () => {
   }, {});
 
   return (
-    <div className="head">
-      {/* Header with Navigation */}
+    <div className="area-dash head">
+      {/* Header remains the same */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -244,7 +244,7 @@ const AreaDash = () => {
           <Link to="/am" className="nav-link">Dashboard</Link>
           <Link to="/am/matreq" className="nav-link">Material</Link>
           <Link to="/am/manpower-requests" className="nav-link">Manpower</Link>
-          <Link to="/am/projects" className="nav-link">Projects</Link>
+          <Link to="/am/viewproj" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
@@ -265,48 +265,38 @@ const AreaDash = () => {
       </header>
 
       {/* Main Content */}
-      <div className="dashboard-layout">
-        {/* Left Sidebar */}
-        <div className="sidebar">
+      <div className="area-dash dashboard-layout">
+        {/* Sidebar */}
+        <div className="area-dash sidebar">
           <h2>Dashboard</h2>
-          <button
-            className="add-project-btn"
-            onClick={() => navigate('/am/addproj')}
-          >
+          <button className="area-dash add-project-btn" onClick={() => navigate('/am/addproj')}>
             Add New Project
           </button>
-          <div className="location-folders">
+          <div className="area-dash location-folders">
             {Object.entries(projectsByLocation).map(([locationId, locationData]) => (
-              <div key={locationId} className="location-folder">
-                <div 
-                  className="location-header" 
-                  onClick={() => setExpandedLocations(prev => ({ ...prev, [locationId]: !prev[locationId] }))}
-                >
-                  <div className="folder-icon">
-                    <span className={`folder-arrow ${expandedLocations[locationId] ? 'expanded' : ''}`}>▶</span>
-                    <span className="folder-icon-img">📁</span>
+              <div key={locationId} className="area-dash location-folder">
+                <div className="area-dash location-header" onClick={() => setExpandedLocations(prev => ({ ...prev, [locationId]: !prev[locationId] }))}>
+                  <div className="area-dash folder-icon">
+                    <span className={`area-dash folder-arrow ${expandedLocations[locationId] ? 'expanded' : ''}`}>▶</span>
+                    <span className="area-dash folder-icon-img">📁</span>
                   </div>
-                  <div className="location-info">
-                    <div className="location-name">{locationData.name}</div>
-                    <div className="location-region">{locationData.region}</div>
+                  <div className="area-dash location-info">
+                    <div className="area-dash location-name">{locationData.name}</div>
+                    <div className="area-dash location-region">{locationData.region}</div>
                   </div>
-                  <div className="project-count">{locationData.projects.length}</div>
+                  <div className="area-dash project-count">{locationData.projects.length}</div>
                 </div>
                 {expandedLocations[locationId] && (
-                  <div className="projects-list">
+                  <div className="area-dash projects-list">
                     {locationData.projects.map(project => (
-                      <Link 
-                        to={`/am/projects/${project._id}`} 
-                        key={project._id} 
-                        className="project-item"
-                      >
-                        <div className="project-icon">
-                          <span className="icon">🏗️</span>
-                          <div className="icon-bg"></div>
+                      <Link to={`/am/projects/${project._id}`} key={project._id} className="area-dash project-item">
+                        <div className="area-dash project-icon">
+                          <span className="area-dash icon">🏗️</span>
+                          <div className="area-dash icon-bg"></div>
                         </div>
-                        <div className="project-info">
-                          <div className="project-name">{project.name}</div>
-                          <div className="project-engineer">{project.engineer}</div>
+                        <div className="area-dash project-info">
+                          <div className="area-dash project-name">{project.name}</div>
+                          <div className="area-dash project-engineer">{project.engineer}</div>
                         </div>
                       </Link>
                     ))}
@@ -317,88 +307,90 @@ const AreaDash = () => {
           </div>
         </div>
 
-        {/* Center Content */}
-        <div className="main1">
-          <div className="greeting-header">
-            <div className="greeting-left">
-              <h1>Good Morning, {userName}!</h1>
+        {/* Main */}
+        <div className="area-dash main1">
+          <div className="area-dash chart-wrapper-container">
+            <div className="area-dash greeting-header">
+              <div className="area-dash greeting-left">
+                <h1>Good Morning, {userName}!</h1>
+              </div>
+              <div className="area-dash total-projects">
+                <span className="area-dash total-projects-label">Total Projects:</span>
+                <span className="area-dash total-projects-count">{enrichedAllProjects.length}</span>
+              </div>
             </div>
-            <div className="total-projects">
-              <span className="total-projects-label">Total Projects:</span>
-              <span className="total-projects-count">{enrichedAllProjects.length}</span>
-            </div>
-          </div>
-          <div className="progress-tracking-section">
-            <h2>Progress Tracking</h2>
-            <div className="latest-projects-progress">
-              <h3>Latest Projects Progress</h3>
-              {projects.length === 0 ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-                  No updated projects with progress data yet.
-                </div>
-              ) : (
-                <div className="project-charts scroll-x">
-                  {projects.map(project => (
-                    <div key={project.id} className="project-chart-container">
-                      <h4>{project.name}</h4>
-                      <div className="pie-chart-wrapper">
-                        <PieChart width={160} height={160}>
-                          <Pie
-                            data={project.progress}
-                            cx={80}
-                            cy={80}
-                            innerRadius={0}
-                            outerRadius={65}
-                            paddingAngle={0}
-                            dataKey="value"
-                          >
-                            {project.progress.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                        </PieChart>
+
+            <div className="area-dash progress-tracking-section">
+              <h2>Progress Tracking</h2>
+              <div className="area-dash latest-projects-progress">
+                <h3>Latest Projects Progress</h3>
+                {projects.length === 0 ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
+                    No updated projects with progress data yet.
+                  </div>
+                ) : (
+                  <div className="area-dash project-charts scroll-x">
+                    {projects.map(project => (
+                      <div key={project.id} className="area-dash project-chart-container">
+                        <h4>{project.name}</h4>
+                        <div className="area-dash pie-chart-wrapper">
+                          <PieChart width={160} height={160}>
+                            <Pie
+                              data={project.progress}
+                              cx={80}
+                              cy={80}
+                              innerRadius={0}
+                              outerRadius={65}
+                              paddingAngle={0}
+                              dataKey="value"
+                            >
+                              {project.progress.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                          </PieChart>
+                        </div>
+                        <div className="area-dash chart-legend">
+                          {["Completed", "In Progress", "Not Started"].map((status) => {
+                            const item = project.progress.find(p => p.name === status);
+                            const color = item ? item.color : (status === 'Completed' ? '#4CAF50' : status === 'In Progress' ? '#5E4FDB' : '#FF6B6B');
+                            const value = item ? item.value : 0;
+                            return (
+                              <div key={status} className="area-dash legend-item">
+                                <span className="area-dash color-box" style={{ backgroundColor: color }}></span>
+                                <span className="area-dash legend-text">{status}</span>
+                                <span style={{ marginLeft: 6, color: '#555', fontWeight: 500 }}>
+                                  {value.toFixed(1)}%
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#888', marginTop: 4 }}>
+                          Last updated: {project.latestDate ? new Date(project.latestDate).toLocaleString() : 'N/A'}
+                        </div>
                       </div>
-                      <div className="chart-legend">
-                        {["Completed", "In Progress", "Not Started"].map((status, index) => {
-                          const item = project.progress.find(p => p.name === status);
-                          const color = item ? item.color : (status === 'Completed' ? '#4CAF50' : status === 'In Progress' ? '#5E4FDB' : '#FF6B6B');
-                          const value = item ? item.value : 0;
-                          return (
-                            <div key={status} className="legend-item">
-                              <span className="color-box" style={{ backgroundColor: color }}></span>
-                              <span className="legend-text">{status}</span>
-                              <span style={{ marginLeft: 6, color: '#555', fontWeight: 500 }}>
-                                {value.toFixed(1)}%
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div style={{ fontSize: '0.85rem', color: '#888', marginTop: 4 }}>
-                        Last updated: {project.latestDate ? new Date(project.latestDate).toLocaleString() : 'N/A'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Recent Activities section moved below progress tracking */}
-          <div className="recent-activities-section">
+          <div className="area-dash recent-activities-section">
             <h2>Recent Activities</h2>
             {activities.map(activity => (
-              <div key={activity.id} className="activity-item">
-                <div className="user-initial">{activity.user.initial}</div>
-                <div className="activity-details">
-                  <div className="activity-header">
-                    <span className="user-name">{activity.user.name}</span>
-                    <span className="activity-date">{activity.date}</span>
+              <div key={activity.id} className="area-dash activity-item">
+                <div className="area-dash user-initial">{activity.user.initial}</div>
+                <div className="area-dash activity-details">
+                  <div className="area-dash activity-header">
+                    <span className="area-dash user-name">{activity.user.name}</span>
+                    <span className="area-dash activity-date">{activity.date}</span>
                   </div>
-                  <div className="activity-description">{activity.activity}</div>
-                  <div className="activity-extra-details">
+                  <div className="area-dash activity-description">{activity.activity}</div>
+                  <div className="area-dash activity-extra-details">
                     {activity.details.map((detail, index) => (
-                      <div key={index} className="detail-item">{detail}</div>
+                      <div key={index} className="area-dash detail-item">{detail}</div>
                     ))}
                   </div>
                 </div>
@@ -408,33 +400,33 @@ const AreaDash = () => {
         </div>
 
         {/* Right Sidebar */}
-        <div className="right-sidebar">
-          <div className="pending-requests-section">
-            <div className="section-header">
+        <div className="area-dash right-sidebar">
+          <div className="area-dash pending-requests-section">
+            <div className="area-dash section-header">
               <h2>Pending Material Requests</h2>
-              <Link to="/am/matreq" className="view-all-btn">View All</Link>
+              <Link to="/am/matreq" className="area-dash view-all-btn">View All</Link>
             </div>
-            <div className="pending-requests-list">
+            <div className="area-dash pending-requests-list">
               {pendingRequests.length === 0 ? (
-                <div className="no-requests">No pending material requests</div>
+                <div className="area-dash no-requests">No pending material requests</div>
               ) : (
                 pendingRequests.slice(0, 3).map(request => (
-                  <Link to={`/am/material-request/${request._id}`} key={request._id} className="pending-request-item">
-                    <div className="request-icon">📦</div>
-                    <div className="request-details">
-                      <h3 className="request-title">
+                  <Link to={`/am/material-request/${request._id}`} key={request._id} className="area-dash pending-request-item">
+                    <div className="area-dash request-icon">📦</div>
+                    <div className="area-dash request-details">
+                      <h3 className="area-dash request-title">
                         {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
                       </h3>
-                      <p className="request-description">{request.description}</p>
-                      <div className="request-meta">
-                        <span className="request-project">{request.project?.projectName}</span>
-                        <span className="request-date">
+                      <p className="area-dash request-description">{request.description}</p>
+                      <div className="area-dash request-meta">
+                        <span className="area-dash request-project">{request.project?.projectName}</span>
+                        <span className="area-dash request-date">
                           Requested: {new Date(request.createdAt).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
-                    <div className="request-status">
-                      <span className="status-badge pending">Pending AM Approval</span>
+                    <div className="area-dash request-status">
+                      <span className="area-dash status-badge pending">Pending AM Approval</span>
                     </div>
                   </Link>
                 ))
@@ -442,15 +434,15 @@ const AreaDash = () => {
             </div>
           </div>
 
-          <div className="chats-section">
+          <div className="area-dash chats-section">
             <h3>Chats</h3>
-            <div className="chats-list">
+            <div className="area-dash chats-list">
               {chats.map(chat => (
-                <div key={chat.id} className="chat-item">
-                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
-                  <div className="chat-details">
-                    <div className="chat-name">{chat.name}</div>
-                    <div className="chat-message">{chat.message}</div>
+                <div key={chat.id} className="area-dash chat-item">
+                  <div className="area-dash chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
+                  <div className="area-dash chat-details">
+                    <div className="area-dash chat-name">{chat.name}</div>
+                    <div className="area-dash chat-message">{chat.message}</div>
                   </div>
                 </div>
               ))}

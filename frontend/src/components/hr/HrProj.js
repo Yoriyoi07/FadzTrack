@@ -3,18 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import '../style/ceo_style/Ceo_Proj.css';
 
-const AreaProj = () => {
-  const [filter, ] = useState('all');
-  const [viewMode,] = useState('grid');
+const HrProj = () => {
+  const [filter, setFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('grid');
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projects, setProjects] = useState([]);
 
-  // 1. Get area manager id from local storage/user context
-  const stored = localStorage.getItem('user');
-  const user = stored ? JSON.parse(stored) : null;
-  const areaManagerId = user?._id;
-
+  // Close profile menu on click outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
@@ -33,7 +29,7 @@ const AreaProj = () => {
     navigate('/');
   };
 
-  // 2. Fetch all projects
+  // Fetch projects using AXIOS INSTANCE
   useEffect(() => {
     const fetchProjects = async () => {
       try {
@@ -46,46 +42,23 @@ const AreaProj = () => {
     fetchProjects();
   }, []);
 
-  // 3. Filter projects for this area manager
-  const filteredProjects = projects.filter(
-    project => project.areamanager && project.areamanager._id === areaManagerId
-  );
-
-  // Optionally, keep the status filter as well
-  const displayedProjects = filteredProjects.filter(project => {
-    if (filter === 'completed') {
-      return project.status === 'Completed';
-    }
-    if (filter === 'ongoing') {
-      return project.status === 'Ongoing' || project.status === 'On Going';
-    }
-    return true;
-  });
-
   return (
     <div className="dashboard-container">
-      {/* Header remains the same */}
-      <header className="header">
+     <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/am" className="nav-link">Dashboard</Link>
-          <Link to="/am/matreq" className="nav-link">Material</Link>
-          <Link to="/am/manpower-requests" className="nav-link">Manpower</Link>
-          <Link to="/am/viewproj" className="nav-link">Projects</Link>
+          <Link to="/hr/dash" className="nav-link">Dashboard</Link>
+          <Link to="/hr/mlist" className="nav-link">Manpower</Link>
+          <Link to="/hr/movement" className="nav-link">Movement</Link>
+          <Link to="/hr/project-records" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
-          <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container">
-          <div
-            className="profile-circle"
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            Z
-          </div>
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
           {profileMenuOpen && (
             <div className="profile-menu">
               <button onClick={handleLogout}>Logout</button>
@@ -97,19 +70,75 @@ const AreaProj = () => {
       <div className="ceo-proj-projects-container">
         {/* Filter bar */}
         <div className="ceo-proj-filter-bar">
-          {/* ...same as before */}
+          <div className="ceo-proj-area-filter">
+            <span className="ceo-proj-filter-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+              </svg>
+              Area Filter
+            </span>
+            <div className="ceo-proj-filter-tabs">
+              <button
+                className={filter === 'all' ? 'ceo-proj-active' : ''}
+                onClick={() => setFilter('all')}
+              >
+                All
+              </button>
+              <span className="ceo-proj-divider">|</span>
+              <button
+                className={filter === 'completed' ? 'ceo-proj-active' : ''}
+                onClick={() => setFilter('completed')}
+              >
+                Completed
+              </button>
+              <span className="ceo-proj-divider">|</span>
+              <button
+                className={filter === 'ongoing' ? 'ceo-proj-active' : ''}
+                onClick={() => setFilter('ongoing')}
+              >
+                On Going
+              </button>
+            </div>
+          </div>
+          <div className="ceo-proj-view-mode">
+            <button
+              className={viewMode === 'grid' ? 'ceo-proj-active' : ''}
+              onClick={() => setViewMode('grid')}
+            >
+              {/* Grid icon */}
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7"></rect>
+                <rect x="14" y="3" width="7" height="7"></rect>
+                <rect x="3" y="14" width="7" height="7"></rect>
+                <rect x="14" y="14" width="7" height="7"></rect>
+              </svg>
+            </button>
+            <button
+              className={viewMode === 'list' ? 'ceo-proj-active' : ''}
+              onClick={() => setViewMode('list')}
+            >
+              {/* List icon */}
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"></line>
+                <line x1="8" y1="12" x2="21" y2="12"></line>
+                <line x1="8" y1="18" x2="21" y2="18"></line>
+                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Project cards */}
         <div className={`ceo-proj-project-cards ${viewMode}`}>
-          {displayedProjects.map(project => (
+          {projects.map(project => (
             <div
               key={project._id}
               className="ceo-proj-project-card"
               onClick={() => navigate(`/ceo/proj/${project._id}`)}
               style={{ cursor: 'pointer' }}
             >
-              {/* ...rest of the card */}
               <div className="ceo-proj-project-image-container">
                 <img
                   src={
@@ -123,11 +152,16 @@ const AreaProj = () => {
                   height={150}
                   style={{ objectFit: "cover", borderRadius: 8 }}
                 />
+
+                <button className="ceo-proj-favorite-btn" onClick={(e) => e.stopPropagation()}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                  </svg>
+                </button>
               </div>
               <div className="ceo-proj-project-details">
-                {/* ...your details rendering */}
                 <div className="ceo-proj-left-details">
-                  <h3 className="ceo-proj-project-name">{project.projectName}</h3>
+                  <h3 className="ceo-proj-project-name">{project.name}</h3>
                   <p className="ceo-proj-project-location">
                     {project.location?.name
                       ? `${project.location.name} (${project.location.region})`
@@ -175,4 +209,4 @@ const AreaProj = () => {
   );
 };
 
-export default AreaProj;
+export default HrProj;
