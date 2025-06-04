@@ -3,7 +3,7 @@ import "../style/ceo_style/Ceo_ViewSpecific.css";
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axiosInstance'; // ← use your axios instance
 
-const Ceo_ViewSpecific = () => {
+const CeoViewSpecific = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -200,4 +200,4 @@ const Ceo_ViewSpecific = () => {
   );
 };
 
-export default Ceo_ViewSpecific;
+export default CeoViewSpecific;

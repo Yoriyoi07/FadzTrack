@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../style/hr_style/Hr_Movement_List.css';
 
-export default function Hr_Manpower_Movement() {
+export default function HrManpowerMovement() {
   const [requests, setRequests] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 7;

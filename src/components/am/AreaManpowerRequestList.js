@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import '../style/pm_style/Pm_ViewRequest.css';
 import api from '../../api/axiosInstance'; // <<== Make sure this is your Axios instance
 
-const Area_Manpower_Request_List = () => {
+const AreaManpowerRequestList = () => {
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
@@ -241,4 +241,4 @@ const Area_Manpower_Request_List = () => {
   );
 };
 
-export default Area_Manpower_Request_List;
+export default AreaManpowerRequestList;

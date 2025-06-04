@@ -1,28 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import '../style/am_style/Area_Manpower_List.css';
-import api from '../../api/axiosInstance'; // <- Make sure this path matches your setup
+import api from '../../api/axiosInstance'; // Adjust if needed
+import '../style/pm_style/Pm_ViewRequest.css';
 
-const ITEMS_PER_PAGE = 5;
-
-const Area_Material_List = () => {
+const PmMatRequestList = () => {
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const token = localStorage.getItem('token');
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const userId = user?._id;
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [projects, setProjects] = useState([]);
+  const [project, setProject] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
+  // --- MUST COME FIRST ---
+  const filteredRequests = requests.filter(request => {
+    const status = (request.status || '').toLowerCase();
+    const matchesFilter =
+      filter === 'All' ||
+      (filter === 'Pending' && status.includes('pending')) ||
+      (filter === 'Approved' && status.includes('approved')) ||
+      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel')));
+
+    const searchTarget = [
+      request.materials?.map(m => m.materialName).join(', ') || '',
+      request.description || '',
+      request.createdBy?.name || '',
+      request.project?.projectName || '',
+    ].join(' ').toLowerCase();
+
+    return matchesFilter && searchTarget.includes(searchTerm.toLowerCase());
+  });
+
+  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedRequests = filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('Session expired. Please log in.');
-      setLoading(false);
-      return;
-    }
-
     api.get('/requests/mine')
       .then(res => {
         setRequests(Array.isArray(res.data) ? res.data : []);
@@ -37,6 +58,7 @@ const Area_Material_List = () => {
         }
         setRequests([]);
         setLoading(false);
+        console.error(err);
       });
   }, []);
 
@@ -56,6 +78,39 @@ const Area_Material_List = () => {
     navigate('/');
   };
 
+  useEffect(() => {
+    if (!token || !user) return;
+    const fetchProjects = async () => {
+      try {
+        const { data } = await api.get('/projects');
+        const filtered = data.filter(p =>
+          (typeof p.projectmanager === 'object' &&
+            (p.projectmanager._id === userId || p.projectmanager.id === userId)) ||
+          p.projectManager === userId
+        );
+        setProjects(filtered);
+      } catch (err) {
+        setProjects([]);
+      }
+    };
+    fetchProjects();
+  }, [token, user, userId]);
+
+  // Fetch assigned project
+  useEffect(() => {
+    if (!token || !userId) return;
+    const fetchAssigned = async () => {
+      try {
+        const { data } = await api.get(`/projects/assigned/${userId}`);
+        console.log('Assigned project data:', data);
+        setProject(data[0] || null);
+      } catch (err) {
+        setProject(null);
+      }
+    };
+    fetchAssigned();
+  }, [token, userId]);
+
   const getIconForType = (request) => {
     if (!request.materials || request.materials.length === 0) return '📄';
     const name = request.materials[0].materialName?.toLowerCase() || '';
@@ -66,45 +121,32 @@ const Area_Material_List = () => {
     return '📦';
   };
 
-  const filteredRequests = requests.filter(request => {
-    const status = (request.status || '').toLowerCase();
-    const matchesFilter =
-      filter === 'All' ||
-      (filter === 'Pending' && status.includes('pending')) ||
-      (filter === 'Approved' && status.includes('approved')) ||
-      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel')));
-    const searchTarget = [
-      request.materials && request.materials.map(m => m.materialName).join(', '),
-      request.description,
-      request.createdBy?.name,
-      request.project?.projectName,
-    ].join(' ').toLowerCase();
-    const matchesSearch = searchTarget.includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
-
-  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedRequests = filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
   return (
     <div>
+      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/am" className="nav-link">Dashboard</Link>
-          <Link to="/am/matreq" className="nav-link">Material</Link>
-          <Link to="/am/manpower-requests" className="nav-link">Manpower</Link>
-          <Link to="/am/addproj" className="nav-link">Projects</Link>
+          <Link to="/pm" className="nav-link">Dashboard</Link>
+          <Link to="/pm/request/:id" className="nav-link">Material</Link>
+          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
+          {projects.length > 0 && (
+            <Link to={`/pm/viewprojects/${projects[0]._id || projects[0].id}`} className="nav-link">View Project</Link>
+          )}
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          <div 
+            className="profile-circle" 
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            Z
+          </div>
           {profileMenuOpen && (
             <div className="profile-menu">
               <button onClick={handleLogout}>Logout</button>
@@ -135,7 +177,7 @@ const Area_Material_List = () => {
               <div>Loading requests...</div>
             ) : error ? (
               <div style={{ color: 'red', marginBottom: 20 }}>{error}</div>
-            ) : paginatedRequests.length === 0 ? (
+            ) : filteredRequests.length === 0 ? (
               <div className="no-requests">
                 <p>No requests found matching your criteria.</p>
               </div>
@@ -165,7 +207,9 @@ const Area_Material_List = () => {
                   </div>
                   <div className="request-actions">
                     <span
-                      className={`status-badge ${(request.status || '').replace(/\s/g, '').toLowerCase()}`}
+                      className={`status-badge ${
+                        (request.status || '').replace(/\s/g, '').toLowerCase()
+                      }`}
                     >
                       {request.status}
                     </span>
@@ -175,29 +219,35 @@ const Area_Material_List = () => {
             )}
           </div>
 
-          {/* Pagination Controls */}
-          <div className="pagination">
-            <span className="pagination-info">
-              Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries.
-            </span>
-            <div className="pagination-controls">
-              <button className="pagination-btn" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>{'<'}</button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(num => (
-                <button
-                  key={num}
-                  className={`pagination-btn ${num === currentPage ? 'active' : ''}`}
-                  onClick={() => setCurrentPage(num)}
-                >
-                  {num}
+          {/* Pagination UI */}
+          {filteredRequests.length > 0 && (
+            <div className="pagination">
+              <span className="pagination-info">
+                Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries
+              </span>
+              <div className="pagination-controls">
+                <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>
+                  &lt;
                 </button>
-              ))}
-              <button className="pagination-btn" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>{'>'}</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <button
+                    key={page}
+                    className={page === currentPage ? 'active' : ''}
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>
+                  &gt;
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>
   );
 };
 
-export default Area_Material_List;
+export default PmMatRequestList;

@@ -3,7 +3,7 @@ import { useNavigate, Link, useParams } from 'react-router-dom';
 import '../style/am_style/Area_Manpower_ReqDetails.css';
 import api from '../../api/axiosInstance'; // ✅ Import axios instance
 
-export default function Area_Manpower_ReqDetails() {
+export default function AreaManpowerReqDetails() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);

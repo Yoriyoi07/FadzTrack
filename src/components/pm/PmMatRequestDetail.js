@@ -4,7 +4,7 @@ import api from '../../api/axiosInstance'; // Adjust the path if needed!
 import ApproveDenyActions from '../ApproveDenyActions';
 import '../style/pm_style/Pm_MatRequest.css';
 
-const Pm_MaterialRequestDetail = () => {
+const PmMaterialRequestDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [requestData, setRequestData] = useState(null);
@@ -152,4 +152,4 @@ const Pm_MaterialRequestDetail = () => {
   );
 };
 
-export default Pm_MaterialRequestDetail;
+export default PmMaterialRequestDetail;

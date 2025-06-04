@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { FaPaperclip, FaPaperPlane, FaWindowMaximize, FaEllipsisH } from 'react-icons/fa';
 import '../style/pic_style/Ceo_Chat.css';
 
-const Pic_Chat = () => {
+const PicChat = () => {
   const messages = [
     { name: 'BOSS', message: 'Hi team, any updates on the concrete delivery schedule today?' },
     { name: 'Project 1', message: 'Hi team, any updates on the concrete delivery schedule today?' },
@@ -68,4 +68,4 @@ const Pic_Chat = () => {
   );
 };
 
-export default Pic_Chat;
+export default PicChat;

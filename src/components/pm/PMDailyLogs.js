@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance'; // Adjust path as needed!
 import '../style/pm_style/Pm_DailyLogs.css';
 
-const PM_DailyLogs = () => {
+const PMDailyLogs = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState([]);
@@ -373,4 +373,4 @@ const PM_DailyLogs = () => {
   );
 };
 
-export default PM_DailyLogs;
+export default PMDailyLogs;

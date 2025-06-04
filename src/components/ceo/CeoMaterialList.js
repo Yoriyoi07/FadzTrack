@@ -47,7 +47,7 @@ const Pagination = ({ currentPage, totalPages, totalEntries, onPageChange, showi
   );
 };
 
-const Ceo_Material_List = () => {
+const CeoMaterialList = () => {
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [requests, setRequests] = useState([]);
@@ -229,4 +229,4 @@ const Ceo_Material_List = () => {
   );
 };
 
-export default Ceo_Material_List;
+export default CeoMaterialList;

@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance'; // Use Axios instance!
 import '../style/it_style/It_Dash.css';
 
-const It_Dash = () => {
+const ItDash = () => {
   const [accounts, setAccounts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOption, setSortOption] = useState('Newest');
@@ -549,4 +549,4 @@ const It_Dash = () => {
   );
 };
 
-export default It_Dash;
+export default ItDash;

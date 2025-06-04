@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import '../style/ceo_style/Ceo_Proj.css';
 
-const Area_Proj = () => {
+const AreaProj = () => {
   const [filter, setFilter] = useState('all');
   const [viewMode, setViewMode] = useState('grid');
   const navigate = useNavigate();
@@ -173,4 +173,4 @@ const Area_Proj = () => {
   );
 };
 
-export default Area_Proj;
+export default AreaProj;

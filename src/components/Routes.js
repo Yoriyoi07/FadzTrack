@@ -1,45 +1,45 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Link } from 'react-router-dom';
+
 import PicDash from './pic/PicDash';
 import PicReq from './pic/PicReq';
 import PicChat from './pic/PicChat';
 import PmDash from './pm/PmDash';
 import PmDailyReports from './pm/PmDailyReports';
 import PmIncidentReport from './pm/PmIncidentReport';
-import Pm_RequestManpower from './pm/Pm_RequestManpower';
-import AreaManagerDashboard from './am/Area_Dash';
+import PmRequestManpower from './pm/PmRequestManpower';
+import AreaManagerDashboard from './am/AreaDash';
 import LoginPage from './Login';
-import Area_Manpower_List from './am/Area_Manpower_List'
-import Area_Material_list from './am/Area_Material_List';
-import AddProject from './am/Area_Addproj';
-import AreasPage from './am/Area_Proj_Area';
-import Ceo_Proj from './ceo/Ceo_Proj';
-import Ceo_ViewSpecific from './ceo/Ceo_ViewSpecific';
-import Ceo_Dash from './ceo/Ceo_Dash';
-import Ceo_AddArea from './ceo/Ceo_AddArea';
+import AreaManpowerList from './am/AreaManpowerList';
+import AreaMaterialList from './am/AreaMaterialList';
+import AddProject from './am/AreaAddproj';
+import AreasPage from './am/AreaProjArea';
+import CeoProj from './ceo/CeoProj';
+import CeoViewSpecific from './ceo/CeoViewSpecific';
+import CeoDash from './ceo/CeoDash';
+import CeoAddArea from './ceo/CeoAddArea';
 import PrivateRoute from "./PrivateRoute";
-import It_Dash from './it/It_Dash';
-import Pic_Project from './pic/Pic_Project';
-import Pic_MatReq from './pic/Pic_MatReq';
-import Pm_MatRequestList from './pm/Pm_MatRequestList';
-import Ceo_MaterialRequestDetail from './ceo/Ceo_MaterialRequestDetail';
-import Pm_MaterialRequestDetail from './pm/Pm_MatRequestDetail';
+import ItDash from './it/ItDash';
+import PicProject from './pic/PicProject';
+import PicMatReq from './pic/PicMatReq';
+import PmMatRequestList from './pm/PmMatRequestList';
+import CeoMaterialRequestDetail from './ceo/CeoMaterialRequestDetail';
+import PmMatRequestDetail from './pm/PmMatRequestDetail';
 import ApproveDenyAction from './ApproveDenyActions';
-import Pm_Manpower_List from './pm/Pm_Manpower_List';
-import { Link } from 'react-router-dom';
-import Area_Manpower_ReqDetails from './am/Area_Manpower_ReqDetails';
-import Hr_ManpowerList from './hr/Hr_ManpowerList';
-import Hr_Dash from './hr/Hr_Dash';
-import Area_Manpower_Request_List from './am/Area_Manpower_Request_List';
+import PmManpowerList from './pm/PmManpowerList';
+import AreaManpowerReqDetails from './am/AreaManpowerReqDetails';
+import HrManpowerList from './hr/HrManpowerList';
+import HrDash from './hr/HrDash';
+import AreaManpowerRequestList from './am/AreaManpowerRequestList';
 import PmViewProjects from './pm/PmViewProjects';
-import Pm_RequestedManpowerDetail from './pm/Pm_RequestedManpowerDetail';
-import Ceo_AuditLogs from './ceo/Ceo_AuditLogs';
-import Ceo_Material_List from './ceo/Ceo_Material_List';
-import Hr_Movement_List from './hr/Hr_Movement_List';
-import Area_Proj from './am/Area_Proj_Area';
+import PmRequestedManpowerDetail from './pm/PmRequestedManpowerDetail';
+import CeoAuditLogs from './ceo/CeoAuditLogs';
+import CeoMaterialList from './ceo/CeoMaterialList';
+import HrMovementList from './hr/HrMovementList';
+import AreaProj from './am/AreaProjArea';
 import ActivateAccount from './it/ActivateAccount';
 import ResetPassword from './it/ResetPassword';
-import PM_DailyLogs from './pm/PM_DailyLogs';
+import PmDailyLogs from './pm/PMDailyLogs';
 
 const AppRoutes = () => {
   return (
@@ -47,56 +47,55 @@ const AppRoutes = () => {
       <Route path="/" element={<LoginPage />} />
 
       {/* PROJECT MANAGER */}
-      <Route path="/pm/material-request/:id" element={<Pm_MaterialRequestDetail />} />
-      <Route path="/pm/request/:id" element={<Pm_MatRequestList />} />
-      <Route path="/pm/request-manpower" element={<Pm_RequestManpower />} />
-      <Route path="/pm/manpower-request/:id" element={<Pm_RequestedManpowerDetail />} />
-      <Route path="/pm/request-manpower/edit/:id" element={<Pm_RequestManpower />} />
-      <Route path="/pm/manpower-list" element={<Pm_Manpower_List />} />
-      <Route path="/pm/request-manpower/edit/:id" element={<Pm_RequestManpower />} />
+      <Route path="/pm/material-request/:id" element={<PmMatRequestDetail />} />
+      <Route path="/pm/request/:id" element={<PmMatRequestList />} />
+      <Route path="/pm/request-manpower" element={<PmRequestManpower />} />
+      <Route path="/pm/manpower-request/:id" element={<PmRequestedManpowerDetail />} />
+      <Route path="/pm/request-manpower/edit/:id" element={<PmRequestManpower />} />
+      <Route path="/pm/manpower-list" element={<PmManpowerList />} />
       <Route path="/k" element={<PmIncidentReport />} />
       {/* <Route path="/q" element={<PmDailyReports />} /> */}
-      <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDash /></PrivateRoute>}/>
+      <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDash /></PrivateRoute>} />
       <Route path="/pm/viewprojects/:id" element={<PmViewProjects />} />
-      <Route path="/pm/daily-logs" element={<PM_DailyLogs />} />
+      <Route path="/pm/daily-logs" element={<PmDailyLogs />} />
 
       {/* PIC */}
       <Route path="/pic" element={<PicDash />} />
       <Route path="/pic/chat" element={<PicChat />} />
       <Route path="/pic/request/:id" element={<PicReq />} />
-      <Route path="/pic/:id" element={<Pic_Project />} />
-      <Route path="/pic/projects/:projectId/request" element={<Pic_MatReq />} />
+      <Route path="/pic/:id" element={<PicProject />} />
+      <Route path="/pic/projects/:projectId/request" element={<PicMatReq />} />
 
       {/* AREA */}
       <Route path="/am" element={<AreaManagerDashboard />} />
       <Route path="/am/addproj" element={<AddProject />} />
-      <Route path="/am/matreq" element={<Area_Material_list />} />
-      <Route path="/am/manpower-requests" element={<Area_Manpower_List />} />
+      <Route path="/am/matreq" element={<AreaMaterialList />} />
+      <Route path="/am/manpower-requests" element={<AreaManpowerList />} />
       <Route path="/am/viewproj" element={<AreasPage />} />
       <Route path="/am/viewproj/:id" element={<AreasPage />} />
-      <Route path="/am/manpower-requests/:id" element={<Area_Manpower_ReqDetails />} />
-      <Route path="/am/projects" element={<Area_Proj />} />
+      <Route path="/am/manpower-requests/:id" element={<AreaManpowerReqDetails />} />
+      <Route path="/am/projects" element={<AreaProj />} />
 
       {/* IT */}
-      <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><It_Dash /></PrivateRoute>}/>
+      <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><ItDash /></PrivateRoute>} />
       <Route path="/activate-account" element={<ActivateAccount />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 
       {/* CEO */}
-      <Route path="/ceo/proj" element={<Ceo_Proj />} />
-      <Route path="/ceo/dash" element={<Ceo_Dash />} />
-      <Route path="/ceo/addarea" element={<Ceo_AddArea />} />
-      <Route path="/ceo/proj/:id" element={<Ceo_ViewSpecific />} />
-      <Route path="/ceo/material-list" element={<Ceo_Material_List/>} />
-      <Route path="/ceo/material-request/:id" element={<Ceo_MaterialRequestDetail />} />
-      <Route path="/ceo/audit-logs" element={<Ceo_AuditLogs />} />
+      <Route path="/ceo/proj" element={<CeoProj />} />
+      <Route path="/ceo/dash" element={<CeoDash />} />
+      <Route path="/ceo/addarea" element={<CeoAddArea />} />
+      <Route path="/ceo/proj/:id" element={<CeoViewSpecific />} />
+      <Route path="/ceo/material-list" element={<CeoMaterialList />} />
+      <Route path="/ceo/material-request/:id" element={<CeoMaterialRequestDetail />} />
+      <Route path="/ceo/audit-logs" element={<CeoAuditLogs />} />
 
       {/* HR */}
-      <Route path="/hr/dash" element={<Hr_Dash />} />
-      <Route path="/hr/mlist" element={<Hr_ManpowerList />} />
-      <Route path="/hr/movement" element={<Hr_Movement_List />} />
-      
-      {/*Reusable*/}
+      <Route path="/hr/dash" element={<HrDash />} />
+      <Route path="/hr/mlist" element={<HrManpowerList />} />
+      <Route path="/hr/movement" element={<HrMovementList />} />
+
+      {/* Reusable */}
       <Route path="/approve-deny/:id" element={<ApproveDenyAction />} />
     </Routes>
   );

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../style/hr_style/Hr_Dash.css';
 
-const Hr_Dash = () => {
+const HrDash = () => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [stats, setStats] = useState({
     totalStaff: 21,
@@ -410,4 +410,4 @@ const Hr_Dash = () => {
   );
 };
 
-export default Hr_Dash;
+export default HrDash;

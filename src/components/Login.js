@@ -51,14 +51,14 @@ const LoginPage = () => {
 
 
   // Called after successful 2FA verification
-  const handle2FASuccess = () => {
-    const user = JSON.parse(localStorage.getItem('user'));
-    if (user) {
-      redirectBasedOnRole(user.role);
-    } else {
-      setLoginError("User info missing after 2FA verification.");
-    }
-  };
+  // const handle2FASuccess = () => {
+  //   const user = JSON.parse(localStorage.getItem('user'));
+  //   if (user) {
+  //     redirectBasedOnRole(user.role);
+  //   } else {
+  //     setLoginError("User info missing after 2FA verification.");
+  //   }
+  // };
 
   // Redirect user to dashboard based on role
   const redirectBasedOnRole = (role) => {

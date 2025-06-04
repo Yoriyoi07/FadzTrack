@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
 import api from '../../api/axiosInstance';
 
-const Ceo_Dash = () => {
+const CeoDash = () => {
   const navigate = useNavigate();
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('');
@@ -482,4 +482,4 @@ const Ceo_Dash = () => {
   );
 };
 
-export default Ceo_Dash;
+export default CeoDash;

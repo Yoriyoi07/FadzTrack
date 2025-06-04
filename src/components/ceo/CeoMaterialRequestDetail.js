@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axiosInstance'; 
 import ApproveDenyActions from '../ApproveDenyActions';
 
-const Ceo_Material_Req = () => {
+const CeoMaterialReq = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [requestData, setRequestData] = useState(null);
@@ -64,4 +64,4 @@ const Ceo_Material_Req = () => {
   );
 };
 
-export default Ceo_Material_Req;
+export default CeoMaterialReq;

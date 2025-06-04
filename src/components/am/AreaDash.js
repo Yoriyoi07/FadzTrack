@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
 import api from '../../api/axiosInstance';
 
-const Area_Dash = () => {
+const AreaDash = () => {
   const navigate = useNavigate();
   const [userName, setUserName] = useState('');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -462,4 +462,4 @@ const Area_Dash = () => {
   );
 };
 
-export default Area_Dash;
+export default AreaDash;

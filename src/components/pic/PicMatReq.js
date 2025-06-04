@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance'; // <<== Make sure you have this
 import '../style/pic_style/Pic_MatReq.css';
 
-const Pic_MatReq = () => {
+const PicMatReq = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [project, setProject] = useState(null);
@@ -341,4 +341,4 @@ const Pic_MatReq = () => {
   );
 };
 
-export default Pic_MatReq;
+export default PicMatReq;

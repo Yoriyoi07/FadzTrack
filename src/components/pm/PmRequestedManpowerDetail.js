@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance'; // Adjust the path if needed!
 
-const Pm_RequestedManpowerDetail = () => {
+const PmRequestedManpowerDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -310,4 +310,4 @@ const Pm_RequestedManpowerDetail = () => {
   );
 };
 
-export default Pm_RequestedManpowerDetail;
+export default PmRequestedManpowerDetail;

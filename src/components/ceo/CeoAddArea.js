@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance'; // <-- make sure the path is correct!
 
-const Ceo_AddArea = () => {
+const CeoAddArea = () => {
   const [areaManagers, setAreaManagers] = useState([]);
   const [locations, setLocations] = useState([]);
   const [selectedManager, setSelectedManager] = useState('');
@@ -100,4 +100,4 @@ const Ceo_AddArea = () => {
   );
 };
 
-export default Ceo_AddArea;
+export default CeoAddArea;

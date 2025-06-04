@@ -4,7 +4,7 @@ import '../style/am_style/Area_Addproj.css';
 import Papa from 'papaparse';
 import api from '../../api/axiosInstance';
 
-const Area_Addproj = () => {
+const AreaAddproj = () => {
   const navigate = useNavigate();
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
@@ -523,4 +523,4 @@ const Area_Addproj = () => {
   );
 };
 
-export default Area_Addproj;
+export default AreaAddproj;

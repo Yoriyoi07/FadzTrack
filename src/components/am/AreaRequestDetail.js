@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import ApproveDenyActions from '../ApproveDenyActions';
 import api from '../../api/axiosInstance'; // Adjust the path as needed
 
-const Area_Material_Req = () => {
+const AreaMaterialReq = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [requestData, setRequestData] = useState(null);
@@ -81,4 +81,4 @@ const Area_Material_Req = () => {
   );
 };
 
-export default Area_Material_Req;
+export default AreaMaterialReq;

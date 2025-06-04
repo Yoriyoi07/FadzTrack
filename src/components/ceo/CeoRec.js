@@ -2,7 +2,7 @@ import React from 'react';
 import { Search } from 'lucide-react';
 import '../style/hr_style/Hr_Rec.css';
 
-const Ceo_Rec = () => {
+const CeoRec = () => {
   const employees = [
     { id: 1, name: 'John Doe', role: 'Staff', avatar: '👨‍💼' },
     { id: 2, name: 'Emily Smith', role: 'Manager', avatar: '👩‍💼' },
@@ -68,4 +68,4 @@ const Ceo_Rec = () => {
   );
 };
 
-export default Ceo_Rec;
+export default CeoRec;

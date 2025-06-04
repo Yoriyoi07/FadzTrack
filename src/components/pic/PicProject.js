@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axiosInstance'; // Make sure the path matches your project structure
 import "../style/pic_style/Pic_Project.css";
 
-const Pic_Project = () => {
+const PicProject = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -140,4 +140,4 @@ const Pic_Project = () => {
   );
 };
 
-export default Pic_Project;
+export default PicProject;

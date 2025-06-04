@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance'; // Adjust the path if needed
 import '../style/pm_style/Pm_ManpowerRequest.css';
 
-const Pm_RequestManpower = () => {
+const PmRequestManpower = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const stored = localStorage.getItem('user');
@@ -362,4 +362,4 @@ const Pm_RequestManpower = () => {
   );
 }
 
-export default Pm_RequestManpower;
+export default PmRequestManpower;

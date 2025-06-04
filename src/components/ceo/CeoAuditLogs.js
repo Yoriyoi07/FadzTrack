@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from '../../api/axiosInstance';
 
-const Ceo_AuditLogs = () => {
+const CeoAuditLogs = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -111,4 +111,4 @@ const td = {
   borderBottom: "1px solid #eee",
 };
 
-export default Ceo_AuditLogs;
+export default CeoAuditLogs;

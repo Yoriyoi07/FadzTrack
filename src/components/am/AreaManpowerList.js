@@ -4,7 +4,7 @@ import { List, LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react';
 import '../style/am_style/Area_Manpower_List.css';
 import api from '../../api/axiosInstance'; // <-- import your axios instance
 
-export default function Area_Manpower_List() {
+export default function AreaManpowerList() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('All');
