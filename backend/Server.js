@@ -2,8 +2,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const cors = require('cors');
-const http = require('http');
-const { Server } = require('socket.io');
 const cookieParser = require('cookie-parser');
 
 // Route imports
@@ -64,49 +62,10 @@ app.use('/api/audit-logs', auditLogRoutes);
 app.use('/uploads', express.static('uploads'));
 app.get('/', (req, res) => res.send('API is working'));
 
-// ---- HTTP + WebSocket server ----
-const server = http.createServer(app);
-
-const io = new Server(server, {
-  cors: {
-    origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
-        return callback(null, true);
-      }
-      return callback(new Error('Not allowed by CORS'));
-    },
-    methods: ['GET', 'POST'],
-    credentials: true
-  }
-});
-
-// ---- Socket.IO ----
-io.on('connection', (socket) => {
-  console.log('⚡ Client connected:', socket.id);
-
-  socket.on('sendMessage', async (data) => {
-    try {
-      const newMsg = new Message({
-        sender: data.sender,
-        text: data.content,
-        chat: data.chatId
-      });
-
-      const savedMsg = await newMsg.save();
-      io.emit('receiveMessage', savedMsg);
-    } catch (err) {
-      console.error('❌ Save error:', err);
-    }
-  });
-
-  socket.on('disconnect', () => {
-    console.log('🚪 Client disconnected:', socket.id);
-  });
-});
 
 // ---- Port for deployment compatibility ----
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
