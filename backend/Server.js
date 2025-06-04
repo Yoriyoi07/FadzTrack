@@ -16,7 +16,7 @@ const { verifyToken } = require('./middleware/authMiddleware');
 const userRoutes = require('./route/user');
 const locationRoutes = require('./route/location');
 const manpowerRoutes = require('./route/manpower');
-const auditLogRoutes = require('./route/auditlog');
+const auditLogRoutes = require('./route/auditLog');
 const dailyReportRoutes = require('./route/dailyReport');
 
 const app = express();
