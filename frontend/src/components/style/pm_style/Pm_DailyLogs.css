@@ -92,10 +92,11 @@
 
 .page-title-dailylogs {
   text-align: center;
-  color: white;
+  color: rgb(4, 0, 123);
   font-size: 2.5rem;
   font-weight: bold;
-  margin-bottom: 40px;
+  margin-top: 10px;
+  margin-bottom: 10px;
   text-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
@@ -109,17 +110,16 @@
   margin: 0 auto;
 }
 
-
 .log-section {
-  background: #ffffff;
-  border-radius: 12px;
+  background: #ffffff; /* Plain white */
+  border-radius: 8px;
   padding: 1.5rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
+  border: 1px solid #e0e0e0; /* Light border for visibility */
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  border-left: 5px solid #3498db;
 }
+
 
 .log-section:hover {
   transform: translateY(-2px);
