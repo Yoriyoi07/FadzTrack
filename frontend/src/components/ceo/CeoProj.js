@@ -44,7 +44,6 @@ const CeoProj = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Header with Navigation */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -55,16 +54,11 @@ const CeoProj = () => {
           <Link to="/ceo/material-list" className="nav-link">Material</Link>
           <Link to="/ceo/proj" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/ceo/audit-logs" className="nav-link">Audit Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container">
-          <div
-            className="profile-circle"
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            Z
-          </div>
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
           {profileMenuOpen && (
             <div className="profile-menu">
               <button onClick={handleLogout}>Logout</button>
