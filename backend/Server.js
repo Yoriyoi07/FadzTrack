@@ -23,21 +23,18 @@ const app = express();
 
 // ---- CORS: allow both local and deployed frontend ----
 const allowedOrigins = [
-  'http://localhost:3000',
-  'https://fadztrack.vercel.app'
+  'https://fadztrack.vercel.app',
+  'http://localhost:3000'
 ];
-
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
     if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
-      return callback(null, true);
-    }
+    if (allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
   },
-  credentials: true
+  credentials: true,
 }));
+
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
