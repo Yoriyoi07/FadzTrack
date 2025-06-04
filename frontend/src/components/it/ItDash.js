@@ -300,6 +300,7 @@ const ItDash = () => {
               <option value="">Select Position</option>
               <option value="Project Manager">Project Manager</option>
               <option value="Area Manager">Area Manager</option>
+              <option value="HR">HR</option>
               <option value="Person in Charge">Person in Charge</option>
             </select>
             {errors.position && <div className="error-msg-IT">{errors.position}</div>}
