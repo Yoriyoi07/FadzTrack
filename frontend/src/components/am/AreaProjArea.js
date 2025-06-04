@@ -4,8 +4,8 @@ import api from '../../api/axiosInstance';
 import '../style/ceo_style/Ceo_Proj.css';
 
 const AreaProj = () => {
-  const [filter, ] = useState('all');
-  const [viewMode,] = useState('grid');
+  const [filter, setFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('grid'); // Added state for view mode
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projects, setProjects] = useState([]);
@@ -97,8 +97,65 @@ const AreaProj = () => {
       <div className="ceo-proj-projects-container">
         {/* Filter bar */}
         <div className="ceo-proj-filter-bar">
-          {/* ...same as before */}
+          {/* Area Filter */}
+          <div className="ceo-proj-area-filter">
+            <span className="ceo-proj-filter-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+              </svg>
+              Area Filter
+            </span>
+            <div className="ceo-proj-filter-tabs">
+              <button
+                className={filter === 'all' ? 'ceo-proj-active' : ''}
+                onClick={() => setFilter('all')}
+              >
+                All
+              </button>
+              <span className="ceo-proj-divider">|</span>
+              <button
+                className={filter === 'completed' ? 'ceo-proj-active' : ''}
+                onClick={() => setFilter('completed')}
+              >
+                Completed
+              </button>
+              <span className="ceo-proj-divider">|</span>
+              <button
+                className={filter === 'ongoing' ? 'ceo-proj-active' : ''}
+                onClick={() => setFilter('ongoing')}
+              >
+                On Going
+              </button>
+            </div>
+            
+          </div>
+          <div className="ceo-proj-view-mode">
+          <button
+            className={viewMode === 'grid' ? 'ceo-proj-active' : ''}
+            onClick={() => setViewMode('grid')}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+            </svg>
+          </button>
+          <button
+            className={viewMode === 'list' ? 'ceo-proj-active' : ''}
+            onClick={() => setViewMode('list')}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="8" y1="6" x2="21" y2="6"></line>
+              <line x1="8" y1="12" x2="21" y2="12"></line>
+              <line x1="8" y1="18" x2="21" y2="18"></line>
+              <line x1="3" y1="6" x2="3.01" y2="6"></line>
+              <line x1="3" y1="12" x2="3.01" y2="12"></line>
+              <line x1="3" y1="18" x2="3.01" y2="18"></line>
+            </svg>
+          </button>
         </div>
+        </div> 
 
         {/* Project cards */}
         <div className={`ceo-proj-project-cards ${viewMode}`}>
@@ -106,17 +163,15 @@ const AreaProj = () => {
             <div
               key={project._id}
               className="ceo-proj-project-card"
-              onClick={() => navigate(`/ceo/proj/${project._id}`)}
+              onClick={() => navigate(`/am/projects/${project._id}`)}
               style={{ cursor: 'pointer' }}
             >
-              {/* ...rest of the card */}
+              {/* Project Image */}
               <div className="ceo-proj-project-image-container">
                 <img
-                  src={
-                    project.photos && project.photos.length > 0
-                      ? `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${project.photos[0]}`
-                      : 'https://placehold.co/400x250?text=No+Photo'
-                  }
+                  src={project.photos && project.photos.length > 0
+                    ? `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${project.photos[0]}`
+                    : 'https://placehold.co/400x250?text=No+Photo'}
                   alt={project.projectName}
                   className="ceo-proj-project-image"
                   width={250}
@@ -124,8 +179,8 @@ const AreaProj = () => {
                   style={{ objectFit: "cover", borderRadius: 8 }}
                 />
               </div>
+              {/* Project Details */}
               <div className="ceo-proj-project-details">
-                {/* ...your details rendering */}
                 <div className="ceo-proj-left-details">
                   <h3 className="ceo-proj-project-name">{project.projectName}</h3>
                   <p className="ceo-proj-project-location">

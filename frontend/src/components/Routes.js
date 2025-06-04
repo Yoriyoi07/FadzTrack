@@ -38,6 +38,7 @@ import ActivateAccount from './it/ActivateAccount';
 import ResetPassword from './it/ResetPassword';
 import PmDailyLogs from './pm/PMDailyLogs';
 import HrProj from './hr/HrProj';
+import AreaViewSpecificProj from './am/AreaViewSpecificProj';
 
 const AppRoutes = () => {
   return (
@@ -52,6 +53,7 @@ const AppRoutes = () => {
       <Route path="/pm/request-manpower/edit/:id" element={<PmRequestManpower />} />
       <Route path="/pm/manpower-list" element={<PmManpowerList />} />
       <Route path="/k" element={<PmIncidentReport />} />
+
       {/* <Route path="/q" element={<PmDailyReports />} /> */}
       <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDash /></PrivateRoute>} />
       <Route path="/pm/viewprojects/:id" element={<PmViewProjects />} />
@@ -73,6 +75,7 @@ const AppRoutes = () => {
       <Route path="/am/viewproj/:id" element={<AreasPage />} />
       <Route path="/am/manpower-requests/:id" element={<AreaManpowerReqDetails />} />
       <Route path="/am/projects" element={<AreaProj />} />
+      <Route path="/am/projects/:id" element={<AreaViewSpecificProj />} />
 
       {/* IT */}
       <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><ItDash /></PrivateRoute>} />
