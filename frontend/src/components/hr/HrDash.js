@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import api from '../../api/axiosInstance';
 import '../style/hr_style/Hr_Dash.css';
 
 const HrDash = () => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [auditActivities, setAuditActivities] = useState([]);
   const [stats, setStats] = useState({
     totalStaff: 21,
     assigned: 18,
@@ -15,19 +17,14 @@ const HrDash = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const token = localStorage.getItem('token');
+       const [manpowerRes, movementRes] = await Promise.all([
+            api.get('/manpower'),
+            api.get('/manpower-requests')
+          ]);
 
-        const [manpowerRes, movementRes] = await Promise.all([
-          fetch('http://localhost:5000/api/manpower', {
-            headers: { Authorization: `Bearer ${token}` }
-          }),
-          fetch('http://localhost:5000/api/manpower-requests', {
-            headers: { Authorization: `Bearer ${token}` }
-          })
-        ]);
+          const manpower = manpowerRes.data;
+          const movements = movementRes.data;
 
-        const manpower = await manpowerRes.json();
-        const movements = await movementRes.json();
 
         const totalStaff = manpower.length;
         const assigned = manpower.filter(mp => mp.status === 'Active').length;
@@ -42,6 +39,26 @@ const HrDash = () => {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+  const fetchAuditLogs = async () => {
+    try {
+
+      const { data } = await api.get('/audit-logs'); 
+      const mapped = data.slice(0, 6).map((log, i) => ({
+        id: `audit-${i}`,
+        icon: '📝', // Or use something from log.action if you want
+        iconClass: 'hr-dash-icon-audit',
+        title: `${log.action} - ${log.description || ''}`,
+        time: new Date(log.timestamp).toLocaleString(),
+      }));
+      setAuditActivities(mapped);
+    } catch (err) {
+      console.error('Failed to fetch audit logs:', err);
+    }
+  };
+  fetchAuditLogs();
+}, []);
 
 
   const handleAction = (action) => {
@@ -118,32 +135,7 @@ const HrDash = () => {
     }
   ];
 
-  const activities = [
-    {
-      icon: '👥',
-      iconClass: 'hr-dash-icon-assignment',
-      title: 'Jacob Jones assigned to BDC Hotel',
-      time: '15 minutes ago'
-    },
-    {
-      icon: '📋',
-      iconClass: 'hr-dash-icon-request',
-      title: 'New manpower request from Stonehouse Gateway',
-      time: '1 hour ago'
-    },
-    {
-      icon: '📊',
-      iconClass: 'hr-dash-icon-report',
-      title: 'Daily log submitted by Freemont Place',
-      time: '3 hours ago'
-    },
-    {
-      icon: '👤',
-      iconClass: 'hr-dash-icon-assignment',
-      title: 'Kristin Watson reassigned to Stonehouse',
-      time: '5 hours ago'
-    }
-  ];
+
 
   const communications = [
     {
@@ -226,7 +218,7 @@ const HrDash = () => {
             </div>
             <div className="hr-dash-stat-card">
               <span className="hr-dash-stat-number">{stats.available}</span>
-              <span className="hr-dash-stat-label">Available</span>
+              <span className="hr-dash-stat-label">Unassigned</span>
             </div>
             <div className="hr-dash-stat-card">
               <span className="hr-dash-stat-number">{stats.requests}</span>
@@ -235,7 +227,7 @@ const HrDash = () => {
           </div>
         </div>
 
-        {/* Key Metrics */}
+        {/* Key Metrics
         <div className="hr-dash-metrics-grid">
           <div className="hr-dash-metric-card">
             <div className="hr-dash-metric-value">85%</div>
@@ -257,7 +249,7 @@ const HrDash = () => {
             <div className="hr-dash-metric-label">Request Approval Rate</div>
             <div className="hr-dash-metric-change hr-dash-change-positive">+8% improvement</div>
           </div>
-        </div>
+        </div> */}
 
         {/* Critical Alerts */}
         {/* 
@@ -293,7 +285,7 @@ const HrDash = () => {
         {/* Main Dashboard Grid */}
         <div className="hr-dash-dashboard-grid">
           {/* Project Assignment Overview */}
-          <div className="hr-dash-card hr-dash-project-overview">
+          {/* <div className="hr-dash-card hr-dash-project-overview">
             <div className="hr-dash-card-header">
               <h3 className="hr-dash-card-title">Project Assignment Overview</h3>
               <button className="hr-dash-card-action" onClick={() => handleAction('Manage All')}>
@@ -328,7 +320,7 @@ const HrDash = () => {
                 ))}
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Manpower Requests */}
           <div className="hr-dash-card">
@@ -355,30 +347,50 @@ const HrDash = () => {
             </div>
           </div>
 
-          {/* Recent Activity */}
-          <div className="hr-dash-card">
-            <div className="hr-dash-card-header">
-              <h3 className="hr-dash-card-title">Recent Activity</h3>
-              <button className="hr-dash-card-action" onClick={() => handleAction('View Timeline')}>
-                View Timeline
-              </button>
+
+        <div className="hr-dash-card">
+  <div className="hr-dash-card-header">
+    <h3 className="hr-dash-card-title">Recent Activity</h3>
+    <button className="hr-dash-card-action" onClick={() => handleAction('View Timeline')}>
+      View Timeline
+    </button>
+  </div>
+  <div className="hr-dash-card-content">
+    <div className="hr-dash-activity-feed">
+      {auditActivities.length === 0 ? (
+        <div style={{ padding: "2rem", color: "#aaa", textAlign: "center" }}>
+          No recent activities.
+        </div>
+      ) : (
+        auditActivities.map((activity, index) => (
+          <div key={activity.id || index} className="hr-dash-activity-item">
+            <div className={`hr-dash-activity-icon ${activity.iconClass || ''}`}>
+              {activity.user?.initial || activity.icon || '📝'}
             </div>
-            <div className="hr-dash-card-content">
-              <div className="hr-dash-activity-feed">
-                {activities.map((activity, index) => (
-                  <div key={index} className="hr-dash-activity-item">
-                    <div className={`hr-dash-activity-icon ${activity.iconClass}`}>
-                      {activity.icon}
-                    </div>
-                    <div className="hr-dash-activity-content">
-                      <div className="hr-dash-activity-title">{activity.title}</div>
-                      <div className="hr-dash-activity-time">{activity.time}</div>
-                    </div>
-                  </div>
-                ))}
+            <div className="hr-dash-activity-content">
+              <div className="hr-dash-activity-title">
+                {activity.user?.name
+                  ? <><strong>{activity.user.name}</strong>: {activity.title}</>
+                  : activity.title}
               </div>
+              <div className="hr-dash-activity-time">{activity.time}</div>
+              {/* Optional: if your API provides details */}
+              {activity.details && Array.isArray(activity.details) && (
+                <div className="hr-dash-activity-extra-details">
+                  {activity.details.map((detail, i) => (
+                    <div key={i} className="detail-item">{detail}</div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
+        ))
+      )}
+    </div>
+  </div>
+</div>
+
+
 
           {/* Communication Center */}
           <div className="hr-dash-card">

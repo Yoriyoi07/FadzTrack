@@ -4,7 +4,7 @@ const AuditLog = require('../models/AuditLog');
 const { verifyToken } = require('../middleware/authMiddleware');
 
 router.get('/', verifyToken, async (req, res) => {
-  if (req.user.role !== 'CEO') {
+   if (req.user.role !== 'CEO' && req.user.role !== 'HR') {
     return res.status(403).json({ message: 'Access denied' });
   }
   try {
