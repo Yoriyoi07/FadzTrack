@@ -24,7 +24,7 @@ const app = express();
 // ---- CORS: allow both local and deployed frontend ----
 const allowedOrigins = [
   'http://localhost:3000',
-  process.env.CLIENT_ORIGIN || 'https://fadzrepo.vercel.app/'
+  process.env.CLIENT_ORIGIN || 'https://fadztrack.vercel.app'
 ];
 
 app.use(cors({
