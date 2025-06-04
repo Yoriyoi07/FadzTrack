@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell } from 'recharts';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
 import api from '../../api/axiosInstance';
+import CeoAddArea from './CeoAddArea'; // adjust if your path is different
 
 const CeoDash = () => {
   const navigate = useNavigate();
@@ -16,38 +17,9 @@ const CeoDash = () => {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [expandedLocations, setExpandedLocations] = useState({});
   const [locations, setLocations] = useState([]);
-
-  const [sidebarProjects, setSidebarProjects] = useState([
-    { id: 1, name: 'Batangas', engineer: 'Engr. Daryll Miralles' },
-    { id: 2, name: 'Twin Lakes Project', engineer: 'Engr. Shaquille' },
-    { id: 3, name: 'Calatagan Townhomes', engineer: 'Engr. Rychea Miralles' },
-    { id: 4, name: 'Makati', engineer: 'Engr. Michelle Amor' },
-    { id: 5, name: 'Cavite', engineer: 'Engr. Zenarose Miranda' },
-    { id: 6, name: 'Taguig', engineer: 'Engr. Third Castellar' }
-  ]);
+  const [showAddAreaModal, setShowAddAreaModal] = useState(false);
 
   const [activities, setActivities] = useState([]);
-
-  const [reports, setReports] = useState([
-    {
-      id: 1,
-      name: 'BGC Hotel',
-      dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.'
-    },
-    {
-      id: 2,
-      name: 'Protacio Townhomes',
-      dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.'
-    },
-    {
-      id: 3,
-      name: 'Fegarido Residences',
-      dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.'
-    }
-  ]);
 
   const [chats, setChats] = useState([
     {
@@ -117,7 +89,7 @@ const CeoDash = () => {
                 engineer: project.projectmanager?.name || 'Not Assigned',
                 progress: progressData.progress,
                 latestDate,
-                location: project.location // will be replaced with full object after both fetches
+                location: project.location
               };
             } catch (error) {
               return null; // skip if error
@@ -292,7 +264,12 @@ const CeoDash = () => {
       <div className="dashboard-layout">
         <div className="sidebar">
           <h2>Dashboard</h2>
-          <button className="add-project-btn" onClick={() => navigate('/ceo/addarea')}>Add New Area</button>
+          <button
+            className="add-project-btn"
+            onClick={() => setShowAddAreaModal(true)}
+          >
+            Add New Area
+          </button>
           <div className="location-folders">
             {Object.entries(projectsByLocation).map(([locationId, locationData]) => (
               <div key={locationId} className="location-folder">
@@ -381,7 +358,6 @@ const CeoDash = () => {
                         <div className="chart-legend">
                           {["Completed", "In Progress", "Not Started"].map((status, index) => {
                             const item = project.progress.find(p => p.name === status);
-                            // Always show all statuses, even if value is 0
                             const color = item ? item.color : (status === 'Completed' ? '#4CAF50' : status === 'In Progress' ? '#5E4FDB' : '#FF6B6B');
                             const value = item ? item.value : 0;
                             return (
@@ -478,6 +454,31 @@ const CeoDash = () => {
           </div>
         </div>
       </div>
+
+      {/* --- MODAL --- */}
+      {showAddAreaModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <button
+              className="modal-close-btn"
+              onClick={() => setShowAddAreaModal(false)}
+              style={{
+                position: "absolute", top: 12, right: 16, background: "none",
+                border: "none", fontSize: 24, cursor: "pointer"
+              }}
+            >
+              &times;
+            </button>
+            <CeoAddArea
+              onSuccess={() => {
+                setShowAddAreaModal(false);
+                // Optionally, reload project/area data here if needed!
+              }}
+              onCancel={() => setShowAddAreaModal(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,16 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../../api/axiosInstance'; // <-- make sure the path is correct!
+import api from '../../api/axiosInstance';
 
-const CeoAddArea = () => {
+const CeoAddArea = ({ onSuccess, onCancel }) => {
   const [areaManagers, setAreaManagers] = useState([]);
   const [locations, setLocations] = useState([]);
   const [selectedManager, setSelectedManager] = useState('');
   const [assignedLocations, setAssignedLocations] = useState([]);
   const [editMode, setEditMode] = useState(false);
-  const navigate = useNavigate();
 
-  // Fetch area managers and locations
   useEffect(() => {
     api.get('/users/role/Area%20Manager')
       .then(res => setAreaManagers(res.data))
@@ -21,7 +18,6 @@ const CeoAddArea = () => {
       .catch(console.error);
   }, []);
 
-  // When manager changes, load assigned locations
   useEffect(() => {
     if (selectedManager) {
       api.get(`/users/${selectedManager}/locations`)
@@ -46,7 +42,7 @@ const CeoAddArea = () => {
         locations: assignedLocations,
       });
       alert('Locations updated!');
-      navigate('/ceo/dash');
+      if (onSuccess) onSuccess();
     } catch (err) {
       alert('Failed to update locations.');
       console.error(err);
@@ -54,7 +50,7 @@ const CeoAddArea = () => {
   };
 
   return (
-    <div style={{ maxWidth: 600, margin: '40px auto', background: '#fff', padding: 24, borderRadius: 12 }}>
+    <div style={{ maxWidth: 600, margin: '0 auto', background: '#fff', padding: 24, borderRadius: 12, position: 'relative' }}>
       <h2>Assign Locations to Area Manager</h2>
       <div style={{ margin: '16px 0' }}>
         <label>
@@ -92,7 +88,7 @@ const CeoAddArea = () => {
           </div>
           <div style={{ marginTop: 16 }}>
             <button onClick={handleSave} style={{ marginRight: 12 }}>Save</button>
-            <button onClick={() => navigate('/ceo/dash')}>Cancel</button>
+            <button onClick={onCancel}>Cancel</button>
           </div>
         </>
       )}

@@ -7,15 +7,7 @@ const crypto = require('crypto');
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 const twoFACodes = {};
 
-// Password test snippet (can be removed in production)
-const plainPassword = '12345678';
-const storedHash = '$2b$10$dBb6f9.sopXKgwhynOHXSOG9OHIyTROgwGESeibpcJUvbZyTSxPrm';
 
-const testPassword = async () => {
-  const match = await bcrypt.compare(plainPassword, storedHash);
-};
-
-testPassword();
 
 // --- Email function with customizable button text ---
 async function sendEmailLink(to, subject, linkText, linkURL, buttonText = 'Activate Account') {
