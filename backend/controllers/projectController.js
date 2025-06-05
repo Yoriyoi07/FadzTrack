@@ -1,5 +1,6 @@
 const Project = require('../models/Project');
 const { logAction } = require('../utils/auditLogger');
+const Manpower = require('../models/Manpower'); 
 
 // CREATE PROJECT
 exports.addProject = async (req, res) => {

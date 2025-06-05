@@ -51,22 +51,29 @@ const AreaViewSpecificProj = () => {
   if (!project) return <div>Loading...</div>;
 
   return (
-    <div className="app-container">
+    <div>
+     {/* Header remains the same */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
-          <Link to="/ceo/material-list" className="nav-link">Material</Link>
-          <Link to="/ceo/proj" className="nav-link">Projects</Link>
+          <Link to="/am" className="nav-link">Dashboard</Link>
+          <Link to="/am/matreq" className="nav-link">Material</Link>
+          <Link to="/am/manpower-requests" className="nav-link">Manpower</Link>
+          <Link to="/am/viewproj" className="nav-link">Projects</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
-          <Link to="/ceo/audit-logs" className="nav-link">Audit Logs</Link>
+          <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          <div
+            className="profile-circle"
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            Z
+          </div>
           {profileMenuOpen && (
             <div className="profile-menu">
               <button onClick={handleLogout}>Logout</button>

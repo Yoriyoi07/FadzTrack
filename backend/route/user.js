@@ -84,22 +84,34 @@ router.get('/assigned/:userId', async (req, res) => {
   }
 });
 
-// GET all PICs who are NOT assigned to any project
+
+// GET all PICs who are NOT assigned as PIC to any ONGOING project
+// GET all PICs who are NOT assigned as PIC to any ONGOING project
 router.get('/unassigned-pics', async (req, res) => {
   try {
-    // Use aggregation to find PICs not assigned to any project
     const unassignedPICs = await User.aggregate([
       { $match: { role: { $in: ["PIC", "Person in Charge"] } } },
       {
         $lookup: {
           from: 'projects',
-          localField: '_id',
-          foreignField: 'pic',
-          as: 'assigned_projects'
+          let: { pic_id: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $in: ['$$pic_id', '$pic'] },    // <<== correct for array of PICs
+                    { $eq: ['$status', 'Ongoing'] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'assigned_ongoing_projects'
         }
       },
-      { $match: { 'assigned_projects': { $size: 0 } } },  // Filter out those with assigned projects
-      { $project: { name: 1, _id: 1 } }  // Select only the fields we need
+      { $match: { 'assigned_ongoing_projects': { $size: 0 } } },
+      { $project: { name: 1, _id: 1 } }
     ]);
 
     res.json(unassignedPICs);
@@ -109,22 +121,28 @@ router.get('/unassigned-pics', async (req, res) => {
   }
 });
 
-// GET all PMs who are NOT assigned as PM to any project
+
+
+// GET all PMs who are NOT assigned as PM to any ONGOING project
 router.get('/unassigned-pms', async (req, res) => {
   try {
-    // Use aggregation to find PMs not assigned to any project
     const unassignedPMs = await User.aggregate([
       { $match: { role: "Project Manager" } },
       {
         $lookup: {
           from: 'projects',
-          localField: '_id',
-          foreignField: 'projectmanager',
-          as: 'assigned_projects'
+          let: { pm_id: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $and: [
+              { $eq: ['$projectmanager', '$$pm_id'] },
+              { $eq: ['$status', 'Ongoing'] }
+            ]}}},
+          ],
+          as: 'assigned_ongoing_projects'
         }
       },
-      { $match: { 'assigned_projects': { $size: 0 } } },  // Filter out those with assigned projects
-      { $project: { name: 1, _id: 1 } }  // Select only the fields we need
+      { $match: { 'assigned_ongoing_projects': { $size: 0 } } },
+      { $project: { name: 1, _id: 1 } }
     ]);
 
     res.json(unassignedPMs);
@@ -133,5 +151,6 @@ router.get('/unassigned-pms', async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch unassigned PMs' });
   }
 });
+
 
 module.exports = router;
