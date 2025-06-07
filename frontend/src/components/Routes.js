@@ -42,64 +42,63 @@ import AreaViewSpecificProj from './am/AreaViewSpecificProj';
 
 const AppRoutes = () => {
   return (
-    <Routes>
-      <Route path="/" element={<LoginPage />} />
+   <Routes>
+  {/* Public */}
+  <Route path="/" element={<LoginPage />} />
+  <Route path="/activate-account" element={<ActivateAccount />} />
+  <Route path="/reset-password" element={<ResetPassword />} />
 
-      {/* PROJECT MANAGER */}
-      <Route path="/pm/material-request/:id" element={<PmMatRequestDetail />} />
-      <Route path="/pm/request/:id" element={<PmMatRequestList />} />
-      <Route path="/pm/request-manpower" element={<PmRequestManpower />} />
-      <Route path="/pm/manpower-request/:id" element={<PmRequestedManpowerDetail />} />
-      <Route path="/pm/request-manpower/edit/:id" element={<PmRequestManpower />} />
-      <Route path="/pm/manpower-list" element={<PmManpowerList />} />
-      <Route path="/k" element={<PmIncidentReport />} />
+  {/* PROJECT MANAGER */}
+  <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDash /></PrivateRoute>} />
+  <Route path="/pm/material-request/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmMatRequestDetail /></PrivateRoute>} />
+  <Route path="/pm/request/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmMatRequestList /></PrivateRoute>} />
+  <Route path="/pm/request-manpower" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmRequestManpower /></PrivateRoute>} />
+  <Route path="/pm/manpower-request/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmRequestedManpowerDetail /></PrivateRoute>} />
+  <Route path="/pm/request-manpower/edit/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmRequestManpower /></PrivateRoute>} />
+  <Route path="/pm/manpower-list" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmManpowerList /></PrivateRoute>} />
+  <Route path="/k" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmIncidentReport /></PrivateRoute>} />
+  <Route path="/pm/viewprojects/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmViewProjects /></PrivateRoute>} />
+  <Route path="/pm/daily-logs" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDailyLogs /></PrivateRoute>} />
 
-      {/* <Route path="/q" element={<PmDailyReports />} /> */}
-      <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDash /></PrivateRoute>} />
-      <Route path="/pm/viewprojects/:id" element={<PmViewProjects />} />
-      <Route path="/pm/daily-logs" element={<PmDailyLogs />} />
+  {/* PIC */}
+  <Route path="/pic" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicDash /></PrivateRoute>} />
+  <Route path="/pic/chat" element={<PrivateRoute allowedRoles={["PPerson in Charge"]}><PicChat /></PrivateRoute>} />
+  <Route path="/pic/request/:id" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicReq /></PrivateRoute>} />
+  <Route path="/pic/:id" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicProject /></PrivateRoute>} />
+  <Route path="/pic/projects/:projectId/request" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicMatReq /></PrivateRoute>} />
 
-      {/* PIC */}
-      <Route path="/pic" element={<PicDash />} />
-      <Route path="/pic/chat" element={<PicChat />} />
-      <Route path="/pic/request/:id" element={<PicReq />} />
-      <Route path="/pic/:id" element={<PicProject />} />
-      <Route path="/pic/projects/:projectId/request" element={<PicMatReq />} />
+  {/* AREA MANAGER */}
+  <Route path="/am" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaManagerDashboard /></PrivateRoute>} />
+  <Route path="/am/addproj" element={<PrivateRoute allowedRoles={["Area Manager"]}><AddProject /></PrivateRoute>} />
+  <Route path="/am/matreq" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaMaterialList /></PrivateRoute>} />
+  <Route path="/am/manpower-requests" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaManpowerList /></PrivateRoute>} />
+  <Route path="/am/viewproj" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreasPage /></PrivateRoute>} />
+  <Route path="/am/viewproj/:id" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreasPage /></PrivateRoute>} />
+  <Route path="/am/manpower-requests/:id" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaManpowerReqDetails /></PrivateRoute>} />
+  <Route path="/am/projects" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaProj /></PrivateRoute>} />
+  <Route path="/am/projects/:id" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaViewSpecificProj /></PrivateRoute>} />
 
-      {/* AREA */}
-      <Route path="/am" element={<AreaManagerDashboard />} />
-      <Route path="/am/addproj" element={<AddProject />} />
-      <Route path="/am/matreq" element={<AreaMaterialList />} />
-      <Route path="/am/manpower-requests" element={<AreaManpowerList />} />
-      <Route path="/am/viewproj" element={<AreasPage />} />
-      <Route path="/am/viewproj/:id" element={<AreasPage />} />
-      <Route path="/am/manpower-requests/:id" element={<AreaManpowerReqDetails />} />
-      <Route path="/am/projects" element={<AreaProj />} />
-      <Route path="/am/projects/:id" element={<AreaViewSpecificProj />} />
+  {/* IT */}
+  <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><ItDash /></PrivateRoute>} />
 
-      {/* IT */}
-      <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><ItDash /></PrivateRoute>} />
-      <Route path="/activate-account" element={<ActivateAccount />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
+  {/* CEO */}
+  <Route path="/ceo/proj" element={<PrivateRoute allowedRoles={["CEO"]}><CeoProj /></PrivateRoute>} />
+  <Route path="/ceo/dash" element={<PrivateRoute allowedRoles={["CEO"]}><CeoDash /></PrivateRoute>} />
+  <Route path="/ceo/addarea" element={<PrivateRoute allowedRoles={["CEO"]}><CeoAddArea /></PrivateRoute>} />
+  <Route path="/ceo/proj/:id" element={<PrivateRoute allowedRoles={["CEO"]}><CeoViewSpecific /></PrivateRoute>} />
+  <Route path="/ceo/material-list" element={<PrivateRoute allowedRoles={["CEO"]}><CeoMaterialList /></PrivateRoute>} />
+  <Route path="/ceo/material-request/:id" element={<PrivateRoute allowedRoles={["CEO"]}><CeoMaterialRequestDetail /></PrivateRoute>} />
+  <Route path="/ceo/audit-logs" element={<PrivateRoute allowedRoles={["CEO"]}><CeoAuditLogs /></PrivateRoute>} />
 
-      {/* CEO */}
-      <Route path="/ceo/proj" element={<CeoProj />} />
-      <Route path="/ceo/dash" element={<CeoDash />} />
-      <Route path="/ceo/addarea" element={<CeoAddArea />} />
-      <Route path="/ceo/proj/:id" element={<CeoViewSpecific />} />
-      <Route path="/ceo/material-list" element={<CeoMaterialList />} />
-      <Route path="/ceo/material-request/:id" element={<CeoMaterialRequestDetail />} />
-      <Route path="/ceo/audit-logs" element={<CeoAuditLogs />} />
+  {/* HR */}
+  <Route path="/hr/dash" element={<PrivateRoute allowedRoles={["HR"]}><HrDash /></PrivateRoute>} />
+  <Route path="/hr/mlist" element={<PrivateRoute allowedRoles={["HR"]}><HrManpowerList /></PrivateRoute>} />
+  <Route path="/hr/movement" element={<PrivateRoute allowedRoles={["HR"]}><HrMovementList /></PrivateRoute>} />
+  <Route path='/hr/project-records' element={<PrivateRoute allowedRoles={["HR"]}><HrProj /></PrivateRoute>} />
 
-      {/* HR */}
-      <Route path="/hr/dash" element={<HrDash />} />
-      <Route path="/hr/mlist" element={<HrManpowerList />} />
-      <Route path="/hr/movement" element={<HrMovementList />} />
-      <Route path='hr/project-records' element={<HrProj />} />
-
-      {/* Reusable */}
-      <Route path="/approve-deny/:id" element={<ApproveDenyAction />} />
-    </Routes>
+  {/* Reusable */}
+  <Route path="/approve-deny/:id" element={<PrivateRoute allowedRoles={["Project Manager", "Area Manager", "CEO"]}><ApproveDenyAction /></PrivateRoute>} />
+</Routes>
   );
 };
 

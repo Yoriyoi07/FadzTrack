@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import '../style/pic_style/Pic_Dash.css';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
+import { PieChart, Pie, Cell } from 'recharts';
 
 const PicDash = () => {
   const navigate = useNavigate();
@@ -122,7 +123,9 @@ const PicDash = () => {
           <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
         <div className="profile-menu-container">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName.charAt(0).toUpperCase() || 'Z'}
+          </div>
           {profileMenuOpen && (
             <div className="profile-menu">
               <button onClick={handleLogout}>Logout</button>
@@ -168,6 +171,21 @@ const PicDash = () => {
         <div className="main1">
           <div className="main-content-container">
             <h1 className="main-title">Good Morning, {userName}!</h1>
+
+            {/* --- CURRENT PROJECT SUMMARY (like PMDash) --- */}
+            {project && (
+              <div className="project-summary" style={{ marginBottom: "24px" }}>
+                <h2>{project.projectName} Summary</h2>
+                <div className="kpi" style={{ display: "flex", alignItems: "center", gap: 24 }}>
+                  <div>
+                    {/* Task stats */}
+                    <ProjectStats project={project} />
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* --- END PROJECT SUMMARY --- */}
+
             <div>
               <h2 className="section-title">Request Overview</h2>
 
@@ -229,6 +247,51 @@ const PicDash = () => {
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+// --- Helper Component: ProjectStats (KPI + Pie Chart) ---
+const ProjectStats = ({ project }) => {
+  const tasks = Array.isArray(project?.tasks) ? project.tasks : [];
+  const completed = tasks.filter(t => t.percent === 100).length;
+  const inProgress = tasks.filter(t => t.percent > 0 && t.percent < 100).length;
+  const notStarted = tasks.filter(t => t.percent === 0).length;
+  const total = tasks.length;
+
+  const pieData = [
+    { name: 'Completed', value: completed, color: '#4CAF50' },
+    { name: 'In Progress', value: inProgress, color: '#5E4FDB' },
+    { name: 'Not Started', value: notStarted, color: '#FF6B6B' },
+  ].filter(d => d.value > 0);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+      <div>
+        <p><b>Total Tasks:</b> {total}</p>
+        <p><b>Completed:</b> {completed}</p>
+        <p><b>In Progress:</b> {inProgress}</p>
+        <p><b>Not Started:</b> {notStarted}</p>
+        <p><b>Assigned Team:</b> {project.manpower?.length || 0}</p>
+      </div>
+      {pieData.length > 0 && (
+        <PieChart width={120} height={120}>
+          <Pie
+            data={pieData}
+            cx={60}
+            cy={60}
+            innerRadius={36}
+            outerRadius={54}
+            dataKey="value"
+            labelLine={false}
+            label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+          >
+            {pieData.map((entry, idx) => (
+              <Cell key={idx} fill={entry.color} />
+            ))}
+          </Pie>
+        </PieChart>
+      )}
     </div>
   );
 };

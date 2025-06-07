@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState,  useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from '../api/axiosInstance';
 import { FaEye, FaEyeSlash } from "react-icons/fa";
@@ -61,23 +61,29 @@ const LoginPage = () => {
   // };
 
   // Redirect user to dashboard based on role
-  const redirectBasedOnRole = (role) => {
-    if (role === "Person in Charge") {
-      navigate("/pic"); 
-    } else if (role === "Project Manager") {
-      navigate("/pm"); 
-    }else if (role === "Area Manager") {
-      navigate("/am"); 
-    }else if (role === "IT") {
-      navigate("/it"); }
-    else if (role === "CEO") {
-      navigate("/ceo/dash");
-    }else if (role ==="HR"){
-      navigate("/hr/dash")
-    } else {
-      setLoginError("Unknown user role");
+ const redirectBasedOnRole = (role) => {
+  if (role === "Person in Charge" || role === "PIC") {
+    navigate("/pic", { replace: true });
+  } else if (role === "Project Manager") {
+    navigate("/pm", { replace: true });
+  } else if (role === "Area Manager") {
+    navigate("/am", { replace: true });
+  } else if (role === "IT") {
+    navigate("/it", { replace: true });
+  } else if (role === "CEO") {
+    navigate("/ceo/dash", { replace: true });
+  } else if (role === "HR") {
+    navigate("/hr/dash", { replace: true });
+  }
+};
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (token && user && user.role) {
+      redirectBasedOnRole(user.role);
     }
-  };
+  }, [navigate]);
 
   return (
     <div className="login-container">
