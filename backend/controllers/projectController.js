@@ -281,20 +281,28 @@ exports.updateProjectTasks = async (req, res) => {
   }
 };
 
-// TOGGLE PROJECT STATUS
+// TOGGLE PROJECT STATUS (mark as completed or ongoing)
 exports.toggleProjectStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    project.status = project.status === 'Ongoing' ? 'Completed' : 'Ongoing';
-    await project.save();
+    // Toggle logic
+    if (project.status !== 'Completed') {
+      project.status = 'Completed';
+      await project.save();
+    } else {
+      project.status = 'Ongoing';
+      await project.save();
+    }
+
     res.json({ status: project.status });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to toggle project status' });
+    res.status(500).json({ error: 'Failed to toggle project status', details: err.message });
   }
 };
+
 
 // GET PROJECT WHERE USER IS PROJECT MANAGER
 exports.getAssignedProjectManager = async (req, res) => {
@@ -311,5 +319,27 @@ exports.getAssignedProjectManager = async (req, res) => {
   } catch (error) {
     console.error('Error fetching project:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get projects for user by status
+exports.getProjectsByUserAndStatus = async (req, res) => {
+  const { userId, role, status } = req.query; // expects /projects/by-user-status?userId=...&role=...&status=...
+  if (!userId || !role || !status) {
+    return res.status(400).json({ message: 'Missing params' });
+  }
+  const query = {};
+  query[role] = userId;
+  query.status = status;
+  try {
+    const projects = await Project.find(query)
+      .populate('projectmanager', 'name email')
+      .populate('pic', 'name email')
+      .populate('areamanager', 'name email')
+      .populate('location', 'name region')
+      .populate('manpower', 'name position');
+    res.json(projects);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch projects' });
   }
 };

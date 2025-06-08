@@ -1,0 +1,53 @@
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.tab {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 6px 6px 0 0;
+  background: #e8eaf6;
+  color: #222;
+  font-weight: bold;
+  cursor: pointer;
+}
+.tab.active {
+  background: #003366;
+  color: #fff;
+}
+.myprojects-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+}
+.myprojects-table th, .myprojects-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.badge-ongoing {
+  background: #e3f1ff;
+  color: #003366;
+}
+.badge-completed {
+  background: #e7ffe3;
+  color: #388e3c;
+}
+.view-btn {
+  background: #003366;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 16px;
+  cursor: pointer;
+  font-weight: 600;
+}

@@ -13,7 +13,6 @@ const PicDash = () => {
 
   const [requests, setRequests] = useState([]);
   const [userName, setUserName] = useState(user?.name || '');
-  const [, setProjects] = useState([]);
   const [project, setProject] = useState(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -38,50 +37,29 @@ const PicDash = () => {
     setUserName(user.name);
   }, [navigate, token, user]);
 
-  // Fetch all projects where this user is PIC
-  useEffect(() => {
-    if (!token || !user) return;
-    const fetchProjects = async () => {
-      try {
-        const { data } = await api.get('/projects', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const filtered = data.filter(
-          (p) => Array.isArray(p.pic) && p.pic.some((picUser) => picUser._id === userId)
-        );
-        setProjects(filtered);
-      } catch (err) {
-        setProjects([]);
-      }
-    };
-    fetchProjects();
-  }, [token, user, userId]);
-
-  // Fetch assigned project for nav links
+  // Only fetch user's active/ongoing project
   useEffect(() => {
     if (!token || !userId) return;
-    const fetchAssigned = async () => {
+    const fetchActiveProject = async () => {
       try {
-        const { data } = await api.get(`/projects/assigned/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const { data } = await api.get(`/projects/by-user-status?userId=${userId}&role=pic&status=Ongoing`);
         setProject(data[0] || null);
       } catch (err) {
         setProject(null);
       }
     };
-    fetchAssigned();
+    fetchActiveProject();
   }, [token, userId]);
 
-  // Fetch requests for this PIC
+  // Fetch requests for this PIC's current project
   useEffect(() => {
-    if (!token) return;
+    if (!token || !project) return;
     api.get('/requests/mine', {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(({ data }) => setRequests(Array.isArray(data) ? data : []))
       .catch(() => setRequests([]));
-  }, [token]);
+  }, [token, project]);
 
   // Sample chats data
   const [chats] = useState([
@@ -120,6 +98,7 @@ const PicDash = () => {
           <Link to="/pic" className="nav-link">Dashboard</Link>
           {project && (<Link to={`/pic/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
           {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
+          <Link to="/pic/projects" className="nav-link">My Projects</Link>
           <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
         <div className="profile-menu-container">
@@ -138,16 +117,6 @@ const PicDash = () => {
       <div className="dashboard-layout">
         {/* Left Sidebar */}
         <div className="sidebar">
-          <h2>Requests</h2>
-          <button
-            className="add-project-btn"
-            onClick={() => {
-              if (project) navigate(`/pic/projects/${project._id}/request`);
-            }}
-            disabled={!project}
-          >
-            Add New Request
-          </button>
           {/* Chats List in Left Sidebar */}
           <div className="chats-section">
             <h3 className="chats-title">Chats</h3>
@@ -172,78 +141,97 @@ const PicDash = () => {
           <div className="main-content-container">
             <h1 className="main-title">Good Morning, {userName}!</h1>
 
-            {/* --- CURRENT PROJECT SUMMARY (like PMDash) --- */}
+            {/* --- Project Summary and Requests Section --- */}
+            {project ? (
+              <div className="clean-project-summary">
+                <div className="left-summary">
+                  <h2 style={{ marginBottom: 10 }}>{project.projectName} Summary</h2>
+                  <ProjectStats project={project} />
+                </div>
+                <div className="right-summary flat-summary">
+                  <span className="request-title">Requests</span>
+                  <button
+                    className="add-project-btn"
+                    onClick={() => navigate(`/pic/projects/${project._id}/request`)}
+                  >
+                    Add New Request
+                  </button>
+                  <span className="request-total-label">Total Requests</span>
+                  <span className="request-total-number">{requests.length}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="clean-project-summary">
+                <div style={{ padding: 32, width: "100%" }}>
+                  <h2>No Ongoing Project Assigned</h2>
+                  <p>
+                    You are not currently assigned to any ongoing project.<br />
+                    See <Link to="/pic/projects">My Projects</Link> for completed/archived.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Request Overview only if active project */}
             {project && (
-              <div className="project-summary" style={{ marginBottom: "24px" }}>
-                <h2>{project.projectName} Summary</h2>
-                <div className="kpi" style={{ display: "flex", alignItems: "center", gap: 24 }}>
-                  <div>
-                    {/* Task stats */}
-                    <ProjectStats project={project} />
+              <div>
+                <h2 className="section-title">Request Overview</h2>
+                <div className="request-list">
+                  {currentRequests.map(request => (
+                    <div key={request._id} className="request-item"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => navigate(`/pic/request/${request._id}`)}>
+                      <div className="request-icon">📦</div>
+                      <div className="request-details">
+                        <div className="request-name">
+                          <p>request for</p>
+                          {request.materials && request.materials.length > 0
+                            ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
+                            : '-'}
+                        </div>
+                        <div className="request-project">
+                          {request.project?.projectName || '-'}
+                        </div>
+                      </div>
+                      <div className="request-requester">
+                        <div className="request-requester-name">{request.createdBy?.name || '-'}</div>
+                        <div className="request-date">
+                          {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+                        </div>
+                      </div>
+                      <div className={`badge badge-${(request.status || '').toLowerCase()}`}>
+                        {request.status}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="pagination-controls">
+                  <span className="pagination-info">
+                    Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, requests.length)} of {requests.length} entries.
+                  </span>
+                  <div className="pagination-buttons">
+                    <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>&lt;</button>
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
+                      let pageNum = index + 1;
+                      if (currentPage > 3 && totalPages > 5) {
+                        pageNum = (currentPage + index) - 2;
+                        if (pageNum > totalPages) pageNum = totalPages - 4 + index;
+                      }
+                      return (
+                        <button
+                          key={index}
+                          onClick={() => goToPage(pageNum)}
+                          className={pageNum === currentPage ? 'active' : ''}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                    <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>&gt;</button>
                   </div>
                 </div>
               </div>
             )}
-            {/* --- END PROJECT SUMMARY --- */}
-
-            <div>
-              <h2 className="section-title">Request Overview</h2>
-
-              <div className="request-list">
-                {currentRequests.map(request => (
-                  <div key={request._id} className="request-item"
-                    style={{ cursor: "pointer" }}
-                    onClick={() => navigate(`/pic/request/${request._id}`)}>
-                    <div className="request-icon">📦</div>
-                    <div className="request-details">
-                      <div className="request-name">
-                        <p>request for</p>
-                        {request.materials && request.materials.length > 0
-                          ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
-                          : '-'}
-                      </div>
-                      <div className="request-project" style={{ fontSize: "13px", color: "#666", marginTop: "6px" }}>
-                        {request.project?.projectName || '-'}
-                      </div>
-                    </div>
-                    <div className="request-requester" style={{ textAlign: 'right' }}>
-                      <div className="request-requester-name">{request.createdBy?.name || '-'}</div>
-                      <div className="request-date">
-                        {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
-                      </div>
-                    </div>
-                    <div className={`badge badge-${(request.status || '').toLowerCase()}`}>
-                      {request.status}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="pagination-controls">
-                <span className="pagination-info">
-                  Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, requests.length)} of {requests.length} entries.
-                </span>
-                <div className="pagination-buttons">
-                  <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>&lt;</button>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
-                    let pageNum = index + 1;
-                    if (currentPage > 3 && totalPages > 5) {
-                      pageNum = (currentPage + index) - 2;
-                      if (pageNum > totalPages) pageNum = totalPages - 4 + index;
-                    }
-                    return (
-                      <button
-                        key={index}
-                        onClick={() => goToPage(pageNum)}
-                        className={pageNum === currentPage ? 'active' : ''}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                  <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>&gt;</button>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

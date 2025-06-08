@@ -39,6 +39,7 @@ import ResetPassword from './it/ResetPassword';
 import PmDailyLogs from './pm/PMDailyLogs';
 import HrProj from './hr/HrProj';
 import AreaViewSpecificProj from './am/AreaViewSpecificProj';
+import PicAllProjects from './pic/PicAllProjects';
 
 const AppRoutes = () => {
   return (
@@ -66,6 +67,7 @@ const AppRoutes = () => {
   <Route path="/pic/request/:id" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicReq /></PrivateRoute>} />
   <Route path="/pic/:id" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicProject /></PrivateRoute>} />
   <Route path="/pic/projects/:projectId/request" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicMatReq /></PrivateRoute>} />
+  <Route path="/pic/projects" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicAllProjects /></PrivateRoute>} />
 
   {/* AREA MANAGER */}
   <Route path="/am" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaManagerDashboard /></PrivateRoute>} />
