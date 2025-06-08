@@ -51,13 +51,19 @@ const PicDash = () => {
     fetchActiveProject();
   }, [token, userId]);
 
-  // Fetch requests for this PIC's current project
+  // Fetch requests for this PIC's current project **only**
   useEffect(() => {
     if (!token || !project) return;
+
     api.get('/requests/mine', {
       headers: { Authorization: `Bearer ${token}` }
     })
-      .then(({ data }) => setRequests(Array.isArray(data) ? data : []))
+      .then(({ data }) => {
+        const projectRequests = Array.isArray(data)
+          ? data.filter(r => r.project && r.project._id === project._id)
+          : [];
+        setRequests(projectRequests);
+      })
       .catch(() => setRequests([]));
   }, [token, project]);
 

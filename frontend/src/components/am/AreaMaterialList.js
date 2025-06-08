@@ -148,7 +148,7 @@ const AreaMaterialList = () => {
             ) : (
               paginatedRequests.map(request => (
                 <Link
-                  to={`/pm/material-request/${request._id}`}
+                  to={`/am/material-request/${request._id}`}
                   className="request-item"
                   key={request._id}
                   style={{ textDecoration: 'none', color: 'inherit' }}

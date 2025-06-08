@@ -1,9 +1,9 @@
-/* ===== HTML/BODY RESET FOR ONE SCROLLBAR ===== */
+
 html, body {
   height: 100%;
   margin: 0;
   padding: 0;
-  overflow: auto; /* Only 1 scrollbar for the whole app */
+  overflow: hidden;
 }
 
 /* ===== Top Navbar Styles ===== */
@@ -103,7 +103,8 @@ html, body {
   background-color: white;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
   z-index: 3;
-  /* No overflow! */
+  margin-top: 7px;
+  border-radius: 8px;
 }
 
 .sidebar h2 {
@@ -161,13 +162,13 @@ html, body {
   padding: 20px;
   background-color: #f0f2f5;
   min-height: calc(100vh - 60px);
-  /* Remove overflow-y and height for main scroll! */
 }
 .main-content-container {
   background-color: white;
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-top: 7px;
 }
 .main-title {
   font-size: 24px;

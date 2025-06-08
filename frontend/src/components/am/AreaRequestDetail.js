@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ApproveDenyActions from '../ApproveDenyActions';
+import '../style/pm_style/Pm_ViewRequest.css';
 import api from '../../api/axiosInstance'; // Adjust the path as needed
 
 const AreaMaterialReq = () => {

@@ -40,6 +40,7 @@ import PmDailyLogs from './pm/PMDailyLogs';
 import HrProj from './hr/HrProj';
 import AreaViewSpecificProj from './am/AreaViewSpecificProj';
 import PicAllProjects from './pic/PicAllProjects';
+import AreaMaterialReq from './am/AreaRequestDetail';
 
 const AppRoutes = () => {
   return (
@@ -79,7 +80,8 @@ const AppRoutes = () => {
   <Route path="/am/manpower-requests/:id" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaManpowerReqDetails /></PrivateRoute>} />
   <Route path="/am/projects" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaProj /></PrivateRoute>} />
   <Route path="/am/projects/:id" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaViewSpecificProj /></PrivateRoute>} />
-
+  <Route path="/am/material-list" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaMaterialList /></PrivateRoute>} />
+  <Route path="/am/material-request/:id" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaMaterialReq /></PrivateRoute>} />
   {/* IT */}
   <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><ItDash /></PrivateRoute>} />
 
