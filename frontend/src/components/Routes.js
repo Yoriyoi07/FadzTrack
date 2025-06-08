@@ -4,7 +4,6 @@ import PicDash from './pic/PicDash';
 import PicReq from './pic/PicReq';
 import PicChat from './pic/PicChat';
 import PmDash from './pm/PmDash';
-import PmIncidentReport from './pm/PmIncidentReport';
 import PmRequestManpower from './pm/PmRequestManpower';
 import AreaManagerDashboard from './am/AreaDash';
 import LoginPage from './Login';
@@ -58,7 +57,6 @@ const AppRoutes = () => {
   <Route path="/pm/manpower-request/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmRequestedManpowerDetail /></PrivateRoute>} />
   <Route path="/pm/request-manpower/edit/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmRequestManpower /></PrivateRoute>} />
   <Route path="/pm/manpower-list" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmManpowerList /></PrivateRoute>} />
-  <Route path="/k" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmIncidentReport /></PrivateRoute>} />
   <Route path="/pm/viewprojects/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmViewProjects /></PrivateRoute>} />
   <Route path="/pm/daily-logs" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDailyLogs /></PrivateRoute>} />
 
