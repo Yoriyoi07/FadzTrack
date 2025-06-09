@@ -100,11 +100,16 @@ const handleLogout = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    let fieldValue = value;
+
+    if (name === "phone") {
+      fieldValue = fieldValue.replace(/\D/g, '').slice(0, 11);
+    }
     setNewAccount((prev) => ({
       ...prev,
-      [name]: value
+      [name]: fieldValue
     }));
-    validateField(name, value);
+    validateField(name, fieldValue);
   };
 
   const isFormValid = () => {
