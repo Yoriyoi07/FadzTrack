@@ -64,11 +64,16 @@ const ItDash = () => {
     };
   }, []);
 
-  const handleLogout = () => {
+const handleLogout = () => {
+  const token = localStorage.getItem('token');
+  api.post('/auth/logout', {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  }).finally(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/');
-  };
+  });
+};
 
   useEffect(() => {
     const fetchAccounts = async () => {
@@ -309,7 +314,7 @@ const ItDash = () => {
           <div className="form-group-IT">
             <label className="form-label-IT">Phone Number</label>
             <input
-              type="text"
+              type="number"
               name="phone"
               placeholder="Enter Phone Number"
               value={newAccount.phone}
@@ -344,7 +349,6 @@ const ItDash = () => {
                 className="create-account-btn-IT"
                 onClick={handleResendResetLink}
                 disabled={resendLoading}
-                style={{ marginLeft: '10px' }}
               >
                 {resendLoading ? 'Resending...' : 'Resend Password Reset Link'}
               </button>
