@@ -83,11 +83,16 @@ const PmDash = () => {
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
+const handleLogout = () => {
+  const token = localStorage.getItem('token');
+  api.post('/auth/logout', {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  }).finally(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/');
-  };
+  });
+};
 
   const taskStatusData = React.useMemo(() => {
     if (!project?.tasks || !Array.isArray(project.tasks)) {

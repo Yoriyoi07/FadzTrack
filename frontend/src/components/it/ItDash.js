@@ -387,6 +387,7 @@ const ItDash = () => {
           <nav className="nav-menu">
             <Link to="/it" className="nav-link">Dashboard</Link>
             <Link to="/chat" className="nav-link">Chat</Link>
+            <Link to="/it/auditlogs" className="nav-link">Audit Logs</Link>
           </nav>
           <div className="profile-menu-container-IT">
             <div 

@@ -40,6 +40,7 @@ import HrProj from './hr/HrProj';
 import AreaViewSpecificProj from './am/AreaViewSpecificProj';
 import PicAllProjects from './pic/PicAllProjects';
 import AreaMaterialReq from './am/AreaRequestDetail';
+import ItAuditLog from './it/ItAuditLogs';
 
 const AppRoutes = () => {
   return (
@@ -82,6 +83,7 @@ const AppRoutes = () => {
   <Route path="/am/material-request/:id" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaMaterialReq /></PrivateRoute>} />
   {/* IT */}
   <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><ItDash /></PrivateRoute>} />
+  <Route path="/it/auditlogs" element={<PrivateRoute allowedRoles={["IT"]}><ItAuditLog /></PrivateRoute>} />
 
   {/* CEO */}
   <Route path="/ceo/proj" element={<PrivateRoute allowedRoles={["CEO"]}><CeoProj /></PrivateRoute>} />

@@ -74,12 +74,16 @@ const PicDash = () => {
     { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
   ]);
 
-  // Logout handler
-  const handleLogout = () => {
+const handleLogout = () => {
+  const token = localStorage.getItem('token');
+  api.post('/auth/logout', {}, {
+    headers: { Authorization: `Bearer ${token}` }
+  }).finally(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/');
-  };
+  });
+};
 
   // Profile menu close on outside click
   useEffect(() => {

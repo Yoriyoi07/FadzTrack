@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const { logAction } = require('../utils/auditLogger'); 
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 const twoFACodes = {};
@@ -326,6 +327,21 @@ exports.verify2FACode = async (req, res) => {
         accessToken,
         user: { id: user._id, email: user.email, name: user.name, role: user.role, status: user.status }
       });
+
+
+  await logAction({
+    action: 'login',
+    performedBy: user._id,
+    performedByRole: user.role,
+    description: `${user.name} (${user.email}) logged in.`,
+    meta: {
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    }
+  });
+
+
+
   } catch (err) {
     res.status(500).json({ msg: '2FA verification error', err });
   }
@@ -345,7 +361,20 @@ exports.refreshToken = (req, res) => {
 };
 
 // --- Logout user ---
-exports.logoutUser = (req, res) => {
+exports.logoutUser = async (req, res) => {
+  // Only try to log if req.user is present (should be, if using verifyToken)
+  if (req.user) {
+    await logAction({
+      action: 'logout',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `${req.user.name ? req.user.name : req.user.id} logged out.`,
+      meta: {
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      }
+    });
+  }
   res.clearCookie('refreshToken', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -354,6 +383,7 @@ exports.logoutUser = (req, res) => {
   });
   res.json({ msg: 'Logged out successfully' });
 };
+
 
 // --- Resend 2FA code ---
 exports.resend2FACode = async (req, res) => {

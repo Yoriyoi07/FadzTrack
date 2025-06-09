@@ -169,11 +169,14 @@ const HrDash = () => {
     };
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
+ const handleLogout = () => {
+  api.post('/logout')
+    .finally(() => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    });
+};
 
   return (
     <div className="hr-dash-container">
