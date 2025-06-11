@@ -1,6 +1,7 @@
 const MaterialRequest = require('../models/MaterialRequest');
 const Project = require('../models/Project');
 const { logAction } = require('../utils/auditLogger');
+const { createAndEmitNotification } = require('./notificationController');
 
 // CREATE
 exports.createMaterialRequest = async (req, res) => {
@@ -27,6 +28,23 @@ exports.createMaterialRequest = async (req, res) => {
     });
 
     await newRequest.save();
+
+   const projectDoc = await Project.findById(project);
+const projectName = projectDoc ? projectDoc.projectName : 'Unknown Project';
+
+// Example: send notification to the Project Manager
+if (projectDoc && projectDoc.projectmanager) {
+  await createAndEmitNotification({
+    type: 'material_request_created',
+    toUserId: projectDoc.projectmanager,
+    fromUserId: req.user.id,
+    message: `New material request for project: ${projectName}`,
+    projectId: projectDoc._id,
+    requestId: newRequest._id,
+    meta: { description },
+    req
+  });
+}
 
     // Logging (default)
     await logAction({
