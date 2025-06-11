@@ -9,7 +9,7 @@ exports.verifyToken = async (req, res, next) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.id).select('name role');
     if (!user) return res.status(401).json({ message: 'User not found' });
-    req.user = { _id: user._id, name: user.name, role: user.role };
+    req.user = { id: user._id, name: user.name, role: user.role };
     next();
   } catch (err) {
     return res.status(401).json({ message: 'Token not valid' });
