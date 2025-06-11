@@ -9,10 +9,10 @@ exports.createMaterialRequest = async (req, res) => {
     const materialsArray = JSON.parse(materials);
     const missingUnit = materialsArray.some(m => !m.unit || m.unit.trim() === '');
     let attachments = [];
-    
-if (missingUnit) {
-  return res.status(400).json({ message: 'Each material must have a unit.' });
-}
+
+    if (missingUnit) {
+      return res.status(400).json({ message: 'Each material must have a unit.' });
+    }
 
     if (req.files && req.files.length > 0) {
       attachments = req.files.map(file => file.filename);
@@ -92,8 +92,8 @@ exports.updateMaterialRequest = async (req, res) => {
     let updatedAttachments = [];
 
     if (missingUnit) {
-  return res.status(400).json({ message: 'Each material must have a unit.' });
-}
+      return res.status(400).json({ message: 'Each material must have a unit.' });
+    }
     try {
       updatedAttachments = JSON.parse(attachments || '[]');
     } catch {
@@ -178,26 +178,34 @@ exports.deleteMaterialRequest = async (req, res) => {
 // APPROVAL
 exports.approveMaterialRequest = async (req, res) => {
   const { decision, reason } = req.body;
-  const userId = req.user.id;
+  const userId = req.user.id.toString();
   const userRole = req.user.role;
-
   try {
     const request = await MaterialRequest.findById(req.params.id).populate('project');
     if (!request) return res.status(404).json({ message: 'Request not found' });
-
 
     const { project } = request;
     if (!project) return res.status(500).json({ message: 'No linked project.' });
     if (!project.projectmanager) return res.status(500).json({ message: 'Project has no projectmanager assigned.' });
     if (!project.areamanager) return res.status(500).json({ message: 'Project has no areamanager assigned.' });
 
-    const isPM = project.projectmanager && project.projectmanager.toString() === userId;
-    const isAM = project.areamanager && project.areamanager.toString() === userId;
+    // --- Debug logs ---
+    console.log("Approval Debug:");
+    console.log("userId: ", userId);
+    console.log("userRole: ", userRole);
+    console.log("project.projectmanager: ", project.projectmanager);
+    console.log("project.areamanager: ", project.areamanager);
+
+    const idsEqual = (a, b) => String(a) === String(b);
+
+    const isPM = idsEqual(project.projectmanager, userId);
+    const isAM = idsEqual(project.areamanager, userId);
     const isCEO = userRole === 'CEO';
+
     let nextStatus = '';
     let currentStatus = request.status;
 
-    // Follow your status workflow
+    // Workflow status logic
     if (currentStatus === 'Pending Project Manager' && isPM) {
       nextStatus = decision === 'approved' ? 'Pending Area Manager' : 'Denied by Project Manager';
     } else if (currentStatus === 'Pending Area Manager' && isAM) {
@@ -205,6 +213,7 @@ exports.approveMaterialRequest = async (req, res) => {
     } else if (currentStatus === 'Pending CEO' && isCEO) {
       nextStatus = decision === 'approved' ? 'Approved' : 'Denied by CEO';
     } else {
+      console.log('403: Unauthorized or invalid state', {currentStatus, isPM, isAM, isCEO});
       return res.status(403).json({ message: 'Unauthorized or invalid state' });
     }
 
@@ -244,7 +253,6 @@ exports.approveMaterialRequest = async (req, res) => {
   }
 };
 
-
 // GET BY ROLE (mine)
 exports.getMyMaterialRequests = async (req, res) => {
   const userId = req.user.id;
@@ -276,8 +284,15 @@ exports.markReceived = async (req, res) => {
     const { id } = req.params;
     const request = await MaterialRequest.findById(id);
     if (!request) return res.status(404).json({ message: 'Material request not found' });
+
+    const userId = req.user.id.toString();
+    const createdBy = request.createdBy.toString();
+
+    if (createdBy !== userId) {
+      return res.status(403).json({ message: 'Not your request.' });
+    }
+
     if (request.status !== 'Approved') return res.status(400).json({ message: 'Request is not approved yet.' });
-    if (request.createdBy.toString() !== req.user.id) return res.status(403).json({ message: 'Not your request.' });
     if (request.receivedByPIC) return res.status(400).json({ message: 'Already marked as received.' });
 
     request.receivedByPIC = true;
