@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import '../style/pm_style/Pm_Dash.css';
 import api from '../../api/axiosInstance';
 import { PieChart, Pie, Cell } from 'recharts';
+import NotificationBell from '../NotificationBell';
 
 const PmDash = () => {
   const token = localStorage.getItem('token');
@@ -143,16 +144,17 @@ const handleLogout = () => {
           <Link to="/pm/daily-logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="profile-menu-container">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
-        </div>
+        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+  <NotificationBell />
+  <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+    {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+  </div>
+  {profileMenuOpen && (
+    <div className="profile-menu">
+      <button onClick={handleLogout}>Logout</button>
+    </div>
+  )}
+</div>
       </header>
 
       <div className="pm-dash dashboard-layout">

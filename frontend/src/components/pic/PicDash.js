@@ -3,6 +3,7 @@ import '../style/pic_style/Pic_Dash.css';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import { PieChart, Pie, Cell } from 'recharts';
+import ProgressTracker from '../ProgressTracker';
 
 const PicDash = () => {
   const navigate = useNavigate();
@@ -198,9 +199,13 @@ const handleLogout = () => {
                           {request.materials && request.materials.length > 0
                             ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
                             : '-'}
+                            
                         </div>
                         <div className="request-project">
                           {request.project?.projectName || '-'}
+                        </div>
+                        <div>
+                        <ProgressTracker request={request} />
                         </div>
                       </div>
                       <div className="request-requester">
@@ -208,9 +213,6 @@ const handleLogout = () => {
                         <div className="request-date">
                           {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
                         </div>
-                      </div>
-                      <div className={`badge badge-${(request.status || '').toLowerCase()}`}>
-                        {request.status}
                       </div>
                     </div>
                   ))}

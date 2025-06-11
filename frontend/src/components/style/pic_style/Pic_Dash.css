@@ -183,13 +183,19 @@ html, body {
 .request-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 24px;
 }
 .request-item {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 1px 7px rgba(60, 70, 130, 0.06);
+  padding: 26px 18px;
   display: flex;
   align-items: center;
-  padding: 12px;
-  border-bottom: 1px solid #eee;
+  justify-content: center;  /* << Center all content horizontally */
+  min-height: 150px;
+  border: 1px solid #f0f0f5;
+  position: relative;
 }
 .request-icon {
   font-size: 24px;

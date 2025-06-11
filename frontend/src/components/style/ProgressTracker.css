@@ -1,0 +1,87 @@
+.progress-tracker {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  margin: 20px 0;
+  gap: 0px;
+}
+
+.step-vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+}
+
+.step-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #f0f0f0;
+  color: #666;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border: 2px solid #e0e0e0;
+  font-size: 14px;
+  transition: background 0.2s, border 0.2s, color 0.2s;
+  z-index: 2;
+}
+.step-circle.completed {
+  background: #4caf50;
+  border: 2px solid #4caf50;
+  color: #fff;
+}
+.step-circle.active {
+  background: #2196f3;
+  border: 2px solid #2196f3;
+  color: #fff;
+}
+.step-circle.denied {
+  background: #f44336;
+  border: 2px solid #f44336;
+  color: #fff;
+}
+.step-label {
+  font-size: 11px;
+  color: #222;
+  margin-top: 4px;
+  font-weight: bold;
+  text-align: center;
+}
+.step-status {
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 2px;
+  color: #777;
+}
+.step-status.completed, .step-status.approved, .step-status.placed, .step-status.received {
+  color: #4caf50;
+}
+.step-status.active {
+  color: #2196f3;
+}
+.step-status.denied {
+  color: #f44336;
+}
+.step-date {
+  font-size: 10px;
+  color: #888;
+  margin-top: 1px;
+}
+.step-line {
+  height: 4px;
+  width: 32px;
+  background: #e0e0e0;
+  margin: 18px 0 0 0;
+  border-radius: 2px;
+  z-index: 1;
+}
+.step-line.completed {
+  background: #4caf50;
+}
+.step-line.denied {
+  background: #f44336;
+}

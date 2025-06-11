@@ -100,44 +100,78 @@ const PicMatReq = () => {
     navigate('/');
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!token) {
-      alert('No token, please log in again.');
-      navigate('/');
-      return;
-    }
-    const validMaterials = materials.filter(m => m.materialName.trim() && m.quantity.trim() && m.unit.trim());
-    if (validMaterials.length === 0) {
-      alert('Please add at least one material with quantity and unit');
-      return;
-    }
-    const data = new FormData();
-    uploadedFiles.forEach(file => data.append('attachments', file));
-    data.append('description', formData.description);
-    data.append('materials', JSON.stringify(validMaterials));
-    data.append('project', projectId);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  console.log('Submit clicked');
 
-    try {
-      const res = await api.post('/requests', data, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.data.msg === 'Invalid token') {
-        alert('Session expired. Please login again.');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/');
-        return;
-      }
-      alert('✅ Material request submitted successfully!');
-      setFormData({ description: '' });
-      setMaterials([{ id: 1, materialName: '', quantity: '', unit: '' }]);
-      setUploadedFiles([]);
-      setPreviewImages([]);
-    } catch (err) {
-      alert('❌ Upload failed');
+  if (!token) {
+    alert('No token, please log in again.');
+    console.log('No token, returning early.');
+    navigate('/');
+    return;
+  }
+
+  const validMaterials = materials.filter(m => m.materialName.trim() && m.quantity.trim() && m.unit.trim());
+  if (validMaterials.length === 0) {
+    alert('Please add at least one material with quantity and unit');
+    console.log('No valid materials, returning early.');
+    return;
+  }
+
+  const data = new FormData();
+  uploadedFiles.forEach(file => data.append('attachments', file));
+  data.append('description', formData.description);
+  data.append('materials', JSON.stringify(validMaterials));
+  data.append('project', projectId);
+
+  try {
+    console.log('Posting to /requests');
+    const res = await api.post('/requests', data, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    console.log('Response from /requests:', res);
+
+    if (res.data.msg === 'Invalid token') {
+      alert('Session expired. Please login again.');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+      console.log('Invalid token, returning early.');
+      return;
     }
-  };
+
+   console.log('About to POST notification', {
+  projectManagerId: project?.projectmanager?._id,
+  userId: user?._id,
+  projectId: project?._id
+});
+
+if (project && project.projectmanager && project.projectmanager._id) {
+  await api.post('/notifications', {
+    type: 'request_submitted',
+    toUserId: project.projectmanager._id, // <- THIS IS CORRECT!
+    fromUserId: user._id,
+    projectId: project._id,
+    message: `${user.name} submitted a material request for ${project.projectName}.`
+  }, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  console.log('Notification POSTED!');
+} else {
+  console.log('No project manager to notify! Fetched project:', project);
+}
+
+
+    alert('✅ Material request submitted successfully!');
+    setFormData({ description: '' });
+    setMaterials([{ id: 1, materialName: '', quantity: '', unit: '' }]);
+    setUploadedFiles([]);
+    setPreviewImages([]);
+  } catch (err) {
+    alert('❌ Upload failed');
+    console.error('Error in handleSubmit:', err);
+  }
+};
 
   return (
     <div>

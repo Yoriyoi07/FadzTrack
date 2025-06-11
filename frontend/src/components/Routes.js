@@ -41,6 +41,7 @@ import AreaViewSpecificProj from './am/AreaViewSpecificProj';
 import PicAllProjects from './pic/PicAllProjects';
 import AreaMaterialReq from './am/AreaRequestDetail';
 import ItAuditLog from './it/ItAuditLogs';
+import ProgressTracker from './ProgressTracker';
 
 const AppRoutes = () => {
   return (
@@ -102,6 +103,8 @@ const AppRoutes = () => {
 
   {/* Reusable */}
   <Route path="/approve-deny/:id" element={<PrivateRoute allowedRoles={["Project Manager", "Area Manager", "CEO"]}><ApproveDenyAction /></PrivateRoute>} />
+  <Route path="/progress-tracker/:id" element={<PrivateRoute allowedRoles={["Project Manager", "Area Manager", "CEO", "Person in Charge"]}><ProgressTracker /></PrivateRoute>} />
+  
 </Routes>
   );
 };
