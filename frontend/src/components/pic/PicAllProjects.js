@@ -3,6 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import '../style/pic_style/PicAllProjects.css'; // create if you want extra style
 
+// Sidebar Chats Data
+const chats = [
+  { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
+  { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
+  { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
+];
+
 const PicAllProjects = () => {
   const token = localStorage.getItem('token');
   const stored = localStorage.getItem('user');
@@ -10,10 +17,12 @@ const PicAllProjects = () => {
   const userId = user?._id;
 
   const navigate = useNavigate();
+  const [requests, setRequests] = useState([]);
   const [activeTab, setActiveTab] = useState('Ongoing');
   const [ongoing, setOngoing] = useState([]);
   const [completed, setCompleted] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [project, setProject] = useState(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -31,6 +40,37 @@ const PicAllProjects = () => {
         setOngoing([]); setCompleted([]); setLoading(false);
       });
   }, [userId]);
+
+  // Only fetch user's active/ongoing project
+  useEffect(() => {
+    if (!token || !userId) return;
+    const fetchActiveProject = async () => {
+      try {
+        const { data } = await api.get(`/projects/by-user-status?userId=${userId}&role=pic&status=Ongoing`);
+        setProject(data[0] || null);
+      } catch (err) {
+        setProject(null);
+      }
+    };
+    fetchActiveProject();
+  }, [token, userId]);
+
+
+  // Fetch requests for this PIC's current project **only**
+  useEffect(() => {
+    if (!token || !project) return;
+
+    api.get('/requests/mine', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(({ data }) => {
+        const projectRequests = Array.isArray(data)
+          ? data.filter(r => r.project && r.project._id === project._id)
+          : [];
+        setRequests(projectRequests);
+      })
+      .catch(() => setRequests([]));
+  }, [token, project]);
 
   if (loading) return <div style={{ padding: 32 }}>Loading...</div>;
 
@@ -74,7 +114,7 @@ const PicAllProjects = () => {
   );
 
   return (
-    <div className="myprojects-page">
+    <>
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -82,33 +122,60 @@ const PicAllProjects = () => {
         </div>
         <nav className="nav-menu">
           <Link to="/pic" className="nav-link">Dashboard</Link>
-          <Link to="/pic/projects" className="nav-link active">My Projects</Link>
+          {project && (<Link to={`/pic/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
+          {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
+          <Link to="/pic/projects" className="nav-link">My Projects</Link>
           <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
       </header>
-      <main className="main1">
-        <div className="main-content-container">
-          <h1 className="main-title">My Projects</h1>
-          <div className="tabs">
-            <button
-              className={activeTab === 'Ongoing' ? 'tab active' : 'tab'}
-              onClick={() => setActiveTab('Ongoing')}
-            >Ongoing</button>
-            <button
-              className={activeTab === 'Completed' ? 'tab active' : 'tab'}
-              onClick={() => setActiveTab('Completed')}
-            >Completed</button>
-          </div>
-          <div className="projects-table-container">
-            {activeTab === 'Ongoing' ? (
-              <ProjectTable projects={ongoing} />
-            ) : (
-              <ProjectTable projects={completed} />
-            )}
+
+      {/* Dashboard Layout with Sidebar */}
+      <div className="dashboard-layout">
+        {/* Sidebar */}
+        <div className="sidebar">
+          <div className="chats-section">
+            <h3 className="chats-title">Chats</h3>
+            <div className="chats-list">
+              {chats.map(chat => (
+                <div key={chat.id} className="chat-item">
+                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
+                    {chat.initial}
+                  </div>
+                  <div className="chat-info">
+                    <div className="chat-name">{chat.name}</div>
+                    <div className="chat-message">{chat.message}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </main>
-    </div>
+
+        {/* Main Content */}
+        <main className="main1">
+          <div className="main-content-container">
+            <h1 className="main-title">My Projects</h1>
+            <div className="tabs">
+              <button
+                className={activeTab === 'Ongoing' ? 'tab active' : 'tab'}
+                onClick={() => setActiveTab('Ongoing')}
+              >Ongoing</button>
+              <button
+                className={activeTab === 'Completed' ? 'tab active' : 'tab'}
+                onClick={() => setActiveTab('Completed')}
+              >Completed</button>
+            </div>
+            <div className="projects-table-container">
+              {activeTab === 'Ongoing' ? (
+                <ProjectTable projects={ongoing} />
+              ) : (
+                <ProjectTable projects={completed} />
+              )}
+            </div>
+          </div>
+        </main>
+      </div>
+    </>
   );
 };
 

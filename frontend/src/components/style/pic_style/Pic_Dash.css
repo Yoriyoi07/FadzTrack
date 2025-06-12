@@ -86,8 +86,7 @@ html, body {
 /* ===== Dashboard Layout ===== */
 .dashboard-layout {
   display: flex;
-  min-height: calc(100vh - 60px); /* Header height = 60px */
-  /* No height or overflow-y here */
+  min-height: calc(100vh - 110px); 
 }
 
 /* ===== Left Sidebar (Sticky Chats) ===== */

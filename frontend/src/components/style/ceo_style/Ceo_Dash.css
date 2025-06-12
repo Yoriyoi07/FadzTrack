@@ -138,9 +138,8 @@ body {
 .dashboard-layout {
   display: flex;
   flex: 1;
-  overflow-x: hidden;
   overflow-y: auto;
-  height: calc(100vh - 60px);
+  height: calc(100vh - 110px);
   width: 100%;
   padding: 0;
   background-color: #f0f2f5;

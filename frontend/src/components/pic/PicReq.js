@@ -3,21 +3,31 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance'; // Adjust path if needed!
 import '../style/pic_style/Pic_Req.css';
 
+const chats = [
+  { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
+  { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
+  { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
+];
+
 const MaterialRequestDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const token = localStorage.getItem('token');
+  const stored = localStorage.getItem('user');
+  const user = JSON.parse(localStorage.getItem('user'));
+  const userId = user?._id;
+
+  const [requests, setRequests] = useState([]);
   const [requestData, setRequestData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
-  const [project, ] = useState(null);
+  const [project, setProject] = useState(null);
   const [materials, setMaterials] = useState([]);
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [newFiles, setNewFiles] = useState([]);
-
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  const user = JSON.parse(localStorage.getItem('user'));
   const isPIC = user?._id === requestData?.createdBy?._id;
 
   useEffect(() => {
@@ -136,6 +146,36 @@ const MaterialRequestDetail = () => {
     'Pending AM',
     'Pending CEO'
   ].includes(requestData?.status);
+  
+    // Only fetch user's active/ongoing project
+  useEffect(() => {
+    if (!token || !userId) return;
+    const fetchActiveProject = async () => {
+      try {
+        const { data } = await api.get(`/projects/by-user-status?userId=${userId}&role=pic&status=Ongoing`);
+        setProject(data[0] || null);
+      } catch (err) {
+        setProject(null);
+      }
+    };
+    fetchActiveProject();
+  }, [token, userId]);
+
+  // Fetch requests for this PIC's current project **only**
+  useEffect(() => {
+    if (!token || !project) return;
+
+    api.get('/requests/mine', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(({ data }) => {
+        const projectRequests = Array.isArray(data)
+          ? data.filter(r => r.project && r.project._id === project._id)
+          : [];
+        setRequests(projectRequests);
+      })
+      .catch(() => setRequests([]));
+  }, [token, project]);
 
   if (loading) {
     return (
@@ -156,8 +196,8 @@ const MaterialRequestDetail = () => {
   }
 
   return (
-    <div>
-      {/* Header with Navigation */}
+    <>
+      {/* Header */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -165,8 +205,9 @@ const MaterialRequestDetail = () => {
         </div>
         <nav className="nav-menu">
           <Link to="/pic" className="nav-link">Dashboard</Link>
-          <Link to="/pic/projects/:projectId/request" className="nav-link">Requests</Link>
+          {project && (<Link to={`/pic/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
           {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
+          <Link to="/pic/projects" className="nav-link">My Projects</Link>
           <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
         <div className="profile-menu-container">
@@ -174,7 +215,7 @@ const MaterialRequestDetail = () => {
             className="profile-circle"
             onClick={() => setProfileMenuOpen(!profileMenuOpen)}
           >
-            Z
+            {user?.name ? user.name.charAt(0).toUpperCase() : 'Z'}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">
@@ -183,221 +224,245 @@ const MaterialRequestDetail = () => {
           )}
         </div>
       </header>
-      <main className="main-content-picmatreq">
-        <div className="request-materials-container-picmatreq">
-          <h1 className="page-title-picmatreq">Material Request #{requestData.requestNumber}</h1>
-          <div className="project-details-box" style={{ marginBottom: '20px' }}>
-            <h2 style={{ margin: 0 }}>{requestData.project?.projectName || '-'}</h2>
-            <p style={{ margin: 0, fontStyle: 'italic' }}>{requestData.project?.location || '-'}</p>
-            <p style={{ margin: 0, color: '#555' }}>{requestData.project?.targetDate || ''}</p>
-          </div>
-
-          {editMode && isEditable ? (
-            <form className="materials-form-picmatreq" onSubmit={e => { e.preventDefault(); handleSaveEdit(); }}>
-              <div className="form-group-picmatreq">
-                <label className="form-label-picmatreq">Material to be Requested</label>
-                <div className="materials-list-picmatreq">
-                  <div className="material-headers-picmatreq">
-                    
-                    <div className="material-header-label-picmatreq">Material Name</div>
-                    <div className="quantity-header-label-picmatreq">Quantity</div>
+      
+      {/* Main Dashboard Layout with Sidebar */}
+      <div className="dashboard-layout">
+        {/* Sidebar */}
+        <div className="sidebar">
+          <div className="chats-section">
+            <h3 className="chats-title">Chats</h3>
+            <div className="chats-list">
+              {chats.map(chat => (
+                <div key={chat.id} className="chat-item">
+                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
+                    {chat.initial}
                   </div>
-                  {materials.map((material) => (
-                    <div key={material.id} className="material-row-picmatreq">
-                      <input
-                        type="text"
-                        value={material.materialName}
-                        onChange={(e) => handleMaterialChange(material.id, 'materialName', e.target.value)}
-                        placeholder="Enter material name"
-                        className="material-input-picmatreq"
-                        required
-                      />
-                      <input
-                        type="text"
-                        value={material.quantity}
-                        onChange={(e) => handleMaterialChange(material.id, 'quantity', e.target.value)}
-                        placeholder="Quantity"
-                        maxLength={7}
-                        className="quantity-input-picmatreq"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteMaterial(material.id)}
-                        className="remove-material-btn-picmatreq"
-                        disabled={materials.length === 1}
-                      >
-                        ×
-                      </button>
+                  <div className="chat-info">
+                    <div className="chat-name">{chat.name}</div>
+                    <div className="chat-message">{chat.message}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Scrollable Main Content */}
+        <div className="main-content-picmatreq">
+          <div className="request-materials-container-picmatreq">
+            <h1 className="page-title-picmatreq">Material Request #{requestData.requestNumber}</h1>
+            <div className="project-details-box" style={{ marginBottom: '20px' }}>
+              <h2 style={{ margin: 0 }}>{requestData.project?.projectName || '-'}</h2>
+              <p style={{ margin: 0, fontStyle: 'italic' }}>{requestData.project?.location || '-'}</p>
+              <p style={{ margin: 0, color: '#555' }}>{requestData.project?.targetDate || ''}</p>
+            </div>
+
+            {editMode && isEditable ? (
+              <form className="materials-form-picmatreq" onSubmit={e => { e.preventDefault(); handleSaveEdit(); }}>
+                <div className="form-group-picmatreq">
+                  <label className="form-label-picmatreq">Material to be Requested</label>
+                  <div className="materials-list-picmatreq">
+                    <div className="material-headers-picmatreq">
+                      <div className="material-header-label-picmatreq">Material Name</div>
+                      <div className="quantity-header-label-picmatreq">Quantity</div>
                     </div>
-                  ))}
-                  <button type="button" onClick={handleAddMaterial} className="add-material-btn-picmatreq">
-                    + Add Material
+                    {materials.map((material) => (
+                      <div key={material.id} className="material-row-picmatreq">
+                        <input
+                          type="text"
+                          value={material.materialName}
+                          onChange={(e) => handleMaterialChange(material.id, 'materialName', e.target.value)}
+                          placeholder="Enter material name"
+                          className="material-input-picmatreq"
+                          required
+                        />
+                        <input
+                          type="text"
+                          value={material.quantity}
+                          onChange={(e) => handleMaterialChange(material.id, 'quantity', e.target.value)}
+                          placeholder="Quantity"
+                          maxLength={7}
+                          className="quantity-input-picmatreq"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteMaterial(material.id)}
+                          className="remove-material-btn-picmatreq"
+                          disabled={materials.length === 1}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={handleAddMaterial} className="add-material-btn-picmatreq">
+                      + Add Material
+                    </button>
+                  </div>
+                </div>
+
+                <div className="form-group-picmatreq">
+                  <label className="form-label-picmatreq">Attachment Proof</label>
+                  <div className="upload-section-picmatreq">
+                    <label htmlFor="file-upload-edit" className="upload-button">
+                      <span className="upload-icon-picmatreq">📎</span>
+                      Choose Files
+                    </label>
+                    <input
+                      type="file"
+                      id="file-upload-edit"
+                      multiple
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                      className="file-input-picmatreq"
+                    />
+                    <p className="upload-hint-picmatreq">You can attach files such as documents or images</p>
+
+                    {newFiles.length > 0 && (
+                      <div className="uploaded-files-picmatreq">
+                        {newFiles.map((file, index) => (
+                          <div key={index} className="file-item-picmatreq">
+                            <img 
+                              src={URL.createObjectURL(file)} 
+                              alt={`Preview ${index + 1}`} 
+                              className="file-preview-image" 
+                              style={{ width: '200px', height: '200px', objectFit: 'cover' }} 
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveNewFile(index)}
+                              className="remove-file-btn-picmatreq"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {attachments.length > 0 && (
+                      <div className="uploaded-files-picmatreq">
+                        <h4 style={{ margin: '1rem 0 0.5rem 0', color: '#666' }}>Current Attachments:</h4>
+                        {attachments.map((file, idx) => (
+                          <div key={idx} className="file-item-picmatreq">
+                            <img 
+                              src={getAttachmentUrl(file)} 
+                              alt={`Attachment ${idx + 1}`} 
+                              className="attachment-image" 
+                              style={{ width: '200px', height: '200px', objectFit: 'cover' }} 
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveAttachment(idx)}
+                              className="remove-file-btn-picmatreq"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="form-group-picmatreq">
+                  <label className="form-label-picmatreq">Request Description</label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Provide a detailed description of your request"
+                    className="description-textarea-picmatreq"
+                    rows="4"
+                  />
+                </div>
+
+                <div className="form-actions-picmatreq">
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setEditMode(false);
+                      const materialsWithIds = (requestData.materials || []).map((mat, idx) => ({
+                        ...mat,
+                        id: mat.id || Date.now() + idx
+                      }));
+                      setMaterials(materialsWithIds);
+                      setDescription(requestData.description || '');
+                      setAttachments(requestData.attachments || []);
+                      setNewFiles([]);
+                    }} 
+                    className="cancel-btn-picmatreq"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="publish-button-picmatreq">
+                    Save Changes
                   </button>
                 </div>
-              </div>
+              </form>
+            ) : (
+              <>
+                <div className="materials-section">
+                  <h2 className="section-title">Material to be Requested</h2>
+                  <div className="materials-list">
+                    {requestData.materials?.map((mat, idx) => (
+                      <div key={idx} className="material-item">
+                        <span className="material-name">
+                          <strong>Material:</strong> {mat.materialName}
+                        </span>
+                        <span className="material-quantity">
+                          <strong>Quantity:</strong> {mat.quantity}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-              <div className="form-group-picmatreq">
-                <label className="form-label-picmatreq">Attachment Proof</label>
-                <div className="upload-section-picmatreq">
-                  <label htmlFor="file-upload-edit" className="upload-button">
-                    <span className="upload-icon-picmatreq">📎</span>
-                    Choose Files
-                  </label>
-                  <input
-                    type="file"
-                    id="file-upload-edit"
-                    multiple
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="file-input-picmatreq"
-                  />
-                  <p className="upload-hint-picmatreq">You can attach files such as documents or images</p>
+                <div className="attachments-section">
+                  <h2 className="section-title">Attachment Proof</h2>
+                  <div className="attachments-grid">
+                    {requestData.attachments?.length
+                      ? requestData.attachments.map((file, idx) => (
+                          <div key={idx} className="attachment-item">
+                            <img src={getAttachmentUrl(file)} alt={`Attachment ${idx + 1}`} className="attachment-image" style={{ width: '200px', height: '200px'}} />
+                          </div>
+                      )) : <div>No attachments</div>}
+                  </div>
+                </div>
 
-                  {newFiles.length > 0 && (
-                    <div className="uploaded-files-picmatreq">
-                      {newFiles.map((file, index) => (
-                        <div key={index} className="file-item-picmatreq">
-                          <img 
-                            src={URL.createObjectURL(file)} 
-                            alt={`Preview ${index + 1}`} 
-                            className="file-preview-image" 
-                            style={{ width: '200px', height: '200px', objectFit: 'cover' }} 
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveNewFile(index)}
-                            className="remove-file-btn-picmatreq"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                <div className="description-section">
+                  <h2 className="section-title">Request Description</h2>
+                  <div className="description-content">
+                    <p>{requestData.description}</p>
+                  </div>
+                </div>
+
+                <div className="action-buttons">
+                  <button onClick={handleBack} className="back-btn">Back</button>
+                  {isEditable && (
+                    <>
+                      <button onClick={() => setEditMode(true)} className="edit-btn">Edit</button>
+                      <button onClick={handleCancelRequest} className="cancel-btn">Cancel Request</button>
+                    </>
                   )}
-
-                  {attachments.length > 0 && (
-                    <div className="uploaded-files-picmatreq">
-                      <h4 style={{ margin: '1rem 0 0.5rem 0', color: '#666' }}>Current Attachments:</h4>
-                      {attachments.map((file, idx) => (
-                        <div key={idx} className="file-item-picmatreq">
-                          <img 
-                            src={getAttachmentUrl(file)} 
-                            alt={`Attachment ${idx + 1}`} 
-                            className="attachment-image" 
-                            style={{ width: '200px', height: '200px', objectFit: 'cover' }} 
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveAttachment(idx)}
-                            className="remove-file-btn-picmatreq"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                  {requestData.status === 'Approved' && isPIC && (
+                    requestData.receivedByPIC ? (
+                      <span className="received-badge">
+                        <span>✔</span> Received by PIC&nbsp;
+                        {requestData.receivedDate && (
+                          <span>({new Date(requestData.receivedDate).toLocaleString()})</span>
+                        )}
+                      </span>
+                    ) : (
+                      <button onClick={handleMarkReceived} className="received-btn">Mark as Received</button>
+                    )
                   )}
                 </div>
-              </div>
-
-              <div className="form-group-picmatreq">
-                <label className="form-label-picmatreq">Request Description</label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Provide a detailed description of your request"
-                  className="description-textarea-picmatreq"
-                  rows="4"
-                />
-              </div>
-
-              <div className="form-actions-picmatreq">
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    setEditMode(false);
-                    const materialsWithIds = (requestData.materials || []).map((mat, idx) => ({
-                      ...mat,
-                      id: mat.id || Date.now() + idx
-                    }));
-                    setMaterials(materialsWithIds);
-                    setDescription(requestData.description || '');
-                    setAttachments(requestData.attachments || []);
-                    setNewFiles([]);
-                  }} 
-                  className="cancel-btn-picmatreq"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="publish-button-picmatreq">
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          ) : (
-            <>
-              <div className="materials-section">
-                <h2 className="section-title">Material to be Requested</h2>
-                <div className="materials-list">
-                  {requestData.materials?.map((mat, idx) => (
-                    <div key={idx} className="material-item">
-                      <span className="material-name">
-                        <strong>Material:</strong> {mat.materialName}
-                      </span>
-                      <span className="material-quantity">
-                        <strong>Quantity:</strong> {mat.quantity}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="attachments-section">
-                <h2 className="section-title">Attachment Proof</h2>
-                <div className="attachments-grid">
-                  {requestData.attachments?.length
-                    ? requestData.attachments.map((file, idx) => (
-                        <div key={idx} className="attachment-item">
-                          <img src={getAttachmentUrl(file)} alt={`Attachment ${idx + 1}`} className="attachment-image" style={{ width: '200px', height: '200px'}} />
-                        </div>
-                    )) : <div>No attachments</div>}
-                </div>
-              </div>
-
-              <div className="description-section">
-                <h2 className="section-title">Request Description</h2>
-                <div className="description-content">
-                  <p>{requestData.description}</p>
-                </div>
-              </div>
-
-              <div className="action-buttons">
-                <button onClick={handleBack} className="back-btn">Back</button>
-                {isEditable && (
-                  <>
-                    <button onClick={() => setEditMode(true)} className="edit-btn">Edit</button>
-                    <button onClick={handleCancelRequest} className="cancel-btn">Cancel Request</button>
-                  </>
-                )}
-                {requestData.status === 'Approved' && isPIC && (
-                  requestData.receivedByPIC ? (
-                    <span className="received-badge">
-                      <span>✔</span> Received by PIC&nbsp;
-                      {requestData.receivedDate && (
-                        <span>({new Date(requestData.receivedDate).toLocaleString()})</span>
-                      )}
-                    </span>
-                  ) : (
-                    <button onClick={handleMarkReceived} className="received-btn">Mark as Received</button>
-                  )
-                )}
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 };
 
