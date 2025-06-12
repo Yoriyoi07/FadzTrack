@@ -3,6 +3,8 @@ const router = express.Router();
 const multer = require('multer');
 const { verifyToken } = require('../middleware/authMiddleware');
 const controller = require('../controllers/materialRequestController');
+const { verifyIT } = require('../middleware/authMiddleware');
+
 
 // File storage config
 const storage = multer.diskStorage({
@@ -23,6 +25,11 @@ router.post('/', verifyToken, upload.array('attachments'), controller.createMate
 router.get('/', verifyToken, controller.getAllMaterialRequests);
 
 router.get('/mine', verifyToken, controller.getMyMaterialRequests);
+
+router.get('/all', verifyToken, verifyIT, (req, res, next) => {
+  console.log('[GET /all] req.user:', req.user);
+  next();
+}, controller.getAllMaterialRequests);
 
 // GET ONE
 router.get('/:id', verifyToken, controller.getMaterialRequestById);

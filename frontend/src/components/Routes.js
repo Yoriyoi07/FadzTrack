@@ -41,8 +41,9 @@ import AreaViewSpecificProj from './am/AreaViewSpecificProj';
 import PicAllProjects from './pic/PicAllProjects';
 import AreaMaterialReq from './am/AreaRequestDetail';
 import ItAuditLog from './it/ItAuditLogs';
+import ItMaterialList from './it/ItMaterialList';
 import ProgressTracker from './ProgressTracker';
-
+import ItManpowerList from './it/ItManpowerList';
 const AppRoutes = () => {
   return (
    <Routes>
@@ -82,9 +83,12 @@ const AppRoutes = () => {
   <Route path="/am/projects/:id" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaViewSpecificProj /></PrivateRoute>} />
   <Route path="/am/material-list" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaMaterialList /></PrivateRoute>} />
   <Route path="/am/material-request/:id" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaMaterialReq /></PrivateRoute>} />
+
   {/* IT */}
   <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><ItDash /></PrivateRoute>} />
   <Route path="/it/auditlogs" element={<PrivateRoute allowedRoles={["IT"]}><ItAuditLog /></PrivateRoute>} />
+  <Route path="/it/material-list" element={<PrivateRoute allowedRoles={["IT"]}><ItMaterialList /></PrivateRoute>} />
+  <Route path="/it/manpower-list" element={<PrivateRoute allowedRoles={["IT"]}><ItManpowerList /></PrivateRoute>} />
 
   {/* CEO */}
   <Route path="/ceo/proj" element={<PrivateRoute allowedRoles={["CEO"]}><CeoProj /></PrivateRoute>} />

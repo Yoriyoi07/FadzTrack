@@ -162,6 +162,7 @@ exports.createMaterialRequest = async (req, res) => {
 
 // ========== GET ALL MATERIAL REQUESTS ==========
 exports.getAllMaterialRequests = async (req, res) => {
+   console.log('[getAllMaterialRequests] Accessed by:', req.user);
   try {
     const requests = await MaterialRequest.find()
       .sort({ createdAt: -1 })

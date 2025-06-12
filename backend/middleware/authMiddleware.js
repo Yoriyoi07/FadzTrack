@@ -16,3 +16,11 @@ exports.verifyToken = async (req, res, next) => {
   }
 };
 
+exports.verifyIT = (req, res, next) => {
+  console.log('[verifyIT] req.user:', req.user);
+  if (req.user && req.user.role === 'IT') {
+    next();
+  } else {
+    res.status(403).json({ message: 'IT only endpoint.' });
+  }
+};
