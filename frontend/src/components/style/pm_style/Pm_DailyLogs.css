@@ -183,6 +183,7 @@
   transition: all 0.3s ease;
   background: white;
   box-sizing: border-box;
+  overflow-y:auto;
 }
 
 .form-input:focus, .form-textarea:focus, .form-select:focus {

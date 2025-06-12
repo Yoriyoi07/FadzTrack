@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../../api/axiosInstance'; // Make sure this path matches your project
+import api from '../../api/axiosInstance';
 import '../style/pm_style/Pm_ViewRequest.css';
+
+const chats = [
+  { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
+  { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
+  { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
+];
 
 const PmManpowerList = () => {
   const navigate = useNavigate();
@@ -13,7 +19,6 @@ const PmManpowerList = () => {
   const [userName, setUserName] = useState(user?.name || 'ALECK');
   const [userRole, setUserRole] = useState(user?.role || '');
   const [project, setProject] = useState(null);
-  const [projects, setProjects] = useState([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const [requests, setRequests] = useState([]);
@@ -32,7 +37,6 @@ const PmManpowerList = () => {
       (filter === 'Pending' && status.includes('pending')) ||
       (filter === 'Approved' && status.includes('approved')) ||
       (filter === 'Declined' && (status.includes('declined') || status.includes('denied')));
-
     const searchTarget = [
       request.manpowerType,
       request.description,
@@ -51,7 +55,6 @@ const PmManpowerList = () => {
   useEffect(() => {
     api.get('/manpower-requests')
       .then(res => {
-        console.log("SAMPLE REQUEST >>>", res.data[0]);
         setRequests(Array.isArray(res.data) ? res.data : []);
         setLoading(false);
         setError('');
@@ -64,7 +67,6 @@ const PmManpowerList = () => {
         }
         setRequests([]);
         setLoading(false);
-        console.error(err);
       });
   }, []);
 
@@ -84,10 +86,8 @@ const PmManpowerList = () => {
     navigate('/');
   };
 
-  // Fetch project assigned as Project Manager
   useEffect(() => {
     if (!token || !userId) return;
-
     const fetchAssignedPMProject = async () => {
       try {
         const { data } = await api.get(`/projects/assigned/projectmanager/${userId}`, {
@@ -95,11 +95,9 @@ const PmManpowerList = () => {
         });
         setProject(data);
       } catch (err) {
-        console.error('Error fetching assigned PM project:', err);
         setProject(null);
       }
     };
-
     fetchAssignedPMProject();
   }, [token, userId]);
 
@@ -142,116 +140,140 @@ const PmManpowerList = () => {
         </div>
       </header>
 
-      <main className="main-content">
-        <div className="requests-container">
-          <div className="requests-header">
-            <h2 className="page-title">Manpower Requests</h2>
-            <button
-              className="request-manpower-btn"
-              onClick={() => navigate('/pm/request-manpower')}
-            >
-              + Request Manpower
-            </button>
-            <div className="filter-tabs">
-              {['All', 'Pending', 'Approved', 'Declined'].map(tab => (
-                <button
-                  key={tab}
-                  className={`filter-tab ${filter === tab ? 'active' : ''}`}
-                  onClick={() => setFilter(tab)}
-                >
-                  {tab}
-                </button>
+      {/* --- Layout with Sidebar Chat --- */}
+      <div className="dashboard-layout">
+        {/* Sidebar Chat */}
+        <div className="sidebar">
+          <div className="chats-section">
+            <h3 className="chats-title">Chats</h3>
+            <div className="chats-list">
+              {chats.map(chat => (
+                <div key={chat.id} className="chat-item">
+                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
+                    {chat.initial}
+                  </div>
+                  <div className="chat-info">
+                    <div className="chat-name">{chat.name}</div>
+                    <div className="chat-message">{chat.message}</div>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
+        </div>
 
-          <div className="requests-list">
-            {loading ? (
-              <div>Loading manpower requests...</div>
-            ) : error ? (
-              <div style={{ color: 'red', marginBottom: 20 }}>{error}</div>
-            ) : filteredRequests.length === 0 ? (
-              <div className="no-requests">
-                <p>No manpower requests found matching your criteria.</p>
-              </div>
-            ) : (
-              paginatedRequests.map(request => (
-                <Link
-                  to={`/pm/manpower-request/${request._id}`}
-                  className="request-item"
-                  key={request._id}
-                >
-                  <div className="request-icon">👷</div>
-                  <div className="request-details">
-                    <h3 className="request-title">
-                      Manpower Request {request.requestNumber || request._id?.slice(-3)}
-                    </h3>
-                    <p className="request-description">
-                      {Array.isArray(request.manpowers)
-                        ? request.manpowers.map((mp, i) => (
-                          <span key={i}>
-                            {mp.type} {mp.quantity && `(${mp.quantity})`}
-                            {i < request.manpowers.length - 1 ? ', ' : ''}
-                          </span>
-                        ))
-                        : 'No manpowers'}
-                    </p>
-                    <div className="request-date">
-                      {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
-                    </div>
-                  </div>
-                  <div className="request-meta">
-                    <div className="approval-status">
-                      {request.project?.areamanager?.name && (
-                        <p className="request-approver"><strong>Area Manager:</strong> {request.project.areamanager.name}</p>)}
-                      {request.status?.toLowerCase().includes('declined') && (
-                        <p className="request-approver"><strong>Declined by:</strong> {request.approvedBy || 'Unknown'}</p>)}
-                      {request.status?.toLowerCase().includes('approved') && request.approvals && (
-                        <div className="approval-checkmark">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="20,6 9,17 4,12"></polyline>
-                          </svg>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="request-actions">
-                    <span className={`status-badge ${getStatusClass(request.status)}`}>
-                      {request.status || 'Pending'}
-                    </span>
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
-
-          {/* Pagination UI */}
-          {filteredRequests.length > 0 && (
-            <div className="pagination">
-              <span className="pagination-info">
-                Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries
-              </span>
-              <div className="pagination-controls">
-                <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>
-                  &lt;
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+        {/* Main Content */}
+        <div className="main-content">
+          <div className="requests-container">
+            <div className="requests-header">
+              <h2 className="page-title">Manpower Requests</h2>
+              <button
+                className="request-manpower-btn"
+                onClick={() => navigate('/pm/request-manpower')}
+              >
+                + Request Manpower
+              </button>
+              <div className="filter-tabs">
+                {['All', 'Pending', 'Approved', 'Declined'].map(tab => (
                   <button
-                    key={page}
-                    className={page === currentPage ? 'active' : ''}
-                    onClick={() => setCurrentPage(page)}
+                    key={tab}
+                    className={`filter-tab ${filter === tab ? 'active' : ''}`}
+                    onClick={() => setFilter(tab)}
                   >
-                    {page}
+                    {tab}
                   </button>
                 ))}
-                <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>
-                  &gt;
-                </button>
               </div>
             </div>
-          )}
+
+            <div className="requests-list">
+              {loading ? (
+                <div>Loading manpower requests...</div>
+              ) : error ? (
+                <div style={{ color: 'red', marginBottom: 20 }}>{error}</div>
+              ) : filteredRequests.length === 0 ? (
+                <div className="no-requests">
+                  <p>No manpower requests found matching your criteria.</p>
+                </div>
+              ) : (
+                paginatedRequests.map(request => (
+                  <Link
+                    to={`/pm/manpower-request/${request._id}`}
+                    className="request-item"
+                    key={request._id}
+                  >
+                    <div className="request-icon">👷</div>
+                    <div className="request-details">
+                      <h3 className="request-title">
+                        Manpower Request {request.requestNumber || request._id?.slice(-3)}
+                      </h3>
+                      <p className="request-description">
+                        {Array.isArray(request.manpowers)
+                          ? request.manpowers.map((mp, i) => (
+                            <span key={i}>
+                              {mp.type} {mp.quantity && `(${mp.quantity})`}
+                              {i < request.manpowers.length - 1 ? ', ' : ''}
+                            </span>
+                          ))
+                          : 'No manpowers'}
+                      </p>
+                      <div className="request-date">
+                        {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+                      </div>
+                    </div>
+                    <div className="request-meta">
+                      <div className="approval-status">
+                        {request.project?.areamanager?.name && (
+                          <p className="request-approver"><strong>Area Manager:</strong> {request.project.areamanager.name}</p>)}
+                        {request.status?.toLowerCase().includes('declined') && (
+                          <p className="request-approver"><strong>Declined by:</strong> {request.approvedBy || 'Unknown'}</p>)}
+                        {request.status?.toLowerCase().includes('approved') && request.approvals && (
+                          <div className="approval-checkmark">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <polyline points="20,6 9,17 4,12"></polyline>
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="request-actions">
+                      <span className={`status-badge ${getStatusClass(request.status)}`}>
+                        {request.status || 'Pending'}
+                      </span>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+
+            {/* Pagination UI */}
+            {filteredRequests.length > 0 && (
+              <div className="pagination">
+                <span className="pagination-info">
+                  Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries
+                </span>
+                <div className="pagination-controls">
+                  <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>
+                    &lt;
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      className={page === currentPage ? 'active' : ''}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>
+                    &gt;
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 };

@@ -1,7 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../../api/axiosInstance'; // Adjust if needed
+import api from '../../api/axiosInstance';
 import '../style/pm_style/Pm_ViewRequest.css';
+
+const chats = [
+  { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
+  { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
+  { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
+];
 
 const PmMatRequestList = () => {
   const navigate = useNavigate();
@@ -13,7 +19,6 @@ const PmMatRequestList = () => {
   const [userName, setUserName] = useState(user?.name || 'ALECK');
   const [userRole, setUserRole] = useState(user?.role || '');
   const [project, setProject] = useState(null);
-  const [projects, setProjects] = useState([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const [requests, setRequests] = useState([]);
@@ -25,7 +30,6 @@ const PmMatRequestList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
 
-  // --- MUST COME FIRST ---
   const filteredRequests = requests.filter(request => {
     const status = (request.status || '').toLowerCase();
     const matchesFilter =
@@ -33,14 +37,12 @@ const PmMatRequestList = () => {
       (filter === 'Pending' && status.includes('pending')) ||
       (filter === 'Approved' && status.includes('approved')) ||
       (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel')));
-
     const searchTarget = [
       request.materials?.map(m => m.materialName).join(', ') || '',
       request.description || '',
       request.createdBy?.name || '',
       request.project?.projectName || '',
     ].join(' ').toLowerCase();
-
     return matchesFilter && searchTarget.includes(searchTerm.toLowerCase());
   });
 
@@ -83,10 +85,8 @@ const PmMatRequestList = () => {
     navigate('/');
   };
 
-  // Fetch project assigned as Project Manager
   useEffect(() => {
     if (!token || !userId) return;
-
     const fetchAssignedPMProject = async () => {
       try {
         const { data } = await api.get(`/projects/assigned/projectmanager/${userId}`, {
@@ -94,11 +94,9 @@ const PmMatRequestList = () => {
         });
         setProject(data);
       } catch (err) {
-        console.error('Error fetching assigned PM project:', err);
         setProject(null);
       }
     };
-
     fetchAssignedPMProject();
   }, [token, userId]);
 
@@ -142,97 +140,117 @@ const PmMatRequestList = () => {
         </div>
       </header>
 
-      <main className="main-content">
-        <div className="requests-container">
-          <div className="requests-header">
-            <h2 className="page-title">Requests</h2>
-            <div className="filter-tabs">
-              {['All', 'Pending', 'Approved', 'Cancelled'].map(tab => (
-                <button
-                  key={tab}
-                  className={`filter-tab ${filter === tab ? 'active' : ''}`}
-                  onClick={() => setFilter(tab)}
-                >
-                  {tab}
-                </button>
+      {/* --- Layout with Sidebar Chat --- */}
+      <div className="dashboard-layout">
+        {/* Sidebar Chat */}
+        <div className="sidebar">
+          <div className="chats-section">
+            <h3 className="chats-title">Chats</h3>
+            <div className="chats-list">
+              {chats.map(chat => (
+                <div key={chat.id} className="chat-item">
+                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
+                    {chat.initial}
+                  </div>
+                  <div className="chat-info">
+                    <div className="chat-name">{chat.name}</div>
+                    <div className="chat-message">{chat.message}</div>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
+        </div>
 
-          <div className="requests-list">
-            {loading ? (
-              <div>Loading requests...</div>
-            ) : error ? (
-              <div style={{ color: 'red', marginBottom: 20 }}>{error}</div>
-            ) : filteredRequests.length === 0 ? (
-              <div className="no-requests">
-                <p>No requests found matching your criteria.</p>
-              </div>
-            ) : (
-              paginatedRequests.map(request => (
-                <Link
-                  to={`/pm/material-request/${request._id}`}
-                  className="request-item"
-                  key={request._id}
-                  style={{ textDecoration: 'none', color: 'inherit' }}
-                >
-                  <div className="request-icon">{getIconForType(request)}</div>
-                  <div className="request-details">
-                    <h3 className="request-title">
-                      {request.materials && request.materials.length > 0
-                        ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
-                        : 'Material Request'}
-                    </h3>
-                    <p className="request-description">{request.description}</p>
-                  </div>
-                  <div className="request-meta">
-                    <div className="request-author">{request.createdBy?.name || 'Unknown'}</div>
-                    <div className="request-project">{request.project?.projectName || '-'}</div>
-                    <div className="request-date">
-                      {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
-                    </div>
-                  </div>
-                  <div className="request-actions">
-                    <span
-                      className={`status-badge ${
-                        (request.status || '').replace(/\s/g, '').toLowerCase()
-                      }`}
-                    >
-                      {request.status}
-                    </span>
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
-
-          {/* Pagination UI */}
-          {filteredRequests.length > 0 && (
-            <div className="pagination">
-              <span className="pagination-info">
-                Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries
-              </span>
-              <div className="pagination-controls">
-                <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>
-                  &lt;
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+        {/* Main Content */}
+        <div className="main-content">
+          <div className="requests-container">
+            <div className="requests-header">
+              <h2 className="page-title">Material Requests</h2>
+              <div className="filter-tabs">
+                {['All', 'Pending', 'Approved', 'Cancelled'].map(tab => (
                   <button
-                    key={page}
-                    className={page === currentPage ? 'active' : ''}
-                    onClick={() => setCurrentPage(page)}
+                    key={tab}
+                    className={`filter-tab ${filter === tab ? 'active' : ''}`}
+                    onClick={() => setFilter(tab)}
                   >
-                    {page}
+                    {tab}
                   </button>
                 ))}
-                <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>
-                  &gt;
-                </button>
               </div>
             </div>
-          )}
+            <div className="requests-list">
+              {loading ? (
+                <div>Loading requests...</div>
+              ) : error ? (
+                <div style={{ color: 'red', marginBottom: 20 }}>{error}</div>
+              ) : filteredRequests.length === 0 ? (
+                <div className="no-requests">
+                  <p>No material requests found matching your criteria.</p>
+                </div>
+              ) : (
+                paginatedRequests.map(request => (
+                  <Link
+                    to={`/pm/material-request/${request._id}`}
+                    className="request-item"
+                    key={request._id}
+                    style={{ textDecoration: 'none', color: 'inherit' }}
+                  >
+                    <div className="request-icon">{getIconForType(request)}</div>
+                    <div className="request-details">
+                      <h3 className="request-title">
+                        {request.materials && request.materials.length > 0
+                          ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
+                          : 'Material Request'}
+                      </h3>
+                      <p className="request-description">{request.description}</p>
+                    </div>
+                    <div className="request-meta">
+                      <div className="request-author">{request.createdBy?.name || 'Unknown'}</div>
+                      <div className="request-project">{request.project?.projectName || '-'}</div>
+                      <div className="request-date">
+                        {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+                      </div>
+                    </div>
+                    <div className="request-actions">
+                      <span
+                        className={`status-badge ${(request.status || '').replace(/\s/g, '').toLowerCase()}`}
+                      >
+                        {request.status}
+                      </span>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+            {/* Pagination UI */}
+            {filteredRequests.length > 0 && (
+              <div className="pagination">
+                <span className="pagination-info">
+                  Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries
+                </span>
+                <div className="pagination-controls">
+                  <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1}>
+                    &lt;
+                  </button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button
+                      key={page}
+                      className={page === currentPage ? 'active' : ''}
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages}>
+                    &gt;
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 };

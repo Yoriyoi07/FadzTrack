@@ -4,6 +4,12 @@ import api from '../../api/axiosInstance'; // Adjust the path if needed!
 import ApproveDenyActions from '../ApproveDenyActions';
 import '../style/pm_style/Pm_MatRequest.css';
 
+const chats = [
+  { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
+  { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
+  { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
+];
+
 const PmMaterialRequestDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -35,7 +41,6 @@ const PmMaterialRequestDetail = () => {
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
-  
   const handleBack = () => navigate(-1);
 
   // --- Attachments helpers ---
@@ -61,66 +66,89 @@ const PmMaterialRequestDetail = () => {
 
   return (
     <div className="app-container">
-      <main className="main-content-picmatreq">
-        <div className="request-materials-container-picmatreq">
-          <h1 className="page-title-picmatreq">
-            Material Request #{requestData.requestNumber}
-          </h1>
-          <div className="project-details-box" style={{ marginBottom: '20px' }}>
-            <h2 style={{ margin: 0 }}>{requestData.project?.projectName || '-'}</h2>
-            <p style={{ margin: 0, fontStyle: 'italic' }}>{requestData.project?.location || '-'}</p>
-            <p style={{ margin: 0, color: '#555' }}>{requestData.project?.targetDate || ''}</p>
+      <div className="dashboard-layout">
+        {/* Sidebar with Chats */}
+        <div className="sidebar">
+          <div className="chats-section">
+            <h3 className="chats-title">Chats</h3>
+            <div className="chats-list">
+              {chats.map(chat => (
+                <div key={chat.id} className="chat-item">
+                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
+                    {chat.initial}
+                  </div>
+                  <div className="chat-info">
+                    <div className="chat-name">{chat.name}</div>
+                    <div className="chat-message">{chat.message}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          {/* --- VIEW MODE --- */}
-          <>
-            {/* Materials */}
-            <div className="materials-section">
-              <h2 className="section-title">Material to be Requested</h2>
-              <div className="materials-list">
-                {requestData.materials.map((mat, idx) => (
-                    <div key={idx} className="material-item">
-                    <span className="material-name">
-                        <strong>Material:</strong> {mat.materialName}
-                    </span>
-                    <span className="material-quantity">
-                        <strong>Quantity:</strong> {mat.quantity}
-                    </span>
-                    </div>
-                ))}
-              </div>
-            </div>
-            {/* Attachments */}
-            <div className="attachments-section">
-              <h2 className="section-title">Attachment Proof</h2>
-              <div className="attachments-grid">
-                {requestData.attachments?.length
-                  ? requestData.attachments.map((file, idx) => (
-                    <div key={idx} className="attachment-item">
-                      <img src={getAttachmentUrl(file)} alt={`Attachment ${idx + 1}`} className="attachment-image" />
-                    </div>
-                  ))
-                  : <div>No attachments</div>
-                }
-              </div>
-            </div>
-            {/* Description */}
-            <div className="description-section">
-              <h2 className="section-title">Request Description</h2>
-              <div className="description-content">
-                <p>{requestData.description}</p>
-              </div>
-            </div>
-            {/* Action Buttons */}
-            <ApproveDenyActions
-              requestData={requestData}
-              userId={userId}
-              userRole={userRole}
-              onBack={handleBack}
-              // Optionally, add onActionComplete if you want extra behavior after approve/deny
-            />
-          </>
         </div>
-      </main>
+
+        {/* Main Content */}
+        <main className="main-content-picmatreq">
+          <div className="request-materials-container-picmatreq">
+            <h1 className="page-title-picmatreq">
+              Material Request #{requestData.requestNumber}
+            </h1>
+            <div className="project-details-box" style={{ marginBottom: '20px' }}>
+              <h2 style={{ margin: 0 }}>{requestData.project?.projectName || '-'}</h2>
+              <p style={{ margin: 0, fontStyle: 'italic' }}>{requestData.project?.location || '-'}</p>
+              <p style={{ margin: 0, color: '#555' }}>{requestData.project?.targetDate || ''}</p>
+            </div>
+            {/* --- VIEW MODE --- */}
+            <>
+              {/* Materials */}
+              <div className="materials-section">
+                <h2 className="section-title">Material to be Requested</h2>
+                <div className="materials-list">
+                  {requestData.materials.map((mat, idx) => (
+                    <div key={idx} className="material-item">
+                      <span className="material-name">
+                        <strong>Material:</strong> {mat.materialName}
+                      </span>
+                      <span className="material-quantity">
+                        <strong>Quantity:</strong> {mat.quantity}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Attachments */}
+              <div className="attachments-section">
+                <h2 className="section-title">Attachment Proof</h2>
+                <div className="attachments-grid">
+                  {requestData.attachments?.length
+                    ? requestData.attachments.map((file, idx) => (
+                      <div key={idx} className="attachment-item">
+                        <img src={getAttachmentUrl(file)} alt={`Attachment ${idx + 1}`} className="attachment-image" />
+                      </div>
+                    ))
+                    : <div>No attachments</div>
+                  }
+                </div>
+              </div>
+              {/* Description */}
+              <div className="description-section">
+                <h2 className="section-title">Request Description</h2>
+                <div className="description-content">
+                  <p>{requestData.description}</p>
+                </div>
+              </div>
+              {/* Action Buttons */}
+              <ApproveDenyActions
+                requestData={requestData}
+                userId={userId}
+                userRole={userRole}
+                onBack={handleBack}
+                // Optionally, add onActionComplete if you want extra behavior after approve/deny
+              />
+            </>
+          </div>
+        </main>
+      </div>
       {/* Simple Modal Styling */}
       <style>{`
         .modal-overlay {
