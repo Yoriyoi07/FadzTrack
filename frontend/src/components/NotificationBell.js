@@ -9,7 +9,6 @@ const NotificationBell = () => {
   const bellRef = useRef();
 
   useEffect(() => {
-    // Click outside closes popup
     const handleClick = (e) => {
       if (bellRef.current && !bellRef.current.contains(e.target)) setOpen(false);
     };
@@ -38,7 +37,7 @@ const NotificationBell = () => {
               <div className="notif-empty">No notifications</div>
             ) : (
               notifications.slice(0, 8).map((n) => (
-                <div className={`notif-item${n.read ? "" : " unread"}`} key={n._id}>
+                <div className={`notif-item${n.status === 'unread' ? " unread" : ""}`} key={n._id}>
                   <div className="notif-msg">{n.message}</div>
                   <div className="notif-date">{new Date(n.createdAt).toLocaleString()}</div>
                 </div>

@@ -33,11 +33,23 @@ const materialRequestSchema = new mongoose.Schema({
   receivedByPIC: { type: Boolean, default: false },
   receivedDate: { type: Date },
   receivedAt: { type: Date },
-  receivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  receivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+  // ADD THIS FIELD FOR NUDGE COOLDOWN!
+  lastNudges: [
+  {
+    pic: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    to: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, 
+    role: { type: String },
+    timestamp: { type: Date }
+  }
+]
+
 
 }, {
   timestamps: true
 });
+
 
 
 // Attach the plugin here (AFTER schema, BEFORE model export)

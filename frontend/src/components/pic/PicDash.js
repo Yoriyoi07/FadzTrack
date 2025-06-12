@@ -38,6 +38,20 @@ const PicDash = () => {
     setUserName(user.name);
   }, [navigate, token, user]);
 
+  const handleNudge = async (request, pendingRole) => {
+  try {
+    await api.post(`/requests/${request._id}/nudge`);
+    alert(`Nudge sent to ${pendingRole}.`);
+  } catch (err) {
+    if (err.response && err.response.data && err.response.data.message) {
+      alert(err.response.data.message);
+    } else {
+      alert('Failed to send nudge.');
+    }
+  }
+};
+
+
   // Only fetch user's active/ongoing project
   useEffect(() => {
     if (!token || !userId) return;
@@ -188,34 +202,52 @@ const handleLogout = () => {
               <div>
                 <h2 className="section-title">Request Overview</h2>
                 <div className="request-list">
-                  {currentRequests.map(request => (
-                    <div key={request._id} className="request-item"
-                      style={{ cursor: "pointer" }}
-                      onClick={() => navigate(`/pic/request/${request._id}`)}>
-                      <div className="request-icon">📦</div>
-                      <div className="request-details">
-                        <div className="request-name">
-                          <p>request for</p>
-                          {request.materials && request.materials.length > 0
-                            ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
-                            : '-'}
-                            
-                        </div>
-                        <div className="request-project">
-                          {request.project?.projectName || '-'}
-                        </div>
-                        <div>
-                        <ProgressTracker request={request} />
-                        </div>
-                      </div>
-                      <div className="request-requester">
-                        <div className="request-requester-name">{request.createdBy?.name || '-'}</div>
-                        <div className="request-date">
-                          {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                  {currentRequests.map(request => {
+  // Logic to check which role is pending
+  let pendingRole = null;
+  if (request.status === 'Pending Project Manager') pendingRole = 'Project Manager';
+  else if (request.status === 'Pending Area Manager') pendingRole = 'Area Manager';
+  else if (request.status === 'Pending CEO') pendingRole = 'CEO';
+
+  return (
+    <div key={request._id} className="request-item"
+      style={{ cursor: "pointer" }}
+      onClick={() => navigate(`/pic/request/${request._id}`)}>
+      <div className="request-icon">📦</div>
+      <div className="request-details">
+        <div className="request-name">
+          <p>request for</p>
+          {request.materials && request.materials.length > 0
+            ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
+            : '-'}
+        </div>
+        <div className="request-project">
+          {request.project?.projectName || '-'}
+        </div>
+        <div>
+          <ProgressTracker request={request} />
+        </div>
+        {/* Nudge button (only show if there's a pending role) */}
+        {pendingRole && (
+          <button
+            className="nudge-btn"
+            onClick={e => {
+              e.stopPropagation();
+              handleNudge(request, pendingRole);
+            }}>
+            Nudge {pendingRole}
+          </button>
+        )}
+      </div>
+      <div className="request-requester">
+        <div className="request-requester-name">{request.createdBy?.name || '-'}</div>
+        <div className="request-date">
+          {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+        </div>
+      </div>
+    </div>
+  );
+})}
                 </div>
                 <div className="pagination-controls">
                   <span className="pagination-info">

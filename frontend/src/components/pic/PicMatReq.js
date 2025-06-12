@@ -146,22 +146,6 @@ const handleSubmit = async (e) => {
   projectId: project?._id
 });
 
-if (project && project.projectmanager && project.projectmanager._id) {
-  await api.post('/notifications', {
-    type: 'request_submitted',
-    toUserId: project.projectmanager._id, // <- THIS IS CORRECT!
-    fromUserId: user._id,
-    projectId: project._id,
-    message: `${user.name} submitted a material request for ${project.projectName}.`
-  }, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  console.log('Notification POSTED!');
-} else {
-  console.log('No project manager to notify! Fetched project:', project);
-}
-
-
     alert('✅ Material request submitted successfully!');
     setFormData({ description: '' });
     setMaterials([{ id: 1, materialName: '', quantity: '', unit: '' }]);

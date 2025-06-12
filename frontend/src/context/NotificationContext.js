@@ -22,13 +22,12 @@ export const NotificationProvider = ({ children, userId }) => {
     console.log("🔑 [NotificationProvider] userId:", userId);
     console.log("🌐 [NotificationProvider] Connecting to socketUrl:", socketUrl);
 
-   api
-  .get("/notifications", { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } })
-  .then((res) => {
-    setNotifications(res.data.reverse());
-    setUnread(res.data.filter((n) => !n.read).length);
-  });
-
+    api
+      .get("/notifications", { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } })
+      .then((res) => {
+        setNotifications(res.data);
+        setUnread(res.data.filter((n) => n.status === 'unread').length);
+      });
 
     // Connect to socket
     const socket = io(socketUrl, { transports: ["websocket"] });
@@ -63,7 +62,7 @@ export const NotificationProvider = ({ children, userId }) => {
   // Mark all as read
   const markAllRead = () => {
     setUnread(0);
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, status: 'read' })));
     api.patch(
       "/notifications/mark-all-read",
       {},

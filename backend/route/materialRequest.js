@@ -39,4 +39,6 @@ router.post('/:id/approve', verifyToken, controller.approveMaterialRequest);
 // MARK AS RECEIVED
 router.patch('/:id/received', verifyToken, controller.markReceived);
 
+router.post('/:id/nudge', verifyToken, controller.nudgePendingApprover);
+
 module.exports = router;

@@ -2,8 +2,89 @@ const MaterialRequest = require('../models/MaterialRequest');
 const Project = require('../models/Project');
 const { logAction } = require('../utils/auditLogger');
 const { createAndEmitNotification } = require('./notificationController');
+const User = require('../models/User');
 
-// CREATE
+// ========== NUDGE PENDING APPROVER ==========
+exports.nudgePendingApprover = async (req, res) => {
+  try {
+    const reqId = req.params.id;
+    const picId = req.user.id;
+    const request = await MaterialRequest.findById(reqId).populate('project').populate('createdBy');
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+
+    const project = request.project;
+    let pendingUserId = null, pendingRole = null;
+
+    // Always ensure a single recipient
+    if (request.status === 'Pending Project Manager' && project.projectmanager) {
+      let pmId = project.projectmanager;
+      if (Array.isArray(pmId)) {
+        console.error('[FATAL] projectmanager is array! Using first:', pmId);
+        pmId = pmId[0];
+      }
+      pendingUserId = pmId?.toString();
+      pendingRole = 'Project Manager';
+    } else if (request.status === 'Pending Area Manager' && project.areamanager) {
+      let amId = project.areamanager;
+      if (Array.isArray(amId)) {
+        console.error('[FATAL] areamanager is array! Using first:', amId);
+        amId = amId[0];
+      }
+      pendingUserId = amId?.toString();
+      pendingRole = 'Area Manager';
+    } else if (request.status === 'Pending CEO') {
+      const ceoUser = await User.findOne({ role: 'CEO' });
+      if (ceoUser) {
+        pendingUserId = ceoUser._id.toString();
+        pendingRole = 'CEO';
+      }
+    }
+
+    if (!pendingUserId) return res.status(400).json({ message: 'No pending approver to nudge.' });
+
+    // Cooldown: Only 1 nudge per PIC → Approver → Role → Request per hour
+    if (!request.lastNudges) request.lastNudges = [];
+    const now = new Date();
+    const nudgeRecord = request.lastNudges.find(
+      n => n.pic && n.pic.toString() === picId &&
+           n.to && n.to.toString() === pendingUserId &&
+           n.role === pendingRole
+    );
+    if (nudgeRecord && now - nudgeRecord.timestamp < 60 * 60 * 1000) {
+      const minutes = Math.ceil((60 * 60 * 1000 - (now - nudgeRecord.timestamp)) / (60 * 1000));
+      return res.status(429).json({ message: `You can only nudge every 1 hour. Try again in ${minutes} minute(s).` });
+    }
+    if (nudgeRecord) {
+      nudgeRecord.timestamp = now;
+    } else {
+      request.lastNudges.push({ pic: picId, to: pendingUserId, role: pendingRole, timestamp: now });
+    }
+    await request.save();
+
+    // --- DEBUG PRINT ---
+    console.log('[NUDGE] Sending nudge notification to:', pendingUserId, 'role:', pendingRole);
+
+    const message = `You have a pending material request to approve for project "${project.projectName}".`;
+
+    await createAndEmitNotification({
+      type: 'nudge',
+      toUserId: pendingUserId,
+      fromUserId: req.user.id,
+      message,
+      projectId: project._id,
+      requestId: reqId,
+      meta: { pendingRole, nudgedBy: req.user.name },
+      req
+    });
+
+    res.json({ message: `Nudge sent to ${pendingRole}` });
+  } catch (err) {
+    console.error('Nudge error:', err);
+    res.status(500).json({ message: 'Failed to nudge pending approver.' });
+  }
+};
+
+// ========== CREATE MATERIAL REQUEST ==========
 exports.createMaterialRequest = async (req, res) => {
   try {
     const { materials, description, project } = req.body;
@@ -29,24 +110,31 @@ exports.createMaterialRequest = async (req, res) => {
 
     await newRequest.save();
 
-   const projectDoc = await Project.findById(project);
-const projectName = projectDoc ? projectDoc.projectName : 'Unknown Project';
+    const projectDoc = await Project.findById(project);
+    const projectName = projectDoc ? projectDoc.projectName : 'Unknown Project';
 
-// Example: send notification to the Project Manager
-if (projectDoc && projectDoc.projectmanager) {
-  await createAndEmitNotification({
-    type: 'material_request_created',
-    toUserId: projectDoc.projectmanager,
-    fromUserId: req.user.id,
-    message: `New material request for project: ${projectName}`,
-    projectId: projectDoc._id,
-    requestId: newRequest._id,
-    meta: { description },
-    req
-  });
-}
+    // Defensive: Only send to a single projectmanager
+    if (projectDoc && projectDoc.projectmanager) {
+      let pmId = projectDoc.projectmanager;
+      if (Array.isArray(pmId)) {
+        console.error('[FATAL NOTIFY] Project.projectmanager is array! Using first:', pmId);
+        pmId = pmId[0];
+      }
+      if (pmId) {
+        console.log('[DEBUG] Will send notification to:', pmId);
+        await createAndEmitNotification({
+          type: 'material_request_created',
+          toUserId: pmId,
+          fromUserId: req.user.id,
+          message: `New material request for project: ${projectName}`,
+          projectId: projectDoc._id,
+          requestId: newRequest._id,
+          meta: { description },
+          req
+        });
+      }
+    }
 
-    // Logging (default)
     await logAction({
       action: 'CREATE_MATERIAL_REQUEST',
       performedBy: req.user.id,
@@ -55,7 +143,6 @@ if (projectDoc && projectDoc.projectmanager) {
       meta: { requestId: newRequest._id }
     });
 
-    // CEO-specific log
     if (req.user.role === 'CEO') {
       await logAction({
         action: 'CEO_CREATE_MATERIAL_REQUEST',
@@ -73,7 +160,7 @@ if (projectDoc && projectDoc.projectmanager) {
   }
 };
 
-// GET ALL
+// ========== GET ALL MATERIAL REQUESTS ==========
 exports.getAllMaterialRequests = async (req, res) => {
   try {
     const requests = await MaterialRequest.find()
@@ -87,7 +174,7 @@ exports.getAllMaterialRequests = async (req, res) => {
   }
 };
 
-// GET SINGLE
+// ========== GET SINGLE MATERIAL REQUEST ==========
 exports.getMaterialRequestById = async (req, res) => {
   try {
     const request = await MaterialRequest.findById(req.params.id)
@@ -101,7 +188,7 @@ exports.getMaterialRequestById = async (req, res) => {
   }
 };
 
-// UPDATE
+// ========== UPDATE MATERIAL REQUEST ==========
 exports.updateMaterialRequest = async (req, res) => {
   try {
     const { materials, description, attachments } = req.body;
@@ -134,7 +221,6 @@ exports.updateMaterialRequest = async (req, res) => {
     ).populate('project', 'projectName')
      .populate('createdBy', 'name role');
 
-    // Regular log
     await logAction({
       action: 'UPDATE_MATERIAL_REQUEST',
       performedBy: req.user.id,
@@ -143,7 +229,6 @@ exports.updateMaterialRequest = async (req, res) => {
       meta: { requestId: updated?._id }
     });
 
-    // CEO-specific log
     if (req.user.role === 'CEO') {
       await logAction({
         action: 'CEO_UPDATE_MATERIAL_REQUEST',
@@ -161,13 +246,12 @@ exports.updateMaterialRequest = async (req, res) => {
   }
 };
 
-// DELETE
+// ========== DELETE MATERIAL REQUEST ==========
 exports.deleteMaterialRequest = async (req, res) => {
   try {
     const result = await MaterialRequest.findByIdAndDelete(req.params.id);
     if (!result) return res.status(404).json({ message: 'Request not found' });
 
-    // Regular log
     await logAction({
       action: 'DELETE_MATERIAL_REQUEST',
       performedBy: req.user.id,
@@ -176,7 +260,6 @@ exports.deleteMaterialRequest = async (req, res) => {
       meta: { requestId: result?._id }
     });
 
-    // CEO-specific log
     if (req.user.role === 'CEO') {
       await logAction({
         action: 'CEO_DELETE_MATERIAL_REQUEST',
@@ -193,7 +276,7 @@ exports.deleteMaterialRequest = async (req, res) => {
   }
 };
 
-// APPROVAL
+// ========== APPROVE MATERIAL REQUEST ==========
 exports.approveMaterialRequest = async (req, res) => {
   const { decision, reason } = req.body;
   const userId = req.user.id.toString();
@@ -216,8 +299,13 @@ exports.approveMaterialRequest = async (req, res) => {
 
     const idsEqual = (a, b) => String(a) === String(b);
 
-    const isPM = idsEqual(project.projectmanager, userId);
-    const isAM = idsEqual(project.areamanager, userId);
+    let pmId = project.projectmanager;
+    let amId = project.areamanager;
+    if (Array.isArray(pmId)) pmId = pmId[0];
+    if (Array.isArray(amId)) amId = amId[0];
+
+    const isPM = idsEqual(pmId, userId);
+    const isAM = idsEqual(amId, userId);
     const isCEO = userRole === 'CEO';
 
     let nextStatus = '';
@@ -245,7 +333,6 @@ exports.approveMaterialRequest = async (req, res) => {
     request.status = nextStatus;
     await request.save();
 
-    // Logging
     await logAction({
       action: 'APPROVE_MATERIAL_REQUEST',
       performedBy: req.user.id,
@@ -271,7 +358,7 @@ exports.approveMaterialRequest = async (req, res) => {
   }
 };
 
-// GET BY ROLE (mine)
+// ========== GET MY MATERIAL REQUESTS ==========
 exports.getMyMaterialRequests = async (req, res) => {
   const userId = req.user.id;
   const userRole = req.user.role;
@@ -296,7 +383,7 @@ exports.getMyMaterialRequests = async (req, res) => {
   }
 };
 
-// MARK AS RECEIVED (no CEO log needed)
+// ========== MARK AS RECEIVED ==========
 exports.markReceived = async (req, res) => {
   try {
     const { id } = req.params;
