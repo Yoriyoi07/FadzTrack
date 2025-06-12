@@ -1,33 +1,112 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { List, LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react';
-import '../style/am_style/Area_Manpower_List.css';
-import api from '../../api/axiosInstance'; // <-- import your axios instance
+import api from '../../api/axiosInstance';
+import '../style/am_style/Area_Manpower_List.css'; // adjust if needed
 
-export default function AreaManpowerList() {
+const ITEMS_PER_PAGE = 5;
+
+const AreaManpowerList = () => {
+  const navigate = useNavigate();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState('All');
-  const [viewMode, setViewMode] = useState('list');
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [error, setError] = useState('');
+  const [filter, setFilter] = useState('All');
+  const [searchTerm, ] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 5;
 
-  const navigate = useNavigate();
+  // Sidebar state
+  const [assignedLocations, setAssignedLocations] = useState([]);
+  const [allProjects, setAllProjects] = useState([]);
+  const [enrichedAllProjects, setEnrichedAllProjects] = useState([]);
+  const [expandedLocations, setExpandedLocations] = useState({});
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [chats] = useState([
+    { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
+    { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
+    { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
+  ]);
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
+  // Fetch manpower requests (for this page)
   useEffect(() => {
-    if (!user._id) return;
-    setLoading(true);
-    api
-      .get(`/manpower-requests/area`, {
-        params: { areaManager: user._id },
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Session expired. Please log in.');
+      setLoading(false);
+      return;
+    }
+
+    api.get('/manpower-requests')
+      .then(res => {
+        setRequests(Array.isArray(res.data) ? res.data : []);
+        setLoading(false);
+        setError('');
       })
-      .then(res => setRequests(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setRequests([]))
-      .finally(() => setLoading(false));
+      .catch(err => {
+        if (err.response && (err.response.status === 403 || err.response.status === 401)) {
+          setError('Session expired or unauthorized. Please login.');
+        } else {
+          setError('Failed to load requests');
+        }
+        setRequests([]);
+        setLoading(false);
+      });
+  }, []);
+
+  // Sidebar location/projects fetch
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const { data: locData } = await api.get(`/users/${user._id}/locations`);
+        setAssignedLocations(locData);
+        const { data: projData } = await api.get('/projects');
+        setAllProjects(projData);
+        const { data: requestsData } = await api.get('/manpower-requests');
+        setPendingRequests(
+          requestsData.filter(
+            req =>
+              req.status === 'Pending AM' &&
+              req.project &&
+              locData.some(
+                loc =>
+                  loc._id === (req.project.location?._id || req.project.location)
+              )
+          )
+        );
+      } catch (err) {
+        setAssignedLocations([]);
+        setAllProjects([]);
+        setPendingRequests([]);
+      }
+    };
+    if (user._id) fetchData();
   }, [user._id]);
+
+  // Enrich projects for sidebar
+  useEffect(() => {
+    if (assignedLocations.length && allProjects.length) {
+      setEnrichedAllProjects(
+        allProjects
+          .filter(project =>
+            assignedLocations.some(
+              loc => loc._id === (project.location?._id || project.location)
+            )
+          )
+          .map(project => {
+            const loc = assignedLocations.find(
+              l => l._id === (project.location?._id || project.location)
+            );
+            return {
+              ...project,
+              location: loc ? { ...loc } : { name: 'Unknown Location', region: '' },
+              name: project.projectName,
+              engineer: project.projectmanager?.name || 'Not Assigned'
+            };
+          })
+      );
+    }
+  }, [assignedLocations, allProjects]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -45,23 +124,47 @@ export default function AreaManpowerList() {
     navigate('/');
   };
 
-  const filteredRequests = requests.filter((request) =>
-    filterStatus === 'All' ? true : request.status === filterStatus
-  );
+  // Sidebar grouping logic
+  const projectsByLocation = enrichedAllProjects.reduce((acc, project) => {
+    const locationId = project.location?._id || 'unknown';
+    if (!acc[locationId]) {
+      acc[locationId] = {
+        name: project.location?.name || 'Unknown Location',
+        region: project.location?.region || '',
+        projects: []
+      };
+    }
+    acc[locationId].projects.push(project);
+    return acc;
+  }, {});
+
+  // Filtering/search/pagination
+  const filteredRequests = requests.filter(request => {
+    const status = (request.status || '').toLowerCase();
+    const matchesFilter =
+      filter === 'All' ||
+      (filter === 'Pending' && status.includes('pending')) ||
+      (filter === 'Approved' && status.includes('approved')) ||
+      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel')));
+
+    const searchTarget = [
+      request.manpowers && request.manpowers.map(m => m.type).join(', '),
+      request.description,
+      request.createdBy?.name,
+      request.project?.projectName,
+    ].join(' ').toLowerCase();
+
+    const matchesSearch = searchTerm ? searchTarget.includes(searchTerm.toLowerCase()) : true;
+    return matchesFilter && matchesSearch;
+  });
 
   const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedRequests = filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-  const goToPage = (pageNumber) => {
-    if (pageNumber >= 1 && pageNumber <= totalPages) {
-      setCurrentPage(pageNumber);
-    }
-  };
-
   return (
     <div>
-      {/* Header remains the same */}
+      {/* Header */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -77,11 +180,8 @@ export default function AreaManpowerList() {
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container">
-          <div
-            className="profile-circle"
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            Z
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {user?.name ? user.name.charAt(0).toUpperCase() : 'Z'}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">
@@ -91,101 +191,201 @@ export default function AreaManpowerList() {
         </div>
       </header>
 
-      <main className="am-manpower-main-content">
-        <div className="am-manpower-content-card">
-          <div className="am-manpower-filters-container">
-            <div className="am-manpower-filter-options">
-              <span className="am-manpower-filter-label">Date Filter</span>
-              {['All', 'Pending', 'Rejected', 'Approved'].map((status, index) => (
-                <button
-                  key={index}
-                  className={`am-manpower-filter-button ${filterStatus === status ? 'active' : 'inactive'}`}
-                  onClick={() => setFilterStatus(status)}>
-                  {status}
-                </button>
-              ))}
+      {/* Three-column layout */}
+      <div className="area-dash dashboard-layout">
+        {/* Left Sidebar */}
+        <div className="area-dash sidebar">
+          <h2>Dashboard</h2>
+          <button
+            className="area-dash add-project-btn"
+            onClick={() => navigate('/am/addproj')}
+          >
+            Add New Project
+          </button>
+          <div className="area-dash location-folders">
+            {Object.entries(projectsByLocation).map(([locationId, locationData]) => (
+              <div key={locationId} className="area-dash location-folder">
+                <div
+                  className="area-dash location-header"
+                  onClick={() =>
+                    setExpandedLocations(prev => ({
+                      ...prev,
+                      [locationId]: !prev[locationId]
+                    }))
+                  }
+                >
+                  <div className="area-dash folder-icon">
+                    <span className={`area-dash folder-arrow ${expandedLocations[locationId] ? 'expanded' : ''}`}>▶</span>
+                    <span className="area-dash folder-icon-img">📁</span>
+                  </div>
+                  <div className="area-dash location-info">
+                    <div className="area-dash location-name">{locationData.name}</div>
+                    <div className="area-dash location-region">{locationData.region}</div>
+                  </div>
+                  <div className="area-dash project-count">{locationData.projects.length}</div>
+                </div>
+                {expandedLocations[locationId] && (
+                  <div className="area-dash projects-list">
+                    {locationData.projects.map(proj => (
+                      <Link
+                        to={`/am/projects/${proj._id}`}
+                        key={proj._id}
+                        className="area-dash project-item"
+                      >
+                        <div className="area-dash project-icon">
+                          <span className="area-dash icon">🏗️</span>
+                          <div className="area-dash icon-bg" />
+                        </div>
+                        <div className="area-dash project-info">
+                          <div className="area-dash project-name">{proj.name}</div>
+                          <div className="area-dash project-engineer">{proj.engineer}</div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Main */}
+        <main className="main-content" style={{ flex: 1, minHeight: "100vh" }}>
+          <div className="requests-container">
+            <div className="requests-header">
+              <h2 className="page-title">Manpower Requests</h2>
+              <div className="filter-tabs">
+                {['All', 'Pending', 'Approved', 'Cancelled'].map(tab => (
+                  <button
+                    key={tab}
+                    className={`filter-tab ${filter === tab ? 'active' : ''}`}
+                    onClick={() => setFilter(tab)}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="am-manpower-view-options">
-              <button
-                className={`am-manpower-view-button ${viewMode === 'list' ? 'active' : ''}`}
-                onClick={() => setViewMode('list')}>
-                <List className="am-manpower-view-icon" />
-              </button>
-              <button
-                className={`am-manpower-view-button ${viewMode === 'grid' ? 'active' : ''}`}
-                onClick={() => setViewMode('grid')}>
-                <LayoutGrid className="am-manpower-view-icon" />
-              </button>
+
+            {/* Request List */}
+            <div className="requests-list">
+              {loading ? (
+                <div>Loading requests...</div>
+              ) : error ? (
+                <div style={{ color: 'red', marginBottom: 20 }}>{error}</div>
+              ) : paginatedRequests.length === 0 ? (
+                <div className="no-requests">
+                  <p>No manpower requests found matching your criteria.</p>
+                </div>
+              ) : (
+                paginatedRequests.map(request => (
+                  <Link
+                    to={`/am/manpower-requests/${request._id}`}
+                    className="request-item"
+                    key={request._id}
+                    style={{ textDecoration: 'none', color: 'inherit' }}
+                  >
+                    <div className="request-icon">👷</div>
+                    <div className="request-details">
+                      <h3 className="request-title">
+                        {request.manpowers && request.manpowers.length > 0
+                          ? request.manpowers.map(m => `${m.quantity} ${m.type}`).join(', ')
+                          : 'Manpower Request'}
+                      </h3>
+                      <p className="request-description">{request.description}</p>
+                    </div>
+                    <div className="request-meta">
+                      <div className="request-author">{request.createdBy?.name || 'Unknown'}</div>
+                      <div className="request-project">{request.project?.projectName || '-'}</div>
+                      <div className="request-date">
+                        {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : ''}
+                      </div>
+                    </div>
+                    <div className="request-actions">
+                      <span className={`status-badge ${(request.status || '').replace(/\s/g, '').toLowerCase()}`}>
+                        {request.status}
+                      </span>
+                    </div>
+                  </Link>
+                ))
+              )}
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="pagination">
+              <span className="pagination-info">
+                Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries.
+              </span>
+              <div className="pagination-controls">
+                <button className="pagination-btn" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>{'<'}</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(num => (
+                  <button
+                    key={num}
+                    className={`pagination-btn ${num === currentPage ? 'active' : ''}`}
+                    onClick={() => setCurrentPage(num)}
+                  >
+                    {num}
+                  </button>
+                ))}
+                <button className="pagination-btn" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>{'>'}</button>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        {/* Right Sidebar */}
+        <div className="area-dash right-sidebar">
+          <div className="area-dash pending-requests-section">
+            <div className="area-dash section-header">
+              <h2>Pending Manpower Requests</h2>
+              <Link to="/am/manpower-requests" className="area-dash view-all-btn">View All</Link>
+            </div>
+            <div className="area-dash pending-requests-list">
+              {pendingRequests.length === 0 ? (
+                <div className="area-dash no-requests">No pending manpower requests</div>
+              ) : (
+                pendingRequests.slice(0, 3).map(request => (
+                  <Link to={`/am/manpower-requests/${request._id}`} key={request._id} className="area-dash pending-request-item">
+                    <div className="area-dash request-icon">👷</div>
+                    <div className="area-dash request-details">
+                      <h3 className="area-dash request-title">
+                        {request.manpowers?.map(m => `${m.quantity} ${m.type}`).join(', ')}
+                      </h3>
+                      <p className="area-dash request-description">{request.description}</p>
+                      <div className="area-dash request-meta">
+                        <span className="area-dash request-project">{request.project?.projectName}</span>
+                        <span className="area-dash request-date">
+                          Requested: {new Date(request.acquisitionDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="area-dash request-status">
+                      <span className="area-dash status-badge pending">Pending AM Approval</span>
+                    </div>
+                  </Link>
+                ))
+              )}
             </div>
           </div>
 
-          <div className="am-manpower-request-list am-manpower-scrollable">
-            {loading ? (
-              <div>Loading...</div>
-            ) : paginatedRequests.length === 0 ? (
-              <div>No requests found.</div>
-            ) : (
-              paginatedRequests.map((request) => (
-                <div
-                  key={request._id}
-                  className="am-manpower-request-item"
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/am/manpower-requests/${request._id}`)}
-                >
-                  <div className="am-manpower-request-info">
-                    <div className="am-manpower-request-details">
-                      <h3 className="am-manpower-request-title">Request for {request.manpowers && request.manpowers.map(mp => `${mp.quantity} ${mp.type}`).join(', ')}</h3>
-                      <p className="am-manpower-request-project">Project: {request.project?.projectName || 'N/A'}</p>
-                      <p className="am-manpower-request-date">
-                        {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : ''}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="am-manpower-request-meta">
-                    <div className="am-manpower-requester-info">
-                      <p className="am-manpower-requester-name">
-                        Requested by: {request.createdBy?.name || 'N/A'}
-                      </p>
-                    </div>
-                    <div className={`am-manpower-status-badge am-manpower-status-${(request.status || '').toLowerCase()}`}>{request.status}</div>
+          <div className="area-dash chats-section">
+            <h3>Chats</h3>
+            <div className="area-dash chats-list">
+              {chats.map(chat => (
+                <div key={chat.id} className="area-dash chat-item">
+                  <div className="area-dash chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
+                  <div className="area-dash chat-details">
+                    <div className="area-dash chat-name">{chat.name}</div>
+                    <div className="area-dash chat-message">{chat.message}</div>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-
-          <div className="am-manpower-pagination">
-            <span className="am-manpower-pagination-info">
-              Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries.
-            </span>
-            <div className="am-manpower-pagination-controls">
-              <button
-                className="am-manpower-pagination-btn"
-                onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft size={16} />
-              </button>
-              {Array.from({ length: totalPages }, (_, index) => index + 1).map(page => (
-                <button
-                  key={page}
-                  className={`am-manpower-pagination-btn ${page === currentPage ? 'active' : ''}`}
-                  onClick={() => goToPage(page)}
-                >
-                  {page}
-                </button>
               ))}
-              <button
-                className="am-manpower-pagination-btn"
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-              >
-                <ChevronRight size={16} />
-              </button>
             </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
-}
+};
+
+export default AreaManpowerList;
