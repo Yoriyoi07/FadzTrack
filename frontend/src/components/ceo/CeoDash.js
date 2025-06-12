@@ -316,8 +316,10 @@ const CeoDash = () => {
           <div className="greeting-section">
             <div className="greeting-header">
               <div className="greeting-left">
-                <h1>Good Morning, {userName}!</h1>
-                <p className="logged-in-role">Currently logged in as: {userRole}</p>
+                <h1>Hello, {userName}!</h1>
+                <p style={{ fontSize: '14px', color: '#666' }}>
+                  Currently logged in as <strong>{userRole}</strong>
+                </p>
               </div>
               <div className="total-projects">
                 <span className="total-projects-label">Total Projects:</span>

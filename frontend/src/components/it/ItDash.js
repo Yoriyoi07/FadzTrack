@@ -4,6 +4,13 @@ import api from '../../api/axiosInstance'; // Use Axios instance!
 import '../style/it_style/It_Dash.css';
 
 const ItDash = () => {
+  const [user, setUser] = useState(() => {
+      const stored = localStorage.getItem('user');
+      return stored ? JSON.parse(stored) : null;
+    });
+  const [token, setToken] = useState(() => localStorage.getItem('token') || "");
+  const [userId, setUserId] = useState(() => user?._id);
+
   const [accounts, setAccounts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOption, setSortOption] = useState('Newest');
@@ -26,6 +33,14 @@ const ItDash = () => {
     phone: '',
     email: ''
   });
+
+  const [userName, setUserName] = useState(user?.name || '');
+  const [userRole, setUserRole] = useState(user?.role || '');
+  
+    useEffect(() => {
+      setUserName(user?.name || 'ALECK');
+      setUserRole(user?.role || '');
+    }, [user]);
 
   const validateField = (name, value) => {
     let errorMsg = '';
@@ -420,7 +435,10 @@ const handleLogout = () => {
         <main className="dashboard-content-IT">
           <div className="dashboard-card-IT">
             <div className="welcome-header-IT">
-              <h2>Hello, Admin!</h2>
+              <h2>Hello, {userName}</h2>              
+              <p style={{ fontSize: '14px', color: '#666' }}>
+                Currently logged in as <strong>{userRole}</strong>
+              </p>
               <div className="stats-container-IT">
                 <div className="stat-card-IT">
                   <div className="stat-icon-IT users-IT">👥</div>

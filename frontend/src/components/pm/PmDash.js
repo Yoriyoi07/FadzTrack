@@ -189,7 +189,7 @@ const PmDash = ({forceUserUpdate}) => {
         <div className="left-column">
           <div className="analytics-box">
             <div>
-              <h1>Good Morning, {userName}!</h1>
+              <h1>Hello, {userName}!</h1>
               <p style={{ fontSize: '14px', color: '#666' }}>
                 Currently logged in as <strong>{userRole}</strong>
               </p>

@@ -20,7 +20,7 @@ const AreaDash = () => {
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
-
+  const [userRole, setUserRole] = useState(user?.role || '');
   useEffect(() => {
     if (!user) {
       navigate('/');
@@ -312,7 +312,10 @@ const AreaDash = () => {
           <div className="area-dash chart-wrapper-container">
             <div className="area-dash greeting-header">
               <div className="area-dash greeting-left">
-                <h1>Good Morning, {userName}!</h1>
+                <h1>Hello, {userName}!</h1>
+                <p style={{ fontSize: '14px', color: '#666' }}>
+                  Currently logged in as <strong>{userRole}</strong>
+                </p>
               </div>
               <div className="area-dash total-projects">
                 <span className="area-dash total-projects-label">Total Projects:</span>

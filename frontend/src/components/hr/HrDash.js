@@ -4,6 +4,16 @@ import api from '../../api/axiosInstance';
 import '../style/hr_style/Hr_Dash.css';
 
 const HrDash = () => {
+
+  const [user, setUser] = useState(() => {
+    const stored = localStorage.getItem('user');
+    return stored ? JSON.parse(stored) : null;
+  });
+  const [token, setToken] = useState(() => localStorage.getItem('token') || "");
+  const [userId, setUserId] = useState(() => user?._id);
+
+  const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState('');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [auditActivities, setAuditActivities] = useState([]);
   const [stats, setStats] = useState({
@@ -13,6 +23,11 @@ const HrDash = () => {
     requests: 5
   });
   const navigate = useNavigate();
+  
+  useEffect(() => {
+      setUserName(user?.name || '');
+      setUserRole(user?.role || '');
+    }, [user]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -157,26 +172,17 @@ const HrDash = () => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".hr-dash-profile-menu-container")) {
-        setProfileMenuOpen(false);
-      }
+      if (!event.target.closest('.profile-menu-container')) setProfileMenuOpen(false);
     };
-    
-    document.addEventListener("click", handleClickOutside);
-    
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
- const handleLogout = () => {
-  api.post('/logout')
-    .finally(() => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
-    });
-};
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   return (
     <div className="hr-dash-container">
@@ -207,8 +213,10 @@ const HrDash = () => {
         {/* Welcome Header */}
         <div className="hr-dash-welcome-header">
           <div className="hr-dash-welcome-text">
-            <h1>Good Morning, ALECK!</h1>
-            <p>Here's your workforce overview for today</p>
+            <h1>Hello, {userName}</h1>
+              <p style={{ fontSize: '14px', color: '#666' }}>
+                Currently logged in as <strong>{userRole}</strong>
+              </p>
           </div>
           <div className="hr-dash-quick-stats">
             <div className="hr-dash-stat-card">

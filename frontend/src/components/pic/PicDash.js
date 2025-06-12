@@ -14,6 +14,7 @@ const PicDash = () => {
 
   const [requests, setRequests] = useState([]);
   const [userName, setUserName] = useState(user?.name || '');
+  const [userRole, setUserRole] = useState(user?.role || '');
   const [project, setProject] = useState(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -210,7 +211,10 @@ const handleLogout = () => {
         {/* Center Content */}
         <div className="main1">
           <div className="main-content-container">
-            <h1 className="main-title">Good Morning, {userName}!</h1>
+            <h1 className="main-title">Hello, {userName}!</h1>
+            <p style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>
+              Currently logged in as <strong>{userRole}</strong>
+            </p>
 
             {/* --- Project Summary and Requests Section --- */}
             {project ? (
