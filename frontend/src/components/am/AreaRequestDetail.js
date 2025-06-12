@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ApproveDenyActions from '../ApproveDenyActions';
-import '../style/pm_style/Pm_MatRequest.css'; // Re-use the nice PM request styles!
+import '../style/pm_style/Pm_MatRequest.css'; 
 import api from '../../api/axiosInstance';
 
 const AreaMaterialReq = () => {

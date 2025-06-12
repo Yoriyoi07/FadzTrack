@@ -44,6 +44,9 @@ import ItAuditLog from './it/ItAuditLogs';
 import ItMaterialList from './it/ItMaterialList';
 import ProgressTracker from './ProgressTracker';
 import ItManpowerList from './it/ItManpowerList';
+import ItManpowerRequestDetail from './it/ItManpowerRequestDetail';
+import ItMaterialRequestDetail from './it/ItMaterialRequestDetail';
+
 const AppRoutes = () => {
   return (
    <Routes>
@@ -88,7 +91,9 @@ const AppRoutes = () => {
   <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><ItDash /></PrivateRoute>} />
   <Route path="/it/auditlogs" element={<PrivateRoute allowedRoles={["IT"]}><ItAuditLog /></PrivateRoute>} />
   <Route path="/it/material-list" element={<PrivateRoute allowedRoles={["IT"]}><ItMaterialList /></PrivateRoute>} />
+  <Route path="/it/material-request/:id" element={<PrivateRoute allowedRoles={["IT"]}><ItMaterialRequestDetail /></PrivateRoute>} />
   <Route path="/it/manpower-list" element={<PrivateRoute allowedRoles={["IT"]}><ItManpowerList /></PrivateRoute>} />
+  <Route path="/it/manpower-list/:id" element={<PrivateRoute allowedRoles={["IT"]}><ItManpowerRequestDetail /></PrivateRoute>} />
 
   {/* CEO */}
   <Route path="/ceo/proj" element={<PrivateRoute allowedRoles={["CEO"]}><CeoProj /></PrivateRoute>} />
