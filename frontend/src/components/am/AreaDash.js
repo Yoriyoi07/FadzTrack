@@ -3,6 +3,7 @@ import { PieChart, Pie, Cell } from 'recharts';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Dash.css';
 import api from '../../api/axiosInstance';
+import NotificationBell from '../NotificationBell';
 
 const AreaDash = () => {
   const navigate = useNavigate();
@@ -249,12 +250,10 @@ const AreaDash = () => {
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="profile-menu-container">
-          <div
-            className="profile-circle"
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            Z
+        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <NotificationBell />
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">

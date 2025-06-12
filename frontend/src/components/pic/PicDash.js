@@ -4,6 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import { PieChart, Pie, Cell } from 'recharts';
 import ProgressTracker from '../ProgressTracker';
+import NotificationBell from '../NotificationBell';
 
 const PicDash = () => {
   const navigate = useNavigate();
@@ -161,7 +162,7 @@ const handleLogout = () => {
   return (
     <div className="head">
       {/* Header with Navigation */}
-      <header className="header">
+     <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
@@ -173,7 +174,8 @@ const handleLogout = () => {
           <Link to="/pic/projects" className="nav-link">My Projects</Link>
           <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
-        <div className="profile-menu-container">
+        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <NotificationBell />
           <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
             {userName.charAt(0).toUpperCase() || 'Z'}
           </div>

@@ -162,7 +162,6 @@ exports.createMaterialRequest = async (req, res) => {
 
 // ========== GET ALL MATERIAL REQUESTS ==========
 exports.getAllMaterialRequests = async (req, res) => {
-   console.log('[getAllMaterialRequests] Accessed by:', req.user);
   try {
     const requests = await MaterialRequest.find()
       .sort({ createdAt: -1 })
@@ -334,6 +333,74 @@ exports.approveMaterialRequest = async (req, res) => {
     request.status = nextStatus;
     await request.save();
 
+    // NOTIFY NEXT APPROVER (already in your code)
+    if (decision === 'approved') {
+      if (nextStatus === 'Pending Area Manager' && project.areamanager) {
+        let amId = project.areamanager;
+        if (Array.isArray(amId)) amId = amId[0];
+        if (amId) {
+          await createAndEmitNotification({
+            type: 'pending_approval',
+            toUserId: amId,
+            fromUserId: req.user.id,
+            message: `You have a material request pending approval for project "${project.projectName}".`,
+            projectId: project._id,
+            requestId: request._id,
+            meta: { pendingRole: 'Area Manager', fromRole: req.user.role, approvedBy: req.user.name },
+            req
+          });
+        }
+      }
+      if (nextStatus === 'Pending CEO') {
+        const ceoUser = await User.findOne({ role: 'CEO' });
+        if (ceoUser) {
+          await createAndEmitNotification({
+            type: 'pending_approval',
+            toUserId: ceoUser._id,
+            fromUserId: req.user.id,
+            message: `You have a material request pending approval for project "${project.projectName}".`,
+            projectId: project._id,
+            requestId: request._id,
+            meta: { pendingRole: 'CEO', fromRole: req.user.role, approvedBy: req.user.name },
+            req
+          });
+        }
+      }
+      // Notify PIC/requestor on final approval
+      if (nextStatus === 'Approved') {
+        const requestorId = request.createdBy;
+        await createAndEmitNotification({
+          type: 'approved',
+          toUserId: requestorId,
+          fromUserId: req.user.id,
+          message: `Your material request for project "${project.projectName}" has been fully approved.`,
+          projectId: project._id,
+          requestId: request._id,
+          meta: { approvedBy: req.user.name },
+          req
+        });
+      }
+    }
+
+    // NOTIFY PIC/REQUESTOR ON DENIED (any stage)
+    if (decision === 'denied' && (
+      nextStatus === 'Denied by Project Manager' ||
+      nextStatus === 'Denied by Area Manager' ||
+      nextStatus === 'Denied by CEO'
+    )) {
+      const requestorId = request.createdBy;
+      await createAndEmitNotification({
+        type: 'denied',
+        toUserId: requestorId,
+        fromUserId: req.user.id,
+        message: `Your material request for project "${project.projectName}" was denied by the ${userRole}${reason ? `: ${reason}` : ''}.`,
+        projectId: project._id,
+        requestId: request._id,
+        meta: { deniedBy: req.user.name, deniedRole: userRole, reason },
+        req
+      });
+    }
+
     await logAction({
       action: 'APPROVE_MATERIAL_REQUEST',
       performedBy: req.user.id,
@@ -358,6 +425,7 @@ exports.approveMaterialRequest = async (req, res) => {
     res.status(500).json({ message: 'Failed to process approval' });
   }
 };
+
 
 // ========== GET MY MATERIAL REQUESTS ==========
 exports.getMyMaterialRequests = async (req, res) => {

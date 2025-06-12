@@ -3,7 +3,8 @@ import { PieChart, Pie, Cell } from 'recharts';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
 import api from '../../api/axiosInstance';
-import CeoAddArea from './CeoAddArea'; // adjust if your path is different
+import CeoAddArea from './CeoAddArea'; 
+import NotificationBell from '../NotificationBell';
 
 const CeoDash = () => {
   const navigate = useNavigate();
@@ -251,8 +252,11 @@ const CeoDash = () => {
           <Link to="/ceo/audit-logs" className="nav-link">Audit Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="profile-menu-container">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <NotificationBell />
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+          </div>
           {profileMenuOpen && (
             <div className="profile-menu">
               <button onClick={handleLogout}>Logout</button>
