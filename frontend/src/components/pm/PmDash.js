@@ -5,16 +5,40 @@ import api from '../../api/axiosInstance';
 import { PieChart, Pie, Cell } from 'recharts';
 import NotificationBell from '../NotificationBell';
 
-const PmDash = () => {
-  const token = localStorage.getItem('token');
-  const stored = localStorage.getItem('user');
-  const user = stored ? JSON.parse(stored) : null;
-  const userId = user?._id;
+const PmDash = ({forceUserUpdate}) => {
+  const navigate = useNavigate();
 
+  // --- 1. User, token, userId state ---
+  const [user, setUser] = useState(() => {
+    const stored = localStorage.getItem('user');
+    return stored ? JSON.parse(stored) : null;
+  });
+  const [token, setToken] = useState(() => localStorage.getItem('token') || "");
+  const [userId, setUserId] = useState(() => user?._id);
+
+  // --- 2. Listen for storage changes for live update on login/logout/user switch ---
+ useEffect(() => {
+    const handleUserChange = () => {
+      const stored = localStorage.getItem('user');
+      setUser(stored ? JSON.parse(stored) : null);
+      setUserId(stored ? JSON.parse(stored)._id : undefined);
+      setToken(localStorage.getItem('token') || "");
+    };
+    window.addEventListener("storage", handleUserChange);
+    return () => window.removeEventListener("storage", handleUserChange);
+  }, []);
+
+  // --- 3. Update username/role from state ---
   const [userName, setUserName] = useState(user?.name || 'ALECK');
   const [userRole, setUserRole] = useState(user?.role || '');
+
+  useEffect(() => {
+    setUserName(user?.name || 'ALECK');
+    setUserRole(user?.role || '');
+  }, [user]);
+
+  // --- 4. Page data state ---
   const [project, setProject] = useState(null);
-  const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   const [chats] = useState([
@@ -27,15 +51,15 @@ const PmDash = () => {
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [requestsError, setRequestsError] = useState(null);
 
+  // --- 5. Redirect to login if not logged in ---
   useEffect(() => {
-    if (!token || !user) {
+    if (!token || !userId) {
       navigate('/');
       return;
     }
-    setUserName(user.name);
-    setUserRole(user.role);
-  }, [navigate, token, user]);
+  }, [token, userId, navigate]);
 
+  // --- 6. Fetch assigned project for current PM ---
   useEffect(() => {
     if (!token || !userId) return;
     const fetchAssignedPMProject = async () => {
@@ -45,13 +69,13 @@ const PmDash = () => {
         });
         setProject(data);
       } catch (err) {
-        console.error('Error fetching assigned PM project:', err);
         setProject(null);
       }
     };
     fetchAssignedPMProject();
   }, [token, userId]);
 
+  // --- 7. Fetch material requests for current user ---
   useEffect(() => {
     if (!token) {
       setRequestsError('Session expired. Please log in again.');
@@ -74,6 +98,7 @@ const PmDash = () => {
     fetchRequests();
   }, [token]);
 
+  // --- 8. Close profile menu on outside click ---
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!event.target.closest(".profile-menu-container")) {
@@ -84,17 +109,23 @@ const PmDash = () => {
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
-const handleLogout = () => {
-  const token = localStorage.getItem('token');
-  api.post('/auth/logout', {}, {
-    headers: { Authorization: `Bearer ${token}` }
-  }).finally(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  });
-};
+  // --- 9. Logout handler ---
+  const handleLogout = () => {
+    api.post('/auth/logout', {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).finally(() => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setUserId(undefined);
+      setToken("");
+      if (forceUserUpdate) forceUserUpdate(); // <--- Key line
+      window.dispatchEvent(new Event('storage')); // For other tabs
+      navigate('/');
+    });
+  };
 
+  // --- 10. KPI data for Pie Chart ---
   const taskStatusData = React.useMemo(() => {
     if (!project?.tasks || !Array.isArray(project.tasks)) {
       return {
@@ -105,18 +136,15 @@ const handleLogout = () => {
         totalTasks: 0,
       };
     }
-
     const completedTasks = project.tasks.filter(task => task.percent === 100).length;
     const inProgressTasks = project.tasks.filter(task => task.percent > 0 && task.percent < 100).length;
     const notStartedTasks = project.tasks.filter(task => task.percent === 0).length;
     const totalTasks = project.tasks.length;
-
     const data = [
       { name: 'Completed', value: completedTasks, color: '#4CAF50' },
       { name: 'In Progress', value: inProgressTasks, color: '#5E4FDB' },
       { name: 'Not Started', value: notStartedTasks, color: '#FF6B6B' },
     ];
-
     return {
       data: data.filter(item => item.value > 0),
       completedTasks,
@@ -145,16 +173,16 @@ const handleLogout = () => {
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-  <NotificationBell />
-  <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-    {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-  </div>
-  {profileMenuOpen && (
-    <div className="profile-menu">
-      <button onClick={handleLogout}>Logout</button>
-    </div>
-  )}
-</div>
+          <NotificationBell />
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+          </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="pm-dash dashboard-layout">
@@ -199,7 +227,6 @@ const handleLogout = () => {
               </PieChart>
             )}
           </div>
-
           <div className="chats-box">
             <h3>Chats</h3>
             <div className="pm-dash chats-list">

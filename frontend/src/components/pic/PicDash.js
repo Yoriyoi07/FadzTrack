@@ -18,6 +18,24 @@ const PicDash = () => {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  const [nudgeCooldowns, setNudgeCooldowns] = useState({});
+
+
+  useEffect(() => {
+  const saved = localStorage.getItem('nudgeCooldowns');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    const now = Date.now();
+    const filtered = Object.fromEntries(
+      Object.entries(parsed).filter(([_, ts]) => ts > now)
+    );
+    setNudgeCooldowns(filtered);
+  }
+}, []);
+
+useEffect(() => {
+  localStorage.setItem('nudgeCooldowns', JSON.stringify(nudgeCooldowns));
+}, [nudgeCooldowns]);
 
   // Pagination helpers
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -39,17 +57,45 @@ const PicDash = () => {
   }, [navigate, token, user]);
 
   const handleNudge = async (request, pendingRole) => {
+  if (nudgeCooldowns[request._id]) return; // Already on cooldown
+
   try {
     await api.post(`/requests/${request._id}/nudge`);
     alert(`Nudge sent to ${pendingRole}.`);
+    setNudgeCooldowns(prev => ({
+      ...prev,
+      [request._id]: Date.now() + 60 * 60 * 1000 // 1 hour from now
+    }));
+    setTimeout(() => {
+      setNudgeCooldowns(prev => {
+        const { [request._id]: _, ...rest } = prev;
+        return rest;
+      });
+    }, 60 * 60 * 1000); // 1 hour
   } catch (err) {
+    // Handle 429 too, set cooldown for the remaining time
     if (err.response && err.response.data && err.response.data.message) {
       alert(err.response.data.message);
+      const match = /(\d+) minute/.exec(err.response.data.message);
+      if (match) {
+        const minutes = parseInt(match[1], 10);
+        setNudgeCooldowns(prev => ({
+          ...prev,
+          [request._id]: Date.now() + minutes * 60 * 1000
+        }));
+        setTimeout(() => {
+          setNudgeCooldowns(prev => {
+            const { [request._id]: _, ...rest } = prev;
+            return rest;
+          });
+        }, minutes * 60 * 1000);
+      }
     } else {
       alert('Failed to send nudge.');
     }
   }
 };
+
 
 
   // Only fetch user's active/ongoing project
@@ -229,14 +275,18 @@ const handleLogout = () => {
         </div>
         {/* Nudge button (only show if there's a pending role) */}
         {pendingRole && (
-          <button
-            className="nudge-btn"
-            onClick={e => {
-              e.stopPropagation();
-              handleNudge(request, pendingRole);
-            }}>
-            Nudge {pendingRole}
-          </button>
+         <button
+  className="nudge-btn"
+  disabled={!!nudgeCooldowns[request._id]} // disable if in cooldown
+  onClick={e => {
+    e.stopPropagation();
+    handleNudge(request, pendingRole);
+  }}>
+  {nudgeCooldowns[request._id]
+    ? `Nudge Disabled (${Math.ceil((nudgeCooldowns[request._id] - Date.now()) / 60000)}m left)`
+    : `Nudge ${pendingRole}`}
+</button>
+
         )}
       </div>
       <div className="request-requester">

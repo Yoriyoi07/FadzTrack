@@ -52,7 +52,7 @@ const AppRoutes = () => {
   <Route path="/reset-password" element={<ResetPassword />} />
 
   {/* PROJECT MANAGER */}
-  <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDash /></PrivateRoute>} />
+  <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}> <PmDash forceUserUpdate={window.forceUserUpdate} /></PrivateRoute>} />
   <Route path="/pm/material-request/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmMatRequestDetail /></PrivateRoute>} />
   <Route path="/pm/request/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmMatRequestList /></PrivateRoute>} />
   <Route path="/pm/request-manpower" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmRequestManpower /></PrivateRoute>} />

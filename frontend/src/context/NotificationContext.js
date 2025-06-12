@@ -1,10 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+// src/context/NotificationContext.js
+import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import api from "../api/axiosInstance";
 
 const NotificationContext = createContext();
-
 export const useNotifications = () => useContext(NotificationContext);
 
 const socketUrl =
@@ -15,46 +15,43 @@ const socketUrl =
 export const NotificationProvider = ({ children, userId }) => {
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
+  const socketRef = useRef(null);
 
+  // Fetch notifications on mount or userId change
   useEffect(() => {
-    if (!userId) return;
-
-    console.log("🔑 [NotificationProvider] userId:", userId);
-    console.log("🌐 [NotificationProvider] Connecting to socketUrl:", socketUrl);
-
+    if (!userId) {
+      setNotifications([]);
+      setUnread(0);
+      return;
+    }
     api
       .get("/notifications", { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } })
       .then((res) => {
         setNotifications(res.data);
-        setUnread(res.data.filter((n) => n.status === 'unread').length);
+        setUnread(res.data.filter((n) => n.status === "unread").length);
       });
+  }, [userId]);
 
-    // Connect to socket
+  // Setup socket only once per userId
+  useEffect(() => {
+    if (!userId) return;
+    if (socketRef.current) socketRef.current.disconnect();
+
     const socket = io(socketUrl, { transports: ["websocket"] });
+    socketRef.current = socket;
 
     socket.on("connect", () => {
-      console.log("✅ [Socket.IO] Connected!", socket.id);
       socket.emit("register", userId);
-      console.log("📨 [Socket.IO] Register emitted with userId:", userId);
-    });
-
-    socket.on("connect_error", (err) => {
-      console.error("❌ [Socket.IO] Connection error:", err);
-    });
-
-    socket.on("disconnect", (reason) => {
-      console.warn("⚠️ [Socket.IO] Disconnected:", reason);
+      // console.log("Socket.IO Connected & registered:", socket.id);
     });
 
     socket.on("notification", (notif) => {
-      console.log("📢 [Socket.IO] Notification received:", notif);
       setNotifications((prev) => [notif, ...prev]);
       setUnread((prev) => prev + 1);
       toast.info(notif.message, { position: "top-right" });
     });
 
     return () => {
-      console.log("🛑 [Socket.IO] Disconnecting...");
       socket.disconnect();
     };
   }, [userId]);
@@ -62,7 +59,7 @@ export const NotificationProvider = ({ children, userId }) => {
   // Mark all as read
   const markAllRead = () => {
     setUnread(0);
-    setNotifications((prev) => prev.map((n) => ({ ...n, status: 'read' })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, status: "read" })));
     api.patch(
       "/notifications/mark-all-read",
       {},
