@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
+import NotificationBell from '../NotificationBell';
 import '../style/pic_style/Pic_MatReq.css';
 
 const chats = [
@@ -19,8 +20,9 @@ const PicMatReq = () => {
   const [materials, setMaterials] = useState([{ id: 1, materialName: '', quantity: '', unit: '' }]);
   const [formData, setFormData] = useState({ description: '' });
   const token = localStorage.getItem('token');
-  const storedUser = localStorage.getItem('user');
-  const user = storedUser ? JSON.parse(storedUser) : null;
+    const storedUser = localStorage.getItem('user');
+    const user = storedUser ? JSON.parse(storedUser) : null;
+    const [userName, setUserName] = useState(user?.name || '');
 
   useEffect(() => {
     if (!token || !user) navigate('/');
@@ -160,12 +162,10 @@ const PicMatReq = () => {
           <Link to="/pic/projects" className="nav-link">My Projects</Link>
           <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
-        <div className="profile-menu-container">
-          <div
-            className="profile-circle"
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            {user?.name ? user.name.charAt(0).toUpperCase() : 'Z'}
+        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <NotificationBell />
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName?.charAt(0).toUpperCase() || 'Z'}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">

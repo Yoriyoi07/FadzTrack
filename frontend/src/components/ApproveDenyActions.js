@@ -44,49 +44,47 @@ const ApproveDenyActions = ({
 
   // Approve
   const handleApprove = async () => {
-  if (!window.confirm('Are you sure you want to APPROVE this request?')) return;
-  const token = localStorage.getItem('token');
-  try {
-    await api.post(
-      `/requests/${requestData._id}/approve`,
-      { decision: 'approved' },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    alert('Request approved.');
-    if (onActionComplete) onActionComplete();
-    else onBack();
-  } catch (err) {
-    alert('Failed to approve request.');
-    console.error(err);
-  }
-};
-
+    if (!window.confirm('Are you sure you want to APPROVE this request?')) return;
+    const token = localStorage.getItem('token');
+    try {
+      await api.post(
+        `/requests/${requestData._id}/approve`,
+        { decision: 'approved' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      alert('Request approved.');
+      if (onActionComplete) onActionComplete();
+      else onBack();
+    } catch (err) {
+      alert('Failed to approve request.');
+      console.error(err);
+    }
+  };
 
   // Deny
   const handleDeny = () => setShowDenyReason(true);
-      const submitDeny = async () => {
-        if (!denyReason.trim()) {
-          alert('Please provide a reason for denial.');
-          return;
-        }
-        const token = localStorage.getItem('token');
-        try {
-          await api.post(
-            `/requests/${requestData._id}/approve`,
-            { decision: 'denied', reason: denyReason },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          alert('Request denied.');
-          setShowDenyReason(false);
-          setDenyReason('');
-          if (onActionComplete) onActionComplete();
-          else onBack();
-        } catch (err) {
-          alert('Failed to deny request.');
-          console.error(err);
-        }
-      };
-
+  const submitDeny = async () => {
+    if (!denyReason.trim()) {
+      alert('Please provide a reason for denial.');
+      return;
+    }
+    const token = localStorage.getItem('token');
+    try {
+      await api.post(
+        `/requests/${requestData._id}/approve`,
+        { decision: 'denied', reason: denyReason },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      alert('Request denied.');
+      setShowDenyReason(false);
+      setDenyReason('');
+      if (onActionComplete) onActionComplete();
+      else onBack();
+    } catch (err) {
+      alert('Failed to deny request.');
+      console.error(err);
+    }
+  };
 
   // --- RECEIVED BY PIC INFO ---
   const isReceived = !!requestData?.receivedDate;
@@ -120,6 +118,15 @@ const ApproveDenyActions = ({
     }
     return `${role}`;
   };
+
+  // ---- Approve Button Label logic ----
+  let approveLabel = 'Approve';
+  if (
+    (status === 'Pending Project Manager' && roleKey === 'PM') ||
+    (status === 'Pending Area Manager' && roleKey === 'AM')
+  ) {
+    approveLabel = 'Validate';
+  }
 
   return (
     <>
@@ -172,7 +179,7 @@ const ApproveDenyActions = ({
               className="publish-button-picmatreq"
               style={{ background: '#28a745', minWidth: 120 }}
             >
-              Approve
+              {approveLabel}
             </button>
             <button
               onClick={handleDeny}

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
-import '../style/pic_style/PicAllProjects.css'; // create if you want extra style
+import NotificationBell from '../NotificationBell';
+import '../style/pic_style/PicAllProjects.css';
 
 // Sidebar Chats Data
 const chats = [
@@ -23,6 +24,26 @@ const PicAllProjects = () => {
   const [completed, setCompleted] = useState([]);
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState(null);
+
+  // Profile menu and user display
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [userName, setUserName] = useState(user?.name || '');
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   useEffect(() => {
     if (!userId) return;
@@ -54,7 +75,6 @@ const PicAllProjects = () => {
     };
     fetchActiveProject();
   }, [token, userId]);
-
 
   // Fetch requests for this PIC's current project **only**
   useEffect(() => {
@@ -127,6 +147,17 @@ const PicAllProjects = () => {
           <Link to="/pic/projects" className="nav-link">My Projects</Link>
           <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
+        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <NotificationBell />
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName?.charAt(0).toUpperCase() || 'Z'}
+          </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Dashboard Layout with Sidebar */}

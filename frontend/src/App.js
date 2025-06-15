@@ -1,4 +1,3 @@
-// src/App.js
 import React, { useEffect, useState, useCallback } from "react";
 import { BrowserRouter as Router } from "react-router-dom";
 import AppRoutes from './components/Routes';
@@ -13,14 +12,12 @@ const getUserId = () => {
 const App = () => {
   const [userId, setUserId] = useState(getUserId);
 
-  // Sync on storage change (other tabs)
   useEffect(() => {
     const syncUserId = () => setUserId(getUserId());
     window.addEventListener('storage', syncUserId);
     return () => window.removeEventListener('storage', syncUserId);
   }, []);
 
-  // Provide to children: call this after login/logout
   const forceUserUpdate = useCallback(() => {
     setUserId(getUserId());
   }, []);

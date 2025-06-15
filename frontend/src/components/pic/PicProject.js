@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axiosInstance';
+import NotificationBell from '../NotificationBell';
 import "../style/pic_style/Pic_Project.css";
 
 // Sidebar Chats Data (same everywhere)
@@ -11,10 +12,14 @@ const chats = [
 ];
 
 const PicProject = () => {
-  const { id } = useParams();
+   const { id } = useParams();
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [project, setProject] = useState(null);
+  const token = localStorage.getItem('token');
+  const storedUser = localStorage.getItem('user');
+  const user = storedUser ? JSON.parse(storedUser) : null;  
+  const [userName, setUserName] = useState(user?.name || '');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -66,19 +71,17 @@ const PicProject = () => {
           <Link to="/pic/projects" className="nav-link">My Projects</Link>
           <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
-        <div className="profile-menu-container">
-          <div 
-            className="profile-circle" 
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            Z
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
+       <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+        <NotificationBell />
+        <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+          {userName?.charAt(0).toUpperCase() || 'Z'}
         </div>
+        {profileMenuOpen && (
+          <div className="profile-menu">
+            <button onClick={handleLogout}>Logout</button>
+          </div>
+        )}
+      </div>
       </header>
 
       <div className="dashboard-layout">

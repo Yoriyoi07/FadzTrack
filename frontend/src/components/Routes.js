@@ -46,12 +46,14 @@ import ProgressTracker from './ProgressTracker';
 import ItManpowerList from './it/ItManpowerList';
 import ItManpowerRequestDetail from './it/ItManpowerRequestDetail';
 import ItMaterialRequestDetail from './it/ItMaterialRequestDetail';
+import TwoFactorAuth from './TwoFactorAuth';
 
-const AppRoutes = () => {
+const AppRoutes = ({ forceUserUpdate }) => {
   return (
    <Routes>
   {/* Public */}
-  <Route path="/" element={<LoginPage />} />
+  <Route path="/" element={<LoginPage forceUserUpdate={forceUserUpdate} />} />
+  <Route path="/2fa" element={<TwoFactorAuth forceUserUpdate={forceUserUpdate} />} />
   <Route path="/activate-account" element={<ActivateAccount />} />
   <Route path="/reset-password" element={<ResetPassword />} />
 

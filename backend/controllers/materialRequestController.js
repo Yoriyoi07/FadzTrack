@@ -139,7 +139,7 @@ exports.createMaterialRequest = async (req, res) => {
       action: 'CREATE_MATERIAL_REQUEST',
       performedBy: req.user.id,
       performedByRole: req.user.role,
-      description: `Created material request for project ${project}`,
+      description: `Created material request for project ${projectName}`,
       meta: { requestId: newRequest._id }
     });
 
@@ -148,7 +148,7 @@ exports.createMaterialRequest = async (req, res) => {
         action: 'CEO_CREATE_MATERIAL_REQUEST',
         performedBy: req.user.id,
         performedByRole: req.user.role,
-        description: `CEO created material request for project ${project}`,
+        description: `CEO created material request for project ${projectName}`,
         meta: { requestId: newRequest._id }
       });
     }

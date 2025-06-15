@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import api from '../../api/axiosInstance'; // Adjust path if needed!
+import api from '../../api/axiosInstance'; 
+import NotificationBell from '../NotificationBell';
 import '../style/pic_style/Pic_Req.css';
 
 const chats = [
@@ -20,6 +21,7 @@ const MaterialRequestDetail = () => {
   const [requests, setRequests] = useState([]);
   const [requestData, setRequestData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [userName, setUserName] = useState(user?.name || '');
   const [editMode, setEditMode] = useState(false);
   const [project, setProject] = useState(null);
   const [materials, setMaterials] = useState([]);
@@ -210,12 +212,10 @@ const MaterialRequestDetail = () => {
           <Link to="/pic/projects" className="nav-link">My Projects</Link>
           <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
-        <div className="profile-menu-container">
-          <div
-            className="profile-circle"
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            {user?.name ? user.name.charAt(0).toUpperCase() : 'Z'}
+        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <NotificationBell />
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName?.charAt(0).toUpperCase() || 'Z'}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">

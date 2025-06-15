@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {  FaPaperPlane, FaWindowMaximize, FaEllipsisH } from 'react-icons/fa';
 import '../style/pic_style/Pic_Chat.css';
+import NotificationBell from '../NotificationBell';
 import api from '../../api/axiosInstance';
 
 
