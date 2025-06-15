@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance'; // Adjust the path if needed
 import '../style/pm_style/Pm_ManpowerRequest.css';
+import NotificationBell from '../NotificationBell';
 
 const chats = [
   { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
@@ -15,6 +16,7 @@ const PmRequestManpower = () => {
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
+  const [userName, setUserName] = useState(user?.name || 'ALECK');
   const { id } = useParams();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [project, setProject] = useState(null);
@@ -210,14 +212,18 @@ const PmRequestManpower = () => {
           <Link to="/pm/daily-logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="profile-menu-container">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
-        </div>
+       <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+  <NotificationBell />
+  <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+    {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+  </div>
+  {profileMenuOpen && (
+    <div className="profile-menu">
+      <button onClick={handleLogout}>Logout</button>
+    </div>
+  )}
+</div>
+
       </header>
 
       {/* Main two-column layout */}
