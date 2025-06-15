@@ -2,18 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Manpower_List.css';
 import api from '../../api/axiosInstance';
+import NotificationBell from '../NotificationBell'; // Adjust the path if needed!
 
 const ITEMS_PER_PAGE = 5;
 
 const AreaMaterialList = () => {
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('All');
   const [searchTerm, ] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+    const [userName, setUserName] = useState(user?.name || 'ALECK');
 
   // --- Sidebar state
   const [assignedLocations, setAssignedLocations] = useState([]);
@@ -26,7 +29,6 @@ const AreaMaterialList = () => {
     { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
     { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
   ]);
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
 
   // --- Main requests (for this page)
   useEffect(() => {
@@ -191,9 +193,10 @@ const AreaMaterialList = () => {
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="profile-menu-container">
+        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <NotificationBell />
           <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {user?.name ? user.name.charAt(0).toUpperCase() : 'Z'}
+            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">

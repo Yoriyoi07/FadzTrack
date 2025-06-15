@@ -3,12 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Addproj.css';
 import Papa from 'papaparse';
 import api from '../../api/axiosInstance';
+import NotificationBell from '../NotificationBell';
 
 const AreaAddproj = () => {
   const navigate = useNavigate();
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
+    const [userName, setUserName] = useState(user?.name || 'ALECK');
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [eligiblePMs, setEligiblePMs] = useState([]);
@@ -287,12 +289,10 @@ useEffect(() => {
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="profile-menu-container">
-          <div
-            className="profile-circle"
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            Z
+       <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <NotificationBell />
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">

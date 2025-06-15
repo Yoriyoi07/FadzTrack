@@ -199,16 +199,16 @@ const CeoMaterialReq = () => {
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <NotificationBell />
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
-        </div>
+                  <NotificationBell />
+                  <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+                    {userName.charAt(0).toUpperCase() || 'Z'}
+                  </div>
+                  {profileMenuOpen && (
+                    <div className="profile-menu">
+                      <button onClick={handleLogout}>Logout</button>
+                    </div>
+                  )}
+                </div>
       </header>
 
       <div className="dashboard-layout">

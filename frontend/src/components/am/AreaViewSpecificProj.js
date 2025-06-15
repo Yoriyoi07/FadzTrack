@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import "../style/ceo_style/Ceo_ViewSpecific.css";
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import api from '../../api/axiosInstance'; // ← use your axios instance
+import api from '../../api/axiosInstance'; 
+import NotificationBell from '../NotificationBell';
+
 
 const AreaViewSpecificProj = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
+  // -- THIS ORDER --
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const [userName, setUserName] = useState(user?.name || 'ALECK');
+
   const [project, setProject] = useState(null);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
@@ -67,19 +75,17 @@ const AreaViewSpecificProj = () => {
           <Link to="/logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="profile-menu-container">
-          <div
-            className="profile-circle"
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            Z
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
-        </div>
+       <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                 <NotificationBell />
+                 <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+                   {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+                 </div>
+                 {profileMenuOpen && (
+                   <div className="profile-menu">
+                     <button onClick={handleLogout}>Logout</button>
+                   </div>
+                 )}
+               </div>
       </header>
 
       <main className="main">

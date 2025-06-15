@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import api from '../../api/axiosInstance';
 import { useNavigate, Link } from 'react-router-dom';
+import NotificationBell from '../NotificationBell';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -87,14 +88,17 @@ const CeoAuditLogs = () => {
           <Link to="/ceo/audit-logs" className="nav-link">Audit Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="profile-menu-container">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
-        </div>
+        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                  <NotificationBell />
+                  <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+                    {userName.charAt(0).toUpperCase() || 'Z'}
+                  </div>
+                  {profileMenuOpen && (
+                    <div className="profile-menu">
+                      <button onClick={handleLogout}>Logout</button>
+                    </div>
+                  )}
+                </div>
       </header>
       <div style={{ maxWidth: 1200, margin: "30px auto", padding: 24, background: "#fff", borderRadius: 12, boxShadow: "0 2px 16px #0001" }}>
         <h2 style={{ marginBottom: 24 }}>Audit Log</h2>

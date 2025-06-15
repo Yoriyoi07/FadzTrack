@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import '../style/ceo_style/Ceo_Proj.css';
+import NotificationBell from '../NotificationBell';
 
 const CeoProj = () => {
+ const stored = localStorage.getItem('user');
+  const userName = stored ? JSON.parse(stored).name : 'ALECK';
+
   const [filter, setFilter] = useState('all');
   const [viewMode, setViewMode] = useState('grid');
   const navigate = useNavigate();
@@ -57,8 +61,11 @@ const CeoProj = () => {
           <Link to="/ceo/audit-logs" className="nav-link">Audit Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="profile-menu-container">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+       <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <NotificationBell />
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName.charAt(0).toUpperCase() || 'Z'}
+          </div>
           {profileMenuOpen && (
             <div className="profile-menu">
               <button onClick={handleLogout}>Logout</button>

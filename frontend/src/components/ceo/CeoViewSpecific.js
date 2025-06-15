@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import "../style/ceo_style/Ceo_ViewSpecific.css";
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import api from '../../api/axiosInstance'; // ← use your axios instance
+import api from '../../api/axiosInstance'; 
+import NotificationBell from '../NotificationBell';
 
 const CeoViewSpecific = () => {
+  const stored = localStorage.getItem('user');
+  const userName = stored ? JSON.parse(stored).name : 'ALECK';
+
   const { id } = useParams();
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -65,14 +69,17 @@ const CeoViewSpecific = () => {
           <Link to="/ceo/audit-logs" className="nav-link">Audit Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
-        <div className="profile-menu-container">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
-        </div>
+        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+                  <NotificationBell />
+                  <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+                    {userName.charAt(0).toUpperCase() || 'Z'}
+                  </div>
+                  {profileMenuOpen && (
+                    <div className="profile-menu">
+                      <button onClick={handleLogout}>Logout</button>
+                    </div>
+                  )}
+                </div>
       </header>
 
       <main className="main">

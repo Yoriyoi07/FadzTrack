@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
-import CeoAddArea from './CeoAddArea'; // For Add Area Modal if needed
+import CeoAddArea from './CeoAddArea'; 
 
 const ITEMS_PER_PAGE = 5;
 
