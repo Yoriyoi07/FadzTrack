@@ -63,7 +63,7 @@ useEffect(() => {
 
   try {
     await api.post(`/requests/${request._id}/nudge`);
-    alert(`Nudge sent to ${pendingRole}.`);
+    alert(`Reminder sent to ${pendingRole}.`);
     setNudgeCooldowns(prev => ({
       ...prev,
       [request._id]: Date.now() + 60 * 60 * 1000 // 1 hour from now
@@ -290,7 +290,7 @@ const handleLogout = () => {
   }}>
   {nudgeCooldowns[request._id]
     ? `Nudge Disabled (${Math.ceil((nudgeCooldowns[request._id] - Date.now()) / 60000)}m left)`
-    : `Nudge ${pendingRole}`}
+    : `Remind ${pendingRole}`}
 </button>
 
         )}

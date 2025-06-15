@@ -9,12 +9,8 @@ const steps = [
   { label: "Received", emoji: "✅", key: "received" }
 ];
 
-// Format date and time in local format
-function formatDateTime(date, isPending = false) {
-  if (isPending) {
-    const now = new Date();
-    return now.toLocaleDateString() + ', ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
+// Format date and time in local format (show — if no date)
+function formatDateTime(date) {
   if (!date) return "—";
   try {
     const d = new Date(date);
@@ -29,12 +25,14 @@ function getStepInfo(request) {
     // All steps pending fallback
     return steps.map(() => ({
       status: "Pending",
-      date: formatDateTime(undefined, true),
+      date: "—",
       decision: "pending"
     }));
   }
 
   const info = [];
+  let denied = false;
+
   // 1. Placed
   info.push({
     status: "Completed",
@@ -42,59 +40,92 @@ function getStepInfo(request) {
     decision: "placed"
   });
 
-  // 2. PM approval
+  // 2. Project Manager approval
   const pm = (request.approvals || []).find(a =>
     (a.role || '').toLowerCase().includes("project manager")
   );
-  if (pm) {
-    info.push({
-      status: pm.decision === "approved" ? "Approved" : "Denied",
-      date: formatDateTime(pm.timestamp),
-      decision: pm.decision === "approved" ? "approved" : "denied"
-    });
+  if (denied) {
+    info.push({ status: "—", date: "—", decision: "inactive" });
+  } else if (pm) {
+    if (pm.decision === "approved") {
+      info.push({
+        status: "Approved",
+        date: formatDateTime(pm.timestamp),
+        decision: "approved"
+      });
+    } else if (pm.decision === "denied") {
+      denied = true;
+      info.push({
+        status: "Denied",
+        date: formatDateTime(pm.timestamp),
+        decision: "denied"
+      });
+    }
   } else {
-    info.push({ status: "Pending", date: formatDateTime(undefined, true), decision: "pending" });
+    info.push({ status: "Pending", date: "—", decision: "pending" });
   }
 
-  // 3. AM approval
+  // 3. Area Manager approval
   const am = (request.approvals || []).find(a =>
     (a.role || '').toLowerCase().includes("area manager")
   );
-  if (am) {
-    info.push({
-      status: am.decision === "approved" ? "Approved" : "Denied",
-      date: formatDateTime(am.timestamp),
-      decision: am.decision === "approved" ? "approved" : "denied"
-    });
+  if (denied) {
+    info.push({ status: "—", date: "—", decision: "inactive" });
+  } else if (am) {
+    if (am.decision === "approved") {
+      info.push({
+        status: "Approved",
+        date: formatDateTime(am.timestamp),
+        decision: "approved"
+      });
+    } else if (am.decision === "denied") {
+      denied = true;
+      info.push({
+        status: "Denied",
+        date: formatDateTime(am.timestamp),
+        decision: "denied"
+      });
+    }
   } else {
-    info.push({ status: "Pending", date: formatDateTime(undefined, true), decision: "pending" });
+    info.push({ status: "Pending", date: "—", decision: "pending" });
   }
 
   // 4. CEO approval
   const ceo = (request.approvals || []).find(a =>
     (a.role || '').toLowerCase() === "ceo"
   );
-  if (ceo) {
-    info.push({
-      status: ceo.decision === "approved" ? "Approved" : "Denied",
-      date: formatDateTime(ceo.timestamp),
-      decision: ceo.decision === "approved" ? "approved" : "denied"
-    });
+  if (denied) {
+    info.push({ status: "—", date: "—", decision: "inactive" });
+  } else if (ceo) {
+    if (ceo.decision === "approved") {
+      info.push({
+        status: "Approved",
+        date: formatDateTime(ceo.timestamp),
+        decision: "approved"
+      });
+    } else if (ceo.decision === "denied") {
+      denied = true;
+      info.push({
+        status: "Denied",
+        date: formatDateTime(ceo.timestamp),
+        decision: "denied"
+      });
+    }
   } else {
-    info.push({ status: "Pending", date: formatDateTime(undefined, true), decision: "pending" });
+    info.push({ status: "Pending", date: "—", decision: "pending" });
   }
 
-  // 5. Received (check by receivedByPIC flag, not just status)
-  if (request.receivedByPIC) {
+  // 5. Received (only if not denied)
+  if (denied) {
+    info.push({ status: "—", date: "—", decision: "inactive" });
+  } else if (request.receivedByPIC) {
     info.push({
       status: "Received",
       date: formatDateTime(request.receivedDate),
       decision: "received"
     });
-  } else if ((request.status || '').toLowerCase().includes("denied")) {
-    info.push({ status: "Denied", date: formatDateTime(Date.now()), decision: "denied" });
   } else {
-    info.push({ status: "Pending", date: formatDateTime(undefined, true), decision: "pending" });
+    info.push({ status: "Pending", date: "—", decision: "pending" });
   }
 
   return info;
@@ -117,6 +148,8 @@ export default function ProgressTracker({ request }) {
           cls += " completed";
         } else if (info.decision === "denied") {
           cls += " denied";
+        } else if (info.decision === "inactive") {
+          cls += " inactive";
         } else if (
           info.status === "Pending" &&
           !stepInfo.slice(idx + 1).some(s => s.status === "Approved")
@@ -143,6 +176,8 @@ export default function ProgressTracker({ request }) {
                     ? "completed"
                     : info.decision === "denied"
                     ? "denied"
+                    : info.decision === "inactive"
+                    ? "inactive"
                     : ""
                 }`}
               ></div>

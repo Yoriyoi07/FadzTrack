@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 import CeoAddArea from './CeoAddArea'; 
+import ProgressTracker from '../ProgressTracker';
 
 const ITEMS_PER_PAGE = 5;
 
@@ -361,6 +362,9 @@ const CeoMaterialList = () => {
                         </h3>
                         <p className="request-description">{request.description}</p>
                       </div>
+                                         <div className="request-actions">
+                        <ProgressTracker request={request} />
+                      </div>
                       <div className="request-meta">
                         <div className="request-author">{request.createdBy?.name || 'Unknown'}</div>
                         <div className="request-project">{request.project?.projectName || '-'}</div>
@@ -377,11 +381,6 @@ const CeoMaterialList = () => {
                             </div>
                           )}
                         </div>
-                      </div>
-                      <div className="request-actions">
-                        <span className={`status-badge ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
-                          {request.status}
-                        </span>
                       </div>
                     </Link>
                   ))

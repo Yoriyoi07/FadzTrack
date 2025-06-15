@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
+import ProgressTracker from '../ProgressTracker';
 import '../style/pm_style/Pm_ViewRequest.css';
 
 const chats = [
@@ -208,19 +209,15 @@ const PmMatRequestList = () => {
                       </h3>
                       <p className="request-description">{request.description}</p>
                     </div>
+                                       <div className="request-actions">
+  <ProgressTracker request={request} />
+</div>
                     <div className="request-meta">
                       <div className="request-author">{request.createdBy?.name || 'Unknown'}</div>
                       <div className="request-project">{request.project?.projectName || '-'}</div>
                       <div className="request-date">
                         {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
                       </div>
-                    </div>
-                    <div className="request-actions">
-                      <span
-                        className={`status-badge ${(request.status || '').replace(/\s/g, '').toLowerCase()}`}
-                      >
-                        {request.status}
-                      </span>
                     </div>
                   </Link>
                 ))

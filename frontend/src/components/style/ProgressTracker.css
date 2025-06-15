@@ -85,3 +85,12 @@
 .step-line.denied {
   background: #f44336;
 }
+
+.step-circle.not-received {
+  background: #bbb !important;
+  color: #fff !important;
+}
+.step-status-not-received {
+  color: #bbb !important;
+}
+

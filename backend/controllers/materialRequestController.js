@@ -77,7 +77,7 @@ exports.nudgePendingApprover = async (req, res) => {
       req
     });
 
-    res.json({ message: `Nudge sent to ${pendingRole}` });
+    res.json({ message: `Reminder sent to ${pendingRole}` });
   } catch (err) {
     console.error('Nudge error:', err);
     res.status(500).json({ message: 'Failed to nudge pending approver.' });

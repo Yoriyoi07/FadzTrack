@@ -148,6 +148,8 @@
 }
 
 .request-item {
+  text-decoration: none !important;
+  color: inherit !important;
   display: flex;
   padding: 16px;
   border: 1px solid #ddd;
