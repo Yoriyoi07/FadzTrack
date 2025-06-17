@@ -53,7 +53,7 @@ const AreaMaterialReq = () => {
   if (!requestData) return <div>Request not found</div>;
 
   return (
-    <div className="app-container">
+    <div>
       <main className="main-content-picmatreq">
         <div className="request-materials-container-picmatreq">
           <h1 className="page-title-picmatreq">

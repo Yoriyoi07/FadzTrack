@@ -81,12 +81,12 @@ const CeoAuditLogs = () => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
-          <Link to="/ceo/material-list" className="nav-link">Material</Link>
-          <Link to="/ceo/proj" className="nav-link">Projects</Link>
-          <Link to="/chat" className="nav-link">Chat</Link>
-          <Link to="/ceo/audit-logs" className="nav-link">Audit Logs</Link>
-          <Link to="/reports" className="nav-link">Reports</Link>
+           <Link to="/ceo/dash" className="nav-link">Dashboard</Link>
+           <Link to="/ceo/chat" className="nav-link">Chat</Link>
+           <Link to="/ceo/material-list" className="nav-link">Material</Link>
+           <Link to="/ceo/proj" className="nav-link">Projects</Link>
+           <Link to="/ceo/audit-logs" className="nav-link">Audit Logs</Link>
+           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
                   <NotificationBell />

@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaPaperPlane } from 'react-icons/fa';
 import EmojiPicker from 'emoji-picker-react';
-import '../style/hr_style/HrChat.css';
+import '../style/it_style/ItChat.css';
 import api from '../../api/axiosInstance';
 
-const HrChat = () => {
+const ItChat = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user'));
@@ -24,25 +24,6 @@ const HrChat = () => {
   useEffect(() => {
     if (!token || !user) navigate('/');
   }, [navigate, token, user]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.profile-menu-container')) setProfileMenuOpen(false);
-      if (!event.target.closest('.modern-emoji-container')) setShowEmojiPicker(false);
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/');
-  };
-
-  const formatDateTime = (ts) => {
-    const date = new Date(ts);
-    return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleString();
-  };
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -116,6 +97,11 @@ const HrChat = () => {
     }
   };
 
+  const formatDateTime = (ts) => {
+    const date = new Date(ts);
+    return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleString();
+  };
+
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -123,7 +109,21 @@ const HrChat = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/');
+  };
+
   const activeList = searchQuery.trim() ? searchResults : chatList;
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.profile-menu-container-IT')) setProfileMenuOpen(false);
+      if (!event.target.closest('.modern-emoji-container')) setShowEmojiPicker(false);
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   return (
     <div className="pic-chat-wrapper">
@@ -133,14 +133,13 @@ const HrChat = () => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/hr/dash" className="nav-link">Dashboard</Link>
-          <Link to="/hr/chat" className="nav-link">Chat</Link>
-          <Link to="/hr/mlist" className="nav-link">Manpower</Link>
-          <Link to="/hr/movement" className="nav-link">Movement</Link>
-          <Link to="/hr/project-records" className="nav-link">Projects</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/it" className="nav-link">Dashboard</Link>
+          <Link to="/it/chat" className="nav-link">Chat</Link>
+          <Link to="/it/material-list" className="nav-link">Materials</Link>
+          <Link to="/it/manpower-list" className="nav-link">Manpower</Link>
+          <Link to="/it/auditlogs" className="nav-link">Audit Logs</Link>
         </nav>
-        <div className="profile-menu-container">
+        <div className="profile-menu-container-IT">
           <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
             {user?.name?.charAt(0).toUpperCase()}
           </div>
@@ -271,4 +270,4 @@ const HrChat = () => {
   );
 };
 
-export default HrChat;
+export default ItChat;

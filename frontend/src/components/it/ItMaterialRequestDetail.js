@@ -87,11 +87,11 @@ const ItMaterialRequestDetail = () => {
                 <h1 className="brand-name">FadzTrack</h1>
             </div>
             <nav className="nav-menu">
-                <Link to="/it" className="nav-link">Dashboard</Link>
-                <Link to="/chat" className="nav-link">Chat</Link>
-                <Link to='/it/material-list' className="nav-link">Materials</Link>
-                <Link to='/it/manpower-list' className="nav-link">Manpower</Link>
-                <Link to="/it/auditlogs" className="nav-link">Audit Logs</Link>
+              <Link to="/it" className="nav-link">Dashboard</Link>
+              <Link to="/it/chat" className="nav-link">Chat</Link>
+              <Link to='/it/material-list' className="nav-link">Materials</Link>
+              <Link to='/it/manpower-list' className="nav-link">Manpower</Link>
+              <Link to="/it/auditlogs" className="nav-link">Audit Logs</Link>
             </nav>
             <div className="profile-menu-container">
                 <div

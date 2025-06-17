@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaPaperPlane } from 'react-icons/fa';
 import EmojiPicker from 'emoji-picker-react';
-import '../style/hr_style/HrChat.css';
+import '../style/pm_style/PmChat.css';
 import api from '../../api/axiosInstance';
 
-const HrChat = () => {
+const PmChat = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user'));
@@ -20,29 +20,11 @@ const HrChat = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showInfoSidebar, setShowInfoSidebar] = useState(false);
+  const [project, setProject] = useState(null);
 
   useEffect(() => {
     if (!token || !user) navigate('/');
   }, [navigate, token, user]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.profile-menu-container')) setProfileMenuOpen(false);
-      if (!event.target.closest('.modern-emoji-container')) setShowEmojiPicker(false);
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/');
-  };
-
-  const formatDateTime = (ts) => {
-    const date = new Date(ts);
-    return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleString();
-  };
 
   useEffect(() => {
     const fetchConversations = async () => {
@@ -92,6 +74,31 @@ const HrChat = () => {
     fetchMessages();
   }, [selectedUser, userId, token]);
 
+useEffect(() => {
+    if (!token || !userId) return;
+    const fetchAssignedPMProject = async () => {
+    try {
+        const { data } = await api.get(`/projects/assigned/projectmanager/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+        });
+        setProject(data);
+    } catch (err) {
+        setProject(null);
+    }
+    };
+    fetchAssignedPMProject();
+}, [token, userId]);
+
+  const formatDateTime = (ts) => {
+    const date = new Date(ts);
+    return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleString();
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/');
+  };
+
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedUser) return;
     try {
@@ -102,15 +109,15 @@ const HrChat = () => {
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setNewMessage('');
-      const updated = await api.get(`/messages/${userId}/${selectedUser._id}`, {
+      const { data } = await api.get(`/messages/${userId}/${selectedUser._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      const formatted = updated.data.map(msg => ({
+      const formatted = data.map(msg => ({
         ...msg,
         isOwn: msg.sender === userId
       }));
       setMessages(formatted);
+      setNewMessage('');
     } catch (err) {
       console.error('Send failed:', err);
     }
@@ -133,17 +140,18 @@ const HrChat = () => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/hr/dash" className="nav-link">Dashboard</Link>
-          <Link to="/hr/chat" className="nav-link">Chat</Link>
-          <Link to="/hr/mlist" className="nav-link">Manpower</Link>
-          <Link to="/hr/movement" className="nav-link">Movement</Link>
-          <Link to="/hr/project-records" className="nav-link">Projects</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
+          <Link to="/pm" className="nav-link">Dashboard</Link>
+          <Link to="/pm/chat" className="nav-link">Chat</Link>
+          <Link to="/pm/request/:id" className="nav-link">Material</Link>
+          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
+          {project && (
+            <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">View Project</Link>
+          )}
+          <Link to="/pm/daily-logs" className="nav-link">Logs</Link>
+          <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {user?.name?.charAt(0).toUpperCase()}
-          </div>
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
           {profileMenuOpen && (
             <div className="profile-menu">
               <button onClick={handleLogout}>Logout</button>
@@ -271,4 +279,4 @@ const HrChat = () => {
   );
 };
 
-export default HrChat;
+export default PmChat;

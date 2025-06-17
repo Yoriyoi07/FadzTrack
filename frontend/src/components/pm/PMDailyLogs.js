@@ -235,12 +235,12 @@ const PMDailyLogs = () => {
         </div>
         <nav className="nav-menu">
           <Link to="/pm" className="nav-link">Dashboard</Link>
+          <Link to="/pm/chat" className="nav-link">Chat</Link>
           <Link to="/pm/request/:id" className="nav-link">Material</Link>
           <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
           {project && (
             <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">View Project</Link>
           )}
-          <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/pm/daily-logs" className="nav-link">Logs</Link>
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>

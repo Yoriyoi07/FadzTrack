@@ -65,7 +65,7 @@ const PmMaterialRequestDetail = () => {
   }
 
   return (
-    <div className="app-container">
+    <div>
       <div className="dashboard-layout">
         {/* Sidebar with Chats */}
         <div className="sidebar">
