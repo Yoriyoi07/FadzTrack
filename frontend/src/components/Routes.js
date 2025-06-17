@@ -47,6 +47,7 @@ import ItManpowerList from './it/ItManpowerList';
 import ItManpowerRequestDetail from './it/ItManpowerRequestDetail';
 import ItMaterialRequestDetail from './it/ItMaterialRequestDetail';
 import TwoFactorAuth from './TwoFactorAuth';
+import HrChat from './hr/HrChat';
 
 const AppRoutes = ({ forceUserUpdate }) => {
   return (
@@ -70,7 +71,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
 
   {/* PIC */}
   <Route path="/pic" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicDash /></PrivateRoute>} />
-  <Route path="/pic/chat" element={<PrivateRoute allowedRoles={["PPerson in Charge"]}><PicChat /></PrivateRoute>} />
+  <Route path="/pic/chat" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicChat /></PrivateRoute>} />
   <Route path="/pic/request/:id" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicReq /></PrivateRoute>} />
   <Route path="/pic/:id" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicProject /></PrivateRoute>} />
   <Route path="/pic/projects/:projectId/request" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicMatReq /></PrivateRoute>} />
@@ -111,6 +112,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
   <Route path="/hr/mlist" element={<PrivateRoute allowedRoles={["HR"]}><HrManpowerList /></PrivateRoute>} />
   <Route path="/hr/movement" element={<PrivateRoute allowedRoles={["HR"]}><HrMovementList /></PrivateRoute>} />
   <Route path='/hr/project-records' element={<PrivateRoute allowedRoles={["HR"]}><HrProj /></PrivateRoute>} />
+  <Route path='/hr/chat' element={<PrivateRoute allowedRoles={["HR"]}><HrChat /></PrivateRoute>} />
 
   {/* Reusable */}
   <Route path="/approve-deny/:id" element={<PrivateRoute allowedRoles={["Project Manager", "Area Manager", "CEO"]}><ApproveDenyAction /></PrivateRoute>} />

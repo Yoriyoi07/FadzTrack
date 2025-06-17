@@ -3,6 +3,22 @@ const router = express.Router();
 const User = require('../models/User');
 const Project = require('../models/Project');
 
+
+router.get('/search', async (req, res) => {
+  const query = req.query.query;
+  try {
+    const users = await User.find({
+      $or: [
+        { name: { $regex: query, $options: 'i' } },
+        { email: { $regex: query, $options: 'i' } },
+      ]
+    }).select('-password'); // hide password
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
 // Fetch users by role
 router.get('/role/:role', async (req, res) => {
   try {

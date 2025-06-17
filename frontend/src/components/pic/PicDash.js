@@ -21,7 +21,8 @@ const PicDash = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const [nudgeCooldowns, setNudgeCooldowns] = useState({});
-
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
 
   useEffect(() => {
   const saved = localStorage.getItem('nudgeCooldowns');
@@ -282,28 +283,28 @@ const handleLogout = () => {
         {/* Nudge button (only show if there's a pending role) */}
         {pendingRole && (
          <button
-  className="nudge-btn"
-  disabled={!!nudgeCooldowns[request._id]} // disable if in cooldown
-  onClick={e => {
-    e.stopPropagation();
-    handleNudge(request, pendingRole);
-  }}>
-  {nudgeCooldowns[request._id]
-    ? `Nudge Disabled (${Math.ceil((nudgeCooldowns[request._id] - Date.now()) / 60000)}m left)`
-    : `Remind ${pendingRole}`}
-</button>
+            className="nudge-btn"
+            disabled={!!nudgeCooldowns[request._id]} // disable if in cooldown
+            onClick={e => {
+              e.stopPropagation();
+              handleNudge(request, pendingRole);
+            }}>
+            {nudgeCooldowns[request._id]
+              ? `Nudge Disabled (${Math.ceil((nudgeCooldowns[request._id] - Date.now()) / 60000)}m left)`
+              : `Remind ${pendingRole}`}
+          </button>
 
-        )}
-      </div>
-      <div className="request-requester">
-        <div className="request-requester-name">{request.createdBy?.name || '-'}</div>
-        <div className="request-date">
-          {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
-        </div>
-      </div>
-    </div>
-  );
-})}
+                  )}
+                </div>
+                <div className="request-requester">
+                  <div className="request-requester-name">{request.createdBy?.name || '-'}</div>
+                  <div className="request-date">
+                    {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
                 </div>
                 <div className="pagination-controls">
                   <span className="pagination-info">

@@ -11,7 +11,6 @@ const userSchema = new mongoose.Schema({
   locations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Location' }],
 }, {
   timestamps: true  
-});
-
+}); 
 
 module.exports = mongoose.model('User', userSchema);
