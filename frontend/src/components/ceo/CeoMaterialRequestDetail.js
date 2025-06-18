@@ -199,16 +199,16 @@ const CeoMaterialReq = () => {
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                  <NotificationBell />
-                  <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-                    {userName.charAt(0).toUpperCase() || 'Z'}
-                  </div>
-                  {profileMenuOpen && (
-                    <div className="profile-menu">
-                      <button onClick={handleLogout}>Logout</button>
-                    </div>
-                  )}
-                </div>
+          <NotificationBell />
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName.charAt(0).toUpperCase() || 'Z'}
+          </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="dashboard-layout">
@@ -265,53 +265,52 @@ const CeoMaterialReq = () => {
                 <p style={{ margin: 0, fontStyle: 'italic' }}>{requestData.project?.location || '-'}</p>
                 <p style={{ margin: 0, color: '#555' }}>{requestData.project?.targetDate || ''}</p>
               </div>
-              {/* --- VIEW MODE --- */}
-              <>
-                {/* Materials */}
-                <div className="materials-section">
-                  <h2 className="section-title">Material to be Requested</h2>
-                  <div className="materials-list">
-                    {requestData.materials.map((mat, idx) => (
-                      <div key={idx} className="material-item">
-                        <span className="material-name">
-                          <strong>Material:</strong> {mat.materialName}
-                        </span>
-                        <span className="material-quantity">
-                          <strong>Quantity:</strong> {mat.quantity}
-                        </span>
+
+              {/* Materials */}
+              <div className="materials-section">
+                <h2 className="section-title">Material to be Requested</h2>
+                <div className="materials-list">
+                  {requestData.materials.map((mat, idx) => (
+                    <div key={idx} className="material-item">
+                      <span className="material-name">
+                        <strong>Material:</strong> {mat.materialName}
+                      </span>
+                      <span className="material-quantity">
+                        <strong>Quantity:</strong> {mat.quantity}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Attachments */}
+              <div className="attachments-section">
+                <h2 className="section-title">Attachment Proof</h2>
+                <div className="attachments-grid">
+                  {requestData.attachments?.length
+                    ? requestData.attachments.map((file, idx) => (
+                      <div key={idx} className="attachment-item">
+                        <img src={getAttachmentUrl(file)} alt={`Attachment ${idx + 1}`} className="attachment-image" />
                       </div>
-                    ))}
-                  </div>
+                    ))
+                    : <div>No attachments</div>
+                  }
                 </div>
-                {/* Attachments */}
-                <div className="attachments-section">
-                  <h2 className="section-title">Attachment Proof</h2>
-                  <div className="attachments-grid">
-                    {requestData.attachments?.length
-                      ? requestData.attachments.map((file, idx) => (
-                        <div key={idx} className="attachment-item">
-                          <img src={getAttachmentUrl(file)} alt={`Attachment ${idx + 1}`} className="attachment-image" />
-                        </div>
-                      ))
-                      : <div>No attachments</div>
-                    }
-                  </div>
+              </div>
+              {/* Description */}
+              <div className="description-section">
+                <h2 className="section-title">Request Description</h2>
+                <div className="description-content">
+                  <p>{requestData.description}</p>
                 </div>
-                {/* Description */}
-                <div className="description-section">
-                  <h2 className="section-title">Request Description</h2>
-                  <div className="description-content">
-                    <p>{requestData.description}</p>
-                  </div>
-                </div>
-                {/* Action Buttons */}
-                <ApproveDenyActions
-                  requestData={requestData}
-                  userId={userId}
-                  userRole={userRoleLocal}
-                  onBack={() => navigate(-1)}
-                />
-              </>
+              </div>
+
+              {/* Action Buttons and CEO approval fields (Handled inside ApproveDenyActions) */}
+              <ApproveDenyActions
+                requestData={requestData}
+                userId={userId}
+                userRole={userRoleLocal}
+                onBack={() => navigate(-1)}
+              />
             </div>
           </main>
         </div>

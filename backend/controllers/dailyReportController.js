@@ -148,3 +148,45 @@ exports.getApprovedMaterialDeliveries = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+exports.getAllDailyReports = async (req, res) => {
+  try {
+    const reports = await DailyReport.find()
+      .populate('submittedBy', 'name')
+      .populate('project', 'projectName'); 
+    res.json(reports);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+// Get daily reports submitted by the logged-in user
+exports.getMyDailyReports = async (req, res) => {
+  try {
+    const userId = req.user.id; 
+    const reports = await DailyReport.find({ submittedBy: userId })
+      .populate('submittedBy', 'name')
+      .populate('project', 'projectName');
+    res.json(reports);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get a daily report by its ID
+exports.getDailyReportById = async (req, res) => {
+  try {
+    const report = await DailyReport.findById(req.params.id)
+      .populate('submittedBy', 'name')
+      .populate('siteAttendance.manpower')
+      .populate('materialDeliveries.delivery')
+      .populate('project', 'projectName');
+    if (!report) {
+      return res.status(404).json({ message: 'Daily report not found' });
+    }
+    res.json(report);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

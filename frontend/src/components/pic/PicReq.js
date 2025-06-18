@@ -436,6 +436,26 @@ const MaterialRequestDetail = () => {
                   </div>
                 </div>
 
+                {requestData.status === 'Approved' && (requestData.purchaseOrder || requestData.totalValue) && (
+  <div className="ceo-approval-section" style={{
+    margin: '30px 0 20px 0', padding: '18px', border: '1px solid #ebebeb', borderRadius: 8, background: '#f8fafc'
+  }}>
+    <h2 style={{ margin: 0, marginBottom: 8, color: '#1955a4' }}>CEO Final Approval</h2>
+    <div style={{ fontSize: 16 }}>
+      {requestData.purchaseOrder && (
+        <div style={{ marginBottom: 4 }}>
+          <strong>Purchase Order #:</strong> {requestData.purchaseOrder}
+        </div>
+      )}
+      {requestData.totalValue && (
+        <div>
+          <strong>Total Value (₱):</strong> {Number(requestData.totalValue).toLocaleString()}
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
                 <div className="action-buttons">
                   <button onClick={handleBack} className="back-btn">Back</button>
                   {isEditable && (

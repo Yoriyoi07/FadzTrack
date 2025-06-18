@@ -1,0 +1,251 @@
+.progress-report-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #87CEEB 0%, #E0F6FF 50%, #FFF8DC 100%);
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.progress-report-content {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  padding: 40px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.report-header {
+  margin-bottom: 30px;
+}
+
+.report-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dropdown-arrow {
+  font-size: 20px;
+  color: #7f8c8d;
+}
+
+.filter-section {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.filter-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.filter-btn.active {
+  background: #2980b9;
+}
+
+.filter-btn:hover {
+  background: #2980b9;
+  transform: translateY(-1px);
+}
+
+.location-dropdown {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.location-select {
+  background: white;
+  border: 2px solid #e1e8ed;
+  border-radius: 6px;
+  padding: 8px 30px 8px 12px;
+  font-size: 14px;
+  color: #2c3e50;
+  appearance: none;
+  cursor: pointer;
+  min-width: 150px;
+}
+
+.location-select:focus {
+  outline: none;
+  border-color: #3498db;
+}
+
+.location-dropdown .dropdown-arrow {
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
+  color: #7f8c8d;
+}
+
+.reports-section {
+  margin-bottom: 40px;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #ecf0f1;
+}
+
+.reports-table {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.5fr 2fr 1.5fr;
+  background: #f8f9fa;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.header-cell {
+  padding: 15px 20px;
+  font-weight: 600;
+  color: #495057;
+  font-size: 14px;
+  text-align: left;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.5fr 2fr 1.5fr;
+  border-bottom: 1px solid #e9ecef;
+  transition: background-color 0.2s ease;
+}
+
+.table-row:hover {
+  background-color: #f8f9fa;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.table-cell {
+  padding: 15px 20px;
+  color: #495057;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+}
+
+.download-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 5px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.3s ease;
+}
+
+.download-btn:hover {
+  background: #2980b9;
+  transform: translateY(-1px);
+}
+
+.back-button-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 40px;
+}
+
+.back-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 12px 40px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.back-btn:hover {
+  background: #2980b9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .progress-report-content {
+    padding: 20px;
+    margin: 10px;
+  }
+  
+  .report-title {
+    font-size: 24px;
+  }
+  
+  .table-header,
+  .table-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .header-cell,
+  .table-cell {
+    padding: 10px;
+    border-bottom: 1px solid #e9ecef;
+  }
+  
+  .header-cell {
+    background: #f8f9fa;
+    font-weight: 600;
+  }
+  
+  .filter-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .progress-report-container {
+    padding: 10px;
+  }
+  
+  .progress-report-content {
+    padding: 15px;
+  }
+  
+  .report-title {
+    font-size: 20px;
+  }
+  
+  .section-title {
+    font-size: 18px;
+  }
+}

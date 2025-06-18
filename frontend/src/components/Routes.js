@@ -52,6 +52,11 @@ import ItChat from './it/ItChat';
 import CeoChat from './ceo/CeoChat';
 import AreaChat from './am/AreaChat';
 import PmChat from './pm/PmChat';
+import ProgressReport from './am/ProgressReport';
+import PmProgressReport from './pm/PmProgressReport';
+import PmDailyLogsList from './pm/PmDailyLogsList';
+import PmViewDailyLogs from './pm/PmViewDailyLogs';
+
 
 const AppRoutes = ({ forceUserUpdate }) => {
   return (
@@ -73,6 +78,9 @@ const AppRoutes = ({ forceUserUpdate }) => {
   <Route path="/pm/manpower-list" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmManpowerList /></PrivateRoute>} />
   <Route path="/pm/viewprojects/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmViewProjects /></PrivateRoute>} />
   <Route path="/pm/daily-logs" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDailyLogs /></PrivateRoute>} />
+  <Route path="/pm/progress-report/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmProgressReport /></PrivateRoute>} />
+  <Route path="/pm/daily-logs-list" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDailyLogsList /></PrivateRoute>} />
+  <Route path="/pm/daily-logs/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmViewDailyLogs /></PrivateRoute>} />
 
   {/* PIC */}
   <Route path="/pic" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicDash /></PrivateRoute>} />
@@ -95,6 +103,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
   <Route path="/am/projects/:id" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaViewSpecificProj /></PrivateRoute>} />
   <Route path="/am/material-list" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaMaterialList /></PrivateRoute>} />
   <Route path="/am/material-request/:id" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaMaterialReq /></PrivateRoute>} />
+  <Route path="/am/progress-report/:id" element={<PrivateRoute allowedRoles={["Area Manager"]}><ProgressReport /></PrivateRoute>} />
 
   {/* IT */}
   <Route path="/it" element={<PrivateRoute allowedRoles={["IT"]}><ItDash /></PrivateRoute>} />

@@ -38,18 +38,35 @@ const ApproveDenyActions = ({
 
   const showApproveDeny = isPendingForMe && !hasActed;
 
+  // CEO Inputs
+  const isCEOApproval = status === 'Pending CEO' && roleKey === 'CEO';
+  const [purchaseOrder, setPurchaseOrder] = useState('');
+  const [totalValue, setTotalValue] = useState('');
+  const [ceoFieldError, setCeoFieldError] = useState('');
+
   // Modal state
   const [showDenyReason, setShowDenyReason] = useState(false);
   const [denyReason, setDenyReason] = useState('');
 
   // Approve
   const handleApprove = async () => {
+    if (isCEOApproval) {
+      if (!purchaseOrder.trim() || !totalValue.trim()) {
+        setCeoFieldError('Purchase Order and Total Value are required.');
+        return;
+      }
+    }
     if (!window.confirm('Are you sure you want to APPROVE this request?')) return;
     const token = localStorage.getItem('token');
     try {
+      const payload = { decision: 'approved' };
+      if (isCEOApproval) {
+        payload.purchaseOrder = purchaseOrder;
+        payload.totalValue = totalValue;
+      }
       await api.post(
         `/requests/${requestData._id}/approve`,
-        { decision: 'approved' },
+        payload,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert('Request approved.');
@@ -128,9 +145,16 @@ const ApproveDenyActions = ({
     approveLabel = 'Validate';
   }
 
+  // Find CEO approval data if exists
+  const ceoApproval = (requestData?.approvals || []).find(
+    (a) => a.role === 'CEO' && a.decision === 'approved'
+  );
+  const ceoPONum = ceoApproval?.purchaseOrder || requestData?.purchaseOrder;
+  const ceoPOValue = ceoApproval?.totalValue || requestData?.totalValue;
+
   return (
     <>
-      {/* Denied Banner Styled to Match Main Detail */}
+      {/* Denied Banner */}
       {isDenied && deniedApproval && (
         <div style={{ marginBottom: 24 }}>
           <div style={{
@@ -166,6 +190,52 @@ const ApproveDenyActions = ({
           fontWeight: 600
         }}>
           This Request has been Closed and Items were Successfully Delivered On: {receivedDate}
+        </div>
+      )}
+
+      {/* CEO FINAL APPROVAL (Always show if approved by CEO) */}
+      {ceoApproval && (
+        <div className="ceo-approved-details" style={{ marginBottom: 18, background: "#f6fafd", borderRadius: 8, padding: "12px 18px" }}>
+          <h3 style={{ color: "#1f4e79", margin: 0, fontWeight: 600 }}>CEO Final Approval</h3>
+          <div style={{ marginTop: 6, marginBottom: 4 }}>
+            <strong>Purchase Order #:</strong> {ceoPONum}
+          </div>
+          <div>
+            <strong>Total Value (₱):</strong> {ceoPOValue}
+          </div>
+        </div>
+      )}
+
+      {/* CEO INPUTS ONLY WHEN PENDING CEO */}
+      {showApproveDeny && isCEOApproval && (
+        <div className="ceo-approval-fields" style={{ marginBottom: 18 }}>
+          <h3 style={{ marginBottom: 8, color: '#1f4e79' }}>CEO Final Approval</h3>
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ fontWeight: 500, marginRight: 10 }}>
+              Purchase Order #
+              <input
+                type="text"
+                value={purchaseOrder}
+                onChange={e => setPurchaseOrder(e.target.value)}
+                placeholder="Enter Purchase Order Number"
+                style={{ marginLeft: 10, padding: 6, borderRadius: 4, border: '1px solid #ccc' }}
+              />
+            </label>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ fontWeight: 500, marginRight: 10 }}>
+              Total Value (₱)
+              <input
+                type="number"
+                min={0}
+                value={totalValue}
+                onChange={e => setTotalValue(e.target.value)}
+                placeholder="Enter Total Value"
+                style={{ marginLeft: 10, padding: 6, borderRadius: 4, border: '1px solid #ccc' }}
+              />
+            </label>
+          </div>
+          {ceoFieldError && <div style={{ color: "red", marginTop: 3 }}>{ceoFieldError}</div>}
         </div>
       )}
 

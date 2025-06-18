@@ -31,6 +31,8 @@ const materialRequestSchema = new mongoose.Schema({
   ],
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   receivedByPIC: { type: Boolean, default: false },
+  purchaseOrder: { type: String },      
+  totalValue: { type: Number }, 
   receivedDate: { type: Date },
   receivedAt: { type: Date },
   receivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

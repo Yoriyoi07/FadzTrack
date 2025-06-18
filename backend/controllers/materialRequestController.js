@@ -278,7 +278,7 @@ exports.deleteMaterialRequest = async (req, res) => {
 
 // ========== APPROVE MATERIAL REQUEST ==========
 exports.approveMaterialRequest = async (req, res) => {
-  const { decision, reason } = req.body;
+  const { decision, reason, purchaseOrder, totalValue } = req.body;
   const userId = req.user.id.toString();
   const userRole = req.user.role;
   try {
@@ -318,11 +318,20 @@ exports.approveMaterialRequest = async (req, res) => {
       nextStatus = decision === 'approved' ? 'Pending CEO' : 'Denied by Area Manager';
     } else if (currentStatus === 'Pending CEO' && isCEO) {
       nextStatus = decision === 'approved' ? 'Approved' : 'Denied by CEO';
+      if (decision === 'approved') {
+        // CEO must provide purchaseOrder and totalValue
+        if (!purchaseOrder || !totalValue) {
+          return res.status(400).json({ message: 'Purchase Order and Total Value are required for CEO approval.' });
+        }
+        request.purchaseOrder = purchaseOrder;
+        request.totalValue = totalValue;
+      }
     } else {
       console.log('403: Unauthorized or invalid state', {currentStatus, isPM, isAM, isCEO});
       return res.status(403).json({ message: 'Unauthorized or invalid state' });
     }
 
+    // Log this approval action
     request.approvals.push({
       role: userRole,
       user: userId,
@@ -333,7 +342,7 @@ exports.approveMaterialRequest = async (req, res) => {
     request.status = nextStatus;
     await request.save();
 
-    // NOTIFY NEXT APPROVER (already in your code)
+    // NOTIFY NEXT APPROVER
     if (decision === 'approved') {
       if (nextStatus === 'Pending Area Manager' && project.areamanager) {
         let amId = project.areamanager;
