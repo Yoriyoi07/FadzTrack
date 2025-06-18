@@ -9,6 +9,7 @@
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.10.0",
     "emoji-picker-react": "^4.12.2",
+    "jspdf": "^3.0.1",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.503.0",
     "papaparse": "^5.5.3",

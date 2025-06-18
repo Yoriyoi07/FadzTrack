@@ -21,6 +21,7 @@ const dailyReportRoutes = require('./route/dailyReport');
 const notificationRoutes = require('./route/notification');
 const geminiRoutes = require('./route/gemini');
 const messageRoutes = require('./route/messageRoutes');
+const dssReportRoutes = require('./route/dssReport');
 
 const app = express();
 const server = http.createServer(app);
@@ -66,6 +67,7 @@ app.use('/api/manpower', manpowerRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/dss-report', dssReportRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/uploads', express.static('uploads'));
 app.get('/', (req, res) => res.send('API is working'));

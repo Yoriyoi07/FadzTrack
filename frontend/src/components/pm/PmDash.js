@@ -170,7 +170,9 @@ const PmDash = ({forceUserUpdate}) => {
             <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">View Project</Link>
           )}
           <Link to="/pm/daily-logs" className="nav-link">Logs</Link>
-          <Link to="/pm/progress-report/:id" className="nav-link">Reports</Link>
+          {project && (
+  <Link to={`/pm/progress-report/${project._id}`}>Reports</Link>
+)}
           <Link to="/pm/daily-logs-list" className="nav-link">Daily Logs</Link>
         </nav>
         <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>

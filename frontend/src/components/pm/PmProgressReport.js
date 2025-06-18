@@ -1,76 +1,69 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
-import NotificationBell from "../NotificationBell"; // Adjust the import as needed
+import React, { useState, useEffect } from "react";
+import { Link, useParams } from "react-router-dom";
+import NotificationBell from "../NotificationBell";
+import jsPDF from "jspdf";
+import api from "../../api/axiosInstance";
 import '../style/pm_style/PmProgressReport.css';
 
-// Dummy Data for demonstration
-const currentPeriod = {
-  period: "Apr 1 - Apr 14, 2025",
-  file: "Progress Report.docx",
-  submitted: null,
-};
-const previousReports = [
-  {
-    period: "Mar 18 - Mar 31, 2025",
-    file: "Progress Report.docx",
-    submitted: "3/31/25 11:59pm",
-  },
-  {
-    period: "Mar 4 - Mar 17, 2025",
-    file: "Progress Report.docx",
-    submitted: "3/17/25 11:59pm",
-  },
-  {
-    period: "Feb 18 - Mar 3, 2025",
-    file: "Progress Report.docx",
-    submitted: "3/3/25 11:59pm",
-  },
-  {
-    period: "Feb 4 - Feb 17, 2025",
-    file: "Progress Report.docx",
-    submitted: "2/17/25 11:59pm",
-  },
-  {
-    period: "Jan 21 - Feb 3, 2025",
-    file: "Progress Report.docx",
-    submitted: "2/3/25 11:59pm",
-  },
-];
-
-export default function PmProgressReport({ project, userName = 'Z', handleLogout }) {
-  const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
+export default function PmProgressReport({ userName = 'Z', handleLogout }) {
+  const { id: projectId } = useParams(); // Get project id from URL
+  const [project, setProject] = useState(null);
+  const [aiAnalysis, setAiAnalysis] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [logsUsed, setLogsUsed] = useState([]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  // --- Button Handlers (replace with real logic) ---
-  const handleDownload = (file) => {
-    // TODO: implement download (fetch from backend)
-    alert(`Downloading: ${file}`);
+  // Fetch project details
+  useEffect(() => {
+    if (!projectId) return;
+    api.get(`/projects/${projectId}`)
+      .then(res => setProject(res.data))
+      .catch(err => setError("Project not found."));
+  }, [projectId]);
+
+  // DSS Generate Report
+  const handleGenerateReport = async () => {
+    setLoading(true);
+    setError("");
+    setAiAnalysis("");
+    try {
+      const res = await api.get(`/daily-reports/project/${projectId}`);
+      const allLogs = res.data || [];
+      const latestLogs = [...allLogs]
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 7);
+
+      setLogsUsed(latestLogs);
+
+      const dssRes = await api.post('/dss-report/generate-dss-report', { logs: latestLogs });
+      setAiAnalysis(dssRes.data.result);
+    } catch (err) {
+      setError("Failed to generate AI analysis. Please try again.");
+      setAiAnalysis("");
+    }
+    setLoading(false);
   };
 
-  const handleUpload = (e) => {
-    const file = e.target.files[0];
-    setSelectedFile(file);
-    // TODO: upload to backend
-    setUploading(true);
-    setTimeout(() => {
-      setUploading(false);
-      alert("Upload complete (stub)");
-    }, 1000);
-  };
-
-  const handleSubmit = () => {
-    // TODO: implement submit logic
-    alert("Submitted this period's report! (stub)");
-  };
-
-  const handleBack = () => {
-    // TODO: navigate back
-    alert("Going back (stub)");
+  // Download PDF helper
+  const handleDownloadPDF = () => {
+    if (!aiAnalysis) return;
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Project AI Decision Support Report", 14, 18);
+    doc.setFontSize(12);
+    doc.text(aiAnalysis, 14, 30, { maxWidth: 180 });
+    doc.setFontSize(10);
+    doc.text("Logs used for analysis:", 14, 120);
+    doc.text(JSON.stringify(logsUsed.map(l => ({
+      date: l.date,
+      summary: l.workPerformed?.map(w => w.task + " - " + w.status).join(", "),
+    })), null, 2), 14, 130, { maxWidth: 180 });
+    doc.save("AI_Progress_Report.pdf");
   };
 
   return (
-     <div>
+   <div>
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
@@ -78,15 +71,16 @@ export default function PmProgressReport({ project, userName = 'Z', handleLogout
         </div>
         <nav className="nav-menu">
           <Link to="/pm" className="nav-link">Dashboard</Link>
-          <Link to="/pm/request/:id" className="nav-link">Material</Link>
-          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
           {project && (
-            <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">View Project</Link>
+            <>
+              <Link to={`/pm/request/${project._id}`} className="nav-link">Material</Link>
+              <Link to={`/pm/viewprojects/${project._id}`} className="nav-link">View Project</Link>
+              <Link to={`/pm/progress-report/${project._id}`} className="nav-link">Reports</Link>
+            </>
           )}
+          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
           <Link to="/chat" className="nav-link">Chat</Link>
           <Link to="/pm/daily-logs" className="nav-link">Logs</Link>
-          <Link to="/pm/progress-report/:id" className="nav-link">Reports</Link>
-          <Link to="/pm/daily-logs-list" className="nav-link">Daily Logs</Link>
         </nav>
         <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <NotificationBell />
@@ -100,77 +94,40 @@ export default function PmProgressReport({ project, userName = 'Z', handleLogout
           )}
         </div>
       </header>
-
       <div className="pm-progress-bg">
         <div className="pm-progress-container">
           <h1 className="pm-progress-title">Progress Report</h1>
-
-          {/* This Period's Progress Report */}
-          <div className="pm-this-period-section">
-            <h2 className="pm-section-header">This Period's Progress Report</h2>
-            <div className="pm-report-row pm-this-period">
-              <div className="pm-report-period">{currentPeriod.period}</div>
-              <div className="pm-report-file">{currentPeriod.file}</div>
+          <div style={{ margin: "24px 0" }}>
+            <button
+              className="pm-btn pm-submit-btn"
+              onClick={handleGenerateReport}
+              disabled={loading}
+            >
+              {loading ? "Generating AI Analysis..." : "Generate AI Progress Report (DSS)"}
+            </button>
+            {aiAnalysis && (
               <button
                 className="pm-btn pm-download-btn"
-                onClick={() => handleDownload(currentPeriod.file)}
+                onClick={handleDownloadPDF}
+                style={{ marginLeft: 18 }}
               >
-                Download
+                Download as PDF
               </button>
-              <label className="pm-btn pm-upload-btn" style={{ cursor: "pointer" }}>
-                Upload
-                <input
-                  type="file"
-                  style={{ display: "none" }}
-                  onChange={handleUpload}
-                />
-              </label>
-              <button
-                className="pm-btn pm-submit-btn"
-                onClick={handleSubmit}
-                disabled={uploading}
-              >
-                {uploading ? "Uploading..." : "Submit"}
-              </button>
-            </div>
+            )}
           </div>
-
-          {/* Previous Progress Reports */}
-          <div className="pm-previous-section">
-            <h2 className="pm-section-header">Previous Progress Reports</h2>
-            <div className="pm-table-header pm-report-row">
-              <div>Report Period</div>
-              <div>File</div>
-              <div></div>
-              <div></div>
-              <div>Submitted</div>
+          {error && <div style={{ color: 'red', margin: '12px 0' }}>{error}</div>}
+          {aiAnalysis && (
+            <div className="ai-report" style={{
+              background: "#fff",
+              padding: "18px",
+              borderRadius: 10,
+              margin: "24px 0",
+              boxShadow: "0 2px 12px #0002"
+            }}>
+              <h2>AI Decision Support Analysis:</h2>
+              <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 15 }}>{aiAnalysis}</pre>
             </div>
-            {previousReports.map((report, idx) => (
-              <div className="pm-report-row" key={idx}>
-                <div className="pm-report-period">{report.period}</div>
-                <div className="pm-report-file">{report.file}</div>
-                <button
-                  className="pm-btn pm-download-btn"
-                  onClick={() => handleDownload(report.file)}
-                >
-                  Download
-                </button>
-                <label className="pm-btn pm-upload-btn" style={{ cursor: "pointer" }}>
-                  Upload
-                  <input
-                    type="file"
-                    style={{ display: "none" }}
-                    onChange={handleUpload}
-                  />
-                </label>
-                <div className="pm-report-submitted">{report.submitted}</div>
-              </div>
-            ))}
-          </div>
-
-          <button className="pm-btn pm-back-btn" onClick={handleBack}>
-            Back
-          </button>
+          )}
         </div>
       </div>
     </div>
