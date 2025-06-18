@@ -9,10 +9,9 @@ function makeDssPrompt(logs) {
   return `
 You are a Decision Support System AI for construction project management. Given these 7 daily construction logs, analyze and do the following:
 1. Predict if the project will finish on schedule. Justify using trends/delays from the logs.
-2. Identify the 3 current critical paths/tasks and explain their impact.
+2. Identify the 3 current critical paths/tasks and explain their impact. Perform critical path analysis pessimistic, realistic, and optimistic estimates.
 3. Give actionable suggestions for the project manager: Should someone be reassigned, is firing needed, is a department underperforming, etc.?
 4. Be direct and clear. Base ALL conclusions only on the data below.
-
 Here are the 7 daily logs:
 ${JSON.stringify(logs, null, 2)}
   `;
