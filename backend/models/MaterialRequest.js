@@ -33,6 +33,7 @@ const materialRequestSchema = new mongoose.Schema({
   receivedByPIC: { type: Boolean, default: false },
   purchaseOrder: { type: String },      
   totalValue: { type: Number }, 
+  ceoApprovalPDF: { type: String },
   receivedDate: { type: Date },
   receivedAt: { type: Date },
   receivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

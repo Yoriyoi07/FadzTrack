@@ -325,7 +325,10 @@ exports.approveMaterialRequest = async (req, res) => {
         }
         request.purchaseOrder = purchaseOrder;
         request.totalValue = totalValue;
-      }
+        if (req.file) {
+      request.ceoApprovalPDF = '/uploads/' + req.file.filename;
+    }
+  }     
     } else {
       console.log('403: Unauthorized or invalid state', {currentStatus, isPM, isAM, isCEO});
       return res.status(403).json({ message: 'Unauthorized or invalid state' });

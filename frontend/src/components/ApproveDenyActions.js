@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import api from '../api/axiosInstance';
 
+
+
 // Helper: Get display date from a date string
 const formatDateTime = (dateVal) => {
   if (!dateVal) return '';
@@ -11,6 +13,7 @@ const formatDateTime = (dateVal) => {
     date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
   );
 };
+
 
 const ApproveDenyActions = ({
   requestData,
@@ -47,36 +50,51 @@ const ApproveDenyActions = ({
   // Modal state
   const [showDenyReason, setShowDenyReason] = useState(false);
   const [denyReason, setDenyReason] = useState('');
-
+const [ceoPDF, setCeoPDF] = useState(null);
   // Approve
-  const handleApprove = async () => {
+const handleApprove = async () => {
+  if (isCEOApproval) {
+    if (!purchaseOrder.trim() || !totalValue.trim()) {
+      setCeoFieldError('Purchase Order and Total Value are required.');
+      return;
+    }
+    if (!ceoPDF) {
+      setCeoFieldError('Please upload the approval PDF.');
+      return;
+    }
+  }
+  if (!window.confirm('Are you sure you want to APPROVE this request?')) return;
+  const token = localStorage.getItem('token');
+  try {
+    let payload, headers;
     if (isCEOApproval) {
-      if (!purchaseOrder.trim() || !totalValue.trim()) {
-        setCeoFieldError('Purchase Order and Total Value are required.');
-        return;
-      }
+      payload = new FormData();
+      payload.append('decision', 'approved');
+      payload.append('purchaseOrder', purchaseOrder);
+      payload.append('totalValue', totalValue);
+      payload.append('ceoApprovalPDF', ceoPDF); // match multer field!
+      headers = {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'multipart/form-data'
+      };
+    } else {
+      payload = { decision: 'approved' };
+      headers = { Authorization: `Bearer ${token}` };
     }
-    if (!window.confirm('Are you sure you want to APPROVE this request?')) return;
-    const token = localStorage.getItem('token');
-    try {
-      const payload = { decision: 'approved' };
-      if (isCEOApproval) {
-        payload.purchaseOrder = purchaseOrder;
-        payload.totalValue = totalValue;
-      }
-      await api.post(
-        `/requests/${requestData._id}/approve`,
-        payload,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      alert('Request approved.');
-      if (onActionComplete) onActionComplete();
-      else onBack();
-    } catch (err) {
-      alert('Failed to approve request.');
-      console.error(err);
-    }
-  };
+    await api.post(
+      `/requests/${requestData._id}/approve`,
+      payload,
+      { headers }
+    );
+    alert('Request approved.');
+    if (onActionComplete) onActionComplete();
+    else onBack();
+  } catch (err) {
+    alert('Failed to approve request.');
+    console.error(err);
+  }
+};
+
 
   // Deny
   const handleDeny = () => setShowDenyReason(true);
@@ -235,6 +253,11 @@ const ApproveDenyActions = ({
               />
             </label>
           </div>
+          <input
+  type="file"
+  accept="application/pdf"
+  onChange={e => setCeoPDF(e.target.files[0])}
+/>
           {ceoFieldError && <div style={{ color: "red", marginTop: 3 }}>{ceoFieldError}</div>}
         </div>
       )}
