@@ -12,16 +12,18 @@ const chats = [
 ];
 
 const PicProject = () => {
-   const { id } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [project, setProject] = useState(null);
-  const token = localStorage.getItem('token');
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [totalPO, setTotalPO] = useState(0);
   const storedUser = localStorage.getItem('user');
-  const user = storedUser ? JSON.parse(storedUser) : null;  
-  const [userName, setUserName] = useState(user?.name || '');
+  const user = storedUser ? JSON.parse(storedUser) : null;
+  const [userName] = useState(user?.name || '');
   const [loading, setLoading] = useState(true);
 
+  // Fetch project assigned to this user
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
     if (!id || !user?.id) return;
@@ -38,6 +40,7 @@ const PicProject = () => {
       });
   }, [id]);
 
+  // Click outside handler for profile menu
   useEffect(() => {
     const handleClickOutside = event => {
       if (!event.target.closest(".profile-menu-container")) {
@@ -47,6 +50,21 @@ const PicProject = () => {
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
+
+  // Fetch all approved material requests for this project
+  useEffect(() => {
+    if (!project?._id) return;
+    api.get('/requests')
+      .then(res => {
+        const approvedPOs = res.data.filter(
+          req => req.project?._id === project._id && req.status === 'Approved' && req.totalValue
+        );
+        setPurchaseOrders(approvedPOs);
+        const total = approvedPOs.reduce((sum, req) => sum + (Number(req.totalValue) || 0), 0);
+        setTotalPO(total);
+      })
+      .catch(() => {});
+  }, [project]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -71,17 +89,17 @@ const PicProject = () => {
           <Link to="/pic/projects" className="nav-link">My Projects</Link>
           <Link to="/pic/chat" className="nav-link">Chat</Link>
         </nav>
-       <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-        <NotificationBell />
-        <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-          {userName?.charAt(0).toUpperCase() || 'Z'}
-        </div>
-        {profileMenuOpen && (
-          <div className="profile-menu">
-            <button onClick={handleLogout}>Logout</button>
+        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+          <NotificationBell />
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName?.charAt(0).toUpperCase() || 'Z'}
           </div>
-        )}
-      </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="dashboard-layout">
@@ -138,12 +156,41 @@ const PicProject = () => {
                     {new Date(project.startDate).toLocaleDateString()} - {new Date(project.endDate).toLocaleDateString()}
                   </p>
                 </div>
-              </div>
-              <div className="details-column">
+
+                {/* BUDGET & PURCHASE ORDER SECTION */}
                 <div className="budget-container">
-                  <p className="budget-amount">₱{project.budget?.toLocaleString() || '0'}</p>
+                  <p className="budget-amount">
+                    ₱{project.budget?.toLocaleString() || '0'}
+                    <span style={{ color: 'red', fontSize: 16, marginLeft: 8 }}>
+                      {totalPO > 0 && (
+                        <>
+                          - ₱{totalPO.toLocaleString()} (POs)
+                        </>
+                      )}
+                    </span>
+                  </p>
                   <p className="budget-label">Estimated Budget</p>
                 </div>
+                {/* Remaining Budget */}
+                {totalPO > 0 && (
+                  <div style={{ color: '#219653', fontWeight: 600, marginBottom: 8 }}>
+                    Remaining Budget: ₱{(project.budget - totalPO).toLocaleString()}
+                  </div>
+                )}
+                {/* Purchase Order Breakdown */}
+                {purchaseOrders.length > 0 && (
+                  <div style={{ color: 'red', fontSize: 13, marginBottom: 8 }}>
+                    Purchase Orders:
+                    <ul style={{ margin: 0, padding: '0 0 0 16px', color: 'red' }}>
+                      {purchaseOrders.map(po => (
+                        <li key={po._id}>
+                          PO#: <b>{po.purchaseOrder}</b> — ₱{Number(po.totalValue).toLocaleString()}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 <div className="detail-group">
                   <span className="detail-label">PIC:</span>
                   <div className="detail-value">
