@@ -21,18 +21,19 @@ exports.addProject = async (req, res) => {
     } = req.body;
 
     let photos = [];
-if (req.files && req.files.length > 0) {
-  for (let file of req.files) {
-    // Create a unique path
-    const filePath = getPhotoPath('project', Date.now(), file.originalname);
-    // Upload to Supabase
+    let documentsUrls = [];
+    // Handle photo uploads (public bucket)
+if (req.files && req.files.photos && req.files.photos.length > 0) {
+  for (let file of req.files.photos) {
+    const filePath = `project-photos/project-${Date.now()}-${file.originalname}`;
     const { data, error } = await supabase.storage
-      .from('photos')
+      .from('photos') // <-- your public photo bucket!
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,
         upsert: true,
       });
     if (!error && data) {
+      // Get public URL for the photo
       const { data: publicUrlData } = supabase.storage
         .from('photos')
         .getPublicUrl(filePath);
@@ -42,6 +43,25 @@ if (req.files && req.files.length > 0) {
     }
   }
 }
+
+
+ // Handle document uploads (private bucket)
+    if (req.files && req.files.documents && req.files.documents.length > 0) {
+      for (let file of req.files.documents) {
+        const filePath = `project-documents/project-${Date.now()}-${file.originalname}`;
+        const { data, error } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file.buffer, {
+            contentType: file.mimetype,
+            upsert: true,
+          });
+        if (!error && data) {
+          // For private bucket, store only path, not public URL
+          documentsUrls.push(filePath);
+        }
+      }
+    }
+
 
 
     // Create the new project
@@ -56,7 +76,8 @@ if (req.files && req.files.length > 0) {
       endDate: new Date(endDate),   
       manpower,
       areamanager,
-      photos
+      photos,
+      documents: documentsUrls, // Store document paths
     });
 
     // Save project

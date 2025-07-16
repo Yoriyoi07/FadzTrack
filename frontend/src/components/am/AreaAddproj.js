@@ -10,7 +10,8 @@ const AreaAddproj = () => {
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
-    const [userName, setUserName] = useState(user?.name || 'ALECK');
+  const [documents, setDocuments] = useState([]);
+  const [userName, setUserName] = useState(user?.name || 'ALECK');
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [eligiblePMs, setEligiblePMs] = useState([]);
@@ -223,6 +224,9 @@ useEffect(() => {
     photos.forEach(file => {
       form.append('photos', file);
     });
+    documents.forEach(file => {
+  form.append('documents', file); 
+});
 
     try {
       await api.post('/projects', form, {
@@ -552,6 +556,27 @@ useEffect(() => {
               ))}
             </div>
           )}
+
+          <div className="area-addproj-form-group">
+  <label htmlFor="documents">Project Documents</label>
+  <input
+    type="file"
+    id="documents"
+    name="documents"
+    multiple
+    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip"
+    onChange={e => setDocuments(Array.from(e.target.files))}
+  />
+  <small style={{ color: '#888' }}>You may upload PDF, DOCX, Excel, PowerPoint, text, CSV, or ZIP files.</small>
+</div>
+
+{documents.length > 0 && (
+  <ul style={{ margin: '10px 0', color: '#444', fontSize: 13 }}>
+    {documents.map((file, i) => (
+      <li key={i}>{file.name}</li>
+    ))}
+  </ul>
+)}
 
             <div className="area-addproj-form-row area-addproj-submit-row">
               <button type="submit" className="area-addproj-submit-button">Add Project</button>

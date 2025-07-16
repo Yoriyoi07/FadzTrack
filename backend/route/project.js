@@ -13,7 +13,7 @@ router.get('/by-user-status', controller.getProjectsByUserAndStatus);
 
 
 // CRUD
-router.post('/', verifyToken, upload.array('photos'), controller.addProject);
+router.post('/',verifyToken,upload.fields([{ name: 'photos', maxCount: 10 },{ name: 'documents', maxCount: 10 }]),controller.addProject);
 router.get('/', controller.getAllProjects);
 router.get('/:id', controller.getProjectById);
 router.patch('/:id/tasks', verifyToken, controller.updateProjectTasks);

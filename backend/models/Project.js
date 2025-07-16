@@ -8,6 +8,7 @@ const projectSchema = new mongoose.Schema({
   contractor: String,
   budget: Number,
   photos: [String], 
+  documents: [String], 
   location: { type: mongoose.Schema.Types.ObjectId, ref: 'Location', required: true },
   startDate: { type: Date, required: true },
   endDate: { type: Date, required: true },

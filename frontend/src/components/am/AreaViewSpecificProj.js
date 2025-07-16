@@ -106,9 +106,6 @@ console.log("project.photos[0]:", project.photos && project.photos[0]);
 />
 
 
-
-
-
             {progress === 100 && (
               <button
                 onClick={async () => {
