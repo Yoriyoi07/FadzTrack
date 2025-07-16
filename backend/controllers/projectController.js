@@ -1,6 +1,8 @@
 const Project = require('../models/Project');
 const { logAction } = require('../utils/auditLogger');
 const Manpower = require('../models/Manpower'); 
+const supabase = require('../utils/supabaseClient');
+const getPhotoPath = require('../utils/photoPath');
 
 // CREATE PROJECT
 exports.addProject = async (req, res) => {
@@ -18,7 +20,29 @@ exports.addProject = async (req, res) => {
       areamanager
     } = req.body;
 
-    const photos = req.files ? req.files.map(file => '/uploads/' + file.filename) : [];
+    let photos = [];
+if (req.files && req.files.length > 0) {
+  for (let file of req.files) {
+    // Create a unique path
+    const filePath = getPhotoPath('project', Date.now(), file.originalname);
+    // Upload to Supabase
+    const { data, error } = await supabase.storage
+      .from('photos')
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: true,
+      });
+    if (!error && data) {
+      const { data: publicUrlData } = supabase.storage
+        .from('photos')
+        .getPublicUrl(filePath);
+      if (publicUrlData && publicUrlData.publicUrl) {
+        photos.push(publicUrlData.publicUrl);
+      }
+    }
+  }
+}
+
 
     // Create the new project
     const newProject = new Project({

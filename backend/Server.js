@@ -22,7 +22,6 @@ const notificationRoutes = require('./route/notification');
 const geminiRoutes = require('./route/gemini');
 const messageRoutes = require('./route/messageRoutes');
 const dssReportRoutes = require('./route/dssReport');
-
 const app = express();
 const server = http.createServer(app);
 
@@ -56,6 +55,7 @@ mongoose.connect(process.env.MONGO_URI, {
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // ---- Routes ----
+
 app.use('/api/gemini', geminiRoutes);
 app.use('/api/daily-reports', dailyReportRoutes);
 app.use('/api/auth', authRoutes);
@@ -69,7 +69,6 @@ app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/dss-report', dssReportRoutes);
 app.use('/api/messages', messageRoutes);
-app.use('/uploads', express.static('uploads'));
 app.get('/', (req, res) => res.send('API is working'));
 
 // ---- SOCKET.IO ----

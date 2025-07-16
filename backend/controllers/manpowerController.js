@@ -25,12 +25,12 @@ exports.uploadManpowerFromCSV = async (req, res) => {
 
 exports.getUnassignedManpower = async (req, res) => {
   try {
-    // Fetch manpower whose assignedProject is null (unassigned) and status is 'Inactive'
-    const unassignedInactiveManpower = await Manpower.find({ 
+    // Fetch manpower whose assignedProject is null (unassigned) and status is 'Active'
+    const unassignedActiveManpower = await Manpower.find({ 
       assignedProject: null, 
-      status: 'Inactive' 
+      status: 'Active' 
     });
-    res.json(unassignedInactiveManpower);
+    res.json(unassignedActiveManpower);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

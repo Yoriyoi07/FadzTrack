@@ -4,6 +4,7 @@
   "private": true,
   "main": "Server.js",
   "dependencies": {
+    "@supabase/supabase-js": "^2.51.0",
     "axios": "^1.10.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
@@ -11,9 +12,9 @@
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.16.0",
+    "mongoose": "^8.16.3",
     "mongoose-sequence": "^6.0.1",
-    "multer": "^2.0.0",
+    "multer": "^2.0.1",
     "nodemailer": "^6.10.1",
     "socket.io": "^4.8.1"
   },

@@ -5,6 +5,7 @@ import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 
 
+
 const AreaViewSpecificProj = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -57,7 +58,7 @@ const AreaViewSpecificProj = () => {
   };
 
   if (!project) return <div>Loading...</div>;
-
+console.log("project.photos[0]:", project.photos && project.photos[0]);
   return (
     <div>
      {/* Header remains the same */}
@@ -98,18 +99,14 @@ const AreaViewSpecificProj = () => {
           </div>
 
           <div className="project-image-container">
-           <img
-  src={
-    project.photos && project.photos.length > 0
-      ? `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${project.photos[0]}`
-      : 'https://placehold.co/400x250?text=No+Photo'
-  }
+        <img
+  src={project.photos && project.photos.length > 0 ? project.photos[0] : 'https://placehold.co/400x250?text=No+Photo'}
   alt={project.projectName}
-  className="project-image"
-    width={250}   // or whatever size you want
-  height={150}  // or whatever size you want
-  style={{ objectFit: "cover", borderRadius: 8 }}
+  className="responsive-photo"
 />
+
+
+
 
 
             {progress === 100 && (

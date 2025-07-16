@@ -261,3 +261,13 @@
     padding: 1.5rem;
   }
 }
+
+.responsive-photo {
+  width: 100%;
+  max-width: 1000px;
+  aspect-ratio: 4/3;   
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+  margin: 0 auto;
+}
