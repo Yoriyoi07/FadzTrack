@@ -554,3 +554,12 @@
   display: block;
   text-align: right;
 }
+
+.unread {
+  font-weight: bold;
+}
+.sidebar-tick {
+  color: #4caf50;
+  margin-left: 4px;
+  font-size: 0.85em;
+}

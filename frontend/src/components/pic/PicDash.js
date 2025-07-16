@@ -99,8 +99,6 @@ useEffect(() => {
   }
 };
 
-
-
   // Only fetch user's active/ongoing project
   useEffect(() => {
     if (!token || !userId) return;
@@ -170,10 +168,10 @@ const handleLogout = () => {
         </div>
         <nav className="nav-menu">
           <Link to="/pic" className="nav-link">Dashboard</Link>
-          {project && (<Link to={`/pic/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
-          {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
-          <Link to="/pic/projects" className="nav-link">My Projects</Link>
-          <Link to="/pic/chat" className="nav-link">Chat</Link>
+            <Link to="/pic/chat" className="nav-link">Chat</Link>
+            {project && (<Link to={`/pic/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
+            {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
+            <Link to="/pic/projects" className="nav-link">My Projects</Link>
         </nav>
         <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <NotificationBell />

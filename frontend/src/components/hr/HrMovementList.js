@@ -40,14 +40,13 @@ export default function HrManpowerMovement() {
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
-          <nav className="nav-menu">
-            <Link to="/hr/dash" className="nav-link">Dashboard</Link>
-            <Link to="/hr/chat" className="nav-link">Chat</Link>
-            <Link to="/hr/mlist" className="nav-link">Manpower</Link>
-            <Link to="/hr/movement" className="nav-link">Movement</Link>
-            <Link to="/hr/project-records" className="nav-link">Projects</Link>
-            <Link to="/logs" className="nav-link">Logs</Link>
-          </nav>
+        <nav className="nav-menu">
+          <Link to="/hr/dash" className="nav-link">Dashboard</Link>
+          <Link to="/hr/chat" className="nav-link">Chat</Link>
+          <Link to="/hr/mlist" className="nav-link">Manpower</Link>
+          <Link to="/hr/movement" className="nav-link">Movement</Link>
+          <Link to="/hr/project-records" className="nav-link">Projects</Link>
+        </nav>
         <div className="profile-menu-container">
           <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
           {profileMenuOpen && (
@@ -59,27 +58,38 @@ export default function HrManpowerMovement() {
       </header>
 
       <main className="hr-movelist-container">
+        {/* TITLE LABEL */}
+        <h2 className="hr-movelist-title" style={{ marginBottom: '20px', marginTop: 0 }}>Manpower Movements</h2>
         <div className="hr-movelist-content">
-          {currentRequests.map((req, index) => (
-            <div className="hr-movelist-item" key={req._id || index}>
-              <div className="hr-movelist-details">
-                <strong>Manpower Request for{" "}{req.manpowers?.length > 0
-                    ? req.manpowers.map(mp => `${mp.quantity} ${mp.type}`).join(", ")
-                    : "N/A"}
-                </strong>
-                <p>Requested by: {req.createdBy?.name || 'N/A'}</p>
-              </div>
-              <div className="hr-movelist-meta">
-                <p>Approved by: {req.approvedBy || 'N/A'}</p>
-                <p>{req.updatedAt ? new Date(req.updatedAt).toLocaleDateString() : 'N/A'}</p>
-              </div>
+          {currentRequests.length === 0 ? (
+            <div style={{ textAlign: 'center', width: '100%', padding: '50px 0', color: '#666', fontSize: '18px' }}>
+              No manpower request found
             </div>
-          ))}
+          ) : (
+            currentRequests.map((req, index) => (
+              <div className="hr-movelist-item" key={req._id || index}>
+                <div className="hr-movelist-details">
+                  <strong>
+                    Manpower Request for{" "}
+                    {req.manpowers?.length > 0
+                      ? req.manpowers.map(mp => `${mp.quantity} ${mp.type}`).join(", ")
+                      : "N/A"}
+                  </strong>
+                  <p>Requested by: {req.createdBy?.name || 'N/A'}</p>
+                </div>
+                <div className="hr-movelist-meta">
+                  <p>Approved by: {req.approvedBy || 'N/A'}</p>
+                  <p>{req.updatedAt ? new Date(req.updatedAt).toLocaleDateString() : 'N/A'}</p>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
+        {/* PAGINATION */}
         <div className="hr-movelist-pagination">
           <span>
-            Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, requests.length)} of {requests.length} entries.
+            Showing {requests.length === 0 ? 0 : startIndex + 1} to {requests.length === 0 ? 0 : Math.min(startIndex + ITEMS_PER_PAGE, requests.length)} of {requests.length} entries.
           </span>
           <div className="hr-movelist-pages">
             <button className="hr-movelist-page-btn" disabled={currentPage === 1} onClick={() => handlePageChange(currentPage - 1)}>&lt;</button>
@@ -92,7 +102,7 @@ export default function HrManpowerMovement() {
                 {i + 1}
               </button>
             ))}
-            <button className="hr-movelist-page-btn" disabled={currentPage === totalPages} onClick={() => handlePageChange(currentPage + 1)}>&gt;</button>
+            <button className="hr-movelist-page-btn" disabled={currentPage === totalPages || totalPages === 0} onClick={() => handlePageChange(currentPage + 1)}>&gt;</button>
           </div>
         </div>
       </main>

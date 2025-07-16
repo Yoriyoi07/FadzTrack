@@ -146,13 +146,18 @@
   padding-bottom: 20px;
 }
 
+/* Ensure sidebar items justify content so time sits at far right */
 .modern-chat-item {
   display: flex;
   align-items: center;
-  padding: 12px 20px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-left: 3px solid transparent;
+  justify-content: flex-start; /* children: avatar, info, then time */
+}
+
+/* Timestamp on the far right of each chat item */
+.modern-chat-time {
+  margin-left: auto;
+  font-size: 11px;
+  color: #8e8e93;
 }
 
 .modern-chat-item:hover {
@@ -290,6 +295,7 @@
 }
 
 /* Messages Area */
+/* Messages Area */
 .modern-chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -304,42 +310,43 @@
   margin-top: 40px;
 }
 
+/* make each wrapper take full width */
 .modern-message-wrapper {
-  margin-bottom: 15px;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  position: relative;
+  margin-bottom: 16px;
 }
 
+/* sent messages go right, received go left */
 .modern-message-wrapper.own {
-  align-items: flex-end;
+  align-items: flex-end;  
+}
+.modern-message-wrapper.other {
+  align-items: flex-start; 
 }
 
+/* style the bubble */
 .modern-message {
-  background-color: #007bff;
-  color: white;
-  padding: 10px 14px;
-  border-radius: 16px;
-  max-width: 70%;
-  word-break: break-word;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;  /* messages align left by default */
   position: relative;
 }
 
+/* different colors */
 .modern-message.own {
-  background-color: #0078fe; /* soft blue for your own messages */
+  background-color: #0078fe;
   color: white;
-  align-self: flex-end;
+  align-items: flex-start;
 }
-
 .modern-message.other {
   background-color: #f0f0f0;
   color: #1a1a1a;
 }
 
-.modern-message-content {
-  font-size: 14px;
-}
-
+/* timestamp inside bubble */
 .modern-message-time {
   font-size: 11px;
   opacity: 0.8;
@@ -552,5 +559,154 @@
   margin-left: 8px;
   margin-top: 4px;
   display: block;
-  text-align: right;
+  text-align: left;
+}
+
+/* Image reactions */
+.image-message-container {
+  position: relative;
+  display: inline-block;
+}
+.image-message-container img {
+  max-width: 200px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+/* hide the + until hover */
+.reaction-add-btn {
+  position: absolute;
+  bottom: -4px;
+  right: 8px;
+  border: none;
+  background: #ffffff;
+  color: #000000;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.reaction-add-btn:hover {
+  opacity: 1;
+}
+
+.modern-message:hover .reaction-add-btn {
+  opacity: 1;
+}
+
+/* position existing reactions bar above bubble */
+.reactions-bar {
+  display: flex;
+  gap: 4px;
+  margin-top: 2px;  
+  justify-content: center;
+}
+
+.reactions-bar.below {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  justify-content: flex-start; /* adjust as you like */
+}
+
+/* style each pill */
+.reaction-pill {
+  background: #fff;
+  border: 1px solid #000;
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  margin: 0 2px;
+}
+
+.reaction-pill.reacted {
+  background: #000;
+  color: #fff;
+}
+
+.reaction-pill .count {
+  font-size: 10px;
+  margin-left: 4px;
+}
+
+
+.reaction-picker.horiz {
+  position: absolute;
+  bottom: -36px;
+  left: 0;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  padding: 4px 8px;
+  z-index: 10;
+}
+.reaction-picker.horiz .reaction-btn {
+  border: none;
+  background: none;
+  font-size: 18px;
+  cursor: pointer;
+}
+.reaction-picker.horiz .reaction-btn.close {
+  margin-left: 8px;
+  font-size: 16px;
+}
+
+/* style reaction pills */
+.reaction {
+  background: #ffffff;
+  border: 1px solid #000000;
+  border-radius: 12px;
+  padding: 2px 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* pop-up picker above the bubble */
+.reaction-picker-overlay {
+  position: absolute;
+  bottom: -48px;  /* sit above the + */
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 6px 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  display: flex;     
+  gap: 6px;
+  z-index: 20;
+}
+
+/* show who reacted on top of picker */
+.reaction-list {
+  font-size: 13px;
+  color: #333;
+  margin-bottom: 6px;
+}
+
+.reaction-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+}
+.reaction-btn.close {
+  font-size: 16px;
+}
+
+.seen-indicator {
+  font-size: 11px;
+  color: #666;
+  margin-top: 2px;
+  text-align: left;  
 }

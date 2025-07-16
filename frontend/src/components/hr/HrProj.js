@@ -55,7 +55,6 @@ const HrProj = () => {
               <Link to="/hr/mlist" className="nav-link">Manpower</Link>
               <Link to="/hr/movement" className="nav-link">Movement</Link>
               <Link to="/hr/project-records" className="nav-link">Projects</Link>
-              <Link to="/logs" className="nav-link">Logs</Link>
             </nav>
         <div className="profile-menu-container">
           <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>

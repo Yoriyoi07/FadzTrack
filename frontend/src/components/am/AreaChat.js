@@ -1,135 +1,242 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { FaPaperPlane } from 'react-icons/fa';
-import EmojiPicker from 'emoji-picker-react';
+// src/components/AreaChat.jsx
+import React, { useEffect, useState, useRef } from 'react';
+import { Link, useNavigate }        from 'react-router-dom';
+import { FaPaperPlane, FaUsers }    from 'react-icons/fa';
+import EmojiPicker                  from 'emoji-picker-react';
+import { io }                       from 'socket.io-client';
 import '../style/am_style/AreaChat.css';
-import api from '../../api/axiosInstance';
+import api                          from '../../api/axiosInstance';
+
+const SOCKET_SERVER_URL = process.env.REACT_APP_SOCKET_URL || '/';
 
 const AreaChat = () => {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
-  const user = JSON.parse(localStorage.getItem('user'));
-  const userId = user?._id;
+  const token    = localStorage.getItem('token');
+  const user     = JSON.parse(localStorage.getItem('user') || '{}');
+  const userId   = user?._id;
+  const headers  = { Authorization: `Bearer ${token}` };
 
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [chatList, setChatList] = useState([]);
-  const [searchResults, setSearchResults] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [showInfoSidebar, setShowInfoSidebar] = useState(false);
+  // socket ref
+  const socket = useRef();
 
+  // UI state
+  const [chats, setChats]                   = useState([]);
+  const [selectedChat, setSelectedChat]     = useState(null);
+  const [messages, setMessages]             = useState([]);
+  const [newMessage, setNewMessage]         = useState('');
+  const [reactionPickerMsg, setReactionPickerMsg] = useState(null);
+  const [profileMenuOpen, setProfileMenuOpen]     = useState(false);
+  const [searchQuery, setSearchQuery]             = useState('');
+  const [searchResults, setSearchResults]         = useState([]);
+  const [showEmojiPicker, setShowEmojiPicker]     = useState(false);
+  const [showInfoSidebar, setShowInfoSidebar]     = useState(false);
+
+  // tick for re-fetching messages
+  const [tick, setTick] = useState(0);
+
+  // auto‐scroll anchor
+  const messagesEndRef = useRef(null);
+
+  // 1) init socket once
   useEffect(() => {
-    if (!token || !user) navigate('/');
-  }, [navigate, token, user]);
+    socket.current = io(SOCKET_SERVER_URL, { auth: { token } });
 
-  useEffect(() => {
-    const fetchConversations = async () => {
-      try {
-        const { data } = await api.get(`/messages/conversations/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` }
+    socket.current.on('receiveMessage', msg => {
+      if (
+        selectedChat &&
+        msg.conversation.toString() === selectedChat._id
+      ) {
+        // bump tick to re-fetch thread
+        setTick(t => t + 1);
+        // mark it seen
+        socket.current.emit('messageSeen', {
+          chatId:    selectedChat._id,
+          messageId: msg._id,
+          userId
         });
-        setChatList(data);
+      }
+    });
+
+    socket.current.on('messageSeen', ({ messageId, userId: seenBy, timestamp }) => {
+      setMessages(ms =>
+        ms.map(m =>
+          m._id === messageId
+            ? { ...m, seen: [...(m.seen||[]), { userId: seenBy, timestamp }] }
+            : m
+        )
+      );
+    });
+
+    return () => socket.current.disconnect();
+  }, [token, selectedChat, userId]);
+
+  // auto‐scroll when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Redirect if not logged in
+  useEffect(() => {
+    if (!token || !userId) navigate('/');
+  }, [navigate, token, userId]);
+
+  // Load chats
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await api.get(`/chats/${userId}`, { headers });
+        setChats(data);
       } catch {
-        setChatList([]);
+        setChats([]);
       }
-    };
-    fetchConversations();
-  }, [token, userId, messages]);
+    })();
+  }, [userId]);
 
+  // Debounced user search
   useEffect(() => {
-    const delay = setTimeout(() => {
-      if (!searchQuery.trim()) {
-        setSearchResults([]);
-        return;
-      }
-      api.get(`/users/search?query=${searchQuery}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(({ data }) => {
-        setSearchResults(data.filter(u => u._id !== userId));
-      });
-    }, 300);
-    return () => clearTimeout(delay);
-  }, [searchQuery, token, userId]);
-
-  useEffect(() => {
-    if (!selectedUser || !userId) return;
-    const fetchMessages = async () => {
+    const h = setTimeout(async () => {
+      if (!searchQuery.trim()) return setSearchResults([]);
       try {
-        const { data } = await api.get(`/messages/${userId}/${selectedUser._id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const formatted = data.map(msg => ({
-          ...msg,
-          isOwn: msg.sender === userId
-        }));
-        setMessages(formatted);
-      } catch (err) {
-        console.error('Fetch message failed:', err);
+        const { data } = await api.get(
+          `/users/search?query=${encodeURIComponent(searchQuery)}`,
+          { headers }
+        );
+        setSearchResults(data.filter(u => u._id !== userId));
+      } catch {
+        setSearchResults([]);
       }
-    };
-    fetchMessages();
-  }, [selectedUser, userId, token]);
+    }, 300);
+    return () => clearTimeout(h);
+  }, [searchQuery, userId]);
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedUser) return;
-    try {
-      await api.post('/messages', {
-        sender: userId,
-        receiver: selectedUser._id,
-        content: newMessage
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setNewMessage('');
-      const updated = await api.get(`/messages/${userId}/${selectedUser._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const formatted = updated.data.map(msg => ({
-        ...msg,
-        isOwn: msg.sender === userId
-      }));
-      setMessages(formatted);
-    } catch (err) {
-      console.error('Send failed:', err);
-    }
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const formatDateTime = (ts) => {
-    const date = new Date(ts);
-    return isNaN(date.getTime()) ? 'Invalid date' : date.toLocaleString();
-  };
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/');
-  };
-
-  const activeList = searchQuery.trim() ? searchResults : chatList;
-
+  // Fetch & join on chat select *and* whenever tick increments
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.profile-menu-container-AM')) setProfileMenuOpen(false);
-      if (!event.target.closest('.modern-emoji-container')) setShowEmojiPicker(false);
+    if (!selectedChat) return;
+    socket.current.emit('joinChat', selectedChat._id);
+
+    (async () => {
+      try {
+        const { data } = await api.get(
+          `/messages/${selectedChat._id}`,
+          { headers }
+        );
+        const normalized = data.map(m => ({
+          ...m,
+          isOwn:      m.sender._id.toString() === userId,
+          reactions: m.reactions || [],
+          seen:      m.seen || []
+        }));
+        setMessages(normalized);
+
+        // mark all incoming as seen
+        normalized
+          .filter(m => !m.isOwn)
+          .forEach(m =>
+            socket.current.emit('messageSeen', {
+              chatId:    selectedChat._id,
+              messageId: m._id,
+              userId
+            })
+          );
+      } catch (err) {
+        console.error('fetchMessages error', err);
+      }
+    })();
+  }, [selectedChat, userId, tick, headers]);
+
+  // Start/open 1:1
+  const handleSelectUser = async u => {
+    let chat = chats.find(c =>
+      !c.isGroup && c.users.some(x => x._id === u._id)
+    );
+    if (!chat) {
+      const { data } = await api.post(
+        '/chats',
+        { users: [userId, u._id], isGroup: false },
+        { headers }
+      );
+      chat = data;
+      setChats(prev => [chat, ...prev]);
+    }
+    setSelectedChat(chat);
+    setSearchQuery('');
+    setSearchResults([]);
+    // reset tick so our effect will fetch right away
+    setTick(t => t + 1);
+  };
+
+  // Send a message
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedChat) return;
+    const payload = {
+      conversationId: selectedChat._id,
+      sender:         userId,
+      content:        newMessage.trim(),
+      type:           'text'
     };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
+    await api.post('/messages', payload, { headers });
+    setNewMessage('');
+    socket.current.emit('sendMessage', {
+      chatId:   selectedChat._id,
+      senderId: userId,
+      content:  payload.content,
+      type:     'text'
+    });
+  };
+
+  // Toggle reaction
+  const toggleReaction = async (msg, emoji) => {
+    const getUid = r =>
+      typeof r.userId === 'string' ? r.userId : r.userId._id;
+    const existing = msg.reactions.find(r => getUid(r) === userId);
+
+    if (existing && existing.emoji === emoji) {
+      await api.delete(`/messages/${msg._id}/reactions`, {
+        data: { userId, emoji },
+        headers
+      });
+    } else {
+      if (existing) {
+        await api.delete(`/messages/${msg._id}/reactions`, {
+          data: { userId, emoji: existing.emoji },
+          headers
+        });
+      }
+      await api.post(
+        `/messages/${msg._id}/reactions`,
+        { userId, emoji },
+        { headers }
+      );
+    }
+    // locally update for instant feedback
+    setMessages(ms =>
+      ms.map(m =>
+        m._id === msg._id
+          ? {
+              ...m,
+              reactions: existing
+                ? m.reactions.filter(r => !(getUid(r) === userId && r.emoji === emoji))
+                : [...m.reactions.filter(r => getUid(r) !== userId), { userId, emoji }]
+            }
+          : m
+      )
+    );
+    setReactionPickerMsg(null);
+  };
+
+  const formatDateTime = ts => new Date(ts).toLocaleString();
+  const handleLogout    = () => { localStorage.clear(); navigate('/'); };
 
   return (
     <div className="pic-chat-wrapper">
+      {/* HEADER */}
       <header className="header">
         <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
+          <img
+            src={require('../../assets/images/FadzLogo1.png')}
+            alt="FadzTrack"
+            className="logo-img"
+          />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
@@ -142,8 +249,11 @@ const AreaChat = () => {
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container-AM">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {user?.name?.charAt(0).toUpperCase()}
+          <div
+            className="profile-circle"
+            onClick={() => setProfileMenuOpen(o => !o)}
+          >
+            {user?.name?.[0]?.toUpperCase()}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">
@@ -153,116 +263,249 @@ const AreaChat = () => {
         </div>
       </header>
 
+      {/* MAIN */}
       <div className="pic-chat-content">
+        {/* SIDEBAR */}
         <div className="modern-sidebar">
           <div className="modern-sidebar-header">
             <h2 className="modern-sidebar-title">Chats</h2>
             <input
-              type="text"
               className="modern-search-input"
-              placeholder="Search chats or users..."
+              placeholder="Search chats or users…"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={e => setSearchQuery(e.target.value)}
             />
           </div>
           <div className="modern-chat-list">
-            {activeList.length === 0 ? (
-              <div className="modern-no-chats">No chats or users found.</div>
-            ) : (
-              activeList.map((entry) => {
-                const userObj = entry.user || entry;
-                const preview = entry.lastMessage?.content?.slice(0, 30) || userObj.email;
-                return (
-                  <div
-                    key={userObj._id}
-                    className={`modern-chat-item ${selectedUser?._id === userObj._id ? 'active' : ''}`}
-                    onClick={() => {
-                      setSelectedUser(userObj);
-                      setMessages([]);
-                    }}
-                  >
-                    <div className="modern-chat-avatar">{userObj.name?.charAt(0).toUpperCase()}</div>
-                    <div className="modern-chat-info">
-                      <div className="modern-chat-name">{userObj.name}</div>
-                      <div className="modern-chat-preview">{preview}</div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
+            {searchQuery.trim()
+              ? (searchResults.length
+                  ? searchResults.map(u => (
+                      <div
+                        key={u._id}
+                        className="modern-chat-item"
+                        onClick={() => handleSelectUser(u)}
+                      >
+                        <div className="modern-chat-avatar">
+                          {u.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="modern-chat-info">
+                          <div className="modern-chat-name">{u.name}</div>
+                          <div className="modern-chat-preview">{u.email}</div>
+                        </div>
+                      </div>
+                    ))
+                  : <div className="modern-no-chats">No users found.</div>)
+              : (chats.length
+                  ? chats.map(c => {
+                      const isGroup = c.isGroup;
+                      const title   = isGroup
+                        ? c.name
+                        : c.users.find(u => u._id !== userId)?.name;
+                      const preview = c.lastMessage?.content || 'No messages yet';
+                      const timeStr = c.lastMessage?.timestamp
+                        ? new Date(c.lastMessage.timestamp)
+                            .toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })
+                        : '';
+                      return (
+                        <div
+                          key={c._id}
+                          className={`modern-chat-item ${
+                            selectedChat?._id === c._id ? 'active':''
+                          }`}
+                          onClick={() => { setSelectedChat(c); setMessages([]); setTick(t=>t+1); }}
+                        >
+                          <div className="modern-chat-avatar">
+                            {isGroup ? <FaUsers/> : title?.[0]?.toUpperCase()}
+                          </div>
+                          <div className="modern-chat-info">
+                            <div className="modern-chat-name">{title}</div>
+                            <div className="modern-chat-preview">{preview.slice(0,30)}</div>
+                          </div>
+                          <div className="modern-chat-time">{timeStr}</div>
+                        </div>
+                      );
+                    })
+                  : <div className="modern-no-chats">No chats yet.</div>)
+            }
           </div>
         </div>
 
+        {/* CHAT */}
         <div className="modern-chat-section">
           <div className="modern-chat-wrapper">
             <div className="modern-chat-main">
-              {selectedUser ? (
+              {selectedChat ? (
                 <>
+                  {/* Header */}
                   <div className="modern-chat-header">
                     <div className="modern-chat-header-left">
-                      <div className="modern-chat-header-avatar">{selectedUser.name?.charAt(0).toUpperCase()}</div>
+                      <div className="modern-chat-header-avatar">
+                        {selectedChat.isGroup
+                          ? <FaUsers/>
+                          : selectedChat.users
+                              .find(u => u._id !== userId)
+                              .name[0].toUpperCase()
+                        }
+                      </div>
                       <div className="modern-chat-header-info">
-                        <h3>{selectedUser.name}</h3>
+                        <h3>
+                          {selectedChat.isGroup
+                            ? selectedChat.name
+                            : selectedChat.users
+                                .find(u => u._id !== userId)
+                                .name
+                          }
+                        </h3>
                         <p className="modern-chat-header-status">Online</p>
                       </div>
                     </div>
-                    <button className="modern-info-btn" onClick={() => setShowInfoSidebar(!showInfoSidebar)}>i</button>
+                    <button
+                      className="modern-info-btn"
+                      onClick={() => setShowInfoSidebar(s => !s)}
+                    >i</button>
                   </div>
 
+                  {/* Messages */}
                   <div className="modern-chat-messages">
-                    {messages.length === 0 ? (
-                      <div className="modern-no-messages">No messages yet. Start the conversation!</div>
-                    ) : (
-                      messages.map((msg) => (
-                        <div key={msg._id} className={`modern-message-wrapper ${msg.isOwn ? 'own' : 'other'}`}>
-                          <div className={`modern-message ${msg.isOwn ? 'own' : 'other'}`}>
-                            <div className="modern-message-content">{msg.content}</div>
-                            <div className="modern-message-time">{formatDateTime(msg.timestamp)}</div>
+                    {messages.map(msg => {
+                      const counts = msg.reactions.reduce((a,r) => {
+                        a[r.emoji] = (a[r.emoji]||0)+1;
+                        return a;
+                      }, {});
+                      return (
+                        <div
+                          key={msg._id}
+                          className={`modern-message-wrapper ${
+                            msg.isOwn ? 'own':'other'
+                          }`}
+                        >
+                          <div className={`modern-message ${
+                            msg.isOwn ? 'own':'other'
+                          }`}>
+                            <button
+                              className="reaction-add-btn"
+                              onClick={()=>setReactionPickerMsg(msg)}
+                            >+</button>
+                            {msg.type==='image'
+                              ? <img src={msg.content} className="message-image" alt=""/>
+                              : <div className="modern-message-content">
+                                  {msg.content}
+                                </div>
+                            }
+                            <div className="modern-message-time">
+                              {formatDateTime(msg.timestamp)}
+                            </div>
+                            {msg.isOwn && msg.seen?.length>0 && (
+                              <div className="seen-indicator">
+                                Seen{' '}
+                                {new Date(
+                                  msg.seen[msg.seen.length-1].timestamp
+                                ).toLocaleTimeString([], {
+                                  hour:'2-digit', minute:'2-digit'
+                                })}
+                              </div>
+                            )}
+                            <div className="reactions-bar">
+                              {Object.entries(counts).map(([e,c]) => (
+                                <button
+                                  key={e}
+                                  className="reaction-pill"
+                                  onClick={()=>toggleReaction(msg,e)}
+                                >
+                                  {e}{c>1?` ${c}`:''}
+                                </button>
+                              ))}
+                            </div>
+                            {reactionPickerMsg?._id===msg._id && (
+                              <div className="reaction-picker-overlay">
+                                {['👍','❤️','😂','😮','😢','👎'].map(e=>(
+                                  <button
+                                    key={e}
+                                    className="reaction-btn"
+                                    onClick={()=>toggleReaction(msg,e)}
+                                  >{e}</button>
+                                ))}
+                                <button
+                                  className="reaction-btn close"
+                                  onClick={()=>setReactionPickerMsg(null)}
+                                >×</button>
+                              </div>
+                            )}
                           </div>
                         </div>
-                      ))
-                    )}
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
                   </div>
 
+                  {/* Input */}
                   <div className="modern-message-input-container">
                     <div className="modern-input-wrapper">
                       <label className="modern-attach-btn">
-                        <img src={require('../../assets/images/attach.png')} alt="attach" className="attach-icon" />
-                        <input type="file" hidden accept=".jpg,.jpeg,.png,.pdf,.docx" />
+                        <img
+                          src={require('../../assets/images/attach.png')}
+                          className="attach-icon"
+                          alt="attach"
+                        />
+                        <input type="file" hidden accept=".jpg,.jpeg,.png,.pdf,.docx"/>
                       </label>
                       <input
-                        type="text"
-                        placeholder="Type your message here"
                         className="modern-chat-input"
+                        placeholder="Type your message here"
                         value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={handleKeyPress}
+                        onChange={e=>setNewMessage(e.target.value)}
+                        onKeyPress={e=>e.key==='Enter'&&!e.shiftKey&&handleSendMessage()}
                       />
                       <div className="modern-emoji-container">
-                        <button className="modern-emoji-btn" onClick={() => setShowEmojiPicker(!showEmojiPicker)}>😊</button>
+                        <button
+                          className="modern-emoji-btn"
+                          onClick={()=>setShowEmojiPicker(p=>!p)}
+                        >😊</button>
                         {showEmojiPicker && (
                           <div className="modern-emoji-picker">
-                            <EmojiPicker onEmojiClick={(emojiData) => setNewMessage((prev) => prev + emojiData.emoji)} height={360} width={300} />
+                            <EmojiPicker
+                              onEmojiClick={(_,data)=>setNewMessage(m=>m+data.emoji)}
+                              height={360} width={300}
+                            />
                           </div>
                         )}
                       </div>
-                      <button className="modern-send-btn" onClick={handleSendMessage} disabled={!newMessage.trim()}>
-                        <FaPaperPlane />
-                      </button>
+                      <button
+                        className="modern-send-btn"
+                        onClick={handleSendMessage}
+                        disabled={!newMessage.trim()}
+                      ><FaPaperPlane/></button>
                     </div>
                   </div>
                 </>
               ) : (
-                <div className="modern-no-chat-selected">Select a chat to start messaging</div>
+                <div className="modern-no-chat-selected">
+                  Select a chat to start messaging
+                </div>
               )}
             </div>
 
-            {selectedUser && showInfoSidebar && (
+            {/* Info Sidebar */}
+            {selectedChat && showInfoSidebar && (
               <div className="modern-contact-info">
-                <h3>Contact Info</h3>
-                <div className="modern-contact-field"><strong>Name:</strong> {selectedUser.name}</div>
-                <div className="modern-contact-field"><strong>Email:</strong> {selectedUser.email}</div>
-                <div className="modern-contact-field"><strong>Phone:</strong> {selectedUser.phone || 'N/A'}</div>
+                <h3>Details</h3>
+                {selectedChat.isGroup ? (
+                  <p>
+                    <strong>Members:</strong>{' '}
+                    {selectedChat.users.map(u => u.name).join(', ')}
+                  </p>
+                ) : (
+                  <>
+                    <div>
+                      <strong>Name:</strong>{' '}
+                      {selectedChat.users.find(u=>u._id!==userId).name}
+                    </div>
+                    <div>
+                      <strong>Email:</strong>{' '}
+                      {selectedChat.users.find(u=>u._id!==userId).email}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
