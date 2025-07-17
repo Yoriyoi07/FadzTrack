@@ -11,24 +11,6 @@ const socketio     = require('socket.io');
 const Message = require('./models/Messages');
 const Chat    = require('./models/Chats');
 
-<<<<<<< Updated upstream
-// --- Route imports
-const authRoutes = require('./route/auth');
-const projectRoutes = require('./route/project');
-const manpowerRequestRoutes = require('./route/manpowerRequest');
-const materialRequestRoutes = require('./route/materialRequest');
-const { verifyToken } = require('./middleware/authMiddleware');
-const userRoutes = require('./route/user');
-const locationRoutes = require('./route/location');
-const manpowerRoutes = require('./route/manpower');
-const auditLogRoutes = require('./route/auditLog');
-const dailyReportRoutes = require('./route/dailyReport');
-const notificationRoutes = require('./route/notification');
-const geminiRoutes = require('./route/gemini');
-const messageRoutes = require('./route/messageRoutes');
-const dssReportRoutes = require('./route/dssReport');
-const app = express();
-=======
 // Route imports
 const authRoutes             = require('./route/auth');
 const projectRoutes          = require('./route/project');
@@ -47,7 +29,6 @@ const messageRoutes          = require('./route/messageRoutes');
 const dssReportRoutes        = require('./route/dssReport');
 
 const app    = express();
->>>>>>> Stashed changes
 const server = http.createServer(app);
 
 // CORS setup
@@ -76,23 +57,6 @@ mongoose.connect(process.env.MONGO_URI, {
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
-<<<<<<< Updated upstream
-// ---- Routes ----
-
-app.use('/api/gemini', geminiRoutes);
-app.use('/api/daily-reports', dailyReportRoutes);
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/manpower-requests', manpowerRequestRoutes);
-app.use('/api/requests', materialRequestRoutes);
-app.use('/api/manpower', manpowerRoutes);
-app.use('/api/locations', locationRoutes);
-app.use('/api/audit-logs', auditLogRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/dss-report', dssReportRoutes);
-app.use('/api/messages', messageRoutes);
-=======
 // Mount API routes
 app.use('/api/gemini',              geminiRoutes);
 app.use('/api/daily-reports',       dailyReportRoutes);
@@ -114,7 +78,6 @@ app.use('/api/messages', messageRoutes);
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
 
->>>>>>> Stashed changes
 app.get('/', (req, res) => res.send('API is working'));
 
 // Socket.IO setup
@@ -176,7 +139,7 @@ io.on('connection', socket => {
     console.log('❌ Socket disconnected:', socket.id);
   });
 });
-
+//Server
 // Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
