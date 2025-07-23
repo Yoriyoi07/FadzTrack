@@ -70,6 +70,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
   {/* PROJECT MANAGER */}
   <Route path="/pm" element={<PrivateRoute allowedRoles={["Project Manager"]}> <PmDash forceUserUpdate={window.forceUserUpdate} /></PrivateRoute>} />
   <Route path="/pm/chat" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmChat /></PrivateRoute>} />
+  <Route path="/pm/chat/:chatId" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmChat /></PrivateRoute>} />
   <Route path="/pm/material-request/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmMatRequestDetail /></PrivateRoute>} />
   <Route path="/pm/request/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmMatRequestList /></PrivateRoute>} />
   <Route path="/pm/request-manpower" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmRequestManpower /></PrivateRoute>} />
@@ -85,6 +86,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
   {/* PIC */}
   <Route path="/pic" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicDash /></PrivateRoute>} />
   <Route path="/pic/chat" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicChat /></PrivateRoute>} />
+  <Route path="/pic/chat/:chatId" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicChat /></PrivateRoute>} />
   <Route path="/pic/request/:id" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicReq /></PrivateRoute>} />
   <Route path="/pic/:id" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicProject /></PrivateRoute>} />
   <Route path="/pic/projects/:projectId/request" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicMatReq /></PrivateRoute>} />
@@ -92,7 +94,8 @@ const AppRoutes = ({ forceUserUpdate }) => {
 
   {/* AREA MANAGER */}
   <Route path="/am" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaManagerDashboard /></PrivateRoute>} />
-  <Route path="/am/chat" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaChat /></PrivateRoute>} />
+  <Route path="/am/chat" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaChat/></PrivateRoute>}/>
+  <Route path="/am/chat/:chatId" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaChat/></PrivateRoute>}/>
   <Route path="/am/addproj" element={<PrivateRoute allowedRoles={["Area Manager"]}><AddProject /></PrivateRoute>} />
   <Route path="/am/matreq" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaMaterialList /></PrivateRoute>} />
   <Route path="/am/manpower-requests" element={<PrivateRoute allowedRoles={["Area Manager"]}><AreaManpowerList /></PrivateRoute>} />
@@ -113,6 +116,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
   <Route path="/it/manpower-list" element={<PrivateRoute allowedRoles={["IT"]}><ItManpowerList /></PrivateRoute>} />
   <Route path="/it/manpower-list/:id" element={<PrivateRoute allowedRoles={["IT"]}><ItManpowerRequestDetail /></PrivateRoute>} />
   <Route path="/it/chat" element={<PrivateRoute allowedRoles={["IT"]}><ItChat /></PrivateRoute>} />
+  <Route path="/it/chat/:chatId" element={<PrivateRoute allowedRoles={["IT"]}><ItChat /></PrivateRoute>} />
 
   {/* CEO */}
   <Route path="/ceo/proj" element={<PrivateRoute allowedRoles={["CEO"]}><CeoProj /></PrivateRoute>} />
@@ -130,6 +134,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
   <Route path="/hr/movement" element={<PrivateRoute allowedRoles={["HR"]}><HrMovementList /></PrivateRoute>} />
   <Route path='/hr/project-records' element={<PrivateRoute allowedRoles={["HR"]}><HrProj /></PrivateRoute>} />
   <Route path='/hr/chat' element={<PrivateRoute allowedRoles={["HR"]}><HrChat /></PrivateRoute>} />
+  <Route path='/hr/chat/:chatId' element={<PrivateRoute allowedRoles={["HR"]}><HrChat /></PrivateRoute>} />
 
   {/* Reusable */}
   <Route path="/approve-deny/:id" element={<PrivateRoute allowedRoles={["Project Manager", "Area Manager", "CEO"]}><ApproveDenyAction /></PrivateRoute>} />

@@ -4,7 +4,7 @@
   "private": true,
   "main": "Server.js",
   "dependencies": {
-    "@supabase/supabase-js": "^2.51.0",
+    "@supabase/supabase-js": "^2.52.0",
     "axios": "^1.10.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",

@@ -121,22 +121,34 @@ io.on('connection', socket => {
   });
 
   socket.on('messageSeen', async ({ chatId, messageId, userId }) => {
-    // 1) save to DB: add { userId, timestamp: Date.now() } to msg.seen array
+    // 1) add to message.seen
     const msg = await Message.findByIdAndUpdate(
       messageId,
       { $push: { seen: { userId, timestamp: Date.now() } } },
       { new: true }
     );
-    // 2) broadcast back to room
+
+    // 2) update the Chat's lastMessage to include seen
+    await Chat.findByIdAndUpdate(chatId, {
+      lastMessage: {
+        content:   msg.content,
+        timestamp: msg.timestamp,
+        seen:      msg.seen
+      }
+    });
+
+    // 3) broadcast that messageSeen
     io.to(chatId).emit('messageSeen', {
       messageId,
       userId,
       timestamp: msg.seen[msg.seen.length - 1].timestamp
     });
-  });
 
-  socket.on('disconnect', () => {
-    console.log('❌ Socket disconnected:', socket.id);
+    // 4) broadcast chatUpdated so any sidebar can patch its preview instantly
+    io.emit('chatUpdated', {
+      chatId,
+      lastMessage: { content: msg.content, timestamp: msg.timestamp, seen: msg.seen }
+    });
   });
 });
 //Server
