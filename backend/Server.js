@@ -27,6 +27,7 @@ const notificationRoutes     = require('./route/notification');
 const geminiRoutes           = require('./route/gemini');
 const messageRoutes          = require('./route/messageRoutes');
 const dssReportRoutes        = require('./route/dssReport');
+const photoSignedUrlRoute = require('./route/photoSignedUrl');
 
 const app    = express();
 const server = http.createServer(app);
@@ -70,6 +71,7 @@ app.use('/api/locations',           locationRoutes);
 app.use('/api/audit-logs',          auditLogRoutes);
 app.use('/api/notifications',       notificationRoutes);
 app.use('/api/dss-report',          dssReportRoutes);
+app.use('/api/photo-signed-url', photoSignedUrlRoute);
 
 // **Chat & Message** API
 app.use('/api/chats',    chatRoutes);

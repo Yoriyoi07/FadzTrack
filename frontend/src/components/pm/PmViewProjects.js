@@ -1,43 +1,37 @@
-import React, { useState, useEffect } from 'react';
-import api from '../../api/axiosInstance'; // <--- Make sure the path is correct
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import api from '../../api/axiosInstance';
 import "../style/pic_style/Pic_Project.css";
 import NotificationBell from '../NotificationBell';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaPlus } from 'react-icons/fa';
 
 const Pm_Project = () => {
-  const {id} = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
 
-  const [userName, setUserName] = useState(user?.name || 'ALECK');
-  const [userRole, setUserRole] = useState(user?.role || '');
+  const [userName] = useState(user?.name || 'ALECK');
+  const [userRole] = useState(user?.role || '');
   const [project, setProject] = useState(null);
   const [projects, setProjects] = useState([]);
-
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [showEditFields, setShowEditFields] = useState(false);
   const [editTasks, setEditTasks] = useState([{ name: '', percent: '' }]);
-
-  // Tab state
   const [activeTab, setActiveTab] = useState('Details');
-
-  // Discussions state (start empty)
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [replyInputs, setReplyInputs] = useState({});
   const [showNewMsgInput, setShowNewMsgInput] = useState(false);
-  const [fileInputKey, setFileInputKey] = useState(Date.now()); // for resetting file input
-
-  // Mention/autocomplete state
+  const [fileInputKey, setFileInputKey] = useState(Date.now());
   const [mentionDropdown, setMentionDropdown] = useState({ open: false, options: [], query: '', position: { top: 0, left: 0 } });
-  const textareaRef = React.useRef();
+  const textareaRef = useRef();
+  const [docSignedUrls, setDocSignedUrls] = useState([]);
 
   // Build staff list (PM + PICs, no manpower)
-  const staffList = React.useMemo(() => {
+  const staffList = useMemo(() => {
     if (!project) return [];
     let staff = [];
     if (project.projectmanager && typeof project.projectmanager === 'object') {
@@ -51,14 +45,13 @@ const Pm_Project = () => {
     return staff.filter(u => u._id && !seen.has(u._id) && seen.add(u._id));
   }, [project]);
 
-  // Single project fetch by ID
+  // Fetch project by ID
   useEffect(() => {
     if (!id) return;
     const fetchProject = async () => {
       try {
         const res = await api.get(`/projects/${id}`);
         setProject(res.data);
-        console.log('Fetched Project:', res.data);
       } catch (err) {
         setProject(null);
       }
@@ -84,20 +77,26 @@ const Pm_Project = () => {
     fetchProjects();
   }, [token, user, userId]);
 
-  // Fetch assigned project
+  // Fetch signed URLs for documents (private bucket)
   useEffect(() => {
-    if (!token || !userId) return;
-    const fetchAssigned = async () => {
-      try {
-        const { data } = await api.get(`/projects/assigned/${userId}`);
-        console.log('Assigned project data:', data);
-        setProject(data[0] || null);
-      } catch (err) {
-        setProject(null);
+    async function fetchSignedUrls() {
+      if (project?.documents?.length) {
+        const promises = project.documents.map(async docPath => {
+          try {
+            const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(docPath)}`);
+            return data.signedUrl;
+          } catch {
+            return null;
+          }
+        });
+        const urls = await Promise.all(promises);
+        setDocSignedUrls(urls);
+      } else {
+        setDocSignedUrls([]);
       }
-    };
-    fetchAssigned();
-  }, [token, userId]);
+    }
+    fetchSignedUrls();
+  }, [project]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -118,19 +117,16 @@ const Pm_Project = () => {
   };
 
   // ---- TASK PERCENT VALIDATION ----
-  // Calculate the total percent of all fields
   const totalPercent = editTasks.reduce(
     (sum, task) => sum + (parseInt(task.percent) || 0),
     0
   );
 
-  // Handler for each task's name or percent field
   const handleEditTaskChange = (idx, field, value) => {
     setEditTasks(tasks =>
       tasks.map((t, i) => {
         if (i !== idx) return t;
         if (field === 'percent') {
-          // Calculate sum of all except this task
           const otherTotal = tasks.reduce(
             (sum, task, j) => (j === idx ? sum : sum + (parseInt(task.percent) || 0)),
             0
@@ -147,39 +143,33 @@ const Pm_Project = () => {
     );
   };
 
-  // Add a new empty task field
   const handleAddTaskField = () => {
     setEditTasks(tasks => [...tasks, { name: '', percent: '' }]);
   };
 
-const handleSubmitTasks = async () => {
-  try {
-    // Make sure all fields filled and total 100%
-    if (
-      editTasks.some(t => !t.name.trim() || t.percent === '') ||
-      totalPercent !== 100
-    ) {
-      alert('Fill all fields and make sure total percent is 100%.');
-      return;
+  const handleSubmitTasks = async () => {
+    try {
+      if (
+        editTasks.some(t => !t.name.trim() || t.percent === '') ||
+        totalPercent !== 100
+      ) {
+        alert('Fill all fields and make sure total percent is 100%.');
+        return;
+      }
+      const formattedTasks = editTasks.map(t => ({
+        name: t.name,
+        percent: Number(t.percent)
+      }));
+      await api.patch(`/projects/${project._id}/tasks`, { tasks: formattedTasks });
+      const res = await api.get(`/projects/${project._id}`);
+      setProject(res.data);
+      setShowEditFields(false);
+      alert('Tasks updated successfully!');
+    } catch (err) {
+      alert('Failed to update tasks!');
+      console.error(err);
     }
-    // Prepare data as array of { name, percent: Number }
-    const formattedTasks = editTasks.map(t => ({
-      name: t.name,
-      percent: Number(t.percent)
-    }));
-    await api.patch(`/projects/${project._id}/tasks`, { tasks: formattedTasks });
-
-    // Refresh project data from backend (so UI reflects changes)
-    const res = await api.get(`/projects/${project._id}`);
-    setProject(res.data);
-
-    setShowEditFields(false);
-    alert('Tasks updated successfully!');
-  } catch (err) {
-    alert('Failed to update tasks!');
-    console.error(err);
-  }
-};
+  };
 
   // --- Mention Autocomplete Logic ---
   const handleTextareaInput = (e) => {
@@ -224,15 +214,11 @@ const handleSubmitTasks = async () => {
     }, 0);
   };
 
-  // --- Parse mentions and send notifications ---
   const handlePostMessage = async () => {
     if (!newMessage.trim()) return;
-    // Find all @mentions in the message
     const mentionRegex = /@([\w\s]+)/g;
     const mentionedNames = Array.from(newMessage.matchAll(mentionRegex)).map(m => m[1].trim());
-    // Map to staff users
     const mentionedUsers = staffList.filter(u => mentionedNames.includes(u.name));
-    // Post message as before
     setMessages([
       ...messages,
       {
@@ -245,7 +231,6 @@ const handleSubmitTasks = async () => {
     ]);
     setNewMessage('');
     setShowNewMsgInput(false);
-    // Send notifications to mentioned users
     for (const u of mentionedUsers) {
       try {
         await api.post('/notifications', {
@@ -254,13 +239,10 @@ const handleSubmitTasks = async () => {
           message: `${userName} mentioned you in a project discussion: "${newMessage}"`,
           projectId: project._id
         });
-      } catch (err) {
-        // Ignore notification errors
-      }
+      } catch (err) {}
     }
   };
 
-  // Add reply to a message
   const handlePostReply = (msgId) => {
     const replyText = replyInputs[msgId];
     if (!replyText || !replyText.trim()) return;
@@ -283,7 +265,6 @@ const handleSubmitTasks = async () => {
     setReplyInputs({ ...replyInputs, [msgId]: '' });
   };
 
-  // --- Highlight mentions in message display ---
   function renderMessageText(text) {
     const parts = text.split(/(@[\w\s]+)/g);
     return parts.map((part, i) => {
@@ -293,7 +274,6 @@ const handleSubmitTasks = async () => {
       return part;
     });
   }
-
 
   if (!project) return <div>Loading...</div>;
 
@@ -316,17 +296,16 @@ const handleSubmitTasks = async () => {
           <Link to="/reports" className="nav-link">Reports</Link>
         </nav>
         <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-  <NotificationBell />
-  <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-    {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-  </div>
-  {profileMenuOpen && (
-    <div className="profile-menu">
-      <button onClick={handleLogout}>Logout</button>
-    </div>
-  )}
-</div>
-
+          <NotificationBell />
+          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+          </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
       </header>
 
       <main className="main">
@@ -340,7 +319,8 @@ const handleSubmitTasks = async () => {
 
           <div className="project-image-container">
             <img 
-              alt={project.projectName} 
+              src={project.photos && project.photos[0] ? project.photos[0] : ''}
+              alt={project.projectName}
               className="project-image"
             />
             <button className="favorite-button">
@@ -509,7 +489,7 @@ const handleSubmitTasks = async () => {
                         zIndex: 1000,
                         maxHeight: 200,
                         overflowY: 'auto',
-                        width: 'calc(100% - 20px)', // Adjust width to account for padding
+                        width: 'calc(100% - 20px)',
                       }}>
                         {mentionDropdown.options.map(user => (
                           <div
@@ -547,9 +527,9 @@ const handleSubmitTasks = async () => {
               <div className="project-details-grid">
                 <div className="details-column">
                   <p className="detail-item">
-                    <span className="detail-label">Location:</span> 
+                    <span className="detail-label">Location:</span>
                     {typeof project.location === 'object'
-                      ? project.location.name 
+                      ? project.location.name
                       : project.location}
                   </p>
                   <div className="detail-group">
@@ -560,32 +540,28 @@ const handleSubmitTasks = async () => {
                     <p className="detail-label">Contractor:</p>
                     <p className="detail-value">{project.contractor}</p>
                   </div>
-                 <div className="detail-group">
-                    <span className="detail-label">Target Date:</span><br/>
-                      <span className="detail-value">
+                  <div className="detail-group">
+                    <span className="detail-label">Target Date:</span><br />
+                    <span className="detail-value">
                       {project.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A'}
                       {" - "}
                       {project.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A'}
                     </span>
                   </div>
                 </div>
-
                 <div className="details-column">
                   <div className="budget-container">
                     <p className="budget-amount">{project.budget?.toLocaleString() || '0'}</p>
                     <p className="budget-label">Estimated Budget</p>
                   </div>
-               <div className="detail-group">
-                <span className="detail-label">PIC:</span><br/>
-                <span className="detail-value">
-                  {project.pic && project.pic.length > 0 
-                    ? project.pic.map(p => p.name).join(', ') 
-                    : 'N/A'}
-                </span>
-              </div>
-
-
-                  {/* Edit Task Button and Fields */}
+                  <div className="detail-group">
+                    <span className="detail-label">PIC:</span><br />
+                    <span className="detail-value">
+                      {project.pic && project.pic.length > 0
+                        ? project.pic.map(p => p.name).join(', ')
+                        : 'N/A'}
+                    </span>
+                  </div>
                   <button
                     className="edit-task-btn"
                     style={{
@@ -600,28 +576,25 @@ const handleSubmitTasks = async () => {
                       boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                       marginTop: 10
                     }}
-                   onClick={() => {
-                    setShowEditFields(!showEditFields);
-                    // When opening, preload tasks from project (if any), or default
-                    if (!showEditFields) {
-                      if (project.tasks && project.tasks.length > 0) {
-                        setEditTasks(project.tasks.map(t => ({
-                          name: t.name,
-                          percent: t.percent.toString()
-                        })));
-                      } else {
-                        setEditTasks([{ name: '', percent: '' }]);
+                    onClick={() => {
+                      setShowEditFields(!showEditFields);
+                      if (!showEditFields) {
+                        if (project.tasks && project.tasks.length > 0) {
+                          setEditTasks(project.tasks.map(t => ({
+                            name: t.name,
+                            percent: t.percent.toString()
+                          })));
+                        } else {
+                          setEditTasks([{ name: '', percent: '' }]);
+                        }
                       }
-                    }
-                  }}
-                >
-                  Edit Task
-                </button>
-
+                    }}
+                  >
+                    Edit Task
+                  </button>
                   {showEditFields && (
                     <div style={{ marginTop: 16 }}>
                       {editTasks.map((task, idx) => {
-                        // Calc total without current field for max percent input
                         const othersTotal = editTasks.reduce(
                           (sum, t, i) => (i === idx ? sum : sum + (parseInt(t.percent) || 0)), 0
                         );
@@ -656,7 +629,6 @@ const handleSubmitTasks = async () => {
                                 width: "80px"
                               }}
                             />
-                            {/* Plus button only on last field */}
                             {idx === editTasks.length - 1 && (
                               <button
                                 onClick={handleAddTaskField}
@@ -707,7 +679,6 @@ const handleSubmitTasks = async () => {
                   )}
                 </div>
               </div>
-
               <div className="manpower-section">
                 <p className="detail-label">Manpower:</p>
                 <p className="manpower-list">
@@ -720,27 +691,39 @@ const handleSubmitTasks = async () => {
           )}
 
           {activeTab === 'Files' && (
-            <div style={{ textAlign: 'center', padding: 40, color: '#888', fontSize: 20 }}>
-              <div style={{ marginBottom: 16 }}><FaRegFileAlt size={40} /></div>
-              <div style={{ marginBottom: 24 }}>Files feature coming soon...</div>
-              <input
-                key={fileInputKey}
-                type="file"
-                style={{ display: 'none' }}
-                id="file-upload-input"
-                onChange={e => {
-                  // For now, just reset input
-                  setFileInputKey(Date.now());
-                  // You can handle file upload logic here
-                }}
-              />
-              <label htmlFor="file-upload-input">
-                <button
-                  style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 28px', fontWeight: 600, fontSize: 18, cursor: 'pointer' }}
-                >
-                  Upload File
-                </button>
-              </label>
+            <div style={{ textAlign: 'center', padding: 40 }}>
+              {project.documents && project.documents.length > 0 ? (
+                <div>
+                  <h3 style={{ marginBottom: 18 }}>Project Documents</h3>
+                  <ul style={{ listStyle: 'none', padding: 0 }}>
+                    {project.documents.map((docPath, idx) => {
+                      const fileName = docPath.split('/').pop();
+                      const url = docSignedUrls[idx];
+                      return (
+                        <li key={idx} style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 14 }}>
+                          <FaRegFileAlt style={{ marginRight: 4 }} />
+                          <span style={{ flex: 1 }}>{fileName}</span>
+                          {url ? (
+                            <a
+                              href={url}
+                              download={fileName}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: '#1976d2', fontWeight: 500, marginLeft: 6 }}
+                            >
+                              Download
+                            </a>
+                          ) : (
+                            <span style={{ color: '#aaa' }}>Loading link…</span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : (
+                <div style={{ color: '#888', fontSize: 20 }}>No documents uploaded for this project.</div>
+              )}
             </div>
           )}
         </div>
