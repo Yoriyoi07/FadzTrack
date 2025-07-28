@@ -1,50 +1,89 @@
+// routes/userRoutes.js
 const express = require('express');
 const router = express.Router();
+const { verifyToken } = require('../middleware/authMiddleware');
 const User = require('../models/User');
 const Project = require('../models/Project');
 
+// Apply auth guard to **all** user routes
+router.use(verifyToken);
 
-router.get('/search', async (req, res) => {
-  const query = req.query.query;
+/**
+ * GET /api/users
+ * List users for sidebar or group modal.
+ * Supports optional ?limit=N to page the results.
+ */
+router.get('/', async (req, res) => {
   try {
-    const users = await User.find({
-      $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } },
-      ]
-    }).select('-password'); // hide password
-    res.json(users);
+    const limit = parseInt(req.query.limit, 10);
+    let query = User.find().select('name email _id');
+    if (!isNaN(limit) && limit > 0) {
+      query = query.limit(limit);
+    }
+    const users = await query;
+    return res.json(users);
   } catch (err) {
-    res.status(500).json({ error: 'Search failed' });
+    console.error('❌ GET /api/users error:', err);
+    return res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
 
-// Fetch users by role
+/**
+ * GET /api/users/search?query=…
+ * Fuzzy‑search users by name or email for starting chats/groups.
+ */
+router.get('/search', async (req, res) => {
+  const q = (req.query.query || '').trim();
+  if (!q) {
+    return res.json([]);
+  }
+
+  try {
+    const regex = new RegExp(q, 'i');
+    const users = await User.find({
+      $or: [
+        { name:  regex },
+        { email: regex }
+      ]
+    })
+      .select('name email _id');
+
+    return res.json(users);
+  } catch (err) {
+    console.error('❌ GET /api/users/search error:', err);
+    return res.status(500).json({ error: 'Search failed' });
+  }
+});
+
+
+/**
+ * The rest of your existing user/project routes…
+ * (role lookup, locations, assigned projects, unassigned PICs/PMs)
+ * remain unchanged below.
+ */
+
+ // Fetch users by role
 router.get('/role/:role', async (req, res) => {
   try {
     const role = req.params.role;
-    const users = await User.find({ role }, 'name');
-    res.json(users);
+    const users = await User.find({ role }).select('name _id');
+    return res.json(users);
   } catch (err) {
-    console.error('Error fetching users by role:', err);
-    res.status(500).json({ message: 'Failed to fetch users' });
+    console.error('❌ GET /api/users/role/:role error:', err);
+    return res.status(500).json({ message: 'Failed to fetch users by role' });
   }
 });
 
-// GET: Locations assigned to user (for dropdown)
+// GET: Locations assigned to user
 router.get('/:userId/locations', async (req, res) => {
   try {
     const { userId } = req.params;
-    const user = await User.findById(userId).populate('locations');  // Use populate to get full location data
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json(user.locations);  // Send populated locations
+    const user = await User.findById(userId).populate('locations');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    return res.json(user.locations);
   } catch (err) {
-    console.error('Error fetching assigned locations:', err);
-    res.status(500).json({ message: 'Failed to fetch assigned locations' });
+    console.error('❌ GET /api/users/:userId/locations error:', err);
+    return res.status(500).json({ message: 'Failed to fetch locations' });
   }
 });
 
@@ -52,24 +91,17 @@ router.get('/:userId/locations', async (req, res) => {
 router.put('/:userId/locations', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { locations } = req.body;  // Array of location IDs to be updated
-
-    // Find the user and update their locations
+    const { locations } = req.body;
     const user = await User.findByIdAndUpdate(
       userId,
-      { locations },  // Update the locations field with the new locations
+      { locations },
       { new: true }
     );
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Return the updated user
-    res.json(user.locations);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    return res.json(user.locations);
   } catch (err) {
-    console.error('Error updating locations:', err);
-    res.status(500).json({ message: 'Failed to update locations' });
+    console.error('❌ PUT /api/users/:userId/locations error:', err);
+    return res.status(500).json({ message: 'Failed to update locations' });
   }
 });
 
@@ -80,10 +112,11 @@ router.get('/assigned/:userId', async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    if (user.role === 'PIC' || user.role === 'Person in Charge') {
+    if (['PIC', 'Person in Charge'].includes(user.role)) {
       const project = await Project.findOne({ pic: userId });
-      if (!project) return res.status(404).json({ message: 'No project assigned to this PIC' });
-      return res.json([project]);
+      return project
+        ? res.json([project])
+        : res.status(404).json({ message: 'No project assigned to this PIC' });
     }
 
     const projects = await Project.find({
@@ -92,21 +125,18 @@ router.get('/assigned/:userId', async (req, res) => {
         { pic: userId }
       ]
     });
-
-    res.json(projects);
-  } catch (error) {
-    console.error('Error fetching assigned projects:', error);
-    res.status(500).json({ message: 'Server error' });
+    return res.json(projects);
+  } catch (err) {
+    console.error('❌ GET /api/users/assigned/:userId error:', err);
+    return res.status(500).json({ message: 'Server error' });
   }
 });
 
-
-// GET all PICs who are NOT assigned as PIC to any ONGOING project
-// GET all PICs who are NOT assigned as PIC to any ONGOING project
+// GET all unassigned PICs
 router.get('/unassigned-pics', async (req, res) => {
   try {
     const unassignedPICs = await User.aggregate([
-      { $match: { role: { $in: ["PIC", "Person in Charge"] } } },
+      { $match: { role: { $in: ['PIC', 'Person in Charge'] } } },
       {
         $lookup: {
           from: 'projects',
@@ -116,7 +146,7 @@ router.get('/unassigned-pics', async (req, res) => {
               $match: {
                 $expr: {
                   $and: [
-                    { $in: ['$$pic_id', '$pic'] },    // <<== correct for array of PICs
+                    { $in: ['$$pic_id', '$pic'] },
                     { $eq: ['$status', 'Ongoing'] }
                   ]
                 }
@@ -126,47 +156,48 @@ router.get('/unassigned-pics', async (req, res) => {
           as: 'assigned_ongoing_projects'
         }
       },
-      { $match: { 'assigned_ongoing_projects': { $size: 0 } } },
+      { $match: { assigned_ongoing_projects: { $size: 0 } } },
       { $project: { name: 1, _id: 1 } }
     ]);
-
-    res.json(unassignedPICs);
+    return res.json(unassignedPICs);
   } catch (err) {
-    console.error("Error fetching unassigned PICs:", err);
-    res.status(500).json({ message: 'Failed to fetch unassigned PICs' });
+    console.error('❌ GET /api/users/unassigned-pics error:', err);
+    return res.status(500).json({ message: 'Failed to fetch unassigned PICs' });
   }
 });
 
-
-
-// GET all PMs who are NOT assigned as PM to any ONGOING project
+// GET all unassigned PMs
 router.get('/unassigned-pms', async (req, res) => {
   try {
     const unassignedPMs = await User.aggregate([
-      { $match: { role: "Project Manager" } },
+      { $match: { role: 'Project Manager' } },
       {
         $lookup: {
           from: 'projects',
           let: { pm_id: '$_id' },
           pipeline: [
-            { $match: { $expr: { $and: [
-              { $eq: ['$projectmanager', '$$pm_id'] },
-              { $eq: ['$status', 'Ongoing'] }
-            ]}}},
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$projectmanager', '$$pm_id'] },
+                    { $eq: ['$status', 'Ongoing'] }
+                  ]
+                }
+              }
+            }
           ],
           as: 'assigned_ongoing_projects'
         }
       },
-      { $match: { 'assigned_ongoing_projects': { $size: 0 } } },
+      { $match: { assigned_ongoing_projects: { $size: 0 } } },
       { $project: { name: 1, _id: 1 } }
     ]);
-
-    res.json(unassignedPMs);
+    return res.json(unassignedPMs);
   } catch (err) {
-    console.error("Error fetching unassigned PMs:", err);
-    res.status(500).json({ message: 'Failed to fetch unassigned PMs' });
+    console.error('❌ GET /api/users/unassigned-pms error:', err);
+    return res.status(500).json({ message: 'Failed to fetch unassigned PMs' });
   }
 });
-
 
 module.exports = router;

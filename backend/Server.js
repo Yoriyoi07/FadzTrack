@@ -6,28 +6,30 @@ require('dotenv').config();
 const cookieParser = require('cookie-parser');
 const http         = require('http');
 const socketio     = require('socket.io');
+const { Types }    = require('mongoose');
 
 // Models
 const Message = require('./models/Messages');
 const Chat    = require('./models/Chats');
 
 // Route imports
-const authRoutes             = require('./route/auth');
-const projectRoutes          = require('./route/project');
-const manpowerRequestRoutes  = require('./route/manpowerRequest');
-const materialRequestRoutes  = require('./route/materialRequest');
-const { verifyToken }        = require('./middleware/authMiddleware');
-const userRoutes             = require('./route/user');
-const locationRoutes         = require('./route/location');
-const manpowerRoutes         = require('./route/manpower');
-const auditLogRoutes         = require('./route/auditLog');
-const chatRoutes             = require('./route/chatRoutes');
-const dailyReportRoutes      = require('./route/dailyReport');
-const notificationRoutes     = require('./route/notification');
-const geminiRoutes           = require('./route/gemini');
-const messageRoutes          = require('./route/messageRoutes');
-const dssReportRoutes        = require('./route/dssReport');
-const photoSignedUrlRoute = require('./route/photoSignedUrl');
+const authRoutes            = require('./route/auth');
+const projectRoutes         = require('./route/project');
+const manpowerRequestRoutes = require('./route/manpowerRequest');
+const materialRequestRoutes = require('./route/materialRequest');
+const userRoutes            = require('./route/user');
+const locationRoutes        = require('./route/location');
+const manpowerRoutes        = require('./route/manpower');
+const auditLogRoutes        = require('./route/auditLog');
+const chatRoutes            = require('./route/chatRoutes');
+const dailyReportRoutes     = require('./route/dailyReport');
+const notificationRoutes    = require('./route/notification');
+const geminiRoutes          = require('./route/gemini');
+const messageRoutes         = require('./route/messageRoutes');
+const dssReportRoutes       = require('./route/dssReport');
+const photoSignedUrlRoute   = require('./route/photoSignedUrl');
+
+const { verifyToken } = require('./middleware/authMiddleware');
 
 const app    = express();
 const server = http.createServer(app);
@@ -52,108 +54,108 @@ app.use(cookieParser());
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+  useNewUrlParser:    true,
+  useUnifiedTopology: true
 })
   .then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// Mount API routes
-app.use('/api/gemini',              geminiRoutes);
-app.use('/api/daily-reports',       dailyReportRoutes);
-app.use('/api/auth',                authRoutes);
-app.use('/api/users',               userRoutes);
-app.use('/api/projects',            projectRoutes);
-app.use('/api/manpower-requests',   manpowerRequestRoutes);
-app.use('/api/requests',            materialRequestRoutes);
-app.use('/api/manpower',            manpowerRoutes);
-app.use('/api/locations',           locationRoutes);
-app.use('/api/audit-logs',          auditLogRoutes);
-app.use('/api/notifications',       notificationRoutes);
-app.use('/api/dss-report',          dssReportRoutes);
-app.use('/api/photo-signed-url', photoSignedUrlRoute);
+// Socket.IO setup
+const io = socketio(server, {
+  cors: {
+    origin:      allowedOrigins,
+    credentials: true
+  }
+});
+// Make io accessible in routes
+app.set('io', io);
 
-// **Chat & Message** API
+io.on('connection', socket => {
+  console.log('🔌 Socket connected:', socket.id);
+
+  // 1) Join a chat room
+  socket.on('joinChat', chatId => {
+    socket.join(chatId);
+    console.log(`↪️  Socket ${socket.id} joined chat ${chatId}`);
+  });
+
+  // 2) Send a message via socket
+  socket.on('sendMessage', ({ chatId, senderId, content, type }) => {
+    const timestamp = Date.now();
+    // Broadcast to that room so everyone sees it
+    io.to(chatId).emit('receiveMessage', {
+      _id:        new Types.ObjectId().toString(),  // temporary client‑side id
+      conversation: chatId,
+      sender:     senderId,
+      content,
+      type,
+      fileUrl:    type === 'text' ? null : content, // if non‑text, `content` already holds the `/uploads/...` path
+      timestamp
+    });
+
+    // Also update the sidebar previews everywhere
+    io.emit('chatUpdated', {
+      chatId,
+      lastMessage: { content, timestamp }
+    });
+  });
+
+  // 3) Mark message seen (already implemented)
+  socket.on('messageSeen', async ({ messageId, userId }) => {
+    try {
+      const msg = await Message.findByIdAndUpdate(
+        messageId,
+        { $push: { seen: { userId, timestamp: Date.now() } } },
+        { new: true }
+      );
+
+      io.to(msg.conversation.toString()).emit('messageSeen', {
+        messageId,
+        userId,
+        timestamp: msg.seen[msg.seen.length - 1].timestamp
+      });
+
+      io.emit('chatUpdated', {
+        chatId: msg.conversation.toString(),
+        lastMessage: {
+          content:   msg.content,
+          timestamp: msg.createdAt
+        }
+      });
+    } catch (err) {
+      console.error('❌ socket messageSeen error:', err);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('❌ Socket disconnected:', socket.id);
+  });
+});
+
+// Mount API routes
+app.get('/', (req, res) => res.send('API is working'));
+
+app.use('/api/auth',               authRoutes);
+app.use('/api/users',              userRoutes);
+app.use('/api/projects',           projectRoutes);
+app.use('/api/manpower-requests',  manpowerRequestRoutes);
+app.use('/api/requests',           materialRequestRoutes);
+app.use('/api/manpower',           manpowerRoutes);
+app.use('/api/locations',          locationRoutes);
+app.use('/api/audit-logs',         auditLogRoutes);
+app.use('/api/notifications',      notificationRoutes);
+app.use('/api/daily-reports',      dailyReportRoutes);
+app.use('/api/dss-report',         dssReportRoutes);
+app.use('/api/photo-signed-url',   photoSignedUrlRoute);
+app.use('/api/gemini',             geminiRoutes);
+
+// Chats & Messages (protected internally via verifyToken)
 app.use('/api/chats',    chatRoutes);
 app.use('/api/messages', messageRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
 
-app.get('/', (req, res) => res.send('API is working'));
-
-// Socket.IO setup
-const io = socketio(server, {
-  cors: {
-    origin: allowedOrigins,
-    credentials: true
-  }
-});
-
-io.on('connection', socket => {
-  console.log('🔌 Socket connected:', socket.id);
-
-  // Join a chat room
-  socket.on('joinChat', chatId => {
-    socket.join(chatId);
-    console.log(`↪️ Socket ${socket.id} joined chat ${chatId}`);
-  });
-
-  // Handle sending a message into a chat
-  socket.on('sendMessage', async ({ chatId, senderId, content, type }) => {
-    try {
-      // 1) Save to DB
-      const msg = await Message.create({
-        conversation: chatId,
-        sender:       senderId,
-        content,
-        type
-      });
-
-      // 2) Update Chat.lastMessage
-      await Chat.findByIdAndUpdate(chatId, {
-        lastMessage: { content, timestamp: msg.timestamp }
-      });
-
-      // 3) Broadcast to everyone in that chat room
-      io.to(chatId).emit('receiveMessage', msg);
-    } catch (err) {
-      console.error('❌ sendMessage error:', err);
-    }
-  });
-
-  socket.on('messageSeen', async ({ chatId, messageId, userId }) => {
-    // 1) add to message.seen
-    const msg = await Message.findByIdAndUpdate(
-      messageId,
-      { $push: { seen: { userId, timestamp: Date.now() } } },
-      { new: true }
-    );
-
-    // 2) update the Chat's lastMessage to include seen
-    await Chat.findByIdAndUpdate(chatId, {
-      lastMessage: {
-        content:   msg.content,
-        timestamp: msg.timestamp,
-        seen:      msg.seen
-      }
-    });
-
-    // 3) broadcast that messageSeen
-    io.to(chatId).emit('messageSeen', {
-      messageId,
-      userId,
-      timestamp: msg.seen[msg.seen.length - 1].timestamp
-    });
-
-    // 4) broadcast chatUpdated so any sidebar can patch its preview instantly
-    io.emit('chatUpdated', {
-      chatId,
-      lastMessage: { content: msg.content, timestamp: msg.timestamp, seen: msg.seen }
-    });
-  });
-});
-//Server
 // Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {

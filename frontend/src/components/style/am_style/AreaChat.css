@@ -385,17 +385,22 @@
 }
 
 .modern-attach-btn {
-  border: none;
-  background: none;
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 4px;
-  color: #8e8e93;
-  font-size: 16px;
-  transition: color 0.2s ease;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: none;
+  border: none;
 }
 
-.modern-attach-btn:hover {
-  color: #1a1a1a;
+.modern-attach-btn img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 }
 
 .modern-chat-input {

@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import PicDash from './pic/PicDash';
 import PicReq from './pic/PicReq';
-import PicChat from './pic/PicChat';
+import PicChat from './chats/PicChat';
 import PmDash from './pm/PmDash';
 import PmRequestManpower from './pm/PmRequestManpower';
 import AreaManagerDashboard from './am/AreaDash';
@@ -47,11 +47,11 @@ import ItManpowerList from './it/ItManpowerList';
 import ItManpowerRequestDetail from './it/ItManpowerRequestDetail';
 import ItMaterialRequestDetail from './it/ItMaterialRequestDetail';
 import TwoFactorAuth from './TwoFactorAuth';
-import HrChat from './hr/HrChat';
-import ItChat from './it/ItChat';
-import CeoChat from './ceo/CeoChat';
-import AreaChat from './am/AreaChat';
-import PmChat from './pm/PmChat';
+import HrChat from './chats/HrChat';
+import ItChat from './chats/ItChat';
+import CeoChat from './chats/CeoChat';
+import AreaChat from './chats/AreaChat';
+import PmChat from './chats/PmChat';
 import ProgressReport from './am/ProgressReport';
 import PmProgressReport from './pm/PmProgressReport';
 import PmDailyLogsList from './pm/PmDailyLogsList';
@@ -127,6 +127,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
   <Route path="/ceo/material-request/:id" element={<PrivateRoute allowedRoles={["CEO"]}><CeoMaterialRequestDetail /></PrivateRoute>} />
   <Route path="/ceo/audit-logs" element={<PrivateRoute allowedRoles={["CEO"]}><CeoAuditLogs /></PrivateRoute>} />
   <Route path="/ceo/chat" element={<PrivateRoute allowedRoles={["CEO"]}><CeoChat /></PrivateRoute>} />
+  <Route path="/ceo/chat/:chatId" element={<PrivateRoute allowedRoles={["CEO"]}><CeoChat /></PrivateRoute>} />
 
   {/* HR */}
   <Route path="/hr/dash" element={<PrivateRoute allowedRoles={["HR"]}><HrDash /></PrivateRoute>} />

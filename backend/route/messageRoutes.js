@@ -1,13 +1,15 @@
 // routes/messageRoutes.js
-const express = require('express');
-const multer  = require('multer');
-const path    = require('path');
-const router  = express.Router();
+const express       = require('express');
+const multer        = require('multer');
+const path          = require('path');
+const { verifyToken } = require('../middleware/authMiddleware');
+const Message       = require('../models/Messages');
+const Chat          = require('../models/Chats');
 
-const Message = require('../models/Messages');
-const Chat    = require('../models/Chats'); 
+const router = express.Router();
+router.use(verifyToken);
 
-// — Multer setup for file/image uploads —
+// Multer config
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename:    (req, file, cb) => {
@@ -17,86 +19,189 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// ── 1) Fetch messages in a chat ────────────────────────────────
+/**
+ * GET /api/messages/:chatId
+ */
 router.get('/:chatId', async (req, res) => {
   try {
-    const msgs = await Message.find({ conversation: req.params.chatId })
-                             .populate('sender', 'name')
-                             .sort({ timestamp: 1 });
-    res.json(msgs);
+    const { chatId } = req.params;
+    const msgs = await Message.find({ conversation: chatId })
+      .populate('sender', 'firstname lastname _id')
+      .sort({ createdAt: 1 });
+
+    const out = msgs.map(m => ({
+      _id:         m._id,
+      conversation:m.conversation,
+      senderId:    m.sender._id,
+      message:     m.type === 'text' ? m.content : null,
+      fileUrl:     m.fileUrl || null,
+      type:        m.type,
+      reactions:   m.reactions,
+      seen:        m.seen,
+      createdAt:   m.createdAt,
+      updatedAt:   m.updatedAt
+    }));
+
+    return res.json(out);
   } catch (err) {
-    console.error('Failed to fetch messages:', err);
-    res.status(500).json({ error: 'Failed to fetch messages' });
+    console.error('❌ GET /api/messages/:chatId error:', err);
+    return res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
 
-// ── 2) Send a message (text or file/image) ──────────────────────
+/**
+ * POST /api/messages
+ */
 router.post('/', upload.single('file'), async (req, res) => {
   try {
-    // IMPORTANT: destructure conversationId, not conversation
-    const { conversationId, sender, type, content } = req.body;
-    const payload = { conversation: conversationId, sender };
+    const io = req.app.get('io');
 
-    if (type === 'text') {
-      payload.content = content;
-      payload.type    = 'text';
+    // match the field names your client is actually sending:
+    const { sender, conversation, type } = req.body;
+    const textContent = req.body.content;  // your client uses `content`
+
+    // Build payload for mongoose
+    const payload = {
+      sender,
+      conversation,
+      // we'll override below:
+      type: 'text'
+    };
+
+    if (req.file) {
+      // file‐upload branch
+      payload.type    = type === 'text' ? 'text' : 'file';
+      payload.fileUrl = `/uploads/${req.file.filename}`;
     } else {
-      // multer stored the file; serve it from /uploads
-      payload.content = `/uploads/${req.file.filename}`;
-      payload.type    = type; // 'image' or 'file'
+      // text branch
+      payload.content = textContent;
     }
 
+    // 1) create the message
     const msg = await Message.create(payload);
 
-    // update chat.lastMessage for preview/sorting
-    await Chat.findByIdAndUpdate(conversationId, {
-      lastMessage: { content: payload.content, timestamp: msg.timestamp }
+    // 2) bump the chat's lastMessage
+    await Chat.findByIdAndUpdate(conversation, {
+      lastMessage: {
+        content:   payload.type === 'text' ? payload.content : payload.fileUrl,
+        timestamp: msg.createdAt
+      }
     });
 
-    res.status(201).json(msg);
+    // 3) re‐fetch and populate sender
+    const populated = await Message.findById(msg._id)
+      .populate('sender', 'firstname lastname _id');
+
+    const out = {
+      _id:          populated._id,
+      conversation: populated.conversation,
+      senderId:     populated.sender._id,
+      message:      populated.type === 'text' ? populated.content : null,
+      fileUrl:      populated.fileUrl || null,
+      type:         populated.type,
+      reactions:    populated.reactions,
+      seen:         populated.seen,
+      createdAt:    populated.createdAt,
+      updatedAt:    populated.updatedAt
+    };
+
+    // 4) emit to socket.io room
+    io.to(conversation).emit('getMessage', {
+      senderId: out.senderId,
+      text:     out.message,
+      fileUrl:  out.fileUrl
+    });
+
+    return res.status(201).json(out);
   } catch (err) {
-    console.error('Failed to send message:', err);
-    res.status(500).json({ error: 'Failed to send message' });
+    console.error('❌ POST /api/messages error:', err);
+    return res.status(500).json({ error: 'Failed to send message' });
   }
 });
 
-// ── 3) Add or replace a reaction ────────────────────────────────
+/**
+ * POST /api/messages/:messageId/reactions
+ * DELETE /api/messages/:messageId/reactions
+ */
 router.post('/:messageId/reactions', async (req, res) => {
   try {
+    const io = req.app.get('io');
     const { userId, emoji } = req.body;
-    const msg = await Message.findById(req.params.messageId);
+    const { messageId }     = req.params;
+
+    const msg = await Message.findById(messageId);
     if (!msg) return res.status(404).json({ error: 'Message not found' });
 
-    // remove any existing reaction by this user
     msg.reactions = msg.reactions.filter(r => r.userId.toString() !== userId);
-    // add the new one
     msg.reactions.push({ userId, emoji });
     await msg.save();
 
-    res.json(msg);
+    io.to(msg.conversation.toString()).emit('messageReaction', {
+      messageId,
+      reactions: msg.reactions
+    });
+
+    return res.json(msg);
   } catch (err) {
-    console.error('Failed to add/replace reaction:', err);
-    res.status(500).json({ error: 'Failed to add reaction' });
+    console.error('❌ POST reactions error:', err);
+    return res.status(500).json({ error: 'Failed to add/replace reaction' });
   }
 });
 
-// ── 4) Remove a reaction ────────────────────────────────────────
 router.delete('/:messageId/reactions', async (req, res) => {
   try {
+    const io = req.app.get('io');
     const { userId, emoji } = req.body;
-    const msg = await Message.findById(req.params.messageId);
+    const { messageId }     = req.params;
+
+    const msg = await Message.findById(messageId);
     if (!msg) return res.status(404).json({ error: 'Message not found' });
 
-    // filter out exactly that user + emoji
     msg.reactions = msg.reactions.filter(
       r => !(r.userId.toString() === userId && r.emoji === emoji)
     );
     await msg.save();
 
-    res.json(msg);
+    io.to(msg.conversation.toString()).emit('messageReaction', {
+      messageId,
+      reactions: msg.reactions
+    });
+
+    return res.json(msg);
   } catch (err) {
-    console.error('Failed to remove reaction:', err);
-    res.status(500).json({ error: 'Failed to remove reaction' });
+    console.error('❌ DELETE reactions error:', err);
+    return res.status(500).json({ error: 'Failed to remove reaction' });
+  }
+});
+
+/**
+ * POST /api/messages/:messageId/seen
+ */
+router.post('/:messageId/seen', async (req, res) => {
+  try {
+    const io = req.app.get('io');
+    const { userId }    = req.body;
+    const { messageId } = req.params;
+
+    const msg = await Message.findById(messageId);
+    if (!msg) return res.status(404).json({ error: 'Message not found' });
+
+    if (!msg.seen.some(s => s.userId.toString() === userId)) {
+      const seenEntry = { userId, timestamp: Date.now() };
+      msg.seen.push(seenEntry);
+      await msg.save();
+
+      io.to(msg.conversation.toString()).emit('messageSeen', {
+        messageId,
+        userId:    seenEntry.userId,
+        timestamp: seenEntry.timestamp
+      });
+    }
+
+    return res.json(msg);
+  } catch (err) {
+    console.error('❌ POST seen error:', err);
+    return res.status(500).json({ error: 'Failed to mark seen' });
   }
 });
 

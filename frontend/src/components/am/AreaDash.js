@@ -235,7 +235,6 @@ const AreaDash = () => {
 
   return (
     <div className="area-dash head">
-      {/* Header remains the same */}
       <header className="header">
         <div className="logo-container">
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
