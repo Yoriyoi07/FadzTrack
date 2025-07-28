@@ -23,7 +23,19 @@ const projectSchema = new mongoose.Schema({
     type: String,
     enum: ['Ongoing', 'Completed'],
     default: 'Ongoing'
-  }
+  },
+  discussions: [{
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    userName: String,
+    text: String,
+    timestamp: Date,
+    replies: [{
+      user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      userName: String,
+      text: String,
+      timestamp: Date
+    }]
+  }]
 }, {
   timestamps: true
 });

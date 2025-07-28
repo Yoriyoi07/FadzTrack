@@ -388,3 +388,77 @@ exports.getProjectsByUserAndStatus = async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch projects' });
   }
 };
+
+// --- DISCUSSIONS --- //
+
+// Get all discussions for a project
+exports.getProjectDiscussions = async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id)
+      .populate('discussions.user', 'name')
+      .populate('discussions.replies.user', 'name');
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    res.json(project.discussions || []);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch discussions' });
+  }
+};
+
+// Add a new discussion message to a project
+exports.addProjectDiscussion = async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ error: 'Message text required' });
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const discussion = {
+      user: req.user.id,
+      userName: req.user.name,
+      text,
+      timestamp: new Date(),
+      replies: []
+    };
+
+    project.discussions.push(discussion);
+    await project.save();
+
+    // Get the added discussion (last in array)
+    const added = project.discussions[project.discussions.length - 1];
+
+    res.json(added);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to post discussion' });
+  }
+};
+
+// Add a reply to a discussion message in a project
+exports.replyToProjectDiscussion = async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) return res.status(400).json({ error: 'Reply text required' });
+
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+
+    const discussion = project.discussions.id(req.params.msgId);
+    if (!discussion) return res.status(404).json({ error: 'Discussion not found' });
+
+    const reply = {
+      user: req.user.id,
+      userName: req.user.name,
+      text,
+      timestamp: new Date()
+    };
+
+    discussion.replies.push(reply);
+    await project.save();
+
+    // Get the added reply (last in array)
+    const added = discussion.replies[discussion.replies.length - 1];
+
+    res.json(added);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to post reply' });
+  }
+};

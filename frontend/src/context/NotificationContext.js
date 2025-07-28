@@ -9,7 +9,7 @@ export const useNotifications = () => useContext(NotificationContext);
 
 const socketUrl =
   process.env.NODE_ENV === "production"
-    ? "https://fadztrack-production.up.railway.app"
+    ? "https://fadztrack.onrender.com"
     : "http://localhost:5000";
 
 export const NotificationProvider = ({ children, userId }) => {

@@ -99,7 +99,7 @@ io.on('connection', socket => {
       lastMessage: { content, timestamp }
     });
   });
-
+console.log('API URL:', process.env.REACT_APP_API_URL);
   // 3) Mark message seen (already implemented)
   socket.on('messageSeen', async ({ messageId, userId }) => {
     try {

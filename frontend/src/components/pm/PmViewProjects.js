@@ -22,6 +22,7 @@ const Pm_Project = () => {
   const [editTasks, setEditTasks] = useState([{ name: '', percent: '' }]);
   const [activeTab, setActiveTab] = useState('Details');
   const [messages, setMessages] = useState([]);
+  const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [replyInputs, setReplyInputs] = useState({});
   const [showNewMsgInput, setShowNewMsgInput] = useState(false);
@@ -98,23 +99,28 @@ const Pm_Project = () => {
     fetchSignedUrls();
   }, [project]);
 
+  // Auto-refresh signed URLs on Files tab
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
+    let intervalId;
+    if (activeTab === 'Files' && project?.documents?.length) {
+      const fetchSignedUrls = async () => {
+        const promises = project.documents.map(async docPath => {
+          try {
+            const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(docPath)}`);
+            return data.signedUrl;
+          } catch {
+            return null;
+          }
+        });
+        const urls = await Promise.all(promises);
+        setDocSignedUrls(urls);
+      };
+      fetchSignedUrls();
+      intervalId = setInterval(fetchSignedUrls, 270000); // 4.5 minutes
+      return () => clearInterval(intervalId);
+    }
+    return () => clearInterval(intervalId);
+  }, [activeTab, project]);
 
   // ---- TASK PERCENT VALIDATION ----
   const totalPercent = editTasks.reduce(
@@ -171,7 +177,66 @@ const Pm_Project = () => {
     }
   };
 
-  // --- Mention Autocomplete Logic ---
+  // ------------- Discussions Logic (Persistent) -------------
+  // Fetch discussions from backend on load and tab change
+  useEffect(() => {
+    if (!id || activeTab !== 'Discussions') return;
+    const fetchMessages = async () => {
+      setLoadingMsgs(true);
+      try {
+        const { data } = await api.get(`/projects/${id}/discussions`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setMessages(data || []);
+      } catch {
+        setMessages([]);
+      }
+      setLoadingMsgs(false);
+    };
+    fetchMessages();
+  }, [id, activeTab, token]);
+
+  // Post new message (discussion)
+  const handlePostMessage = async () => {
+    if (!newMessage.trim()) return;
+    try {
+      await api.post(`/projects/${id}/discussions`, {
+        text: newMessage,
+        userName: userName
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      setNewMessage('');
+      setShowNewMsgInput(false);
+      // Refetch
+      const { data } = await api.get(`/projects/${id}/discussions`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setMessages(data || []);
+    } catch (err) {
+      alert("Failed to post message");
+    }
+  };
+
+  // Post reply to a message
+  const handlePostReply = async (msgId) => {
+    const replyText = replyInputs[msgId];
+    if (!replyText || !replyText.trim()) return;
+    try {
+      await api.post(`/projects/${id}/discussions/${msgId}/reply`, {
+        text: replyText,
+        userName: userName
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      setReplyInputs({ ...replyInputs, [msgId]: '' });
+      // Refetch
+      const { data } = await api.get(`/projects/${id}/discussions`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setMessages(data || []);
+    } catch (err) {
+      alert("Failed to post reply");
+    }
+  };
+
+  // Mention logic (optional for user highlight, not required for backend saving)
   const handleTextareaInput = (e) => {
     const value = e.target.value;
     setNewMessage(value);
@@ -214,57 +279,6 @@ const Pm_Project = () => {
     }, 0);
   };
 
-  const handlePostMessage = async () => {
-    if (!newMessage.trim()) return;
-    const mentionRegex = /@([\w\s]+)/g;
-    const mentionedNames = Array.from(newMessage.matchAll(mentionRegex)).map(m => m[1].trim());
-    const mentionedUsers = staffList.filter(u => mentionedNames.includes(u.name));
-    setMessages([
-      ...messages,
-      {
-        id: Date.now(),
-        user: { name: userName, initials: userName.charAt(0).toUpperCase() },
-        text: newMessage,
-        timestamp: new Date().toISOString(),
-        replies: [],
-      },
-    ]);
-    setNewMessage('');
-    setShowNewMsgInput(false);
-    for (const u of mentionedUsers) {
-      try {
-        await api.post('/notifications', {
-          type: 'mention',
-          toUserId: u._id,
-          message: `${userName} mentioned you in a project discussion: "${newMessage}"`,
-          projectId: project._id
-        });
-      } catch (err) {}
-    }
-  };
-
-  const handlePostReply = (msgId) => {
-    const replyText = replyInputs[msgId];
-    if (!replyText || !replyText.trim()) return;
-    setMessages(messages.map(msg =>
-      msg.id === msgId
-        ? {
-            ...msg,
-            replies: [
-              ...msg.replies,
-              {
-                id: Date.now(),
-                user: { name: userName, initials: userName.charAt(0).toUpperCase() },
-                text: replyText,
-                timestamp: new Date().toISOString(),
-              },
-            ],
-          }
-        : msg
-    ));
-    setReplyInputs({ ...replyInputs, [msgId]: '' });
-  };
-
   function renderMessageText(text) {
     const parts = text.split(/(@[\w\s]+)/g);
     return parts.map((part, i) => {
@@ -274,6 +288,24 @@ const Pm_Project = () => {
       return part;
     });
   }
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".profile-menu-container")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   if (!project) return <div>Loading...</div>;
 
@@ -381,60 +413,61 @@ const Pm_Project = () => {
           {/* Tab Content */}
           {activeTab === 'Discussions' && (
             <div style={{ maxWidth: 800, margin: '0 auto', background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px #0001', padding: 32, position: 'relative', minHeight: 400 }}>
-              {/* If no messages, show background text */}
-              {messages.length === 0 && !showNewMsgInput && (
+              {loadingMsgs ? (
+                <div style={{ textAlign: "center", color: "#aaa" }}>Loading discussions…</div>
+              ) : messages.length === 0 && !showNewMsgInput ? (
                 <div style={{ color: '#bbb', fontSize: 28, textAlign: 'center', marginTop: 120, userSelect: 'none' }}>
                   Start a conversation
                 </div>
-              )}
-              {/* List of messages */}
-              <div>
-                {messages.map(msg => (
-                  <div key={msg.id} style={{ marginBottom: 32, borderBottom: '1px solid #eee', paddingBottom: 24 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#e3e6f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 18, color: '#444' }}>{msg.user.initials}</div>
-                      <div>
-                        <div style={{ fontWeight: 600 }}>{msg.user.name}</div>
-                        <div style={{ fontSize: 13, color: '#888' }}>{new Date(msg.timestamp).toLocaleString()}</div>
-                      </div>
-                    </div>
-                    <div style={{ margin: '12px 0 0 52px', fontSize: 17 }}>{renderMessageText(msg.text)}</div>
-                    {/* Replies */}
-                    <div style={{ marginLeft: 52, marginTop: 16 }}>
-                      {msg.replies.map(reply => (
-                        <div key={reply.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#f3f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 15, color: '#555' }}>{reply.user.initials}</div>
-                          <div>
-                            <div style={{ fontWeight: 500 }}>{reply.user.name}</div>
-                            <div style={{ fontSize: 12, color: '#aaa' }}>{new Date(reply.timestamp).toLocaleString()}</div>
-                            <div style={{ fontSize: 15, marginTop: 2 }}>{reply.text}</div>
-                          </div>
+              ) : (
+                <div>
+                  {messages.map(msg => (
+                    <div key={msg._id} style={{ marginBottom: 32, borderBottom: '1px solid #eee', paddingBottom: 24 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#e3e6f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 18, color: '#444' }}>{msg.userName?.charAt(0) ?? '?'}</div>
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{msg.userName || 'Unknown'}</div>
+                          <div style={{ fontSize: 13, color: '#888' }}>{msg.timestamp ? new Date(msg.timestamp).toLocaleString() : ''}</div>
                         </div>
-                      ))}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                        <input
-                          type="text"
-                          value={replyInputs[msg.id] || ''}
-                          onChange={e => setReplyInputs({ ...replyInputs, [msg.id]: e.target.value })}
-                          placeholder="Reply..."
-                          style={{ flex: 1, borderRadius: 8, border: '1px solid #ccc', padding: 8, fontSize: '1rem' }}
-                        />
-                        <button
-                          onClick={() => handlePostReply(msg.id)}
-                          style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 18px', fontWeight: 600, cursor: 'pointer' }}
-                        >
-                          Reply
-                        </button>
+                      </div>
+                      <div style={{ margin: '12px 0 0 52px', fontSize: 17 }}>{renderMessageText(msg.text)}</div>
+                      {/* Replies */}
+                      <div style={{ marginLeft: 52, marginTop: 16 }}>
+                        {msg.replies?.map(reply => (
+                          <div key={reply._id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#f3f6fa', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 15, color: '#555' }}>{reply.userName?.charAt(0) ?? '?'}</div>
+                            <div>
+                              <div style={{ fontWeight: 500 }}>{reply.userName || 'Unknown'}</div>
+                              <div style={{ fontSize: 12, color: '#aaa' }}>{reply.timestamp ? new Date(reply.timestamp).toLocaleString() : ''}</div>
+                              <div style={{ fontSize: 15, marginTop: 2 }}>{reply.text}</div>
+                            </div>
+                          </div>
+                        ))}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                          <input
+                            type="text"
+                            value={replyInputs[msg._id] || ''}
+                            onChange={e => setReplyInputs({ ...replyInputs, [msg._id]: e.target.value })}
+                            placeholder="Reply..."
+                            style={{ flex: 1, borderRadius: 8, border: '1px solid #ccc', padding: 8, fontSize: '1rem' }}
+                          />
+                          <button
+                            onClick={() => handlePostReply(msg._id)}
+                            style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 18px', fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            Reply
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
               {/* Floating add discussion button */}
               <button
                 onClick={() => setShowNewMsgInput(v => !v)}
                 style={{
-                  position: 'fixed',
+                  position: 'absolute',
                   bottom: 48,
                   right: 48,
                   background: '#1976d2',
@@ -711,7 +744,7 @@ const Pm_Project = () => {
                               rel="noopener noreferrer"
                               style={{ color: '#1976d2', fontWeight: 500, marginLeft: 6 }}
                             >
-                              Download
+                              View Document
                             </a>
                           ) : (
                             <span style={{ color: '#aaa' }}>Loading link…</span>

@@ -1,68 +1,58 @@
-/* Top Navbar Styles */
+/* === HEADER, NAV, PROFILE === */
 .logo-img {
   height: 60px !important;
   max-height: 65px;
   object-fit: contain;
 }
-
 .logo-container {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 65px;
 }
-
-
 .brand-name {
   font-size: 1.6rem;
   font-weight: bold;
-  margin-top: 4px; /* Slight nudge for vertical alignment */
+  margin-top: 4px;
 }
-
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.4rem 2rem;
-  background-color: #000466; /* Dark blue as in image */
-  color: white;
   padding: 0.8rem 2.5rem;
+  background-color: #000466;
+  color: white;
 }
-
 .nav-menu {
   display: flex;
   gap: 1.8rem;
   align-items: center;
 }
-
 .nav-link {
   color: white;
   text-decoration: none;
   font-size: 0.95rem;
   font-weight: 500;
+  transition: color 0.2s;
 }
-
 .nav-link:hover {
   color: #c0c0c0;
 }
-
 .profile-menu-container {
   position: relative;
 }
-
 .profile-circle {
   width: 40px;
   height: 40px;
-  background-color: #555;
-  color: white;
+  background-color: #9c27b0;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
+  color: white;
   font-weight: bold;
+  cursor: pointer;
 }
-
 .profile-menu {
   position: absolute;
   right: 0;
@@ -74,7 +64,6 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   z-index: 10;
 }
-
 .profile-menu button {
   background: none;
   border: none;
@@ -83,26 +72,12 @@
   width: 100%;
   text-align: left;
 }
-
 .profile-menu button:hover {
   background-color: #f0f0f0;
 }
 
-
-.profile-circle {
-  width: 32px;
-  height: 32px;
-  background-color: #9c27b0;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-}
-
-/* Main content styles */
-.main{
+/* === MAIN LAYOUT === */
+.main {
   flex: 1;
   position: relative;
   z-index: 1;
@@ -114,17 +89,15 @@
   margin-right: auto;
   margin-top: 0;
 }
-
-/* Project Detail Styles */
 .project-detail-container {
-  width: 90vw;  
+  width: 90vw;
+  max-width: 1400px;
   border-radius: 0;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   padding: 2rem;
-  max-width: 1400px; 
-  margin: 0 auto; 
+  margin: 0 auto;
+  background: #fafbfc;
 }
-
 .back-button {
   display: inline-block;
   cursor: pointer;
@@ -132,28 +105,29 @@
   color: #555;
   transition: color 0.2s;
 }
-
 .back-button:hover {
   color: #000;
 }
 
+/* === PROJECT IMAGE === */
 .project-image-container {
   position: relative;
   margin-bottom: 1.5rem;
 }
-
-.project-image {
-  width: 150px;
-  height: 250px;
-  border-radius: 8px;
+.responsive-photo {
+  width: 100%;
+  max-width: 1000px;
+  aspect-ratio: 4/3;
   object-fit: cover;
+  border-radius: 8px;
+  display: block;
+  margin: 0 auto;
 }
-
 .favorite-button {
   position: absolute;
   top: 10px;
   right: 10px;
-  background-color: rgba(255, 255, 255, 0.8);
+  background-color: rgba(255,255,255,0.8);
   border: none;
   border-radius: 50%;
   width: 40px;
@@ -164,110 +138,352 @@
   cursor: pointer;
   transition: background-color 0.2s;
 }
-
 .favorite-button:hover {
   background-color: white;
 }
 
+/* === PROJECT TITLE, DETAILS === */
 .project-title {
   font-size: 2rem;
   font-weight: bold;
   text-align: center;
   margin-bottom: 2rem;
-  color: #333;
+  color: #222;
 }
-
 .project-details-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2rem;
   margin-bottom: 2rem;
 }
-
 .detail-item {
   margin-bottom: 1rem;
   color: #555;
 }
-
 .detail-group {
   margin-bottom: 1.5rem;
 }
-
 .detail-label {
   font-weight: bold;
   color: #444;
   margin-bottom: 0.25rem;
+  display: block;
 }
-
 .detail-value {
   color: #555;
   line-height: 1.5;
 }
-
 .budget-container {
   margin-bottom: 1.5rem;
 }
-
 .budget-amount {
   font-size: 1.5rem;
   font-weight: bold;
-  color: #333;
+  color: #1976d2;
 }
-
 .budget-label {
   color: #777;
   font-size: 0.9rem;
 }
-
 .manpower-section {
   border-top: 1px solid #eee;
   padding-top: 1.5rem;
+  margin-top: 1rem;
 }
-
 .manpower-list {
   color: #555;
   line-height: 1.6;
-  font-size: 0.95rem;
+  font-size: 0.97rem;
 }
 
-/* Responsive styles */
-@media (max-width: 768px) {
-  .project-details-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .header {
-    flex-direction: column;
-    padding: 1rem;
-  }
-  
-  .nav-menu {
-    margin: 1rem 0;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-  
-  .search-profile {
-    width: 100%;
-    justify-content: space-between;
-  }
-  
-  .main-content {
-    padding: 1rem;
-  }
-  
-  .project-detail-container {
-    padding: 1.5rem;
-  }
+/* === TABS === */
+.tabs-row {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin: 32px 0 24px 0;
+  font-size: 1.3rem;
+  font-weight: 500;
+}
+.tab-btn {
+  border: none;
+  background: none;
+  font-size: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+  padding-bottom: 6px;
+  color: #222;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 3px solid transparent;
+  transition: color 0.2s, border-bottom 0.2s;
+}
+.tab-btn.active,
+.tab-btn:active {
+  color: #1976d2;
+  border-bottom: 3px solid #1976d2;
 }
 
-.responsive-photo {
-  width: 100%;
-  max-width: 1000px;
-  aspect-ratio: 4/3;   
-  object-fit: cover;
-  border-radius: 8px;
-  display: block;
+/* === DISCUSSIONS CARD === */
+.discussions-card {
+  max-width: 800px;
   margin: 0 auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #0001;
+  padding: 32px;
+  position: relative;           /* Important: relative parent */
+  min-height: 400px;
+  max-height: 60vh;             /* Change as needed for your UI */
+  overflow-y: auto;             /* Enable vertical scroll */
+}
+.discussion-msg {
+  margin-bottom: 32px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 24px;
+}
+.discussion-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.discussion-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e3e6f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+  color: #444;
+}
+.discussion-user-info {
+  display: flex;
+  flex-direction: column;
+}
+.discussion-user-name {
+  font-weight: 600;
+}
+.discussion-timestamp {
+  font-size: 13px;
+  color: #888;
+}
+.discussion-text {
+  margin: 12px 0 0 52px;
+  font-size: 17px;
+}
+.discussion-replies {
+  margin-left: 52px;
+  margin-top: 16px;
+}
+.discussion-reply {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.reply-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f3f6fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 15px;
+  color: #555;
+}
+.reply-info {
+  display: flex;
+  flex-direction: column;
+}
+.reply-name {
+  font-weight: 500;
+}
+.reply-timestamp {
+  font-size: 12px;
+  color: #aaa;
+}
+.reply-text {
+  font-size: 15px;
+  margin-top: 2px;
+}
+.reply-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.reply-input-row input {
+  flex: 1;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  padding: 8px;
+  font-size: 1rem;
+}
+.reply-input-row button {
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Plus Button in Card */
+.discussions-card {
+  max-width: 800px;
+  margin: 0 auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #0001;
+  padding: 32px;
+  position: relative;           /* Important: relative parent */
+  min-height: 400px;
+  max-height: 60vh;             /* Change as needed for your UI */
+  overflow-y: auto;             /* Enable vertical scroll */
+}
+
+.discussion-plus-btn {
+  position: absolute;
+  bottom: 32px;
+  right: 32px;
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 56px;
+  height: 56px;
+  box-shadow: 0 2px 8px #0002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  z-index: 10;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.discussion-plus-btn:hover {
+  background: #1751a5;
+}
+
+/* Modal/New Message */
+.new-msg-modal {
+  position: fixed;
+  left: 0; top: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.18);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.new-msg-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  min-width: 350px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 2px 16px #0002;
+}
+.new-msg-box textarea {
+  width: 100%;
+  min-height: 60px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  padding: 12px;
+  font-size: 1rem;
+}
+.new-msg-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+}
+.new-msg-actions button {
+  border-radius: 8px;
+  border: none;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 18px;
+  font-size: 1rem;
+}
+.new-msg-actions .cancel-btn {
+  background: #eee;
+  color: #333;
+}
+.new-msg-actions .post-btn {
+  background: #1976d2;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Mention Dropdown */
+.mention-dropdown {
+  position: absolute;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px #0001;
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+  width: calc(100% - 20px);
+}
+.mention-dropdown .mention-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+.mention-dropdown .mention-option:last-child {
+  border-bottom: none;
+}
+.mention-dropdown .mention-option:hover {
+  background: #f0f0f0;
+}
+
+/* === FILES SECTION === */
+.project-files-list {
+  text-align: center;
+  padding: 40px;
+}
+.project-files-list ul {
+  list-style: none;
+  padding: 0;
+}
+.project-files-list li {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.project-files-list a {
+  color: #1976d2;
+  font-weight: 500;
+  margin-left: 6px;
+  text-decoration: underline;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 900px) {
+  .project-detail-container { padding: 1.2rem; }
+  .discussions-card { padding: 20px; min-height: 350px; }
+  .discussion-plus-btn { bottom: 16px; right: 16px; }
+}
+@media (max-width: 768px) {
+  .project-details-grid { grid-template-columns: 1fr; }
+  .header { flex-direction: column; padding: 1rem; }
+  .nav-menu { margin: 1rem 0; justify-content: center; flex-wrap: wrap; gap: 1rem; }
+  .main-content { padding: 1rem; }
+  .project-detail-container { padding: 1.5rem; }
+}
+@media (max-width: 480px) {
+  .discussions-card { padding: 10px; }
+  .project-detail-container { padding: 0.6rem; }
 }
