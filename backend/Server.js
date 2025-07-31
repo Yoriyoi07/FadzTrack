@@ -28,6 +28,8 @@ const geminiRoutes          = require('./route/gemini');
 const messageRoutes         = require('./route/messageRoutes');
 const dssReportRoutes       = require('./route/dssReport');
 const photoSignedUrlRoute   = require('./route/photoSignedUrl');
+const staffRoutes = require('./route/staff');
+const hrSiteRoutes = require('./route/hrSite');
 
 const { verifyToken } = require('./middleware/authMiddleware');
 
@@ -148,6 +150,8 @@ app.use('/api/daily-reports',      dailyReportRoutes);
 app.use('/api/dss-report',         dssReportRoutes);
 app.use('/api/photo-signed-url',   photoSignedUrlRoute);
 app.use('/api/gemini',             geminiRoutes);
+app.use('/api/staff', staffRoutes);
+app.use('/api/hr-site', hrSiteRoutes);
 
 // Chats & Messages (protected internally via verifyToken)
 app.use('/api/chats',    chatRoutes);

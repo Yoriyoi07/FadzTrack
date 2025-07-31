@@ -13,4 +13,5 @@ const userSchema = new mongoose.Schema({
   timestamps: true  
 }); 
 
+// Valid roles: 'Admin', 'CEO', 'IT', 'HR', 'HR - Site', 'PIC', 'Person in Charge', 'Project Manager', 'Area Manager', 'Staff'
 module.exports = mongoose.model('User', userSchema);

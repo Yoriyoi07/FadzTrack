@@ -47,6 +47,7 @@ const TwoFactorAuth = ({ email, onSuccess, forceUserUpdate }) => {
 
   return (
     <div className="two-fa-container">
+      <h3>We have sent a verification code to your email.</h3>
       <h2>Enter Verification Code</h2>
       <form onSubmit={handleSubmit}>
         <input

@@ -190,3 +190,9 @@ exports.getDailyReportById = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// HR - Site: Generate attendance report (stub)
+exports.generateAttendanceReportHR = async (req, res) => {
+  // TODO: Implement attendance report generation for HR - Site
+  res.status(200).json({ message: 'Attendance report generation for HR - Site is not yet implemented.' });
+};

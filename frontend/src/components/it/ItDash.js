@@ -327,6 +327,8 @@ const handleLogout = () => {
               <option value="Area Manager">Area Manager</option>
               <option value="HR">HR</option>
               <option value="Person in Charge">Person in Charge</option>
+              <option value="Staff">Staff</option>
+              <option value="HR - Site">HR - Site</option>
             </select>
             {errors.position && <div className="error-msg-IT">{errors.position}</div>}
           </div>

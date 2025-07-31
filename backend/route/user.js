@@ -4,6 +4,7 @@ const router = express.Router();
 const { verifyToken } = require('../middleware/authMiddleware');
 const User = require('../models/User');
 const Project = require('../models/Project');
+const dailyReportController = require('../controllers/dailyReportController');
 
 // Apply auth guard to **all** user routes
 router.use(verifyToken);
@@ -112,11 +113,12 @@ router.get('/assigned/:userId', async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    if (['PIC', 'Person in Charge'].includes(user.role)) {
+    // Treat Staff and HR - Site - Site like PIC: only one active project at a time
+    if (["PIC", "Person in Charge", "Staff", "HR - Site"].includes(user.role)) {
       const project = await Project.findOne({ pic: userId });
       return project
         ? res.json([project])
-        : res.status(404).json({ message: 'No project assigned to this PIC' });
+        : res.status(404).json({ message: `No project assigned to this ${user.role}` });
     }
 
     const projects = await Project.find({
@@ -132,11 +134,11 @@ router.get('/assigned/:userId', async (req, res) => {
   }
 });
 
-// GET all unassigned PICs
+// GET all unassigned PICs (includes Staff and HR - Site as single-project roles)
 router.get('/unassigned-pics', async (req, res) => {
   try {
     const unassignedPICs = await User.aggregate([
-      { $match: { role: { $in: ['PIC', 'Person in Charge'] } } },
+      { $match: { role: { $in: ['PIC', 'Person in Charge', 'Staff', 'HR - Site'] } } },
       {
         $lookup: {
           from: 'projects',
@@ -199,5 +201,8 @@ router.get('/unassigned-pms', async (req, res) => {
     return res.status(500).json({ message: 'Failed to fetch unassigned PMs' });
   }
 });
+
+// HR - Site: Generate attendance report (stub route)
+router.post('/:userId/generate-attendance-report', dailyReportController.generateAttendanceReportHR);
 
 module.exports = router;
