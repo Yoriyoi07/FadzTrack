@@ -149,8 +149,7 @@ app.use('/api/daily-reports',      dailyReportRoutes);
 app.use('/api/dss-report',         dssReportRoutes);
 app.use('/api/photo-signed-url',   photoSignedUrlRoute);
 app.use('/api/gemini',             geminiRoutes);
-app.use('/api/staff', staffRoutes);
-app.use('/api/hr-site', hrSiteRoutes);
+
 
 // Chats & Messages (protected internally via verifyToken)
 app.use('/api/chats',    chatRoutes);
