@@ -202,7 +202,5 @@ router.get('/unassigned-pms', async (req, res) => {
   }
 });
 
-// HR - Site: Generate attendance report (stub route)
-router.post('/:userId/generate-attendance-report', dailyReportController.generateAttendanceReportHR);
 
 module.exports = router;
