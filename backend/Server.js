@@ -28,8 +28,7 @@ const geminiRoutes          = require('./route/gemini');
 const messageRoutes         = require('./route/messageRoutes');
 const dssReportRoutes       = require('./route/dssReport');
 const photoSignedUrlRoute   = require('./route/photoSignedUrl');
-const staffRoutes = require('./route/staff');
-const hrSiteRoutes = require('./route/hrSite');
+
 
 const { verifyToken } = require('./middleware/authMiddleware');
 
