@@ -56,6 +56,8 @@ import ProgressReport from './am/ProgressReport';
 import PmProgressReport from './pm/PmProgressReport';
 import PmDailyLogsList from './pm/PmDailyLogsList';
 import PmViewDailyLogs from './pm/PmViewDailyLogs';
+import StaffCurrentProject from './staff/StaffCurrentProject';
+import HrSiteCurrentProject from './hrSite/HrSiteCurrentProject';
 
 
 const AppRoutes = ({ forceUserUpdate }) => {
@@ -136,6 +138,12 @@ const AppRoutes = ({ forceUserUpdate }) => {
   <Route path='/hr/project-records' element={<PrivateRoute allowedRoles={["HR"]}><HrProj /></PrivateRoute>} />
   <Route path='/hr/chat' element={<PrivateRoute allowedRoles={["HR"]}><HrChat /></PrivateRoute>} />
   <Route path='/hr/chat/:chatId' element={<PrivateRoute allowedRoles={["HR"]}><HrChat /></PrivateRoute>} />
+
+  {/* STAFF */}
+  <Route path="/staff/current-project" element={<PrivateRoute allowedRoles={["Staff"]}><StaffCurrentProject /></PrivateRoute>} />
+
+  {/* HR SITE */}
+  <Route path="/hr-site/" element={<PrivateRoute allowedRoles={["HRS"]}><HrSiteCurrentProject /></PrivateRoute>} />
 
   {/* Reusable */}
   <Route path="/approve-deny/:id" element={<PrivateRoute allowedRoles={["Project Manager", "Area Manager", "CEO"]}><ApproveDenyAction /></PrivateRoute>} />
