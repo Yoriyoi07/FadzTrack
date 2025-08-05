@@ -42,22 +42,40 @@ const HrProj = () => {
     fetchProjects();
   }, []);
 
+  // Filter projects based on status
+  const filteredProjects = projects.filter((project) => {
+    if (filter === 'all') return true;
+    if (filter === 'completed') return project.status === 'Completed';
+    if (filter === 'ongoing') return project.status === 'Ongoing';
+    return true;
+  });
+
   return (
     <div className="dashboard-container">
-     <header className="header">
+      {/* Header */}
+      <header className="header">
         <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
+          <img
+            src={require('../../assets/images/FadzLogo1.png')}
+            alt="FadzTrack Logo"
+            className="logo-img"
+          />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
-            <nav className="nav-menu">
-              <Link to="/hr/dash" className="nav-link">Dashboard</Link>
-              <Link to="/hr/chat" className="nav-link">Chat</Link>
-              <Link to="/hr/mlist" className="nav-link">Manpower</Link>
-              <Link to="/hr/movement" className="nav-link">Movement</Link>
-              <Link to="/hr/project-records" className="nav-link">Projects</Link>
-            </nav>
+        <nav className="nav-menu">
+          <Link to="/hr/dash" className="nav-link">Dashboard</Link>
+          <Link to="/hr/chat" className="nav-link">Chat</Link>
+          <Link to="/hr/mlist" className="nav-link">Manpower</Link>
+          <Link to="/hr/movement" className="nav-link">Movement</Link>
+          <Link to="/hr/project-records" className="nav-link">Projects</Link>
+        </nav>
         <div className="profile-menu-container">
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>Z</div>
+          <div
+            className="profile-circle"
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+          >
+            Z
+          </div>
           {profileMenuOpen && (
             <div className="profile-menu">
               <button onClick={handleLogout}>Logout</button>
@@ -71,7 +89,17 @@ const HrProj = () => {
         <div className="ceo-proj-filter-bar">
           <div className="ceo-proj-area-filter">
             <span className="ceo-proj-filter-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
               </svg>
               Area Filter
@@ -99,13 +127,25 @@ const HrProj = () => {
               </button>
             </div>
           </div>
+
+          {/* View mode toggle */}
           <div className="ceo-proj-view-mode">
             <button
               className={viewMode === 'grid' ? 'ceo-proj-active' : ''}
               onClick={() => setViewMode('grid')}
             >
               {/* Grid icon */}
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <rect x="3" y="3" width="7" height="7"></rect>
                 <rect x="14" y="3" width="7" height="7"></rect>
                 <rect x="3" y="14" width="7" height="7"></rect>
@@ -117,7 +157,17 @@ const HrProj = () => {
               onClick={() => setViewMode('list')}
             >
               {/* List icon */}
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <line x1="8" y1="6" x2="21" y2="6"></line>
                 <line x1="8" y1="12" x2="21" y2="12"></line>
                 <line x1="8" y1="18" x2="21" y2="18"></line>
@@ -131,11 +181,11 @@ const HrProj = () => {
 
         {/* Project cards */}
         <div className={`ceo-proj-project-cards ${viewMode}`}>
-          {projects.map(project => (
+          {filteredProjects.map((project) => (
             <div
               key={project._id}
               className="ceo-proj-project-card"
-              onClick={() => navigate(`/ceo/proj/${project._id}`)}
+              onClick={() => navigate(`/hr/project-records/${project._id}`)} // ✅ Correct HR route
               style={{ cursor: 'pointer' }}
             >
               <div className="ceo-proj-project-image-container">
@@ -149,18 +199,32 @@ const HrProj = () => {
                   className="ceo-proj-project-image"
                   width={250}
                   height={150}
-                  style={{ objectFit: "cover", borderRadius: 8 }}
+                  style={{ objectFit: 'cover', borderRadius: 8 }}
                 />
 
-                <button className="ceo-proj-favorite-btn" onClick={(e) => e.stopPropagation()}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <button
+                  className="ceo-proj-favorite-btn"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
                   </svg>
                 </button>
               </div>
+
               <div className="ceo-proj-project-details">
                 <div className="ceo-proj-left-details">
-                  <h3 className="ceo-proj-project-name">{project.name}</h3>
+                  <h3 className="ceo-proj-project-name">{project.projectName}</h3>
                   <p className="ceo-proj-project-location">
                     {project.location?.name
                       ? `${project.location.name} (${project.location.region})`
@@ -169,25 +233,25 @@ const HrProj = () => {
                   <div className="ceo-proj-project-info-grid">
                     <div className="ceo-proj-info-column">
                       <span className="ceo-proj-info-column-header">Project Manager:</span>
-                      <span className="ceo-proj-info-column-value">{project.projectmanager?.name}</span>
+                      <span className="ceo-proj-info-column-value">{project.projectmanager?.name || 'N/A'}</span>
                     </div>
                     <div className="ceo-proj-info-column">
                       <span className="ceo-proj-info-column-header">Contractor:</span>
-                      <span className="ceo-proj-info-column-value">{project.contractor}</span>
+                      <span className="ceo-proj-info-column-value">{project.contractor || 'N/A'}</span>
                     </div>
                     <div className="ceo-proj-info-column">
                       <span className="ceo-proj-info-column-header">Target Date:</span>
                       <span className="ceo-proj-info-column-value">
                         {project.startDate && project.endDate
                           ? `${new Date(project.startDate).toLocaleDateString()} to ${new Date(project.endDate).toLocaleDateString()}`
-                          : "N/A"}
+                          : 'N/A'}
                       </span>
                     </div>
                     <div className="ceo-proj-manpower-section">
                       <span className="ceo-proj-manpower-header">Manpower:</span>
                       <span className="ceo-proj-manpower-value">
                         {Array.isArray(project.manpower) && project.manpower.length > 0
-                          ? project.manpower.map(mp => `${mp.name} (${mp.position})`).join(', ')
+                          ? project.manpower.map((mp) => `${mp.name} (${mp.position})`).join(', ')
                           : 'No Manpower Assigned'}
                       </span>
                     </div>
@@ -195,7 +259,7 @@ const HrProj = () => {
                 </div>
                 <div className="ceo-proj-right-details">
                   <div className="ceo-proj-budget">
-                    <p className="ceo-proj-budget-amount">{project.budget}</p>
+                    <p className="ceo-proj-budget-amount">{project.budget?.toLocaleString()}</p>
                     <p className="ceo-proj-budget-label">Estimated Budget</p>
                   </div>
                 </div>

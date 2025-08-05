@@ -57,7 +57,9 @@ import PmProgressReport from './pm/PmProgressReport';
 import PmDailyLogsList from './pm/PmDailyLogsList';
 import PmViewDailyLogs from './pm/PmViewDailyLogs';
 import StaffCurrentProject from './staff/StaffCurrentProject';
+import StaffAllProjects from './staff/StaffAllProjects';
 import HrSiteCurrentProject from './hrSite/HrSiteCurrentProject';
+import HrViewSpecific from './hr/HrViewSpeficic';
 
 
 const AppRoutes = ({ forceUserUpdate }) => {
@@ -136,11 +138,13 @@ const AppRoutes = ({ forceUserUpdate }) => {
   <Route path="/hr/mlist" element={<PrivateRoute allowedRoles={["HR"]}><HrManpowerList /></PrivateRoute>} />
   <Route path="/hr/movement" element={<PrivateRoute allowedRoles={["HR"]}><HrMovementList /></PrivateRoute>} />
   <Route path='/hr/project-records' element={<PrivateRoute allowedRoles={["HR"]}><HrProj /></PrivateRoute>} />
+  <Route path='/hr/project-records/:id' element={<PrivateRoute allowedRoles={["HR"]}><HrViewSpecific /></PrivateRoute>} />
   <Route path='/hr/chat' element={<PrivateRoute allowedRoles={["HR"]}><HrChat /></PrivateRoute>} />
   <Route path='/hr/chat/:chatId' element={<PrivateRoute allowedRoles={["HR"]}><HrChat /></PrivateRoute>} />
 
   {/* STAFF */}
   <Route path="/staff/current-project" element={<PrivateRoute allowedRoles={["Staff"]}><StaffCurrentProject /></PrivateRoute>} />
+  <Route path="/staff/all-projects" element={<PrivateRoute allowedRoles={["Staff"]}><StaffAllProjects /></PrivateRoute>} />
 
   {/* HR SITE */}
   <Route path="/hr-site/" element={<PrivateRoute allowedRoles={["HRS"]}><HrSiteCurrentProject /></PrivateRoute>} />

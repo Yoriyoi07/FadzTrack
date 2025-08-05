@@ -28,7 +28,7 @@ const AreaAddproj = () => {
   const [photos, setPhotos] = useState([]);
 
   console.log('Assigned Pics:', assignedPics);
-console.log('Available Pics:', availablePics);
+  console.log('Available Pics:', availablePics);
   console.log('Assigned Pics:', manpowerList);
   console.log('Available Manpower:', availableManpower);
   console.log('Assigned Locations:', assignedLocations);

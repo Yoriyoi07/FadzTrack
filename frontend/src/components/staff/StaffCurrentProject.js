@@ -82,7 +82,7 @@ const StaffCurrentProject = () => {
           <Link to="/staff/current-project" className="nav-link">Dashboard</Link>
           {project && (<Link to={`/staff/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
           {project && (<Link to={`/staff/${project._id}`} className="nav-link">View Project</Link>)}
-          <Link to="/staff/projects" className="nav-link">My Projects</Link>
+          <Link to="/staff/all-projects" className="nav-link">My Projects</Link>
           <Link to="/staff/chat" className="nav-link">Chat</Link>
         </nav>
         <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
