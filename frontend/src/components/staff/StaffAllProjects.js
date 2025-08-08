@@ -111,7 +111,7 @@ const StaffAllProjects = () => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/staff" className="nav-link">Home</Link>
+          <Link to="/staff/current-project" className="nav-link">Dashboard</Link>
           <Link to="/staff/projects" className="nav-link">Projects</Link>
           <Link to="/staff/chat" className="nav-link">Chat</Link>
         </nav>

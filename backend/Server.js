@@ -29,9 +29,6 @@ const messageRoutes         = require('./route/messageRoutes');
 const dssReportRoutes       = require('./route/dssReport');
 const photoSignedUrlRoute   = require('./route/photoSignedUrl');
 
-
-const { verifyToken } = require('./middleware/authMiddleware');
-
 const app    = express();
 const server = http.createServer(app);
 
@@ -71,37 +68,33 @@ const io = socketio(server, {
 // Make io accessible in routes
 app.set('io', io);
 
+// === Single connection handler (no duplicates!) ===
 io.on('connection', socket => {
   console.log('🔌 Socket connected:', socket.id);
 
-  // 1) Join a chat room
+  // ---- Chat rooms ----
   socket.on('joinChat', chatId => {
     socket.join(chatId);
     console.log(`↪️  Socket ${socket.id} joined chat ${chatId}`);
   });
 
-  // 2) Send a message via socket
   socket.on('sendMessage', ({ chatId, senderId, content, type }) => {
     const timestamp = Date.now();
-    // Broadcast to that room so everyone sees it
     io.to(chatId).emit('receiveMessage', {
-      _id:        new Types.ObjectId().toString(),  // temporary client‑side id
+      _id:        new Types.ObjectId().toString(),
       conversation: chatId,
       sender:     senderId,
       content,
       type,
-      fileUrl:    type === 'text' ? null : content, // if non‑text, `content` already holds the `/uploads/...` path
+      fileUrl:    type === 'text' ? null : content,
       timestamp
     });
-
-    // Also update the sidebar previews everywhere
     io.emit('chatUpdated', {
       chatId,
       lastMessage: { content, timestamp }
     });
   });
-console.log('API URL:', process.env.REACT_APP_API_URL);
-  // 3) Mark message seen (already implemented)
+
   socket.on('messageSeen', async ({ messageId, userId }) => {
     try {
       const msg = await Message.findByIdAndUpdate(
@@ -109,13 +102,11 @@ console.log('API URL:', process.env.REACT_APP_API_URL);
         { $push: { seen: { userId, timestamp: Date.now() } } },
         { new: true }
       );
-
       io.to(msg.conversation.toString()).emit('messageSeen', {
         messageId,
         userId,
         timestamp: msg.seen[msg.seen.length - 1].timestamp
       });
-
       io.emit('chatUpdated', {
         chatId: msg.conversation.toString(),
         lastMessage: {
@@ -126,6 +117,20 @@ console.log('API URL:', process.env.REACT_APP_API_URL);
     } catch (err) {
       console.error('❌ socket messageSeen error:', err);
     }
+  });
+
+  // ---- Project discussion rooms ----
+  // Client should emit: socket.emit('joinProject', projectId)  (NOT a prefixed string)
+  socket.on('joinProject', (projectId) => {
+    const room = `project:${projectId}`;
+    socket.join(room);
+    console.log(`↪️  Socket ${socket.id} joined ${room}`);
+  });
+
+  socket.on('leaveProject', (projectId) => {
+    const room = `project:${projectId}`;
+    socket.leave(room);
+    console.log(`↩️  Socket ${socket.id} left ${room}`);
   });
 
   socket.on('disconnect', () => {
@@ -150,8 +155,7 @@ app.use('/api/dss-report',         dssReportRoutes);
 app.use('/api/photo-signed-url',   photoSignedUrlRoute);
 app.use('/api/gemini',             geminiRoutes);
 
-
-// Chats & Messages (protected internally via verifyToken)
+// Chats & Messages
 app.use('/api/chats',    chatRoutes);
 app.use('/api/messages', messageRoutes);
 

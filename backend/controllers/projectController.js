@@ -1,98 +1,66 @@
 const Project = require('../models/Project');
 const { logAction } = require('../utils/auditLogger');
-const Manpower = require('../models/Manpower'); 
+const Manpower = require('../models/Manpower');
 const supabase = require('../utils/supabaseClient');
-const getPhotoPath = require('../utils/photoPath');
+const User = require('../models/User');
 
-// CREATE PROJECT
+/* --- CREATE PROJECT --- */
 exports.addProject = async (req, res) => {
   try {
     const {
-      projectName,
-      pic,
-      projectmanager, 
-      contractor,
-      budget,
-      location,
-      startDate, 
-      endDate,   
-      manpower,
-      areamanager
+      projectName, pic, staff, hrsite,
+      projectmanager, contractor, budget, location,
+      startDate, endDate, manpower, areamanager
     } = req.body;
 
     let photos = [];
     let documentsUrls = [];
-    // Handle photo uploads (public bucket)
-if (req.files && req.files.photos && req.files.photos.length > 0) {
-  for (let file of req.files.photos) {
-    const filePath = `project-photos/project-${Date.now()}-${file.originalname}`;
-    const { data, error } = await supabase.storage
-      .from('photos') // <-- your public photo bucket!
-      .upload(filePath, file.buffer, {
-        contentType: file.mimetype,
-        upsert: true,
-      });
-    if (!error && data) {
-      // Get public URL for the photo
-      const { data: publicUrlData } = supabase.storage
-        .from('photos')
-        .getPublicUrl(filePath);
-      if (publicUrlData && publicUrlData.publicUrl) {
-        photos.push(publicUrlData.publicUrl);
-      }
-    }
-  }
-}
 
-
- // Handle document uploads (private bucket)
-    if (req.files && req.files.documents && req.files.documents.length > 0) {
-      for (let file of req.files.documents) {
-        const filePath = `project-documents/project-${Date.now()}-${file.originalname}`;
+    // --- Handle photo uploads (public bucket) ---
+    if (req.files && req.files.photos) {
+      for (let file of req.files.photos) {
+        const filePath = `project-photos/project-${Date.now()}-${file.originalname}`;
         const { data, error } = await supabase.storage
-          .from('documents')
-          .upload(filePath, file.buffer, {
-            contentType: file.mimetype,
-            upsert: true,
-          });
+          .from('photos')
+          .upload(filePath, file.buffer, { contentType: file.mimetype, upsert: true });
         if (!error && data) {
-          // For private bucket, store only path, not public URL
-          documentsUrls.push(filePath);
+          const { data: publicUrlData } = supabase.storage.from('photos').getPublicUrl(filePath);
+          if (publicUrlData?.publicUrl) photos.push(publicUrlData.publicUrl);
         }
       }
     }
 
+    // --- Handle document uploads (private bucket) ---
+    if (req.files && req.files.documents) {
+      for (let file of req.files.documents) {
+        const filePath = `project-documents/project-${Date.now()}-${file.originalname}`;
+        const { data, error } = await supabase.storage
+          .from('documents')
+          .upload(filePath, file.buffer, { contentType: file.mimetype, upsert: true });
+        if (!error && data) documentsUrls.push(filePath);
+      }
+    }
 
-
-    // Create the new project
+    // --- Save project ---
     const newProject = new Project({
       projectName,
-      pic,
-      projectmanager, 
-      contractor,
-      budget,
-      location,
-      startDate: new Date(startDate), 
-      endDate: new Date(endDate),   
-      manpower,
-      areamanager,
-      photos,
-      documents: documentsUrls, // Store document paths
+      pic, staff, hrsite,
+      projectmanager, contractor, budget, location,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      manpower, areamanager, photos,
+      documents: documentsUrls
     });
-
-    // Save project
     const savedProject = await newProject.save();
 
-    // Normal log
+    // --- Logging ---
     await logAction({
       action: 'ADD_PROJECT',
-      performedBy: req.user.id, 
+      performedBy: req.user.id,
       performedByRole: req.user.role,
       description: `Added new project ${projectName}`,
       meta: { projectId: savedProject._id }
     });
-
-    // CEO-specific log
     if (req.user.role === 'CEO') {
       await logAction({
         action: 'CEO_ADD_PROJECT',
@@ -102,14 +70,13 @@ if (req.files && req.files.photos && req.files.photos.length > 0) {
         meta: { projectId: savedProject._id }
       });
     }
-    
-    // Update assignedProject for each manpower
+
+    // --- Assign project to manpower ---
     await Manpower.updateMany(
       { _id: { $in: manpower } },
       { $set: { assignedProject: savedProject._id } }
     );
 
-    // Return the saved project
     res.status(201).json(savedProject);
   } catch (err) {
     console.error('❌ Error adding project:', err);
@@ -117,15 +84,13 @@ if (req.files && req.files.photos && req.files.photos.length > 0) {
   }
 };
 
-// UPDATE PROJECT
+/* --- UPDATE PROJECT --- */
 exports.updateProject = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = { ...req.body };
     const updatedProject = await Project.findByIdAndUpdate(id, updates, { new: true });
-    if (!updatedProject) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
+    if (!updatedProject) return res.status(404).json({ message: 'Project not found' });
 
     await logAction({
       action: 'UPDATE_PROJECT',
@@ -134,7 +99,6 @@ exports.updateProject = async (req, res) => {
       description: `Updated project ${updatedProject.projectName}`,
       meta: { projectId: updatedProject._id }
     });
-
     if (req.user.role === 'CEO') {
       await logAction({
         action: 'CEO_UPDATE_PROJECT',
@@ -144,7 +108,6 @@ exports.updateProject = async (req, res) => {
         meta: { projectId: updatedProject._id }
       });
     }
-
     res.status(200).json(updatedProject);
   } catch (err) {
     console.error('❌ Error updating project:', err);
@@ -152,14 +115,12 @@ exports.updateProject = async (req, res) => {
   }
 };
 
-// DELETE PROJECT
+/* --- DELETE PROJECT --- */
 exports.deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
     const deletedProject = await Project.findByIdAndDelete(id);
-    if (!deletedProject) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
+    if (!deletedProject) return res.status(404).json({ message: 'Project not found' });
 
     await logAction({
       action: 'DELETE_PROJECT',
@@ -168,7 +129,6 @@ exports.deleteProject = async (req, res) => {
       description: `Deleted project ${deletedProject.projectName}`,
       meta: { projectId: deletedProject._id }
     });
-
     if (req.user.role === 'CEO') {
       await logAction({
         action: 'CEO_DELETE_PROJECT',
@@ -178,7 +138,6 @@ exports.deleteProject = async (req, res) => {
         meta: { projectId: deletedProject._id }
       });
     }
-
     res.status(200).json({ message: 'Project deleted successfully' });
   } catch (err) {
     console.error('❌ Error deleting project:', err);
@@ -186,12 +145,14 @@ exports.deleteProject = async (req, res) => {
   }
 };
 
-// GET ALL PROJECTS
+/* --- GET ALL PROJECTS --- */
 exports.getAllProjects = async (req, res) => {
   try {
     const projects = await Project.find()
-      .populate('projectmanager', 'name email') 
+      .populate('projectmanager', 'name email')
       .populate('pic', 'name email')
+      .populate('staff', 'name email')
+      .populate('hrsite', 'name email')
       .populate('areamanager', 'name email')
       .populate('location', 'name region')
       .populate('manpower', 'name position');
@@ -202,18 +163,18 @@ exports.getAllProjects = async (req, res) => {
   }
 };
 
-// GET PROJECT BY ID
+/* --- GET PROJECT BY ID --- */
 exports.getProjectById = async (req, res) => {
   try {
     const project = await Project.findById(req.params.id)
       .populate('projectmanager', 'name email')
       .populate('pic', 'name email')
+      .populate('staff', 'name email')
+      .populate('hrsite', 'name email')
       .populate('areamanager', 'name email')
       .populate('location', 'name region')
       .populate('manpower', 'name position');
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
+    if (!project) return res.status(404).json({ message: 'Project not found' });
     res.status(200).json(project);
   } catch (err) {
     console.error('❌ Error fetching project:', err);
@@ -221,13 +182,15 @@ exports.getProjectById = async (req, res) => {
   }
 };
 
-// GET PROJECTS ASSIGNED TO USER AS PIC
+/* --- GET PROJECTS ASSIGNED TO USER AS PIC --- */
 exports.getAssignedProjectsPIC = async (req, res) => {
   const userId = req.params.userId;
   try {
     const projects = await Project.find({ pic: userId })
       .populate('projectmanager', 'name email')
       .populate('pic', 'name email')
+      .populate('staff', 'name email')
+      .populate('hrsite', 'name email')
       .populate('location', 'name region')
       .populate('manpower', 'name position');
     res.json(projects);
@@ -237,20 +200,26 @@ exports.getAssignedProjectsPIC = async (req, res) => {
   }
 };
 
-// GET PROJECTS ASSIGNED TO USER (ANY ROLE)
+/* --- GET PROJECTS ASSIGNED TO USER (ANY ROLE) --- */
 exports.getAssignedProjectsAllRoles = async (req, res) => {
   const userId = req.params.userId;
   try {
     const projects = await Project.find({
       $or: [
         { pic: userId },
+        { staff: userId },
+        { hrsite: userId },
         { projectmanager: userId },
         { areamanager: userId }
       ]
     })
       .populate('projectmanager', 'name email')
       .populate('pic', 'name email')
-      .populate('areamanager', 'name email');
+      .populate('staff', 'name email')
+      .populate('hrsite', 'name email')
+      .populate('areamanager', 'name email')
+      .populate('location', 'name region')       
+      .populate('manpower', 'name position');
     res.json(projects);
   } catch (error) {
     console.error('Error fetching assigned projects:', error);
@@ -258,17 +227,55 @@ exports.getAssignedProjectsAllRoles = async (req, res) => {
   }
 };
 
-// GET PROJECT WHERE USER IS PROJECT MANAGER
+/* --- GET UNASSIGNED USERS (per role, for dropdowns) --- */
+exports.getUnassignedPICs = async (req, res) => {
+  try {
+    const candidates = await User.find({ role: 'Person in Charge' }, 'name role');
+    const projects = await Project.find({}, 'pic');
+    const assigned = new Set();
+    projects.forEach(p => Array.isArray(p.pic) && p.pic.forEach(id => assigned.add(id.toString())));
+    const unassigned = candidates.filter(u => !assigned.has(u._id.toString()));
+    res.json(unassigned);
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to fetch unassigned PICs' });
+  }
+};
+exports.getUnassignedStaff = async (req, res) => {
+  try {
+    const candidates = await User.find({ role: 'Staff' }, 'name role');
+    const projects = await Project.find({}, 'staff');
+    const assigned = new Set();
+    projects.forEach(p => Array.isArray(p.staff) && p.staff.forEach(id => assigned.add(id.toString())));
+    const unassigned = candidates.filter(u => !assigned.has(u._id.toString()));
+    res.json(unassigned);
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to fetch unassigned Staff' });
+  }
+};
+exports.getUnassignedHR = async (req, res) => {
+  try {
+    const candidates = await User.find({ role: 'HR - Site' }, 'name role');
+    const projects = await Project.find({}, 'hrsite');
+    const assigned = new Set();
+    projects.forEach(p => Array.isArray(p.hrsite) && p.hrsite.forEach(id => assigned.add(id.toString())));
+    const unassigned = candidates.filter(u => !assigned.has(u._id.toString()));
+    res.json(unassigned);
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to fetch unassigned HR - Site' });
+  }
+};
+
+/* --- GET PROJECT WHERE USER IS PROJECT MANAGER --- */
 exports.getAssignedProjectManager = async (req, res) => {
   const userId = req.params.userId;
   try {
     const project = await Project.findOne({ projectmanager: userId })
       .populate('projectmanager', 'name email')
       .populate('pic', 'name email')
+      .populate('staff', 'name email')
+      .populate('hrsite', 'name email')
       .populate('areamanager', 'name email');
-    if (!project) {
-      return res.status(404).json({ message: 'No project assigned as Project Manager' });
-    }
+    if (!project) return res.status(404).json({ message: 'No project assigned as Project Manager' });
     res.json(project);
   } catch (error) {
     console.error('Error fetching project:', error);
@@ -276,9 +283,8 @@ exports.getAssignedProjectManager = async (req, res) => {
   }
 };
 
-// GET USERS BY ROLE (for dropdowns etc.)
+/* --- GET USERS BY ROLE (for dropdowns etc.) --- */
 exports.getUsersByRole = async (req, res) => {
-  const User = require('../models/User');
   try {
     const role = req.params.role;
     const users = await User.find({ role }, 'name');
@@ -288,15 +294,13 @@ exports.getUsersByRole = async (req, res) => {
   }
 };
 
-
-// UPDATE ONLY TASKS OF A PROJECT
+/* --- UPDATE ONLY TASKS OF A PROJECT --- */
 exports.updateProjectTasks = async (req, res) => {
   try {
     const { id } = req.params;
     const { tasks } = req.body;
-    if (!Array.isArray(tasks)) {
-      return res.status(400).json({ message: 'Tasks must be an array' });
-    }
+    if (!Array.isArray(tasks)) return res.status(400).json({ message: 'Tasks must be an array' });
+
     const project = await Project.findByIdAndUpdate(
       id,
       { tasks },
@@ -304,12 +308,12 @@ exports.updateProjectTasks = async (req, res) => {
     )
     .populate('projectmanager', 'name email')
     .populate('pic', 'name email')
+    .populate('staff', 'name email')
+    .populate('hrsite', 'name email')
     .populate('areamanager', 'name email')
     .populate('location', 'name region')
     .populate('manpower', 'name position');
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
-    }
+    if (!project) return res.status(404).json({ message: 'Project not found' });
 
     await logAction({
       action: 'UPDATE_PROJECT_TASKS',
@@ -326,21 +330,15 @@ exports.updateProjectTasks = async (req, res) => {
   }
 };
 
-// TOGGLE PROJECT STATUS (mark as completed or ongoing)
+/* --- TOGGLE PROJECT STATUS --- */
 exports.toggleProjectStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    // Toggle logic
-    if (project.status !== 'Completed') {
-      project.status = 'Completed';
-      await project.save();
-    } else {
-      project.status = 'Ongoing';
-      await project.save();
-    }
+    project.status = (project.status !== 'Completed') ? 'Completed' : 'Ongoing';
+    await project.save();
 
     res.json({ status: project.status });
   } catch (err) {
@@ -348,31 +346,11 @@ exports.toggleProjectStatus = async (req, res) => {
   }
 };
 
-
-// GET PROJECT WHERE USER IS PROJECT MANAGER
-exports.getAssignedProjectManager = async (req, res) => {
-  const userId = req.params.userId;
-  try {
-    const project = await Project.findOne({ projectmanager: userId })
-      .populate('projectmanager', 'name email')
-      .populate('pic', 'name email')
-      .populate('areamanager', 'name email');
-    if (!project) {
-      return res.status(404).json({ message: 'No project assigned as Project Manager' });
-    }
-    res.json(project);
-  } catch (error) {
-    console.error('Error fetching project:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-// Get projects for user by status
+/* --- GET PROJECTS BY USER AND STATUS --- */
 exports.getProjectsByUserAndStatus = async (req, res) => {
-  const { userId, role, status } = req.query; // expects /projects/by-user-status?userId=...&role=...&status=...
-  if (!userId || !role || !status) {
-    return res.status(400).json({ message: 'Missing params' });
-  }
+  const { userId, role, status } = req.query;
+  if (!userId || !role || !status) return res.status(400).json({ message: 'Missing params' });
+
   const query = {};
   query[role] = userId;
   query.status = status;
@@ -380,6 +358,8 @@ exports.getProjectsByUserAndStatus = async (req, res) => {
     const projects = await Project.find(query)
       .populate('projectmanager', 'name email')
       .populate('pic', 'name email')
+      .populate('staff', 'name email')
+      .populate('hrsite', 'name email')
       .populate('areamanager', 'name email')
       .populate('location', 'name region')
       .populate('manpower', 'name position');
@@ -389,9 +369,7 @@ exports.getProjectsByUserAndStatus = async (req, res) => {
   }
 };
 
-// --- DISCUSSIONS --- //
-
-// Get all discussions for a project
+/* --- DISCUSSIONS --- */
 exports.getProjectDiscussions = async (req, res) => {
   try {
     const project = await Project.findById(req.params.id)
@@ -404,12 +382,13 @@ exports.getProjectDiscussions = async (req, res) => {
   }
 };
 
-// Add a new discussion message to a project
 exports.addProjectDiscussion = async (req, res) => {
   try {
     const { text } = req.body;
     if (!text || !text.trim()) return res.status(400).json({ error: 'Message text required' });
-    const project = await Project.findById(req.params.id);
+
+    const projectId = req.params.id;
+    const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
     const discussion = {
@@ -423,25 +402,46 @@ exports.addProjectDiscussion = async (req, res) => {
     project.discussions.push(discussion);
     await project.save();
 
-    // Get the added discussion (last in array)
+    // The newly-added discussion is the last item
     const added = project.discussions[project.discussions.length - 1];
+
+    // Emit to everyone in that project's room
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`project:${projectId}`).emit('project:newDiscussion', {
+        projectId,
+        message: {
+          _id: added._id,
+          user: added.user,
+          userName: added.userName,
+          text: added.text,
+          timestamp: added.timestamp,
+          replies: added.replies || []
+        }
+      });
+    }
 
     res.json(added);
   } catch (err) {
+    console.error('Failed to post discussion', err);
     res.status(500).json({ error: 'Failed to post discussion' });
   }
 };
 
-// Add a reply to a discussion message in a project
+
+
 exports.replyToProjectDiscussion = async (req, res) => {
   try {
     const { text } = req.body;
     if (!text || !text.trim()) return res.status(400).json({ error: 'Reply text required' });
 
-    const project = await Project.findById(req.params.id);
+    const projectId = req.params.id;
+    const msgId = req.params.msgId;
+
+    const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
-    const discussion = project.discussions.id(req.params.msgId);
+    const discussion = project.discussions.id(msgId);
     if (!discussion) return res.status(404).json({ error: 'Discussion not found' });
 
     const reply = {
@@ -454,11 +454,27 @@ exports.replyToProjectDiscussion = async (req, res) => {
     discussion.replies.push(reply);
     await project.save();
 
-    // Get the added reply (last in array)
-    const added = discussion.replies[discussion.replies.length - 1];
+    const addedReply = discussion.replies[discussion.replies.length - 1];
 
-    res.json(added);
+    // Emit to project room
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`project:${projectId}`).emit('project:newReply', {
+        projectId,
+        msgId,
+        reply: {
+          _id: addedReply._id,
+          user: addedReply.user,
+          userName: addedReply.userName,
+          text: addedReply.text,
+          timestamp: addedReply.timestamp
+        }
+      });
+    }
+
+    res.json(addedReply);
   } catch (err) {
+    console.error('Failed to post reply', err);
     res.status(500).json({ error: 'Failed to post reply' });
   }
 };

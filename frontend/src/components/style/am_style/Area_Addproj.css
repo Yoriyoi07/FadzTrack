@@ -303,6 +303,15 @@ textarea {
   font-size: 0.98rem;
 }
 
+.area-addproj-triple-columns {
+  display: flex;
+  gap: 24px;
+}
+.area-addproj-manpower-box {
+  flex: 1;
+  min-width: 240px;
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
   .area-addproj-form-container { max-width: 98vw; }
