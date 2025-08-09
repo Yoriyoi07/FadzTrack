@@ -61,7 +61,7 @@ const LoginPage = ({ forceUserUpdate }) => {
     }else if (role === "Staff") {
       navigate("/staff/current-project", { replace: true });
     } else if (role === "HRS") {
-      navigate("/hr-site/", { replace: true });
+      navigate("/hr-site/current-project", { replace: true });
     }
   };
 

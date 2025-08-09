@@ -1,0 +1,250 @@
+/* --- Page scaffolding --- */
+.attendance-page {
+  display: flex;
+  justify-content: center;
+  padding: 32px 16px 64px;
+  background: transparent; /* your global background image shows through */
+}
+
+.attendance-page .card {
+  width: 100%;
+  max-width: 980px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+  padding: 28px 32px 32px;
+}
+
+/* --- Titles --- */
+.page-title {
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  margin: 8px 0 28px;
+  color: #0b1221;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0b1221;
+  margin: 18px 0 12px;
+}
+
+/* --- Inline states/messages --- */
+.inline-error {
+  background: #ffe8e6;
+  color: #b00020;
+  border: 1px solid #ffcdc8;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.muted {
+  color: #8a8f98;
+}
+
+/* --- Rows (Period + Files) --- */
+.current-period .row {
+  display: grid;
+  grid-template-columns: 180px 1fr 280px; /* label | value | actions */
+  align-items: start;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.current-period .row:last-child {
+  border-bottom: none;
+}
+
+.col.label {
+  font-weight: 600;
+  color: #48505e;
+}
+
+.col.value {
+  color: #0b1221;
+}
+
+.col.actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+/* --- File list --- */
+.file-row .file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid #eef0f3;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  background: #fafbfc;
+}
+
+.file-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Small text link-style button (e.g., Remove) */
+.link-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  color: #356ad2;
+  cursor: pointer;
+}
+.link-btn:hover { text-decoration: underline; }
+
+/* --- Buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  border: 1px solid #dfe3ea;
+  background: #f6f8fb;
+  color: #0b1221;
+  cursor: pointer;
+  transition: box-shadow .15s ease, transform .02s ease, background .15s ease;
+}
+
+.btn:hover { box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
+.btn:active { transform: translateY(1px); }
+
+.btn.ghost {
+  background: #fff;
+  border-color: #dfe3ea;
+}
+
+.btn.primary {
+  background: #27ae60;         /* green like the screenshot’s Generate */
+  color: #fff;
+  border-color: #27ae60;
+}
+.btn.primary[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn.small {
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* --- Previous Reports Table --- */
+.previous-reports {
+  margin-top: 28px;
+}
+
+.reports-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.reports-table thead th {
+  text-align: left;
+  font-size: 13px;
+  color: #6a7280;
+  font-weight: 700;
+  background: #f6f8fb;
+  padding: 12px 14px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.reports-table tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f3f6;
+  vertical-align: middle;
+  color: #0b1221;
+}
+
+.reports-table tbody tr:hover {
+  background: #fafbfc;
+}
+
+.data-links .link-inline {
+  display: inline-block;
+  margin-right: 12px;
+  color: #356ad2;
+  font-size: 14px;
+  text-decoration: none;
+}
+.data-links .link-inline:hover { text-decoration: underline; }
+
+/* --- Back row --- */
+.back-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+/* --- Header bits (kept minimal; your global header styles should already exist) --- */
+.header .brand-name {
+  margin-left: 8px;
+}
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+  .attendance-page .card {
+    padding: 20px;
+  }
+
+  .current-period .row {
+    grid-template-columns: 1fr; /* stack label, value, actions */
+  }
+
+  .col.actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 24px;
+  }
+  .btn { width: auto; }
+  .reports-table thead { display: none; }
+  .reports-table tbody td {
+    display: block;
+    padding: 10px 12px;
+  }
+  .reports-table tbody tr {
+    display: block;
+    padding: 8px 0;
+    border: 1px solid #eef0f3;
+    border-radius: 10px;
+    margin-bottom: 10px;
+  }
+  .reports-table tbody td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 12px;
+    color: #6a7280;
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+}

@@ -60,6 +60,8 @@ import StaffCurrentProject from './staff/StaffCurrentProject';
 import StaffAllProjects from './staff/StaffAllProjects';
 import HrSiteCurrentProject from './hrSite/HrSiteCurrentProject';
 import HrViewSpecific from './hr/HrViewSpeficic';
+import HrSiteAllProjects from './hrSite/HrSiteAllProjects';
+import HrSiteAttendanceReport from './hrSite/HrSiteAttendanceReport';
 
 
 const AppRoutes = ({ forceUserUpdate }) => {
@@ -147,7 +149,9 @@ const AppRoutes = ({ forceUserUpdate }) => {
   <Route path="/staff/all-projects" element={<PrivateRoute allowedRoles={["Staff"]}><StaffAllProjects /></PrivateRoute>} />
 
   {/* HR SITE */}
-  <Route path="/hr-site/" element={<PrivateRoute allowedRoles={["HRS"]}><HrSiteCurrentProject /></PrivateRoute>} />
+  <Route path="/hr-site/current-project" element={<PrivateRoute allowedRoles={["HRS"]}><HrSiteCurrentProject /></PrivateRoute>} />
+  <Route path="/hr-site/all-projects" element={<PrivateRoute allowedRoles={["HRS"]}><HrSiteAllProjects /></PrivateRoute>} />
+  <Route path="/hr-site/attendance-report" element={<PrivateRoute allowedRoles={["HRS"]}><HrSiteAttendanceReport /></PrivateRoute>} />
 
   {/* Reusable */}
   <Route path="/approve-deny/:id" element={<PrivateRoute allowedRoles={["Project Manager", "Area Manager", "CEO"]}><ApproveDenyAction /></PrivateRoute>} />
