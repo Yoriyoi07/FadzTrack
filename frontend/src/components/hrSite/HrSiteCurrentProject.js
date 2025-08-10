@@ -1,27 +1,26 @@
-// src/components/hr/HRCurrentProject.jsx
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaPlus } from 'react-icons/fa';
-import '../style/ceo_style/Ceo_Proj.css';
-import { io } from 'socket.io-client';
+import "../style/pic_style/Pic_Project.css";
 
-// Use your API URL; keep websocket transport
-const SOCKET_URL = (process.env.REACT_APP_API_URL?.replace(/\/+$/, '') || 'http://localhost:5000');
+const RAW = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const SOCKET_ORIGIN = RAW.replace(/\/api$/, '');
+const SOCKET_PATH = '/socket.io';
 
 const chats = [
-  { id: 1, name: 'Payroll Team', initial: 'P', message: 'Cut-off on Friday…', color: '#4A6AA5' },
-  { id: 2, name: 'Recruitment', initial: 'R', message: 'New PIC candidates…', color: '#2E7D32' },
-  { id: 3, name: 'Compliance', initial: 'C', message: 'Update 201 files…', color: '#9C27B0' }
+  { id: 1, name: 'HR Ops', initial: 'H', message: 'Payroll questions…', color: '#4A6AA5' },
+  { id: 2, name: 'Recruitment', initial: 'R', message: 'Screening updates…', color: '#2E7D32' },
+  { id: 3, name: 'Compliance', initial: 'C', message: 'New memo draft…', color: '#9C27B0' }
 ];
 
-function fmt(ts) {
-  if (!ts) return '';
-  try { return new Date(ts).toLocaleString(); } catch { return ''; }
-}
+const highlightMentions = (text = '') =>
+  text.replace(/\B@([a-zA-Z0-9._-]+)/g, '<span class="mention">@$1</span>');
+const slugify = (s = '') => s.toString().trim().toLowerCase().replace(/\s+/g, '');
 
-const HrSiteCurrentProject = () => {
+const HRCurrentProject = () => {
   const navigate = useNavigate();
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -29,171 +28,210 @@ const HrSiteCurrentProject = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Details');
 
-  // PO totals for budget math
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [totalPO, setTotalPO] = useState(0);
 
-  const storedUser = localStorage.getItem('user');
-  const user = storedUser ? JSON.parse(storedUser) : null;
+  const userRef = useRef(null);
+  if (userRef.current === null) {
+    try {
+      const raw = localStorage.getItem('user');
+      userRef.current = raw ? JSON.parse(raw) : null;
+    } catch {
+      userRef.current = null;
+    }
+  }
+  const user = userRef.current;
+  const userId = user?._id || null;
   const [userName] = useState(user?.name || '');
   const token = localStorage.getItem('token');
 
-  // Discussions
   const [messages, setMessages] = useState([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [hasLoadedDiscussions, setHasLoadedDiscussions] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [replyInputs, setReplyInputs] = useState({});
   const [showNewMsgInput, setShowNewMsgInput] = useState(false);
-  const textareaRef = useRef();
 
-  // Files
   const [docSignedUrls, setDocSignedUrls] = useState([]);
   const [lastDocs, setLastDocs] = useState([]);
 
-  // Socket
-  const socketRef = useRef(null);
-
-  // Mention list (PM + PICs)
-  const staffList = useMemo(() => {
+  const projectMembers = useMemo(() => {
     if (!project) return [];
-    let staff = [];
-    if (project.projectmanager && typeof project.projectmanager === 'object') {
-      staff.push({ _id: project.projectmanager._id, name: project.projectmanager.name });
+    const arr = [
+      ...(Array.isArray(project.pic) ? project.pic : project.pic ? [project.pic] : []),
+      ...(Array.isArray(project.staff) ? project.staff : project.staff ? [project.staff] : []),
+      ...(Array.isArray(project.hrsite) ? project.hrsite : project.hrsite ? [project.hrsite] : []),
+      project.projectmanager,
+      project.areamanager,
+    ].filter(Boolean);
+
+    const dedup = new Map();
+    for (const u of arr) {
+      const id = u?._id;
+      if (!id) continue;
+      if (!dedup.has(id)) {
+        dedup.set(id, { _id: id, name: u.name || '', slug: slugify(u.name || '') });
+      }
     }
-    if (Array.isArray(project.pic)) {
-      staff = staff.concat(project.pic.map(p => ({ _id: p._id, name: p.name })));
-    }
-    const seen = new Set();
-    return staff.filter(u => u._id && !seen.has(u._id) && seen.add(u._id));
+    return [{ _id: '__ALL__', name: 'All', slug: 'all' }, ...dedup.values()];
   }, [project]);
 
-  // Fetch HR user's current ongoing project
-  useEffect(() => {
-    if (!user?._id) return;
-    // If you have a dedicated HR endpoint, replace below with it (e.g. /projects/assigned/hr/:id)
-    api.get(`/projects/assigned/allroles/${user._id}`)
-      .then(res => {
-        // Prefer ongoing; if multiple, pick the most recent by startDate
-        const list = Array.isArray(res.data) ? res.data : [];
-        const ongoing = list.filter(p => p.status === 'Ongoing');
-        let chosen = null;
-        if (ongoing.length) {
-          chosen = ongoing.sort((a,b)=> new Date(b.startDate||0) - new Date(a.startDate||0))[0];
-        } else if (list.length) {
-          chosen = list.sort((a,b)=> new Date(b.startDate||0) - new Date(a.startDate||0))[0];
-        }
-        setProject(chosen || null);
-        setLoading(false);
-      })
-      .catch(() => {
-        setProject(null);
-        setLoading(false);
-      });
-  }, [user]);
+  const socketRef = useRef(null);
+  const joinedRoomRef = useRef(null);
+  const projectIdRef = useRef(null);
 
-  // Reset discussions-loaded guard when the project changes
   useEffect(() => {
-    setHasLoadedDiscussions(false);
+    projectIdRef.current = project?._id ? String(project._id) : null;
   }, [project?._id]);
 
-  // Socket setup & room join per project
   useEffect(() => {
-    if (!project?._id) return;
+    if (socketRef.current) return;
 
-    if (!socketRef.current) {
-      socketRef.current = io(SOCKET_URL, {
-        transports: ['websocket'],
-        withCredentials: true
-      });
-    }
-    const sock = socketRef.current;
-    const room = `project:${project._id}`;
+    const sock = io(SOCKET_ORIGIN, {
+      path: SOCKET_PATH,
+      withCredentials: true,
+      transports: ['websocket'],
+      auth: { userId },
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      randomizationFactor: 0.5,
+    });
+    socketRef.current = sock;
 
-    sock.emit('joinProject', room);
+    const onConnect = () => {
+      if (joinedRoomRef.current) {
+        sock.emit('joinProject', joinedRoomRef.current);
+      }
+    };
 
     const onNewDiscussion = (payload) => {
-      if (payload?.projectId !== project._id) return;
-      const msg = payload.message || {};
-      const withTs = { ...msg, timestamp: msg.timestamp || Date.now() };
-      setMessages(prev => [withTs, ...prev]);
+      const currentPid = projectIdRef.current;
+      if (!currentPid || payload?.projectId !== currentPid) return;
+      setMessages(prev => [payload.message, ...prev]);
     };
 
     const onNewReply = (payload) => {
-      if (payload?.projectId !== project._id) return;
-      const rep = payload.reply || {};
-      const withTs = { ...rep, timestamp: rep.timestamp || Date.now() };
+      const currentPid = projectIdRef.current;
+      if (!currentPid || payload?.projectId !== currentPid) return;
       setMessages(prev => {
         const clone = prev.map(m => ({ ...m, replies: [...(m.replies || [])] }));
-        const idx = clone.findIndex(m => m._id === payload.msgId);
-        if (idx !== -1) clone[idx].replies.push(withTs);
+        const idx = clone.findIndex(m => String(m._id) === String(payload.msgId));
+        if (idx !== -1) clone[idx].replies.push(payload.reply);
         return clone;
       });
     };
 
+    const onMention = (payload) => {
+      console.log('[HRCurrentProject mentionNotification]', payload);
+    };
+
+    sock.on('connect', onConnect);
     sock.on('project:newDiscussion', onNewDiscussion);
     sock.on('project:newReply', onNewReply);
+    sock.on('mentionNotification', onMention);
 
     return () => {
+      sock.off('connect', onConnect);
       sock.off('project:newDiscussion', onNewDiscussion);
       sock.off('project:newReply', onNewReply);
-      sock.emit('leaveProject', room);
+      sock.off('mentionNotification', onMention);
+      sock.disconnect();
+      socketRef.current = null;
+      joinedRoomRef.current = null;
     };
-  }, [project?._id]);
+  }, [userId]);
 
-  // Fetch POs for budget math once we have the project
-  useEffect(() => {
-    if (!project?._id) return;
-    api.get('/requests')
-      .then(res => {
-        const approvedPOs = (res.data || []).filter(
-          req => req.project?._id === project._id && req.status === 'Approved' && req.totalValue
-        );
-        setPurchaseOrders(approvedPOs);
-        const total = approvedPOs.reduce((sum, req) => sum + (Number(req.totalValue) || 0), 0);
-        setTotalPO(total);
-      })
-      .catch(() => {
-        setPurchaseOrders([]);
-        setTotalPO(0);
-      });
-  }, [project]);
+  const projectId = project?._id || null;
 
-  // Discussions fetch (guarded)
   useEffect(() => {
-    if (!project?._id || activeTab !== 'Discussions' || hasLoadedDiscussions) return;
+    const sock = socketRef.current;
+    if (!sock) return;
+
+    const desiredRoom =
+      projectId && activeTab === 'Discussions' ? `project:${projectId}` : null;
+
+    if (joinedRoomRef.current === desiredRoom) return;
+
+    if (joinedRoomRef.current && (!desiredRoom || joinedRoomRef.current !== desiredRoom)) {
+      const prev = joinedRoomRef.current;
+      sock.emit('leaveProject', prev);
+      joinedRoomRef.current = null;
+    }
+    if (desiredRoom && joinedRoomRef.current !== desiredRoom) {
+      sock.emit('joinProject', desiredRoom);
+      joinedRoomRef.current = desiredRoom;
+    }
+  }, [projectId, activeTab]);
+
+  // Fetch project for this HR user
+  useEffect(() => {
+    if (!userId) return;
 
     let cancelled = false;
-    setLoadingMsgs(true);
-
-    api.get(`/projects/${project._id}/discussions`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => {
-        if (!cancelled) {
-          const list = (res.data || []).map(m => ({
-            ...m,
-            timestamp: m.timestamp || m.createdAt || Date.now(),
-            replies: (m.replies || []).map(r => ({
-              ...r,
-              timestamp: r.timestamp || r.createdAt || Date.now()
-            }))
-          }));
-          setMessages(list);
-        }
-      })
-      .catch(() => { if (!cancelled) setMessages([]); })
-      .finally(() => {
-        if (!cancelled) {
-          setLoadingMsgs(false);
-          setHasLoadedDiscussions(true);
-        }
-      });
+    (async () => {
+      try {
+        const res = await api.get(`/projects/assigned/allroles/${userId}`);
+        if (cancelled) return;
+        const ongoing = res.data?.find(p => p.status === 'Ongoing');
+        setProject(ongoing || null);
+      } catch {
+        if (!cancelled) setProject(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
 
     return () => { cancelled = true; };
-  }, [project?._id, activeTab, token, hasLoadedDiscussions]);
+  }, [userId]);
 
-  // Signed URLs (guarded) for private docs
+  // POs
+  useEffect(() => {
+    if (!projectId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/requests');
+        if (cancelled) return;
+        const approved = (res.data || []).filter(r =>
+          r.project?._id === projectId && r.status === 'Approved' && r.totalValue
+        );
+        setPurchaseOrders(approved);
+        setTotalPO(approved.reduce((s, r) => s + (Number(r.totalValue) || 0), 0));
+      } catch {
+        if (!cancelled) { setPurchaseOrders([]); setTotalPO(0); }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  // Discussions initial fetch
+  useEffect(() => {
+    if (!projectId || activeTab !== 'Discussions' || hasLoadedDiscussions) return;
+
+    const controller = new AbortController();
+    setLoadingMsgs(true);
+
+    api.get(`/projects/${projectId}/discussions`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+      .then(res => setMessages(res.data || []))
+      .catch(() => setMessages([]))
+      .finally(() => {
+        setLoadingMsgs(false);
+        setHasLoadedDiscussions(true);
+      });
+
+    return () => controller.abort();
+  }, [projectId, activeTab, token, hasLoadedDiscussions]);
+
+  useEffect(() => { setHasLoadedDiscussions(false); }, [projectId]);
+
+  // Files signed URLs
   useEffect(() => {
     if (
       activeTab === 'Files' &&
@@ -201,63 +239,43 @@ const HrSiteCurrentProject = () => {
       JSON.stringify(project.documents) !== JSON.stringify(lastDocs)
     ) {
       setLastDocs(project.documents);
-
       Promise.all(
         project.documents.map(async docPath => {
           try {
             const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(docPath)}`);
             return data.signedUrl;
-          } catch {
-            return null;
-          }
+          } catch { return null; }
         })
       ).then(setDocSignedUrls);
     }
   }, [activeTab, project, lastDocs]);
 
-  // Discussions actions
   const handlePostMessage = async () => {
     if (!newMessage.trim()) return;
     await api.post(
-      `/projects/${project._id}/discussions`,
+      `/projects/${projectId}/discussions`,
       { text: newMessage, userName },
       { headers: { Authorization: `Bearer ${token}` } }
     );
     setNewMessage('');
     setShowNewMsgInput(false);
-    if (!socketRef.current) {
-      const { data } = await api.get(`/projects/${project._id}/discussions`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMessages(data || []);
-    }
   };
 
   const handlePostReply = async (msgId) => {
     const replyText = replyInputs[msgId];
     if (!replyText?.trim()) return;
     await api.post(
-      `/projects/${project._id}/discussions/${msgId}/reply`,
+      `/projects/${projectId}/discussions/${msgId}/reply`,
       { text: replyText, userName },
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    setReplyInputs({ ...replyInputs, [msgId]: '' });
-    if (!socketRef.current) {
-      const { data } = await api.get(`/projects/${project._id}/discussions`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMessages(data || []);
-    }
+    setReplyInputs(prev => ({ ...prev, [msgId]: '' }));
   };
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.profile-menu-container')) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    const handleClickOutside = (e) => { if (!e.target.closest(".profile-menu-container")) setProfileMenuOpen(false); };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -268,11 +286,23 @@ const HrSiteCurrentProject = () => {
 
   if (loading) return <div>Loading...</div>;
 
-  // Helpers
   const start = project?.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A';
   const end = project?.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A';
   const budgetNum = Number(project?.budget || 0);
   const remaining = Math.max(budgetNum - Number(totalPO || 0), 0);
+  const contractor =
+    typeof project?.contractor === 'string' && project.contractor.trim().length > 0
+      ? project.contractor : 'N/A';
+  const locationLabel = project?.location?.name
+    ? `${project.location.name}${project.location?.region ? ` (${project.location.region})` : ''}`
+    : 'N/A';
+  const manpowerText =
+    Array.isArray(project?.manpower) && project.manpower.length > 0
+      ? project.manpower
+          .map(mp => [mp?.name, mp?.position].filter(Boolean).join(' (') + (mp?.position ? ')' : ''))
+          .join(', ')
+      : 'No Manpower Assigned';
+
   const showSpinner = loadingMsgs && messages.length === 0;
 
   return (
@@ -284,14 +314,15 @@ const HrSiteCurrentProject = () => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="/hr/current-project" className="nav-link">Dashboard</Link>
-          <Link to="/hr/all-projects" className="nav-link">My Projects</Link>
+          <Link to="hr-site/current-project" className="nav-link">Dashboard</Link>
+          <Link to="/hr-site/attendance-report" className="nav-link">Report</Link>
+          <Link to="/hr-site/all-projects" className="nav-link">My Projects</Link>
           <Link to="/hr/chat" className="nav-link">Chat</Link>
         </nav>
         <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <NotificationBell />
           <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {userName?.charAt(0).toUpperCase() || 'Z'}
+            {userName?.charAt(0).toUpperCase() || 'U'}
           </div>
           {profileMenuOpen && (
             <div className="profile-menu">
@@ -309,7 +340,7 @@ const HrSiteCurrentProject = () => {
             <h3 className="chats-title">Chats</h3>
             <div className="chats-list">
               {chats.map(chat => (
-                <div key={chat.id} className="chat-item" onClick={() => navigate('/hr/chat')}>
+                <div key={chat.id} className="chat-item">
                   <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
                     {chat.initial}
                   </div>
@@ -333,7 +364,6 @@ const HrSiteCurrentProject = () => {
             </div>
           ) : (
             <div className="project-detail-container">
-              {/* Project photo */}
               <div className="project-image-container" style={{ marginBottom: 12 }}>
                 <img
                   src={(project.photos && project.photos[0]) || 'https://placehold.co/800x300?text=No+Photo'}
@@ -369,59 +399,68 @@ const HrSiteCurrentProject = () => {
                     messages.length === 0 && !showNewMsgInput ? (
                       <div style={{ textAlign: 'center', color: '#bbb', padding: 40 }}>Start a conversation</div>
                     ) : (
-                      messages.map(msg => (
-                        <div key={msg._id} className="discussion-msg">
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                            <div style={{ fontWeight: 600 }}>{msg.userName}</div>
-                            <small style={{ color: '#999' }}>{fmt(msg.timestamp)}</small>
-                          </div>
-
-                          <div style={{ margin: '6px 0 10px' }}>{msg.text}</div>
-
-                          {msg.replies?.map(reply => (
-                            <div
-                              key={reply._id}
-                              style={{ marginLeft: 16, paddingLeft: 10, borderLeft: '2px solid #eee', marginBottom: 8 }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                <b>{reply.userName}</b>
-                                <small style={{ color: '#999' }}>{fmt(reply.timestamp)}</small>
-                              </div>
-                              <div>{reply.text}</div>
+                      messages.map(msg => {
+                        const ts = msg?.timestamp ? new Date(msg.timestamp).toLocaleString() : '';
+                        return (
+                          <div key={msg._id} className="discussion-msg">
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                              <div style={{ fontWeight: 600 }}>{msg.userName}</div>
+                              {ts && <div style={{ color: '#888', fontSize: 12 }}>{ts}</div>}
                             </div>
-                          ))}
-
-                          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                            <input
-                              className="reply-input"
-                              value={replyInputs[msg._id] || ''}
-                              onChange={e => setReplyInputs({ ...replyInputs, [msg._id]: e.target.value })}
-                              placeholder="Reply…"
+                            <div
+                              className="message-text"
+                              dangerouslySetInnerHTML={{ __html: highlightMentions(msg.text) }}
                             />
-                            <button onClick={() => handlePostReply(msg._id)}>Reply</button>
+                            {msg.replies?.map(reply => {
+                              const rts = reply?.timestamp ? new Date(reply.timestamp).toLocaleString() : '';
+                              return (
+                                <div key={reply._id} style={{ marginLeft: 16, paddingLeft: 10, borderLeft: '2px solid #eee' }}>
+                                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                                    <b>{reply.userName}:</b>
+                                    {rts && <span style={{ color: '#888', fontSize: 12 }}>{rts}</span>}
+                                  </div>
+                                  <div
+                                    className="message-text"
+                                    dangerouslySetInnerHTML={{ __html: highlightMentions(reply.text) }}
+                                  />
+                                </div>
+                              );
+                            })}
+                            <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'flex-start' }}>
+                              <div style={{ flex: 1 }}>
+                                {/* REPLY TEXTAREA */}
+                                <textarea
+                                  className="reply-input"
+                                  rows={2}
+                                  placeholder="Reply…"
+                                  value={replyInputs[msg._id] || ''}
+                                  onChange={(e) =>
+                                    setReplyInputs((prev) => ({ ...prev, [msg._id]: e.target.value }))
+                                  }
+                                />
+                              </div>
+                              <button onClick={() => handlePostReply(msg._id)}>Reply</button>
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )
                   )}
-
-                  <button
-                    className="discussion-plus-btn"
-                    onClick={() => setShowNewMsgInput(true)}
-                    title="Start a new conversation"
-                  >
+                  <button className="discussion-plus-btn" onClick={() => setShowNewMsgInput(true)} title="Start a new conversation">
                     <FaPlus />
                   </button>
-
                   {showNewMsgInput && (
                     <div className="new-msg-modal" onClick={() => setShowNewMsgInput(false)}>
                       <div className="new-msg-box" onClick={e => e.stopPropagation()}>
                         <h3 style={{ margin: 0, marginBottom: 16 }}>Start a new conversation</h3>
+                        {/* NEW DISCUSSION TEXTAREA */}
                         <textarea
+                          className="mention-textarea"
+                          rows={4}
+                          placeholder="Type your message…"
                           value={newMessage}
-                          onChange={e => setNewMessage(e.target.value)}
-                          ref={textareaRef}
-                          placeholder="Type your message..."
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          style={{ width: '100%', resize: 'vertical' }}
                         />
                         <div className="new-msg-actions">
                           <button className="cancel-btn" onClick={() => setShowNewMsgInput(false)}>Cancel</button>
@@ -440,19 +479,17 @@ const HrSiteCurrentProject = () => {
                     <div className="details-column">
                       <p className="detail-item">
                         <span className="detail-label">Location:</span>
-                        {project.location?.name
-                          ? `${project.location.name}${project.location?.region ? ` (${project.location.region})` : ''}`
-                          : 'N/A'}
+                        {locationLabel}
                       </p>
 
                       <div className="detail-group">
                         <p className="detail-label">Project Manager:</p>
-                        <p className="detail-value">{project.projectmanager?.name || 'N/A'}</p>
+                        <p className="detail-value">{project?.projectmanager?.name || 'N/A'}</p>
                       </div>
 
                       <div className="detail-group">
                         <p className="detail-label">Contractor:</p>
-                        <p className="detail-value">{project.contractor || 'N/A'}</p>
+                        <p className="detail-value">{contractor}</p>
                       </div>
 
                       <div className="detail-group">
@@ -462,30 +499,20 @@ const HrSiteCurrentProject = () => {
                     </div>
 
                     <div className="details-column">
-                      <div className="budget-container">
-                        <p className="budget-amount">
-                          ₱{(budgetNum || 0).toLocaleString()}
-                          {totalPO > 0 && (
-                            <span style={{ color: 'red', fontSize: 16, marginLeft: 8 }}>
-                              - ₱{totalPO.toLocaleString()} (POs)
-                            </span>
-                          )}
-                        </p>
-                        <p className="budget-label">Estimated Budget</p>
-                      </div>
-
-                      {totalPO > 0 && (
-                        <div style={{ color: '#219653', fontWeight: 600, marginBottom: 8 }}>
-                          Remaining Budget: ₱{remaining.toLocaleString()}
-                        </div>
-                      )}
-
                       <div className="detail-group">
                         <p className="detail-label">PIC:</p>
                         <p className="detail-value">
-                          {Array.isArray(project.pic) && project.pic.length > 0
+                          {Array.isArray(project?.pic) && project.pic.length > 0
                             ? project.pic.map(p => p?.name).filter(Boolean).join(', ')
                             : 'N/A'}
+                        </p>
+                      </div>
+                      <div className="detail-group">
+                        <p className="detail-label">HR - Site:</p>
+                        <p className="detail-value">
+                          {Array.isArray(project?.hrsite) && project.hrsite.length > 0
+                            ? project.hrsite.map(h => h?.name).filter(Boolean).join(', ')
+                            : (userName || 'N/A')}
                         </p>
                       </div>
                     </div>
@@ -507,20 +534,22 @@ const HrSiteCurrentProject = () => {
                   <div className="manpower-section">
                     <p className="detail-label">Manpower:</p>
                     <p className="manpower-list">
-                      {Array.isArray(project.manpower) && project.manpower.length > 0
-                        ? project.manpower.map(mp => `${mp.name} (${mp.position})`).join(', ')
+                      {Array.isArray(project?.manpower) && project.manpower.length > 0
+                        ? project.manpower
+                            .map(mp => [mp?.name, mp?.position].filter(Boolean).join(' (') + (mp?.position ? ')' : ''))
+                            .join(', ')
                         : 'No Manpower Assigned'}
                     </p>
                   </div>
 
-                  <p><b>Status:</b> {project.status || 'N/A'}</p>
+                  <p><b>Status:</b> {project?.status || 'N/A'}</p>
                 </div>
               )}
 
               {/* Files */}
               {activeTab === 'Files' && (
                 <div className="project-files-list">
-                  {project.documents && project.documents.length > 0 ? (
+                  {project?.documents && project.documents.length > 0 ? (
                     <ul>
                       {project.documents.map((docPath, idx) => {
                         const fileName = docPath.split('/').pop();
@@ -561,4 +590,4 @@ const HrSiteCurrentProject = () => {
   );
 };
 
-export default HrSiteCurrentProject;
+export default HRCurrentProject;

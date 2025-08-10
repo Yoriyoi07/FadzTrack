@@ -4,6 +4,34 @@ const Manpower = require('../models/Manpower');
 const supabase = require('../utils/supabaseClient');
 const User = require('../models/User');
 
+/* -------------------- mention helpers -------------------- */
+const slugUser = (s = '') => s.toString().trim().toLowerCase().replace(/\s+/g, '');
+const extractMentions = (text = '') => {
+  // @john, @john_doe, @john-doe, @john.doe, @all
+  const matches = text.match(/\B@([a-zA-Z0-9._-]+)/g) || [];
+  return matches.map(m => m.slice(1).toLowerCase());
+};
+const collectProjectMembers = (project) => {
+  const arr = [
+    ...(Array.isArray(project.pic) ? project.pic : project.pic ? [project.pic] : []),
+    ...(Array.isArray(project.staff) ? project.staff : project.staff ? [project.staff] : []),
+    ...(Array.isArray(project.hrsite) ? project.hrsite : project.hrsite ? [project.hrsite] : []),
+    project.projectmanager,
+    project.areamanager,
+  ].filter(Boolean);
+
+  const byId = new Map();
+  for (const u of arr) {
+    const id = u?._id?.toString();
+    if (!id) continue;
+    if (!byId.has(id)) {
+      byId.set(id, { _id: id, name: u.name || '', slug: slugUser(u.name || '') });
+    }
+  }
+  return [...byId.values()];
+};
+/* --------------------------------------------------------- */
+
 /* --- CREATE PROJECT --- */
 exports.addProject = async (req, res) => {
   try {
@@ -211,22 +239,21 @@ exports.getAssignedProjectsAllRoles = async (req, res) => {
         { hrsite: userId },
         { projectmanager: userId },
         { areamanager: userId }
-      ]
+      ],
+      status: 'Ongoing'
     })
-      .populate('projectmanager', 'name email')
-      .populate('pic', 'name email')
-      .populate('staff', 'name email')
-      .populate('hrsite', 'name email')
-      .populate('areamanager', 'name email')
-      .populate('location', 'name region')       
-      .populate('manpower', 'name position');
+      .select('projectName photos budget startDate endDate status location pic projectmanager manpower documents')
+      .populate('projectmanager', 'name')
+      .populate('pic', 'name')
+      .populate('location', 'name region')
+      .populate('manpower', 'name position')
+      .lean();
     res.json(projects);
   } catch (error) {
     console.error('Error fetching assigned projects:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
-
 /* --- GET UNASSIGNED USERS (per role, for dropdowns) --- */
 exports.getUnassignedPICs = async (req, res) => {
   try {
@@ -388,7 +415,13 @@ exports.addProjectDiscussion = async (req, res) => {
     if (!text || !text.trim()) return res.status(400).json({ error: 'Message text required' });
 
     const projectId = req.params.id;
-    const project = await Project.findById(projectId);
+    const project = await Project.findById(projectId)
+      .populate('pic', 'name')
+      .populate('staff', 'name')
+      .populate('hrsite', 'name')
+      .populate('projectmanager', 'name')
+      .populate('areamanager', 'name');
+
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
     const discussion = {
@@ -402,12 +435,26 @@ exports.addProjectDiscussion = async (req, res) => {
     project.discussions.push(discussion);
     await project.save();
 
-    // The newly-added discussion is the last item
-    const added = project.discussions[project.discussions.length - 1];
+    // mentions
+    const tags = extractMentions(text);                 // ['john', 'all', ...]
+    const members = collectProjectMembers(project);     // [{_id, name, slug}, ...]
+    let notifyUserIds = [];
 
-    // Emit to everyone in that project's room
+    if (tags.includes('all')) {
+      notifyUserIds = members.map(m => m._id);
+    } else if (tags.length) {
+      const tagSet = new Set(tags);
+      notifyUserIds = members
+        .filter(m => tagSet.has(m.slug))
+        .map(m => m._id);
+    }
+    notifyUserIds = [...new Set(notifyUserIds)].filter(id => id !== req.user.id);
+
+    // Emit to project room + per-user rooms
     const io = req.app.get('io');
     if (io) {
+      const added = project.discussions[project.discussions.length - 1];
+
       io.to(`project:${projectId}`).emit('project:newDiscussion', {
         projectId,
         message: {
@@ -419,16 +466,24 @@ exports.addProjectDiscussion = async (req, res) => {
           replies: added.replies || []
         }
       });
+
+      for (const uid of notifyUserIds) {
+        io.to(`user:${uid}`).emit('mentionNotification', {
+          fromUserId: req.user.id,
+          fromUserName: req.user.name,
+          projectId,
+          message: text,
+          type: 'discussion',
+        });
+      }
     }
 
-    res.json(added);
+    res.json(project.discussions[project.discussions.length - 1]);
   } catch (err) {
     console.error('Failed to post discussion', err);
     res.status(500).json({ error: 'Failed to post discussion' });
   }
 };
-
-
 
 exports.replyToProjectDiscussion = async (req, res) => {
   try {
@@ -438,7 +493,13 @@ exports.replyToProjectDiscussion = async (req, res) => {
     const projectId = req.params.id;
     const msgId = req.params.msgId;
 
-    const project = await Project.findById(projectId);
+    const project = await Project.findById(projectId)
+      .populate('pic', 'name')
+      .populate('staff', 'name')
+      .populate('hrsite', 'name')
+      .populate('projectmanager', 'name')
+      .populate('areamanager', 'name');
+
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
     const discussion = project.discussions.id(msgId);
@@ -456,7 +517,6 @@ exports.replyToProjectDiscussion = async (req, res) => {
 
     const addedReply = discussion.replies[discussion.replies.length - 1];
 
-    // Emit to project room
     const io = req.app.get('io');
     if (io) {
       io.to(`project:${projectId}`).emit('project:newReply', {
@@ -470,6 +530,32 @@ exports.replyToProjectDiscussion = async (req, res) => {
           timestamp: addedReply.timestamp
         }
       });
+
+      // mentions for replies
+      const tags = extractMentions(text);
+      const members = collectProjectMembers(project);
+      let notifyUserIds = [];
+
+      if (tags.includes('all')) {
+        notifyUserIds = members.map(m => m._id);
+      } else if (tags.length) {
+        const tagSet = new Set(tags);
+        notifyUserIds = members
+          .filter(m => tagSet.has(m.slug))
+          .map(m => m._id);
+      }
+      notifyUserIds = [...new Set(notifyUserIds)].filter(id => id !== req.user.id);
+
+      for (const uid of notifyUserIds) {
+        io.to(`user:${uid}`).emit('mentionNotification', {
+          fromUserId: req.user.id,
+          fromUserName: req.user.name,
+          projectId,
+          message: text,
+          type: 'reply',
+          discussionId: msgId,
+        });
+      }
     }
 
     res.json(addedReply);

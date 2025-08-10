@@ -60,7 +60,7 @@ const LoginPage = ({ forceUserUpdate }) => {
       navigate("/hr/dash", { replace: true });
     }else if (role === "Staff") {
       navigate("/staff/current-project", { replace: true });
-    } else if (role === "HRS") {
+    } else if (role === "HR - Site") {
       navigate("/hr-site/current-project", { replace: true });
     }
   };

@@ -1,4 +1,3 @@
-// server.js
 const express      = require('express');
 const cors         = require('cors');
 const mongoose     = require('mongoose');
@@ -8,11 +7,11 @@ const http         = require('http');
 const socketio     = require('socket.io');
 const { Types }    = require('mongoose');
 
-// Models
+// Models (keep yours)
 const Message = require('./models/Messages');
 const Chat    = require('./models/Chats');
 
-// Route imports
+// Routes (keep yours)
 const authRoutes            = require('./route/auth');
 const projectRoutes         = require('./route/project');
 const manpowerRequestRoutes = require('./route/manpowerRequest');
@@ -32,67 +31,78 @@ const photoSignedUrlRoute   = require('./route/photoSignedUrl');
 const app    = express();
 const server = http.createServer(app);
 
-// CORS setup
+// CORS
 const allowedOrigins = [
   'https://fadztrack.vercel.app',
-  'http://localhost:3000'
+  'http://localhost:3000',
 ];
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true
+  origin: (origin, cb) => (!origin || allowedOrigins.includes(origin)) ? cb(null, true) : cb(new Error('Not allowed by CORS')),
+  credentials: true,
 }));
 
-// Body parsers
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// MongoDB connection
+// Mongo
 mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser:    true,
-  useUnifiedTopology: true
-})
-  .then(() => console.log('✅ MongoDB connected'))
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+}).then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// Socket.IO setup
+// Socket.IO — tune pings & enable recovery
 const io = socketio(server, {
-  cors: {
-    origin:      allowedOrigins,
-    credentials: true
-  }
+  cors: { origin: allowedOrigins, credentials: true },
+  pingInterval: 25000,   // client sends a ping every 25s
+  pingTimeout: 60000,    // consider dead after no pong for 60s
+  connectionStateRecovery: { maxDisconnectionDuration: 2 * 60 * 1000 }, // 2 minutes
+  path: '/socket.io',    // default path; keep in sync with client
 });
-// Make io accessible in routes
 app.set('io', io);
 
-// === Single connection handler (no duplicates!) ===
-io.on('connection', socket => {
+// helpful util to avoid duplicate room joins per socket
+function safeJoin(socket, room) {
+  if (socket.data.currentRoom === room) return false;
+  if (socket.data.currentRoom) socket.leave(socket.data.currentRoom);
+  socket.join(room);
+  socket.data.currentRoom = room;
+  return true;
+}
+function safeLeave(socket, room) {
+  if (socket.data.currentRoom !== room) return false;
+  socket.leave(room);
+  socket.data.currentRoom = null;
+  return true;
+}
+
+io.on('connection', (socket) => {
   console.log('🔌 Socket connected:', socket.id);
 
-  // ---- Chat rooms ----
-  socket.on('joinChat', chatId => {
+  // 🔐 Join per-user room for mention notifications
+  const userId = socket.handshake?.auth?.userId;
+  if (userId) {
+    socket.join(`user:${userId}`);
+  }
+
+  // ---- Chat rooms (unchanged) ----
+  socket.on('joinChat', (chatId) => {
     socket.join(chatId);
-    console.log(`↪️  Socket ${socket.id} joined chat ${chatId}`);
   });
 
   socket.on('sendMessage', ({ chatId, senderId, content, type }) => {
     const timestamp = Date.now();
     io.to(chatId).emit('receiveMessage', {
-      _id:        new Types.ObjectId().toString(),
+      _id: new Types.ObjectId().toString(),
       conversation: chatId,
-      sender:     senderId,
+      sender: senderId,
       content,
       type,
-      fileUrl:    type === 'text' ? null : content,
+      fileUrl: type === 'text' ? null : content,
       timestamp
     });
-    io.emit('chatUpdated', {
-      chatId,
-      lastMessage: { content, timestamp }
-    });
+    io.emit('chatUpdated', { chatId, lastMessage: { content, timestamp } });
   });
 
   socket.on('messageSeen', async ({ messageId, userId }) => {
@@ -103,44 +113,37 @@ io.on('connection', socket => {
         { new: true }
       );
       io.to(msg.conversation.toString()).emit('messageSeen', {
-        messageId,
-        userId,
-        timestamp: msg.seen[msg.seen.length - 1].timestamp
+        messageId, userId, timestamp: msg.seen[msg.seen.length - 1].timestamp
       });
       io.emit('chatUpdated', {
         chatId: msg.conversation.toString(),
-        lastMessage: {
-          content:   msg.content,
-          timestamp: msg.createdAt
-        }
+        lastMessage: { content: msg.content, timestamp: msg.createdAt }
       });
     } catch (err) {
       console.error('❌ socket messageSeen error:', err);
     }
   });
 
-  // ---- Project discussion rooms ----
-  // Client should emit: socket.emit('joinProject', projectId)  (NOT a prefixed string)
-  socket.on('joinProject', (projectId) => {
-    const room = `project:${projectId}`;
-    socket.join(room);
-    console.log(`↪️  Socket ${socket.id} joined ${room}`);
+  // ---- Project discussion rooms (idempotent) ----
+  socket.on('joinProject', (roomName) => {
+    if (safeJoin(socket, roomName)) {
+      console.log(`↪️  ${socket.id} joined ${roomName}`);
+    }
   });
 
-  socket.on('leaveProject', (projectId) => {
-    const room = `project:${projectId}`;
-    socket.leave(room);
-    console.log(`↩️  Socket ${socket.id} left ${room}`);
+  socket.on('leaveProject', (roomName) => {
+    if (safeLeave(socket, roomName)) {
+      console.log(`↩️  ${socket.id} left ${roomName}`);
+    }
   });
 
-  socket.on('disconnect', () => {
-    console.log('❌ Socket disconnected:', socket.id);
+  socket.on('disconnect', (reason) => {
+    console.log('❌ Socket disconnected:', socket.id, reason);
   });
 });
 
-// Mount API routes
+// Routes
 app.get('/', (req, res) => res.send('API is working'));
-
 app.use('/api/auth',               authRoutes);
 app.use('/api/users',              userRoutes);
 app.use('/api/projects',           projectRoutes);
@@ -154,16 +157,10 @@ app.use('/api/daily-reports',      dailyReportRoutes);
 app.use('/api/dss-report',         dssReportRoutes);
 app.use('/api/photo-signed-url',   photoSignedUrlRoute);
 app.use('/api/gemini',             geminiRoutes);
+app.use('/api/chats',              chatRoutes);
+app.use('/api/messages',           messageRoutes);
 
-// Chats & Messages
-app.use('/api/chats',    chatRoutes);
-app.use('/api/messages', messageRoutes);
-
-// Serve uploaded files
 app.use('/uploads', express.static('uploads'));
 
-// Start server
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

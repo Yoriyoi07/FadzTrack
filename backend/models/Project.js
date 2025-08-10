@@ -41,5 +41,11 @@ const projectSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+projectSchema.index({ status: 1 });
+projectSchema.index({ pic: 1 });
+projectSchema.index({ staff: 1 });
+projectSchema.index({ hrsite: 1 });
+projectSchema.index({ projectmanager: 1 });
+projectSchema.index({ areamanager: 1 });
 
 module.exports = mongoose.model('Project', projectSchema);

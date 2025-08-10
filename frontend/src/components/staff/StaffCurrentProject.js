@@ -1,15 +1,18 @@
-// src/components/staff/StaffCurrentProject.jsx
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaPlus } from 'react-icons/fa';
-import '../style/pic_style/Pic_Project.css';
-import { io } from 'socket.io-client';
+import "../style/pic_style/Pic_Project.css";
 
-// Use your API URL; keep websocket transport
-const SOCKET_URL =
-  (process.env.REACT_APP_API_URL?.replace(/\/+$/, '') || 'http://localhost:5000');
+/** ---- Socket endpoint setup ----
+ * REACT_APP_API_URL is usually like https://api.example.com or http://localhost:5000
+ * We want to connect to the ORIGIN (no trailing /api).
+ */
+const RAW = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const SOCKET_ORIGIN = RAW.replace(/\/api$/, ''); // strip trailing /api if present
+const SOCKET_PATH = '/socket.io'; // must match server
 
 const chats = [
   { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
@@ -17,10 +20,9 @@ const chats = [
   { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
 ];
 
-function fmt(ts) {
-  if (!ts) return '';
-  try { return new Date(ts).toLocaleString(); } catch { return ''; }
-}
+// simple client-side highlight
+const highlightMentions = (text = '') =>
+  text.replace(/\B@([a-zA-Z0-9._-]+)/g, '<span class="mention">@$1</span>');
 
 const StaffCurrentProject = () => {
   const navigate = useNavigate();
@@ -30,12 +32,22 @@ const StaffCurrentProject = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('Details');
 
-  // PO totals for budget math
   const [purchaseOrders, setPurchaseOrders] = useState([]);
   const [totalPO, setTotalPO] = useState(0);
 
-  const storedUser = localStorage.getItem('user');
-  const user = storedUser ? JSON.parse(storedUser) : null;
+  // 🔒 Freeze user once to avoid new object each render
+  const userRef = useRef(null);
+  if (userRef.current === null) {
+    try {
+      const raw = localStorage.getItem('user');
+      userRef.current = raw ? JSON.parse(raw) : null;
+    } catch {
+      userRef.current = null;
+    }
+  }
+  const user = userRef.current;
+  const userId = user?._id || null;
+
   const [userName] = useState(user?.name || '');
   const token = localStorage.getItem('token');
 
@@ -46,148 +58,186 @@ const StaffCurrentProject = () => {
   const [newMessage, setNewMessage] = useState('');
   const [replyInputs, setReplyInputs] = useState({});
   const [showNewMsgInput, setShowNewMsgInput] = useState(false);
-  const textareaRef = useRef();
 
   // Files
   const [docSignedUrls, setDocSignedUrls] = useState([]);
   const [lastDocs, setLastDocs] = useState([]);
 
-  // Socket
+  // Socket refs
   const socketRef = useRef(null);
+  const joinedRoomRef = useRef(null);
+  const projectIdRef = useRef(null); // prevents stale closures in socket handlers
 
-  // Mention list (PM + PICs) — unchanged
-  const staffList = useMemo(() => {
-    if (!project) return [];
-    let staff = [];
-    if (project.projectmanager && typeof project.projectmanager === 'object') {
-      staff.push({ _id: project.projectmanager._id, name: project.projectmanager.name });
-    }
-    if (Array.isArray(project.pic)) {
-      staff = staff.concat(project.pic.map(p => ({ _id: p._id, name: p.name })));
-    }
-    const seen = new Set();
-    return staff.filter(u => u._id && !seen.has(u._id) && seen.add(u._id));
-  }, [project]);
-
-  // Fetch user's current ongoing project (any role)
+  // keep ref in sync with current project id
   useEffect(() => {
-    if (!user?._id) return;
-    api.get(`/projects/assigned/allroles/${user._id}`)
-      .then(res => {
-        const ongoing = res.data.find(p => p.status === 'Ongoing');
-        setProject(ongoing || null);
-        setLoading(false);
-      })
-      .catch(() => {
-        setProject(null);
-        setLoading(false);
-      });
-  }, [user]);
-
-  // Reset discussions-loaded guard when the project changes
-  useEffect(() => {
-    setHasLoadedDiscussions(false);
+    projectIdRef.current = project?._id ? String(project._id) : null;
   }, [project?._id]);
 
-  // Socket setup & room join per project
+  // Create socket once; keep listeners once
   useEffect(() => {
-    if (!project?._id) return;
+    if (socketRef.current) return;
 
-    if (!socketRef.current) {
-      socketRef.current = io(SOCKET_URL, {
-        transports: ['websocket'],
-        withCredentials: true
-      });
-    }
-    const sock = socketRef.current;
-    const room = `project:${project._id}`;
+    const sock = io(SOCKET_ORIGIN, {
+      path: SOCKET_PATH,
+      withCredentials: true,
+      transports: ['websocket'], // reduce polling flicker behind proxies
+      auth: { userId },          // 👈 lets server put us in user:{id} room
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      randomizationFactor: 0.5,
+    });
+    socketRef.current = sock;
 
-    sock.emit('joinProject', room);
+    const onConnect = () => {
+      if (joinedRoomRef.current) {
+        sock.emit('joinProject', joinedRoomRef.current);
+      }
+    };
 
     const onNewDiscussion = (payload) => {
-      if (payload?.projectId !== project._id) return;
-      const msg = payload.message || {};
-      // Ensure timestamp exists
-      const withTs = { ...msg, timestamp: msg.timestamp || Date.now() };
-      setMessages(prev => [withTs, ...prev]);
+      const currentPid = projectIdRef.current;
+      if (!currentPid || payload?.projectId !== currentPid) return;
+      setMessages(prev => [payload.message, ...prev]);
     };
 
     const onNewReply = (payload) => {
-      if (payload?.projectId !== project._id) return;
-      const rep = payload.reply || {};
-      const withTs = { ...rep, timestamp: rep.timestamp || Date.now() };
+      const currentPid = projectIdRef.current;
+      if (!currentPid || payload?.projectId !== currentPid) return;
       setMessages(prev => {
         const clone = prev.map(m => ({ ...m, replies: [...(m.replies || [])] }));
-        const idx = clone.findIndex(m => m._id === payload.msgId);
-        if (idx !== -1) clone[idx].replies.push(withTs);
+        const idx = clone.findIndex(m => String(m._id) === String(payload.msgId));
+        if (idx !== -1) clone[idx].replies.push(payload.reply);
         return clone;
       });
     };
 
+    const onMention = (payload) => {
+      // TODO: integrate with your NotificationBell / toast
+      // Example: toast(`${payload.fromUserName} mentioned you`);
+      console.log('🔔 mentionNotification:', payload);
+    };
+
+    sock.on('connect', onConnect);
     sock.on('project:newDiscussion', onNewDiscussion);
     sock.on('project:newReply', onNewReply);
+    sock.on('mentionNotification', onMention);
+
+    // Optional debug
+    // sock.on('connect_error', (e) => console.log('[socket] connect_error:', e?.message || e));
+    // sock.on('disconnect', (r) => console.log('[socket] disconnect:', r));
 
     return () => {
+      sock.off('connect', onConnect);
       sock.off('project:newDiscussion', onNewDiscussion);
       sock.off('project:newReply', onNewReply);
-      sock.emit('leaveProject', room);
+      sock.off('mentionNotification', onMention);
+      sock.disconnect();
+      socketRef.current = null;
+      joinedRoomRef.current = null;
     };
-  }, [project?._id]);
+  }, [userId]);
 
-  // Fetch POs for budget math once we have the project
-  useEffect(() => {
-    if (!project?._id) return;
-    api.get('/requests')
-      .then(res => {
-        const approvedPOs = res.data.filter(
-          req => req.project?._id === project._id && req.status === 'Approved' && req.totalValue
-        );
-        setPurchaseOrders(approvedPOs);
-        const total = approvedPOs.reduce((sum, req) => sum + (Number(req.totalValue) || 0), 0);
-        setTotalPO(total);
-      })
-      .catch(() => {
-        setPurchaseOrders([]);
-        setTotalPO(0);
-      });
-  }, [project]);
+  // Stable primitives
+  const projectId = project?._id || null;
 
-  // Discussions fetch (guarded)
+  // Compute desired room string from primitives (stable)
+  const desiredRoom = useMemo(() => {
+    if (!projectId) return null;
+    if (activeTab !== 'Discussions') return null;
+    return `project:${projectId}`;
+  }, [projectId, activeTab]);
+
+  // Join/leave only when desiredRoom **changes**
   useEffect(() => {
-    if (!project?._id || activeTab !== 'Discussions' || hasLoadedDiscussions) return;
+    const sock = socketRef.current;
+    if (!sock) return;
+
+    if (joinedRoomRef.current === desiredRoom) return;
+
+    // leave previous
+    if (joinedRoomRef.current && (!desiredRoom || joinedRoomRef.current !== desiredRoom)) {
+      const prev = joinedRoomRef.current;
+      sock.emit('leaveProject', prev);
+      joinedRoomRef.current = null;
+    }
+
+    // join new
+    if (desiredRoom && joinedRoomRef.current !== desiredRoom) {
+      sock.emit('joinProject', desiredRoom);
+      joinedRoomRef.current = desiredRoom;
+    }
+  }, [desiredRoom]);
+
+  // Fetch current project — depend on userId only
+  useEffect(() => {
+    if (!userId) return;
 
     let cancelled = false;
-    setLoadingMsgs(true);
-
-    api.get(`/projects/${project._id}/discussions`, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(res => {
-        if (!cancelled) {
-          // Ensure every doc has a .timestamp (fallback to createdAt or now)
-          const list = (res.data || []).map(m => ({
-            ...m,
-            timestamp: m.timestamp || m.createdAt || Date.now(),
-            replies: (m.replies || []).map(r => ({
-              ...r,
-              timestamp: r.timestamp || r.createdAt || Date.now()
-            }))
-          }));
-          setMessages(list);
-        }
-      })
-      .catch(() => { if (!cancelled) setMessages([]); })
-      .finally(() => {
-        if (!cancelled) {
-          setLoadingMsgs(false);
-          setHasLoadedDiscussions(true);
-        }
-      });
+    (async () => {
+      try {
+        const res = await api.get(`/projects/assigned/allroles/${userId}`);
+        if (cancelled) return;
+        const ongoing = res.data?.find(p => p.status === 'Ongoing');
+        setProject(ongoing || null);
+      } catch {
+        if (!cancelled) setProject(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
 
     return () => { cancelled = true; };
-  }, [project?._id, activeTab, token, hasLoadedDiscussions]);
+  }, [userId]);
 
-  // Signed URLs (guarded) for private docs
+  // Budget PO math — depend only on projectId
+  useEffect(() => {
+    if (!projectId) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/requests');
+        if (cancelled) return;
+        const approved = (res.data || []).filter(r =>
+          r.project?._id === projectId && r.status === 'Approved' && r.totalValue
+        );
+        setPurchaseOrders(approved);
+        setTotalPO(approved.reduce((s, r) => s + (Number(r.totalValue) || 0), 0));
+      } catch {
+        if (!cancelled) { setPurchaseOrders([]); setTotalPO(0); }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  // Initial discussions fetch (once per project when opening tab)
+  useEffect(() => {
+    if (!projectId || activeTab !== 'Discussions' || hasLoadedDiscussions) return;
+
+    const controller = new AbortController();
+    setLoadingMsgs(true);
+
+    api.get(`/projects/${projectId}/discussions`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+      .then(res => setMessages(res.data || []))
+      .catch(() => setMessages([]))
+      .finally(() => {
+        setLoadingMsgs(false);
+        setHasLoadedDiscussions(true);
+      });
+
+    return () => controller.abort();
+  }, [projectId, activeTab, token, hasLoadedDiscussions]);
+
+  // Reset guard if project changes
+  useEffect(() => { setHasLoadedDiscussions(false); }, [projectId]);
+
+  // Files – fetch signed URLs only when tab open & list changed
   useEffect(() => {
     if (
       activeTab === 'Files' &&
@@ -195,64 +245,47 @@ const StaffCurrentProject = () => {
       JSON.stringify(project.documents) !== JSON.stringify(lastDocs)
     ) {
       setLastDocs(project.documents);
-
       Promise.all(
         project.documents.map(async docPath => {
           try {
             const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(docPath)}`);
             return data.signedUrl;
-          } catch {
-            return null;
-          }
+          } catch { return null; }
         })
       ).then(setDocSignedUrls);
     }
   }, [activeTab, project, lastDocs]);
 
-  // Discussions actions
+  // Post discussion
   const handlePostMessage = async () => {
     if (!newMessage.trim()) return;
     await api.post(
-      `/projects/${project._id}/discussions`,
+      `/projects/${projectId}/discussions`,
       { text: newMessage, userName },
       { headers: { Authorization: `Bearer ${token}` } }
     );
     setNewMessage('');
     setShowNewMsgInput(false);
-    // socket will push; fallback if socket missing:
-    if (!socketRef.current) {
-      const { data } = await api.get(`/projects/${project._id}/discussions`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMessages(data || []);
-    }
+    // socket event will inject it
   };
 
+  // Post reply
   const handlePostReply = async (msgId) => {
     const replyText = replyInputs[msgId];
     if (!replyText?.trim()) return;
     await api.post(
-      `/projects/${project._id}/discussions/${msgId}/reply`,
+      `/projects/${projectId}/discussions/${msgId}/reply`,
       { text: replyText, userName },
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    setReplyInputs({ ...replyInputs, [msgId]: '' });
-    if (!socketRef.current) {
-      const { data } = await api.get(`/projects/${project._id}/discussions`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMessages(data || []);
-    }
+    setReplyInputs(prev => ({ ...prev, [msgId]: '' }));
   };
 
+  // Profile menu blur
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.profile-menu-container')) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    const handleClickOutside = (e) => { if (!e.target.closest(".profile-menu-container")) setProfileMenuOpen(false); };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -268,6 +301,19 @@ const StaffCurrentProject = () => {
   const end = project?.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A';
   const budgetNum = Number(project?.budget || 0);
   const remaining = Math.max(budgetNum - Number(totalPO || 0), 0);
+  const contractor =
+    typeof project?.contractor === 'string' && project.contractor.trim().length > 0
+      ? project.contractor : 'N/A';
+  const locationLabel = project?.location?.name
+    ? `${project.location.name}${project.location?.region ? ` (${project.location.region})` : ''}`
+    : 'N/A';
+  const manpowerText =
+    Array.isArray(project?.manpower) && project.manpower.length > 0
+      ? project.manpower
+          .map(mp => [mp?.name, mp?.position].filter(Boolean).join(' (') + (mp?.position ? ')' : ''))
+          .join(', ')
+      : 'No Manpower Assigned';
+
   const showSpinner = loadingMsgs && messages.length === 0;
 
   return (
@@ -280,6 +326,8 @@ const StaffCurrentProject = () => {
         </div>
         <nav className="nav-menu">
           <Link to="/staff/current-project" className="nav-link">Dashboard</Link>
+          {project && (<Link to={`/staff/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
+          {project && (<Link to={`/staff/${project._id}`} className="nav-link">View Project</Link>)}
           <Link to="/staff/all-projects" className="nav-link">My Projects</Link>
           <Link to="/staff/chat" className="nav-link">Chat</Link>
         </nav>
@@ -328,7 +376,6 @@ const StaffCurrentProject = () => {
             </div>
           ) : (
             <div className="project-detail-container">
-              {/* Project photo */}
               <div className="project-image-container" style={{ marginBottom: 12 }}>
                 <img
                   src={(project.photos && project.photos[0]) || 'https://placehold.co/800x300?text=No+Photo'}
@@ -364,50 +411,50 @@ const StaffCurrentProject = () => {
                     messages.length === 0 && !showNewMsgInput ? (
                       <div style={{ textAlign: 'center', color: '#bbb', padding: 40 }}>Start a conversation</div>
                     ) : (
-                      messages.map(msg => (
-                        <div key={msg._id} className="discussion-msg">
-                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                            <div style={{ fontWeight: 600 }}>{msg.userName}</div>
-                            <small style={{ color: '#999' }}>{fmt(msg.timestamp)}</small>
-                          </div>
-
-                          <div style={{ margin: '6px 0 10px' }}>{msg.text}</div>
-
-                          {msg.replies?.map(reply => (
-                            <div
-                              key={reply._id}
-                              style={{ marginLeft: 16, paddingLeft: 10, borderLeft: '2px solid #eee', marginBottom: 8 }}
-                            >
-                              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                <b>{reply.userName}</b>
-                                <small style={{ color: '#999' }}>{fmt(reply.timestamp)}</small>
-                              </div>
-                              <div>{reply.text}</div>
+                      messages.map(msg => {
+                        const ts = msg?.timestamp ? new Date(msg.timestamp).toLocaleString() : '';
+                        return (
+                          <div key={msg._id} className="discussion-msg">
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                              <div style={{ fontWeight: 600 }}>{msg.userName}</div>
+                              {ts && <div style={{ color: '#888', fontSize: 12 }}>{ts}</div>}
                             </div>
-                          ))}
-
-                          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                            <input
-                              className="reply-input"
-                              value={replyInputs[msg._id] || ''}
-                              onChange={e => setReplyInputs({ ...replyInputs, [msg._id]: e.target.value })}
-                              placeholder="Reply…"
+                            <div
+                              className="message-text"
+                              dangerouslySetInnerHTML={{ __html: highlightMentions(msg.text) }}
                             />
-                            <button onClick={() => handlePostReply(msg._id)}>Reply</button>
+                            {msg.replies?.map(reply => {
+                              const rts = reply?.timestamp ? new Date(reply.timestamp).toLocaleString() : '';
+                              return (
+                                <div key={reply._id} style={{ marginLeft: 16, paddingLeft: 10, borderLeft: '2px solid #eee' }}>
+                                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                                    <b>{reply.userName}:</b>
+                                    {rts && <span style={{ color: '#888', fontSize: 12 }}>{rts}</span>}
+                                  </div>
+                                  <div
+                                    className="message-text"
+                                    dangerouslySetInnerHTML={{ __html: highlightMentions(reply.text) }}
+                                  />
+                                </div>
+                              );
+                            })}
+                            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                              <input
+                                className="reply-input"
+                                value={replyInputs[msg._id] || ''}
+                                onChange={e => setReplyInputs(prev => ({ ...prev, [msg._id]: e.target.value }))}
+                                placeholder="Reply… (you can @john or @all)"
+                              />
+                              <button onClick={() => handlePostReply(msg._id)}>Reply</button>
+                            </div>
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )
                   )}
-
-                  <button
-                    className="discussion-plus-btn"
-                    onClick={() => setShowNewMsgInput(true)}
-                    title="Start a new conversation"
-                  >
+                  <button className="discussion-plus-btn" onClick={() => setShowNewMsgInput(true)} title="Start a new conversation">
                     <FaPlus />
                   </button>
-
                   {showNewMsgInput && (
                     <div className="new-msg-modal" onClick={() => setShowNewMsgInput(false)}>
                       <div className="new-msg-box" onClick={e => e.stopPropagation()}>
@@ -415,8 +462,7 @@ const StaffCurrentProject = () => {
                         <textarea
                           value={newMessage}
                           onChange={e => setNewMessage(e.target.value)}
-                          ref={textareaRef}
-                          placeholder="Type your message..."
+                          placeholder="Type your message... (you can @john or @all)"
                         />
                         <div className="new-msg-actions">
                           <button className="cancel-btn" onClick={() => setShowNewMsgInput(false)}>Cancel</button>
@@ -435,19 +481,17 @@ const StaffCurrentProject = () => {
                     <div className="details-column">
                       <p className="detail-item">
                         <span className="detail-label">Location:</span>
-                        {project.location?.name
-                          ? `${project.location.name}${project.location?.region ? ` (${project.location.region})` : ''}`
-                          : 'N/A'}
+                        {locationLabel}
                       </p>
 
                       <div className="detail-group">
                         <p className="detail-label">Project Manager:</p>
-                        <p className="detail-value">{project.projectmanager?.name || 'N/A'}</p>
+                        <p className="detail-value">{project?.projectmanager?.name || 'N/A'}</p>
                       </div>
 
                       <div className="detail-group">
                         <p className="detail-label">Contractor:</p>
-                        <p className="detail-value">{project.contractor || 'N/A'}</p>
+                        <p className="detail-value">{contractor}</p>
                       </div>
 
                       <div className="detail-group">
@@ -478,7 +522,7 @@ const StaffCurrentProject = () => {
                       <div className="detail-group">
                         <p className="detail-label">PIC:</p>
                         <p className="detail-value">
-                          {Array.isArray(project.pic) && project.pic.length > 0
+                          {Array.isArray(project?.pic) && project.pic.length > 0
                             ? project.pic.map(p => p?.name).filter(Boolean).join(', ')
                             : 'N/A'}
                         </p>
@@ -501,21 +545,17 @@ const StaffCurrentProject = () => {
 
                   <div className="manpower-section">
                     <p className="detail-label">Manpower:</p>
-                    <p className="manpower-list">
-                      {Array.isArray(project.manpower) && project.manpower.length > 0
-                        ? project.manpower.map(mp => `${mp.name} (${mp.position})`).join(', ')
-                        : 'No Manpower Assigned'}
-                    </p>
+                    <p className="manpower-list">{manpowerText}</p>
                   </div>
 
-                  <p><b>Status:</b> {project.status || 'N/A'}</p>
+                  <p><b>Status:</b> {project?.status || 'N/A'}</p>
                 </div>
               )}
 
               {/* Files */}
               {activeTab === 'Files' && (
                 <div className="project-files-list">
-                  {project.documents && project.documents.length > 0 ? (
+                  {project?.documents && project.documents.length > 0 ? (
                     <ul>
                       {project.documents.map((docPath, idx) => {
                         const fileName = docPath.split('/').pop();

@@ -149,9 +149,9 @@ const AppRoutes = ({ forceUserUpdate }) => {
   <Route path="/staff/all-projects" element={<PrivateRoute allowedRoles={["Staff"]}><StaffAllProjects /></PrivateRoute>} />
 
   {/* HR SITE */}
-  <Route path="/hr-site/current-project" element={<PrivateRoute allowedRoles={["HRS"]}><HrSiteCurrentProject /></PrivateRoute>} />
-  <Route path="/hr-site/all-projects" element={<PrivateRoute allowedRoles={["HRS"]}><HrSiteAllProjects /></PrivateRoute>} />
-  <Route path="/hr-site/attendance-report" element={<PrivateRoute allowedRoles={["HRS"]}><HrSiteAttendanceReport /></PrivateRoute>} />
+  <Route path="/hr-site/current-project" element={<PrivateRoute allowedRoles={["HR - Site"]}><HrSiteCurrentProject /></PrivateRoute>} />
+  <Route path="/hr-site/all-projects" element={<PrivateRoute allowedRoles={["HR - Site"]}><HrSiteAllProjects /></PrivateRoute>} />
+  <Route path="/hr-site/attendance-report" element={<PrivateRoute allowedRoles={["HR - Site"]}><HrSiteAttendanceReport /></PrivateRoute>} />
 
   {/* Reusable */}
   <Route path="/approve-deny/:id" element={<PrivateRoute allowedRoles={["Project Manager", "Area Manager", "CEO"]}><ApproveDenyAction /></PrivateRoute>} />
