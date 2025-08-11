@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { PieChart, Pie, Cell } from 'recharts';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Dash.css';
@@ -7,7 +7,19 @@ import NotificationBell from '../NotificationBell';
 
 const AreaDash = () => {
   const navigate = useNavigate();
-  const [userName, setUserName] = useState('');
+
+  // --- Stable user (no re-parsing every render) ---
+  const userRef = useRef(null);
+  if (userRef.current === null) {
+    const raw = localStorage.getItem('user');
+    userRef.current = raw ? JSON.parse(raw) : null;
+  }
+  const user = userRef.current;
+  const userId = user?._id ?? null;
+
+  const [userName, setUserName] = useState(user?.name || '');
+  const [userRole, setUserRole] = useState(user?.role || '');
+
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projects, setProjects] = useState([]);
   const [allProjects, setAllProjects] = useState([]);
@@ -18,99 +30,151 @@ const AreaDash = () => {
   const [, setRequestsError] = useState(null);
   const [assignedLocations, setAssignedLocations] = useState([]);
   const [expandedLocations, setExpandedLocations] = useState({});
-  const stored = localStorage.getItem('user');
-  const user = stored ? JSON.parse(stored) : null;
-  const userId = user?._id;
-  const [userRole, setUserRole] = useState(user?.role || '');
+
+  // ---------- Data load (production-safe, won’t spam) ----------
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       navigate('/');
       return;
     }
-    setUserName(user.name);
+
+    let isActive = true; // avoid setState after unmount
+    const controller = new AbortController();
 
     const fetchAssignedLocations = async () => {
       try {
-        const { data } = await api.get(`/users/${userId}/locations`);
-        setAssignedLocations(data);
-      } catch (err) {
-        setAssignedLocations([]);
+        const { data } = await api.get(`/users/${userId}/locations`, {
+          signal: controller.signal,
+        });
+        return Array.isArray(data) ? data : [];
+      } catch {
+        return [];
       }
     };
 
-    const fetchProjects = async () => {
+    const fetchProjects = async (locations) => {
       try {
-        const { data: projectsData } = await api.get('/projects');
+        const { data: projectsData } = await api.get('/projects', {
+          signal: controller.signal,
+        });
+        if (!isActive) return;
         setAllProjects(projectsData);
-        const userProjects = projectsData.filter(project =>
-          assignedLocations.some(loc => loc._id === (project.location?._id || project.location))
+
+        const userProjects = projectsData.filter((project) =>
+          locations.some(
+            (loc) => loc._id === (project.location?._id || project.location)
+          )
         );
+
         const projectsWithProgress = await Promise.all(
           userProjects.map(async (project) => {
             try {
-              const { data: progressData } = await api.get(`/daily-reports/project/${project._id}/progress`);
-              const { data: reports } = await api.get(`/daily-reports/project/${project._id}`);
+              const [{ data: progressData }, { data: reports }] = await Promise.all([
+                api.get(`/daily-reports/project/${project._id}/progress`, {
+                  signal: controller.signal,
+                }),
+                api.get(`/daily-reports/project/${project._id}`, {
+                  signal: controller.signal,
+                }),
+              ]);
+
               let latestDate = null;
               if (Array.isArray(reports) && reports.length > 0) {
                 latestDate = reports[reports.length - 1].date || null;
               }
+
               return {
                 id: project._id,
                 name: project.projectName,
                 engineer: project.projectmanager?.name || 'Not Assigned',
                 progress: progressData.progress,
                 latestDate,
-                location: project.location
+                location: project.location,
               };
-            } catch (error) {
+            } catch {
               return null;
             }
           })
         );
+
+        if (!isActive) return;
+
         const filtered = projectsWithProgress.filter(
-          p => p && p.progress && Array.isArray(p.progress) && p.progress[0].name !== 'No Data' && p.latestDate
+          (p) =>
+            p &&
+            p.progress &&
+            Array.isArray(p.progress) &&
+            p.progress[0].name !== 'No Data' &&
+            p.latestDate
         );
-        filtered.sort((a, b) => new Date(b.latestDate) - new Date(a.latestDate));
+        filtered.sort(
+          (a, b) => new Date(b.latestDate) - new Date(a.latestDate)
+        );
         setProjects(filtered);
       } catch (error) {
         console.error('Error fetching projects:', error);
       } finally {
-        setLoading(false);
+        if (isActive) setLoading(false);
       }
     };
 
-    const fetchRequests = async () => {
+    const fetchRequests = async (locations) => {
       try {
-        const { data } = await api.get('/requests');
-        const pending = data.filter(request =>
-          request.status === 'Pending AM' &&
-          request.project && assignedLocations.some(loc => loc._id === (request.project.location?._id || request.project.location))
+        const { data } = await api.get('/requests', { signal: controller.signal });
+        if (!isActive) return;
+
+        const pending = data.filter(
+          (request) =>
+            request.status === 'Pending AM' &&
+            request.project &&
+            locations.some(
+              (loc) =>
+                loc._id ===
+                (request.project.location?._id || request.project.location)
+            )
         );
+
         setPendingRequests(pending);
         setMaterialRequests(data);
         setRequestsError(null);
       } catch (error) {
-        if (error.response && error.response.status === 401) {
+        if (!isActive) return;
+        if (error?.response?.status === 401) {
           setRequestsError('Session expired. Please log in again.');
-        } else {
+        } else if (error.name !== 'CanceledError') {
           setRequestsError('Error loading material requests');
         }
       }
     };
 
-    fetchAssignedLocations().then(() => {
-      fetchProjects();
-      fetchRequests();
-    });
-  }, [navigate, user, userId]);
+    (async () => {
+      const locations = await fetchAssignedLocations();
+      if (!isActive) return;
 
+      setAssignedLocations(locations); // reflect in UI
+      await Promise.all([fetchProjects(locations), fetchRequests(locations)]);
+    })();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [navigate, userId]);
+
+  // Derive enriched projects when inputs change
   useEffect(() => {
     if (assignedLocations.length && allProjects.length) {
       setEnrichedAllProjects(
         allProjects
-          .filter(project => assignedLocations.some(loc => loc._id === (project.location?._id || project.location)))
-          .map(project => {
-            const loc = assignedLocations.find(l => l._id === (project.location?._id || project.location));
+          .filter((project) =>
+            assignedLocations.some(
+              (loc) => loc._id === (project.location?._id || project.location)
+            )
+          )
+          .map((project) => {
+            const loc = assignedLocations.find(
+              (l) => l._id === (project.location?._id || project.location)
+            );
             return {
               ...project,
               location: loc ? { ...loc } : { name: 'Unknown Location', region: '' },
@@ -122,13 +186,14 @@ const AreaDash = () => {
     }
   }, [assignedLocations, allProjects]);
 
+  // Static sample data (unchanged)
   const [sidebarProjects] = useState([
     { id: 1, name: 'Batangas', engineer: 'Engr. Daryll Miralles' },
     { id: 2, name: 'Twin Lakes Project', engineer: 'Engr. Shaquille' },
     { id: 3, name: 'Calatagan Townhomes', engineer: 'Engr. Rychea Miralles' },
     { id: 4, name: 'Makati', engineer: 'Engr. Michelle Amor' },
     { id: 5, name: 'Cavite', engineer: 'Engr. Zenarose Miranda' },
-    { id: 6, name: 'Taguig', engineer: 'Engr. Third Castellar' }
+    { id: 6, name: 'Taguig', engineer: 'Engr. Third Castellar' },
   ]);
 
   const [activities] = useState([
@@ -141,68 +206,31 @@ const AreaDash = () => {
         'Weather: Cloudy in AM, Light Rain in PM ☁️',
         '1. 📊 Site Attendance Log',
         'Total Workers: 16',
-        'Trades on Site...'
-      ]
-    }
+        'Trades on Site...',
+      ],
+    },
   ]);
 
-  // Reports data
   const [reports] = useState([
-    {
-      id: 1,
-      name: 'BGC Hotel',
-      dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.'
-    },
-    {
-      id: 2,
-      name: 'Protacio Townhomes',
-      dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.'
-    },
-    {
-      id: 3,
-      name: 'Fegarido Residences',
-      dateRange: '7/13/25 - 7/27/25',
-      engineer: 'Engr.'
-    }
+    { id: 1, name: 'BGC Hotel', dateRange: '7/13/25 - 7/27/25', engineer: 'Engr.' },
+    { id: 2, name: 'Protacio Townhomes', dateRange: '7/13/25 - 7/27/25', engineer: 'Engr.' },
+    { id: 3, name: 'Fegarido Residences', dateRange: '7/13/25 - 7/27/25', engineer: 'Engr.' },
   ]);
 
-  // Chats data
   const [chats] = useState([
-    {
-      id: 1,
-      name: 'Rychea Miralles',
-      initial: 'R',
-      message: 'Hello Good Morning po! As...',
-      color: '#4A6AA5'
-    },
-    {
-      id: 2,
-      name: 'Third Castellar',
-      initial: 'T',
-      message: 'Hello Good Morning po! As...',
-      color: '#2E7D32'
-    },
-    {
-      id: 3,
-      name: 'Zenarose Miranda',
-      initial: 'Z',
-      message: 'Hello Good Morning po! As...',
-      color: '#9C27B0'
-    }
+    { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
+    { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
+    { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' },
   ]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
+      if (!event.target.closest('.profile-menu-container')) {
         setProfileMenuOpen(false);
       }
     };
-    document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -226,7 +254,7 @@ const AreaDash = () => {
       acc[locationId] = {
         name: project.location?.name || 'Unknown Location',
         region: project.location?.region || '',
-        projects: []
+        projects: [],
       };
     }
     acc[locationId].projects.push(project);
@@ -237,7 +265,11 @@ const AreaDash = () => {
     <div className="area-dash head">
       <header className="header">
         <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
+          <img
+            src={require('../../assets/images/FadzLogo1.png')}
+            alt="FadzTrack Logo"
+            className="logo-img"
+          />
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
@@ -273,7 +305,12 @@ const AreaDash = () => {
           <div className="area-dash location-folders">
             {Object.entries(projectsByLocation).map(([locationId, locationData]) => (
               <div key={locationId} className="area-dash location-folder">
-                <div className="area-dash location-header" onClick={() => setExpandedLocations(prev => ({ ...prev, [locationId]: !prev[locationId] }))}>
+                <div
+                  className="area-dash location-header"
+                  onClick={() =>
+                    setExpandedLocations((prev) => ({ ...prev, [locationId]: !prev[locationId] }))
+                  }
+                >
                   <div className="area-dash folder-icon">
                     <span className={`area-dash folder-arrow ${expandedLocations[locationId] ? 'expanded' : ''}`}>▶</span>
                     <span className="area-dash folder-icon-img">📁</span>
@@ -286,7 +323,7 @@ const AreaDash = () => {
                 </div>
                 {expandedLocations[locationId] && (
                   <div className="area-dash projects-list">
-                    {locationData.projects.map(project => (
+                    {locationData.projects.map((project) => (
                       <Link to={`/am/projects/${project._id}`} key={project._id} className="area-dash project-item">
                         <div className="area-dash project-icon">
                           <span className="area-dash icon">🏗️</span>
@@ -331,7 +368,7 @@ const AreaDash = () => {
                   </div>
                 ) : (
                   <div className="area-dash project-charts scroll-x">
-                    {projects.map(project => (
+                    {projects.map((project) => (
                       <div key={project.id} className="area-dash project-chart-container">
                         <h4>{project.name}</h4>
                         <div className="area-dash pie-chart-wrapper">
@@ -352,9 +389,15 @@ const AreaDash = () => {
                           </PieChart>
                         </div>
                         <div className="area-dash chart-legend">
-                          {["Completed", "In Progress", "Not Started"].map((status) => {
-                            const item = project.progress.find(p => p.name === status);
-                            const color = item ? item.color : (status === 'Completed' ? '#4CAF50' : status === 'In Progress' ? '#5E4FDB' : '#FF6B6B');
+                          {['Completed', 'In Progress', 'Not Started'].map((status) => {
+                            const item = project.progress.find((p) => p.name === status);
+                            const color = item
+                              ? item.color
+                              : status === 'Completed'
+                              ? '#4CAF50'
+                              : status === 'In Progress'
+                              ? '#5E4FDB'
+                              : '#FF6B6B';
                             const value = item ? item.value : 0;
                             return (
                               <div key={status} className="area-dash legend-item">
@@ -380,7 +423,7 @@ const AreaDash = () => {
 
           <div className="area-dash recent-activities-section">
             <h2>Recent Activities</h2>
-            {activities.map(activity => (
+            {activities.map((activity) => (
               <div key={activity.id} className="area-dash activity-item">
                 <div className="area-dash user-initial">{activity.user.initial}</div>
                 <div className="area-dash activity-details">
@@ -411,12 +454,16 @@ const AreaDash = () => {
               {pendingRequests.length === 0 ? (
                 <div className="area-dash no-requests">No pending material requests</div>
               ) : (
-                pendingRequests.slice(0, 3).map(request => (
-                  <Link to={`/am/material-request/${request._id}`} key={request._id} className="area-dash pending-request-item">
+                pendingRequests.slice(0, 3).map((request) => (
+                  <Link
+                    to={`/am/material-request/${request._id}`}
+                    key={request._id}
+                    className="area-dash pending-request-item"
+                  >
                     <div className="area-dash request-icon">📦</div>
                     <div className="area-dash request-details">
                       <h3 className="area-dash request-title">
-                        {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
+                        {request.materials?.map((m) => `${m.materialName} (${m.quantity})`).join(', ')}
                       </h3>
                       <p className="area-dash request-description">{request.description}</p>
                       <div className="area-dash request-meta">
@@ -438,9 +485,11 @@ const AreaDash = () => {
           <div className="area-dash chats-section">
             <h3>Chats</h3>
             <div className="area-dash chats-list">
-              {chats.map(chat => (
+              {chats.map((chat) => (
                 <div key={chat.id} className="area-dash chat-item">
-                  <div className="area-dash chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
+                  <div className="area-dash chat-avatar" style={{ backgroundColor: chat.color }}>
+                    {chat.initial}
+                  </div>
                   <div className="area-dash chat-details">
                     <div className="area-dash chat-name">{chat.name}</div>
                     <div className="area-dash chat-message">{chat.message}</div>

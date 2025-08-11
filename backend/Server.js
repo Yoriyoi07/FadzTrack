@@ -7,11 +7,11 @@ const http         = require('http');
 const socketio     = require('socket.io');
 const { Types }    = require('mongoose');
 
-// Models (keep yours)
+// Models
 const Message = require('./models/Messages');
 const Chat    = require('./models/Chats');
 
-// Routes (keep yours)
+// Routes
 const authRoutes            = require('./route/auth');
 const projectRoutes         = require('./route/project');
 const manpowerRequestRoutes = require('./route/manpowerRequest');
@@ -31,13 +31,15 @@ const photoSignedUrlRoute   = require('./route/photoSignedUrl');
 const app    = express();
 const server = http.createServer(app);
 
-// CORS
+/* ------------------------------- CORS ----------------------------------- */
 const allowedOrigins = [
   'https://fadztrack.vercel.app',
   'http://localhost:3000',
 ];
 app.use(cors({
-  origin: (origin, cb) => (!origin || allowedOrigins.includes(origin)) ? cb(null, true) : cb(new Error('Not allowed by CORS')),
+  origin: (origin, cb) => (!origin || allowedOrigins.includes(origin))
+    ? cb(null, true)
+    : cb(new Error('Not allowed by CORS')),
   credentials: true,
 }));
 
@@ -45,24 +47,23 @@ app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Mongo
+/* ------------------------------ MongoDB --------------------------------- */
 mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+  useNewUrlParser: true, useUnifiedTopology: true,
 }).then(() => console.log('✅ MongoDB connected'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// Socket.IO — tune pings & enable recovery
+/* ------------------------------ Socket.IO ------------------------------- */
 const io = socketio(server, {
   cors: { origin: allowedOrigins, credentials: true },
-  pingInterval: 25000,   // client sends a ping every 25s
-  pingTimeout: 60000,    // consider dead after no pong for 60s
-  connectionStateRecovery: { maxDisconnectionDuration: 2 * 60 * 1000 }, // 2 minutes
-  path: '/socket.io',    // default path; keep in sync with client
+  pingInterval: 25000,
+  pingTimeout: 60000,
+  connectionStateRecovery: { maxDisconnectionDuration: 2 * 60 * 1000 },
+  path: '/socket.io',
 });
 app.set('io', io);
 
-// helpful util to avoid duplicate room joins per socket
+// simple helpers (optional)
 function safeJoin(socket, room) {
   if (socket.data.currentRoom === room) return false;
   if (socket.data.currentRoom) socket.leave(socket.data.currentRoom);
@@ -80,69 +81,64 @@ function safeLeave(socket, room) {
 io.on('connection', (socket) => {
   console.log('🔌 Socket connected:', socket.id);
 
-  // 🔐 Join per-user room for mention notifications
+  // per-user room (for future mentions/DMs/notifications)
   const userId = socket.handshake?.auth?.userId;
-  if (userId) {
-    socket.join(`user:${userId}`);
-  }
+  if (userId) socket.join(`user:${userId}`);
 
-  // ---- Chat rooms (unchanged) ----
+  // join a chat conversation room
   socket.on('joinChat', (chatId) => {
+    if (!chatId) return;
     socket.join(chatId);
+    // console.log('↪️ joined room', chatId, 'socket', socket.id);
   });
 
-  socket.on('sendMessage', ({ chatId, senderId, content, type }) => {
-    const timestamp = Date.now();
-    io.to(chatId).emit('receiveMessage', {
-      _id: new Types.ObjectId().toString(),
-      conversation: chatId,
-      sender: senderId,
-      content,
-      type,
-      fileUrl: type === 'text' ? null : content,
-      timestamp
-    });
-    io.emit('chatUpdated', { chatId, lastMessage: { content, timestamp } });
-  });
+  /**
+   * ❗ IMPORTANT:
+   * DO NOT broadcast "sendMessage" here. The REST route /api/messages
+   * saves the message and emits 'receiveMessage' + 'chatUpdated'.
+   * Having a socket 'sendMessage' here would duplicate messages.
+   */
+  // socket.on('sendMessage', ...)  <-- REMOVED on purpose
 
+  // seen over socket (idempotent)
   socket.on('messageSeen', async ({ messageId, userId }) => {
     try {
-      const msg = await Message.findByIdAndUpdate(
-        messageId,
-        { $push: { seen: { userId, timestamp: Date.now() } } },
-        { new: true }
-      );
-      io.to(msg.conversation.toString()).emit('messageSeen', {
-        messageId, userId, timestamp: msg.seen[msg.seen.length - 1].timestamp
-      });
-      io.emit('chatUpdated', {
-        chatId: msg.conversation.toString(),
-        lastMessage: { content: msg.content, timestamp: msg.createdAt }
-      });
+      const msg = await Message.findById(messageId);
+      if (!msg) return;
+
+      const already = msg.seen?.some(s => String(s.userId) === String(userId));
+      if (!already) {
+        const seenEntry = { userId, timestamp: Date.now() };
+        msg.seen.push(seenEntry);
+        await msg.save();
+
+        io.to(String(msg.conversation)).emit('messageSeen', {
+          messageId,
+          userId: seenEntry.userId,
+          timestamp: seenEntry.timestamp
+        });
+
+        // optional: keep sidebars fresh
+        io.emit('chatUpdated', {
+          chatId: String(msg.conversation),
+          lastMessage: { content: msg.content || msg.fileUrl || '', timestamp: msg.createdAt }
+        });
+      }
     } catch (err) {
       console.error('❌ socket messageSeen error:', err);
     }
   });
 
-  // ---- Project discussion rooms (idempotent) ----
-  socket.on('joinProject', (roomName) => {
-    if (safeJoin(socket, roomName)) {
-      console.log(`↪️  ${socket.id} joined ${roomName}`);
-    }
-  });
-
-  socket.on('leaveProject', (roomName) => {
-    if (safeLeave(socket, roomName)) {
-      console.log(`↩️  ${socket.id} left ${roomName}`);
-    }
-  });
+  // optional project rooms
+  socket.on('joinProject', (roomName) => safeJoin(socket, roomName));
+  socket.on('leaveProject', (roomName) => safeLeave(socket, roomName));
 
   socket.on('disconnect', (reason) => {
-    console.log('❌ Socket disconnected:', socket.id, reason);
+    // console.log('❌ Socket disconnected:', socket.id, reason);
   });
 });
 
-// Routes
+/* -------------------------------- Routes -------------------------------- */
 app.get('/', (req, res) => res.send('API is working'));
 app.use('/api/auth',               authRoutes);
 app.use('/api/users',              userRoutes);
