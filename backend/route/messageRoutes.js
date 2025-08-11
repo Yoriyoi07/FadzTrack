@@ -2,6 +2,7 @@
 const express         = require('express');
 const multer          = require('multer');
 const path            = require('path');
+const mongoose        = require('mongoose');
 const { verifyToken } = require('../middleware/authMiddleware');
 const Message         = require('../models/Messages');
 const Chat            = require('../models/Chats');
@@ -13,7 +14,7 @@ router.use(verifyToken);
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
+    const ext = path.extname(file.originalname || '');
     cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 9)}${ext}`);
   }
 });
@@ -23,15 +24,18 @@ const upload = multer({ storage });
 router.get('/:chatId', async (req, res) => {
   try {
     const { chatId } = req.params;
+    if (!mongoose.isValidObjectId(chatId)) {
+      return res.status(400).json({ error: 'Invalid chatId' });
+    }
 
     const msgs = await Message.find({ conversation: chatId })
-      .populate('sender', 'firstname lastname _id')
+      .populate('sender', 'firstname lastname _id') // preserve your populate
       .sort({ createdAt: 1 });
 
     const out = msgs.map(m => ({
       _id:          m._id,
       conversation: m.conversation,
-      senderId:     m.sender?._id,
+      senderId:     m.sender?._id,                     // alias used by client
       message:      m.type === 'text' ? m.content : null,
       fileUrl:      m.fileUrl || null,
       type:         m.type,
@@ -51,41 +55,64 @@ router.get('/:chatId', async (req, res) => {
 /* ---------------------------- POST /api/messages -------------------------- */
 /**
  * Accepts either:
- * - Text: { sender, conversation, content, type: 'text' }
- * - File: multipart/form-data with field "file", plus { sender, conversation, type }
+ * - Text: JSON { sender, conversation, content, type: 'text', clientId? }
+ * - File: multipart/form-data with field "file", plus { sender, conversation, type?, clientId? }
+ *   (If "type" omitted and file provided, we set type='file')
  */
 router.post('/', upload.single('file'), async (req, res) => {
   try {
     const io = req.app.get('io');
 
-    const { sender, conversation, type } = req.body;
-    const textContent = req.body.content;
+    const { sender, conversation, clientId } = req.body;
+    let { type, content } = req.body;
+
+    if (!sender || !conversation) {
+      return res.status(400).json({ error: 'sender and conversation are required' });
+    }
+    if (!mongoose.isValidObjectId(sender) || !mongoose.isValidObjectId(conversation)) {
+      return res.status(400).json({ error: 'Invalid sender or conversation id' });
+    }
+
+    const chat = await Chat.findById(conversation);
+    if (!chat) return res.status(404).json({ error: 'Chat not found' });
 
     const payload = {
       sender,
       conversation,
-      type: 'text'
+      type: 'text',
+      reactions: [],
+      seen: [],
     };
 
     if (req.file) {
-      payload.type    = type === 'text' ? 'text' : 'file';
+      // file upload case
+      payload.type    = type && type !== 'text' ? type : 'file';
       payload.fileUrl = `/uploads/${req.file.filename}`;
     } else {
-      payload.content = textContent;
+      // text case
+      payload.type = type || 'text';
+      payload.content = content || '';
+      if (!payload.content && !payload.fileUrl) {
+        return res.status(400).json({ error: 'Message content or file is required' });
+      }
     }
 
     // 1) Save
     const msg = await Message.create(payload);
 
     // 2) Update chat preview
-    await Chat.findByIdAndUpdate(conversation, {
-      lastMessage: {
-        content: payload.type === 'text' ? payload.content : payload.fileUrl,
-        timestamp: msg.createdAt
-      }
-    });
+    try {
+      await Chat.findByIdAndUpdate(conversation, {
+        lastMessage: {
+          content: payload.type === 'text' ? payload.content : payload.fileUrl,
+          timestamp: msg.createdAt
+        }
+      });
+    } catch (e) {
+      console.warn('⚠️ Failed to update chat preview:', e?.message);
+    }
 
-    // 3) Re-fetch populated
+    // 3) Re-fetch populated for consistent response
     const populated = await Message.findById(msg._id)
       .populate('sender', 'firstname lastname _id');
 
@@ -96,31 +123,32 @@ router.post('/', upload.single('file'), async (req, res) => {
       message:      populated.type === 'text' ? populated.content : null,
       fileUrl:      populated.fileUrl || null,
       type:         populated.type,
-      reactions:    populated.reactions,
-      seen:         populated.seen,
+      reactions:    populated.reactions || [],
+      seen:         populated.seen || [],
       createdAt:    populated.createdAt,
       updatedAt:    populated.updatedAt
     };
 
-    // 4) 🔊 Real-time emits
+    // 4) 🔊 Real-time emits (echo clientId; also include senderId)
     const room = String(conversation);
 
     io.to(room).emit('receiveMessage', {
-      _id:          out._id,
+      _id:          String(out._id),
       conversation: room,
-      sender:       out.senderId,
-      content:      out.message ?? out.fileUrl,
+      sender:       String(out.senderId),           // some clients use 'sender'
+      senderId:     String(out.senderId),           // your client uses senderId
+      content:      out.message ?? out.fileUrl ?? '',// normalized content
       type:         out.type,
       fileUrl:      out.fileUrl,
-      timestamp:    out.createdAt
+      timestamp:    out.createdAt,
+      reactions:    out.reactions,
+      seen:         out.seen,
+      clientId:     req.body.clientId || null,      // <-- important for de-dupe on client
     });
 
     io.emit('chatUpdated', {
       chatId: room,
-      lastMessage: {
-        content: out.message ?? out.fileUrl,
-        timestamp: out.createdAt
-      }
+      lastMessage: { content: out.message ?? out.fileUrl, timestamp: out.createdAt }
     });
 
     return res.status(201).json(out);
@@ -141,12 +169,12 @@ router.post('/:messageId/reactions', async (req, res) => {
     if (!msg) return res.status(404).json({ error: 'Message not found' });
 
     // Replace previous reaction from same user
-    msg.reactions = msg.reactions.filter(r => r.userId.toString() !== userId);
+    msg.reactions = msg.reactions.filter(r => r.userId.toString() !== String(userId));
     msg.reactions.push({ userId, emoji });
     await msg.save();
 
     io.to(msg.conversation.toString()).emit('messageReaction', {
-      messageId,
+      messageId: String(messageId),
       reactions: msg.reactions
     });
 
@@ -168,12 +196,12 @@ router.delete('/:messageId/reactions', async (req, res) => {
     if (!msg) return res.status(404).json({ error: 'Message not found' });
 
     msg.reactions = msg.reactions.filter(
-      r => !(r.userId.toString() === userId && r.emoji === emoji)
+      r => !(r.userId.toString() === String(userId) && r.emoji === emoji)
     );
     await msg.save();
 
     io.to(msg.conversation.toString()).emit('messageReaction', {
-      messageId,
+      messageId: String(messageId),
       reactions: msg.reactions
     });
 
@@ -194,14 +222,14 @@ router.post('/:messageId/seen', async (req, res) => {
     const msg = await Message.findById(messageId);
     if (!msg) return res.status(404).json({ error: 'Message not found' });
 
-    if (!msg.seen.some(s => s.userId.toString() === userId)) {
+    if (!msg.seen.some(s => s.userId.toString() === String(userId))) {
       const seenEntry = { userId, timestamp: Date.now() };
       msg.seen.push(seenEntry);
       await msg.save();
 
       io.to(msg.conversation.toString()).emit('messageSeen', {
-        messageId,
-        userId:    seenEntry.userId,
+        messageId: String(messageId),
+        userId:    String(seenEntry.userId),
         timestamp: seenEntry.timestamp
       });
     }

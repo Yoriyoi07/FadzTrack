@@ -13,40 +13,15 @@ const SeenSchema = new Schema({
 }, { _id: false });
 
 const MessageSchema = new Schema({
-  sender: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  conversation: {
-    type: Schema.Types.ObjectId,
-    ref: 'Chat',
-    required: true
-  },
-  content: {
-    type: String
-  },
-  fileUrl: {
-    type: String
-  },
-  type: {
-    type: String,
-    enum: ['text', 'image', 'file'],
-    default: 'text'
-  },
-  reactions: {
-    type: [ReactionSchema],
-    default: []
-  },
-  seen: {
-    type: [SeenSchema],
-    default: []
-  }
-}, {
-  timestamps: true
-});
+  sender: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  conversation: { type: Schema.Types.ObjectId, ref: 'Chat', required: true },
+  content: { type: String },
+  fileUrl: { type: String },
+  type: { type: String, enum: ['text', 'image', 'file'], default: 'text' },
+  reactions: { type: [ReactionSchema], default: [] },
+  seen: { type: [SeenSchema], default: [] }
+}, { timestamps: true });
 
-// index to speed up fetching by conversation + chronology
 MessageSchema.index({ conversation: 1, createdAt: 1 });
 
 module.exports = mongoose.model('Message', MessageSchema);

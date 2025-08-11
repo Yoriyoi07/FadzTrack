@@ -9,6 +9,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   status: { type: String, default: 'Active' },
   locations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Location' }],
+  tokenVersion: { type: Number, default: 0 },
 }, {
   timestamps: true  
 }); 
