@@ -1,36 +1,39 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { io } from 'socket.io-client';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaPlus } from 'react-icons/fa';
-import "../style/pic_style/Pic_Project.css";
+import { io } from 'socket.io-client';
+import "../style/pic_style/Pic_Project.css"; // reuse styles with the left-chat layout
 
+// ---- Socket endpoint setup ----
 const RAW = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
-const SOCKET_ORIGIN = RAW.replace(/\/api$/, '');
+const SOCKET_ORIGIN = RAW.replace(/\/api$/, ''); // strip trailing /api if present
 const SOCKET_PATH = '/socket.io';
 
+// Static sample chats in left sidebar (replace with your real chats list if you have one)
 const chats = [
-  { id: 1, name: 'HR Ops', initial: 'H', message: 'Payroll questions…', color: '#4A6AA5' },
-  { id: 2, name: 'Recruitment', initial: 'R', message: 'Screening updates…', color: '#2E7D32' },
-  { id: 3, name: 'Compliance', initial: 'C', message: 'New memo draft…', color: '#9C27B0' }
+  { id: 1, name: 'HR Ops',        initial: 'H', message: 'Payroll questions…',     color: '#4A6AA5' },
+  { id: 2, name: 'Recruitment',   initial: 'R', message: 'Screening updates…',     color: '#2E7D32' },
+  { id: 3, name: 'Compliance',    initial: 'C', message: 'New memo draft…',        color: '#9C27B0' },
 ];
 
-const highlightMentions = (text = '') =>
-  text.replace(/\B@([a-zA-Z0-9._-]+)/g, '<span class="mention">@$1</span>');
-const slugify = (s = '') => s.toString().trim().toLowerCase().replace(/\s+/g, '');
+// --- Helpers for mentions ---
+function renderMessageText(text = '') {
+  const parts = text.split(/(@[\w\s]+)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('@')) {
+      return <span key={i} style={{ color: '#1976d2', fontWeight: 600 }}>{part}</span>;
+    }
+    return part;
+  });
+}
 
 const HRCurrentProject = () => {
+  const { id } = useParams(); // optional: project id
   const navigate = useNavigate();
 
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [project, setProject] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('Details');
-
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
-  const [totalPO, setTotalPO] = useState(0);
-
+  // --- Stable user (no re-parse per render)
   const userRef = useRef(null);
   if (userRef.current === null) {
     try {
@@ -42,48 +45,78 @@ const HRCurrentProject = () => {
   }
   const user = userRef.current;
   const userId = user?._id || null;
-  const [userName] = useState(user?.name || '');
+  const [userName] = useState(user?.name || 'HR');
   const token = localStorage.getItem('token');
 
+  // Header/profile
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
+  // Project + tabs
+  const [project, setProject] = useState(null);
+  const [activeTab, setActiveTab] = useState('Details');
+  const [status, setStatus] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [toggleLoading, setToggleLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Discussions
   const [messages, setMessages] = useState([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
-  const [hasLoadedDiscussions, setHasLoadedDiscussions] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [replyInputs, setReplyInputs] = useState({});
   const [showNewMsgInput, setShowNewMsgInput] = useState(false);
+  const textareaRef = useRef();
 
+  // Mention autocomplete
+  const [mentionDropdown, setMentionDropdown] = useState({
+    open: false,
+    options: [],
+    query: '',
+    position: { top: 0, left: 0 }
+  });
+
+  // Files
   const [docSignedUrls, setDocSignedUrls] = useState([]);
-  const [lastDocs, setLastDocs] = useState([]);
 
-  const projectMembers = useMemo(() => {
-    if (!project) return [];
-    const arr = [
-      ...(Array.isArray(project.pic) ? project.pic : project.pic ? [project.pic] : []),
-      ...(Array.isArray(project.staff) ? project.staff : project.staff ? [project.staff] : []),
-      ...(Array.isArray(project.hrsite) ? project.hrsite : project.hrsite ? [project.hrsite] : []),
-      project.projectmanager,
-      project.areamanager,
-    ].filter(Boolean);
+  // Fallback: purchase orders / totals if you want to show financials
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [totalPO, setTotalPO] = useState(0);
 
-    const dedup = new Map();
-    for (const u of arr) {
-      const id = u?._id;
-      if (!id) continue;
-      if (!dedup.has(id)) {
-        dedup.set(id, { _id: id, name: u.name || '', slug: slugify(u.name || '') });
-      }
-    }
-    return [{ _id: '__ALL__', name: 'All', slug: 'all' }, ...dedup.values()];
-  }, [project]);
-
+  // ---- SOCKET REFS (for realtime) ----
   const socketRef = useRef(null);
   const joinedRoomRef = useRef(null);
-  const projectIdRef = useRef(null);
+  const projectIdRef = useRef(null); // avoid stale closures
 
+  // Build staff list for mentions (PM, PIC, HR - Site, Staff)
+  const staffList = useMemo(() => {
+    if (!project) return [];
+    let staff = [];
+
+    if (project.projectmanager && typeof project.projectmanager === 'object') {
+      staff.push({ _id: project.projectmanager._id, name: project.projectmanager.name });
+    }
+    if (Array.isArray(project.pic)) {
+      staff = staff.concat(project.pic.map(p => ({ _id: p._id, name: p.name })));
+    }
+    if (Array.isArray(project.hrsite)) {
+      staff = staff.concat(project.hrsite.map(h => ({ _id: h._id, name: h.name })));
+    }
+    if (Array.isArray(project.staff)) {
+      staff = staff.concat(project.staff.map(s => ({ _id: s._id, name: s.name })));
+    }
+
+    // Deduplicate by _id
+    const seen = new Set();
+    return staff.filter(u => u._id && !seen.has(u._id) && seen.add(u._id));
+  }, [project]);
+
+  // Keep a ref of current project id (prefer actual loaded project, fallback to route id)
   useEffect(() => {
-    projectIdRef.current = project?._id ? String(project._id) : null;
-  }, [project?._id]);
+    const pid = project?._id ? String(project._id) : (id ? String(id) : null);
+    projectIdRef.current = pid;
+  }, [project?._id, id]);
 
+  // Connect socket once
   useEffect(() => {
     if (socketRef.current) return;
 
@@ -91,7 +124,7 @@ const HRCurrentProject = () => {
       path: SOCKET_PATH,
       withCredentials: true,
       transports: ['websocket'],
-      auth: { userId },
+      auth: { userId }, // lets server also put us in user:<id> room
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
@@ -124,6 +157,7 @@ const HRCurrentProject = () => {
     };
 
     const onMention = (payload) => {
+      // hook into your NotificationBell / toast if desired
       console.log('[HRCurrentProject mentionNotification]', payload);
     };
 
@@ -143,14 +177,13 @@ const HRCurrentProject = () => {
     };
   }, [userId]);
 
-  const projectId = project?._id || null;
-
+  // Compute and join/leave desired room when Discussions tab is open
   useEffect(() => {
     const sock = socketRef.current;
     if (!sock) return;
 
-    const desiredRoom =
-      projectId && activeTab === 'Discussions' ? `project:${projectId}` : null;
+    const pid = project?._id || id;
+    const desiredRoom = activeTab === 'Discussions' && pid ? `project:${pid}` : null;
 
     if (joinedRoomRef.current === desiredRoom) return;
 
@@ -163,19 +196,39 @@ const HRCurrentProject = () => {
       sock.emit('joinProject', desiredRoom);
       joinedRoomRef.current = desiredRoom;
     }
-  }, [projectId, activeTab]);
+  }, [project?._id, id, activeTab]);
 
-  // Fetch project for this HR user
+  // Fetch project (specific by id OR fallback to current assigned ongoing)
   useEffect(() => {
-    if (!userId) return;
-
     let cancelled = false;
+
     (async () => {
       try {
-        const res = await api.get(`/projects/assigned/allroles/${userId}`);
-        if (cancelled) return;
-        const ongoing = res.data?.find(p => p.status === 'Ongoing');
-        setProject(ongoing || null);
+        if (id) {
+          const { data } = await api.get(`/projects/${id}`);
+          if (cancelled) return;
+          setProject(data);
+          setStatus(data?.status || '');
+          try {
+            const progressRes = await api.get(`/daily-reports/project/${id}/progress`);
+            const completed = progressRes?.data?.progress?.find(p => p.name === 'Completed');
+            setProgress(completed ? completed.value : 0);
+          } catch { /* ignore */ }
+        } else {
+          if (!userId) throw new Error('Missing user');
+          const res = await api.get(`/projects/assigned/allroles/${userId}`);
+          if (cancelled) return;
+          const ongoing = (res.data || []).find(p => p.status === 'Ongoing') || (res.data || [])[0] || null;
+          setProject(ongoing);
+          setStatus(ongoing?.status || '');
+          if (ongoing?._id) {
+            try {
+              const progressRes = await api.get(`/daily-reports/project/${ongoing._id}/progress`);
+              const completed = progressRes?.data?.progress?.find(p => p.name === 'Completed');
+              setProgress(completed ? completed.value : 0);
+            } catch { /* ignore */ }
+          }
+        }
       } catch {
         if (!cancelled) setProject(null);
       } finally {
@@ -184,19 +237,62 @@ const HRCurrentProject = () => {
     })();
 
     return () => { cancelled = true; };
-  }, [userId]);
+  }, [id, userId]);
 
-  // POs
+  // Discussions fetch when tab active (initial load)
   useEffect(() => {
-    if (!projectId) return;
+    if (!project?._id || activeTab !== 'Discussions') return;
+    const controller = new AbortController();
+    setLoadingMsgs(true);
+    api.get(`/projects/${project._id}/discussions`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+      .then(res => setMessages(res.data || []))
+      .catch(() => setMessages([]))
+      .finally(() => setLoadingMsgs(false));
+    return () => controller.abort();
+  }, [project?._id, activeTab, token]);
 
+  // Files: get signed URLs initially and auto-refresh every 4.5 minutes while on Files
+  useEffect(() => {
+    let intervalId;
+    async function fetchSignedUrls() {
+      if (project?.documents?.length) {
+        const urls = await Promise.all(
+          project.documents.map(async docPath => {
+            try {
+              const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(docPath)}`);
+              return data.signedUrl;
+            } catch {
+              return null;
+            }
+          })
+        );
+        setDocSignedUrls(urls);
+      } else {
+        setDocSignedUrls([]);
+      }
+    }
+    if (activeTab === 'Files') {
+      fetchSignedUrls();
+      intervalId = setInterval(fetchSignedUrls, 270000); // 4.5 minutes
+    }
+    return () => clearInterval(intervalId);
+  }, [activeTab, project]);
+
+  // Optional: purchase orders summary
+  useEffect(() => {
+    if (!project?._id) return;
     let cancelled = false;
     (async () => {
       try {
         const res = await api.get('/requests');
         if (cancelled) return;
         const approved = (res.data || []).filter(r =>
-          r.project?._id === projectId && r.status === 'Approved' && r.totalValue
+          String(r?.project?._id || '') === String(project._id) &&
+          r.status === 'Approved' &&
+          r.totalValue
         );
         setPurchaseOrders(approved);
         setTotalPO(approved.reduce((s, r) => s + (Number(r.totalValue) || 0), 0));
@@ -204,78 +300,91 @@ const HRCurrentProject = () => {
         if (!cancelled) { setPurchaseOrders([]); setTotalPO(0); }
       }
     })();
-
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [project?._id]);
 
-  // Discussions initial fetch
-  useEffect(() => {
-    if (!projectId || activeTab !== 'Discussions' || hasLoadedDiscussions) return;
-
-    const controller = new AbortController();
-    setLoadingMsgs(true);
-
-    api.get(`/projects/${projectId}/discussions`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal,
-    })
-      .then(res => setMessages(res.data || []))
-      .catch(() => setMessages([]))
-      .finally(() => {
-        setLoadingMsgs(false);
-        setHasLoadedDiscussions(true);
+  // Mention logic
+  const handleTextareaInput = (e) => {
+    const value = e.target.value;
+    setNewMessage(value);
+    const caret = e.target.selectionStart;
+    const textUpToCaret = value.slice(0, caret);
+    const match = /(^|\s)@(\w*)$/.exec(textUpToCaret);
+    if (match) {
+      const query = match[2].toLowerCase();
+      const options = staffList.filter(u => (u.name || '').toLowerCase().includes(query));
+      const rect = e.target.getBoundingClientRect();
+      setMentionDropdown({
+        open: true,
+        options,
+        query,
+        position: { top: rect.top + e.target.offsetHeight, left: rect.left + 10 }
       });
-
-    return () => controller.abort();
-  }, [projectId, activeTab, token, hasLoadedDiscussions]);
-
-  useEffect(() => { setHasLoadedDiscussions(false); }, [projectId]);
-
-  // Files signed URLs
-  useEffect(() => {
-    if (
-      activeTab === 'Files' &&
-      project?.documents?.length &&
-      JSON.stringify(project.documents) !== JSON.stringify(lastDocs)
-    ) {
-      setLastDocs(project.documents);
-      Promise.all(
-        project.documents.map(async docPath => {
-          try {
-            const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(docPath)}`);
-            return data.signedUrl;
-          } catch { return null; }
-        })
-      ).then(setDocSignedUrls);
+    } else {
+      setMentionDropdown({ open: false, options: [], query: '', position: { top: 0, left: 0 } });
     }
-  }, [activeTab, project, lastDocs]);
-
-  const handlePostMessage = async () => {
-    if (!newMessage.trim()) return;
-    await api.post(
-      `/projects/${projectId}/discussions`,
-      { text: newMessage, userName },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    setNewMessage('');
-    setShowNewMsgInput(false);
   };
 
+  const handleMentionSelect = (selUser) => {
+    if (!textareaRef.current) return;
+    const value = newMessage;
+    const caret = textareaRef.current.selectionStart;
+    const textUpToCaret = value.slice(0, caret);
+    const match = /(^|\s)@(\w*)$/.exec(textUpToCaret);
+    if (!match) return;
+    const before = value.slice(0, match.index + match[1].length);
+    const after  = value.slice(caret);
+    const mentionText = `@${selUser.name} `;
+    const newVal = before + mentionText + after;
+    setNewMessage(newVal);
+    setMentionDropdown({ open: false, options: [], query: '', position: { top: 0, left: 0 } });
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.selectionStart = textareaRef.current.selectionEnd = (before + mentionText).length;
+      }
+    }, 0);
+  };
+
+  // Post new message (discussion) — rely on socket event to append
+  const handlePostMessage = async () => {
+    if (!newMessage.trim() || !project?._id) return;
+    try {
+      await api.post(`/projects/${project._id}/discussions`,
+        { text: newMessage, userName },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setNewMessage('');
+      setShowNewMsgInput(false);
+      // 'project:newDiscussion' will arrive and prepend it
+    } catch {
+      alert('Failed to post message');
+    }
+  };
+
+  // Post reply — rely on socket event to append
   const handlePostReply = async (msgId) => {
     const replyText = replyInputs[msgId];
-    if (!replyText?.trim()) return;
-    await api.post(
-      `/projects/${projectId}/discussions/${msgId}/reply`,
-      { text: replyText, userName },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    setReplyInputs(prev => ({ ...prev, [msgId]: '' }));
+    if (!replyText?.trim() || !project?._id) return;
+    try {
+      await api.post(`/projects/${project._id}/discussions/${msgId}/reply`,
+        { text: replyText, userName },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setReplyInputs(prev => ({ ...prev, [msgId]: '' }));
+      // 'project:newReply' will arrive and append it
+    } catch {
+      alert('Failed to post reply');
+    }
   };
 
+  // UI helpers
   useEffect(() => {
-    const handleClickOutside = (e) => { if (!e.target.closest(".profile-menu-container")) setProfileMenuOpen(false); };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.profile-menu-container')) setProfileMenuOpen(false);
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -285,11 +394,69 @@ const HRCurrentProject = () => {
   };
 
   if (loading) return <div>Loading...</div>;
+  if (!project) {
+    return (
+      <>
+        {/* HEADER */}
+        <header className="header">
+          <div className="logo-container">
+            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
+            <h1 className="brand-name">FadzTrack</h1>
+          </div>
+          <nav className="nav-menu">
+            <Link to="/hr-site/current-project" className="nav-link">Dashboard</Link>
+            <Link to="/hr-site/attendance-report" className="nav-link">Report</Link>
+            <Link to="/hr-site/all-projects" className="nav-link">My Projects</Link>
+            <Link to="/hr/chat" className="nav-link">Chat</Link>
+          </nav>
+          <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            <NotificationBell />
+            <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+              {userName?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
+        </header>
 
+        {/* LAYOUT with left chats kept */}
+        <div className="dashboard-layout">
+          <div className="sidebar">
+            <div className="chats-section">
+              <h3 className="chats-title">Chats</h3>
+              <div className="chats-list">
+                {chats.map(chat => (
+                  <div key={chat.id} className="chat-item">
+                    <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
+                      {chat.initial}
+                    </div>
+                    <div className="chat-info">
+                      <div className="chat-name">{chat.name}</div>
+                      <div className="chat-message">{chat.message}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <main className="main1">
+            <div className="no-project-message">
+              <h2>No assigned project</h2>
+              <p>Your HR - Site account doesn’t have an active project yet.</p>
+              <p>Please wait for an assignment or contact your manager.</p>
+            </div>
+          </main>
+        </div>
+      </>
+    );
+  }
+
+  // Derived fields for Details tab
   const start = project?.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A';
-  const end = project?.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A';
-  const budgetNum = Number(project?.budget || 0);
-  const remaining = Math.max(budgetNum - Number(totalPO || 0), 0);
+  const end   = project?.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A';
   const contractor =
     typeof project?.contractor === 'string' && project.contractor.trim().length > 0
       ? project.contractor : 'N/A';
@@ -303,8 +470,6 @@ const HRCurrentProject = () => {
           .join(', ')
       : 'No Manpower Assigned';
 
-  const showSpinner = loadingMsgs && messages.length === 0;
-
   return (
     <>
       {/* HEADER */}
@@ -314,7 +479,7 @@ const HRCurrentProject = () => {
           <h1 className="brand-name">FadzTrack</h1>
         </div>
         <nav className="nav-menu">
-          <Link to="hr-site/current-project" className="nav-link">Dashboard</Link>
+          <Link to="/hr-site/current-project" className="nav-link">Dashboard</Link>
           <Link to="/hr-site/attendance-report" className="nav-link">Report</Link>
           <Link to="/hr-site/all-projects" className="nav-link">My Projects</Link>
           <Link to="/hr/chat" className="nav-link">Chat</Link>
@@ -332,9 +497,9 @@ const HRCurrentProject = () => {
         </div>
       </header>
 
-      {/* LAYOUT */}
+      {/* LAYOUT with left chats kept */}
       <div className="dashboard-layout">
-        {/* SIDEBAR CHATS */}
+        {/* LEFT SIDEBAR: CHATS */}
         <div className="sidebar">
           <div className="chats-section">
             <h3 className="chats-title">Chats</h3>
@@ -356,211 +521,271 @@ const HRCurrentProject = () => {
 
         {/* MAIN CONTENT */}
         <main className="main1">
-          {!project ? (
-            <div className="no-project-message">
-              <h2>No assigned project</h2>
-              <p>Your account doesn’t have an active project yet.</p>
-              <p>Please wait for an assignment or contact your manager.</p>
+          <div className="project-detail-container">
+            <div className="project-image-container" style={{ marginBottom: 12, position: 'relative' }}>
+              <img
+                src={(project.photos && project.photos[0]) || 'https://placehold.co/800x300?text=No+Photo'}
+                alt={project.projectName}
+                className="responsive-photo"
+              />
+              {/* Optional: allow toggle only when complete */}
+              {progress === 100 && (
+                <button
+                  onClick={async () => {
+                    setToggleLoading(true);
+                    try {
+                      const res = await api.patch(`/projects/${project._id}/toggle-status`);
+                      setStatus(res.data?.status || status);
+                    } finally {
+                      setToggleLoading(false);
+                    }
+                  }}
+                  disabled={toggleLoading}
+                  style={{
+                    background: status === 'Completed' ? '#4CAF50' : '#f57c00',
+                    color: 'white',
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    border: 'none',
+                    cursor: 'pointer',
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    zIndex: 10,
+                    fontSize: '14px',
+                  }}
+                >
+                  {status === 'Completed' ? 'Mark as Ongoing' : 'Mark as Completed'}
+                </button>
+              )}
             </div>
-          ) : (
-            <div className="project-detail-container">
-              <div className="project-image-container" style={{ marginBottom: 12 }}>
-                <img
-                  src={(project.photos && project.photos[0]) || 'https://placehold.co/800x300?text=No+Photo'}
-                  alt={project.projectName}
-                  className="responsive-photo"
-                />
-              </div>
 
-              <h1 className="project-title">{project.projectName}</h1>
+            <h1 className="project-title">{project.projectName}</h1>
 
-              {/* Tabs */}
-              <div className="tabs-row">
-                <button className={`tab-btn${activeTab === 'Discussions' ? ' active' : ''}`} onClick={() => setActiveTab('Discussions')}>
-                  <FaRegCommentDots /> Discussions
-                </button>
-                <button className={`tab-btn${activeTab === 'Details' ? ' active' : ''}`} onClick={() => setActiveTab('Details')}>
-                  <FaRegListAlt /> Details
-                </button>
-                <button className={`tab-btn${activeTab === 'Files' ? ' active' : ''}`} onClick={() => setActiveTab('Files')}>
-                  <FaRegFileAlt /> Files
-                </button>
-                <button className={`tab-btn${activeTab === 'Reports' ? ' active' : ''}`} onClick={() => setActiveTab('Reports')}>
-                  <FaRegFileAlt /> Reports
-                </button>
-              </div>
+            {/* Tabs (match AreaViewSpecific style) */}
+            <div className="tabs-row">
+              <button
+                className={`tab-btn${activeTab === 'Discussions' ? ' active' : ''}`}
+                onClick={() => setActiveTab('Discussions')}
+                type="button"
+              >
+                <FaRegCommentDots /> Discussions
+              </button>
+              <button
+                className={`tab-btn${activeTab === 'Details' ? ' active' : ''}`}
+                onClick={() => setActiveTab('Details')}
+                type="button"
+              >
+                <FaRegListAlt /> Details
+              </button>
+              <button
+                className={`tab-btn${activeTab === 'Files' ? ' active' : ''}`}
+                onClick={() => setActiveTab('Files')}
+                type="button"
+              >
+                <FaRegFileAlt /> Files
+              </button>
+              <button
+                className={`tab-btn${activeTab === 'Reports' ? ' active' : ''}`}
+                onClick={() => setActiveTab('Reports')}
+                type="button"
+              >
+                <FaRegFileAlt /> Reports
+              </button>
+            </div>
 
-              {/* Discussions */}
-              {activeTab === 'Discussions' && (
-                <div className="discussions-card">
-                  {showSpinner ? (
-                    <div>Loading…</div>
-                  ) : (
-                    messages.length === 0 && !showNewMsgInput ? (
-                      <div style={{ textAlign: 'center', color: '#bbb', padding: 40 }}>Start a conversation</div>
-                    ) : (
-                      messages.map(msg => {
-                        const ts = msg?.timestamp ? new Date(msg.timestamp).toLocaleString() : '';
-                        return (
-                          <div key={msg._id} className="discussion-msg">
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                              <div style={{ fontWeight: 600 }}>{msg.userName}</div>
-                              {ts && <div style={{ color: '#888', fontSize: 12 }}>{ts}</div>}
-                            </div>
-                            <div
-                              className="message-text"
-                              dangerouslySetInnerHTML={{ __html: highlightMentions(msg.text) }}
-                            />
-                            {msg.replies?.map(reply => {
-                              const rts = reply?.timestamp ? new Date(reply.timestamp).toLocaleString() : '';
-                              return (
-                                <div key={reply._id} style={{ marginLeft: 16, paddingLeft: 10, borderLeft: '2px solid #eee' }}>
-                                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                                    <b>{reply.userName}:</b>
-                                    {rts && <span style={{ color: '#888', fontSize: 12 }}>{rts}</span>}
-                                  </div>
-                                  <div
-                                    className="message-text"
-                                    dangerouslySetInnerHTML={{ __html: highlightMentions(reply.text) }}
-                                  />
-                                </div>
-                              );
-                            })}
-                            <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'flex-start' }}>
-                              <div style={{ flex: 1 }}>
-                                {/* REPLY TEXTAREA */}
-                                <textarea
-                                  className="reply-input"
-                                  rows={2}
-                                  placeholder="Reply…"
-                                  value={replyInputs[msg._id] || ''}
-                                  onChange={(e) =>
-                                    setReplyInputs((prev) => ({ ...prev, [msg._id]: e.target.value }))
-                                  }
-                                />
-                              </div>
-                              <button onClick={() => handlePostReply(msg._id)}>Reply</button>
-                            </div>
+            {/* --- Discussions --- */}
+            {activeTab === 'Discussions' && (
+              <div className="discussions-card">
+                {loadingMsgs ? (
+                  <div style={{ textAlign: "center", color: "#aaa" }}>Loading discussions…</div>
+                ) : messages.length === 0 && !showNewMsgInput ? (
+                  <div style={{ color: '#bbb', fontSize: 28, textAlign: 'center', marginTop: 120, userSelect: 'none' }}>
+                    Start a conversation
+                  </div>
+                ) : (
+                  <div>
+                    {messages.map(msg => (
+                      <div key={msg._id} className="discussion-msg">
+                        <div className="discussion-user">
+                          <div className="discussion-avatar">{msg.userName?.charAt(0) ?? '?'}</div>
+                          <div className="discussion-user-info">
+                            <span className="discussion-user-name">{msg.userName || 'Unknown'}</span>
+                            <span className="discussion-timestamp">
+                              {msg.timestamp ? new Date(msg.timestamp).toLocaleString() : ''}
+                            </span>
                           </div>
-                        );
-                      })
-                    )
-                  )}
-                  <button className="discussion-plus-btn" onClick={() => setShowNewMsgInput(true)} title="Start a new conversation">
-                    <FaPlus />
-                  </button>
-                  {showNewMsgInput && (
-                    <div className="new-msg-modal" onClick={() => setShowNewMsgInput(false)}>
-                      <div className="new-msg-box" onClick={e => e.stopPropagation()}>
-                        <h3 style={{ margin: 0, marginBottom: 16 }}>Start a new conversation</h3>
-                        {/* NEW DISCUSSION TEXTAREA */}
-                        <textarea
-                          className="mention-textarea"
-                          rows={4}
-                          placeholder="Type your message…"
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          style={{ width: '100%', resize: 'vertical' }}
-                        />
-                        <div className="new-msg-actions">
-                          <button className="cancel-btn" onClick={() => setShowNewMsgInput(false)}>Cancel</button>
-                          <button className="post-btn" onClick={handlePostMessage}>Post</button>
+                        </div>
+                        <div className="discussion-text">{renderMessageText(msg.text)}</div>
+
+                        {/* Replies */}
+                        <div className="discussion-replies">
+                          {msg.replies?.map(reply => (
+                            <div key={reply._id} className="discussion-reply">
+                              <div className="reply-avatar">{reply.userName?.charAt(0) ?? '?'}</div>
+                              <div className="reply-info">
+                                <span className="reply-name">{reply.userName || 'Unknown'}</span>
+                                <span className="reply-timestamp">
+                                  {reply.timestamp ? new Date(reply.timestamp).toLocaleString() : ''}
+                                </span>
+                                <span className="reply-text">{reply.text}</span>
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Reply input */}
+                          <div className="reply-input-row">
+                            <input
+                              type="text"
+                              value={replyInputs[msg._id] || ''}
+                              onChange={e => setReplyInputs(prev => ({ ...prev, [msg._id]: e.target.value }))}
+                              placeholder="Reply..."
+                            />
+                            <button onClick={() => handlePostReply(msg._id)}>Reply</button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
 
-              {/* Details */}
-              {activeTab === 'Details' && (
-                <div>
-                  <div className="project-details-grid">
-                    <div className="details-column">
-                      <p className="detail-item">
-                        <span className="detail-label">Location:</span>
-                        {locationLabel}
-                      </p>
+                {/* Floating add discussion button */}
+                <button
+                  className="discussion-plus-btn"
+                  onClick={() => setShowNewMsgInput(v => !v)}
+                  title="Start a new conversation"
+                >
+                  <FaPlus />
+                </button>
 
-                      <div className="detail-group">
-                        <p className="detail-label">Project Manager:</p>
-                        <p className="detail-value">{project?.projectmanager?.name || 'N/A'}</p>
-                      </div>
-
-                      <div className="detail-group">
-                        <p className="detail-label">Contractor:</p>
-                        <p className="detail-value">{contractor}</p>
-                      </div>
-
-                      <div className="detail-group">
-                        <p className="detail-label">Target Date:</p>
-                        <p className="detail-value">{start} — {end}</p>
-                      </div>
-                    </div>
-
-                    <div className="details-column">
-                      <div className="detail-group">
-                        <p className="detail-label">PIC:</p>
-                        <p className="detail-value">
-                          {Array.isArray(project?.pic) && project.pic.length > 0
-                            ? project.pic.map(p => p?.name).filter(Boolean).join(', ')
-                            : 'N/A'}
-                        </p>
-                      </div>
-                      <div className="detail-group">
-                        <p className="detail-label">HR - Site:</p>
-                        <p className="detail-value">
-                          {Array.isArray(project?.hrsite) && project.hrsite.length > 0
-                            ? project.hrsite.map(h => h?.name).filter(Boolean).join(', ')
-                            : (userName || 'N/A')}
-                        </p>
+                {/* New message input modal/box with @-mentions autocomplete */}
+                {showNewMsgInput && (
+                  <div className="new-msg-modal" onClick={() => setShowNewMsgInput(false)}>
+                    <div className="new-msg-box" onClick={e => e.stopPropagation()}>
+                      <h3 style={{ margin: 0, marginBottom: 16 }}>Start a new conversation</h3>
+                      <textarea
+                        value={newMessage}
+                        onChange={handleTextareaInput}
+                        ref={textareaRef}
+                        placeholder="Type your message..."
+                      />
+                      {mentionDropdown.open && (
+                        <div
+                          className="mention-dropdown"
+                          style={{ top: mentionDropdown.position.top, left: mentionDropdown.position.left }}
+                        >
+                          {mentionDropdown.options.map(u => (
+                            <div
+                              key={u._id}
+                              className="mention-option"
+                              onClick={() => handleMentionSelect(u)}
+                            >
+                              {u.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="new-msg-actions">
+                        <button className="cancel-btn" onClick={() => setShowNewMsgInput(false)}>Cancel</button>
+                        <button className="post-btn" onClick={handlePostMessage}>Post</button>
                       </div>
                     </div>
                   </div>
+                )}
+              </div>
+            )}
 
-                  {purchaseOrders.length > 0 && (
-                    <div style={{ color: 'red', fontSize: 13, marginBottom: 8 }}>
-                      Purchase Orders:
-                      <ul style={{ margin: 0, padding: '0 0 0 16px' }}>
-                        {purchaseOrders.map(po => (
-                          <li key={po._id}>
-                            PO#: <b>{po.purchaseOrder}</b> — ₱{Number(po.totalValue).toLocaleString()}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <div className="manpower-section">
-                    <p className="detail-label">Manpower:</p>
-                    <p className="manpower-list">
-                      {Array.isArray(project?.manpower) && project.manpower.length > 0
-                        ? project.manpower
-                            .map(mp => [mp?.name, mp?.position].filter(Boolean).join(' (') + (mp?.position ? ')' : ''))
-                            .join(', ')
-                        : 'No Manpower Assigned'}
+            {/* --- Details --- */}
+            {activeTab === 'Details' && (
+              <div>
+                <div className="project-details-grid">
+                  <div className="details-column">
+                    <p className="detail-item">
+                      <span className="detail-label">Location:</span>
+                      {locationLabel}
                     </p>
+                    <div className="detail-group">
+                      <p className="detail-label">Project Manager:</p>
+                      <p className="detail-value">{project?.projectmanager?.name || 'N/A'}</p>
+                    </div>
+                    <div className="detail-group">
+                      <p className="detail-label">Contractor:</p>
+                      <p className="detail-value">{contractor}</p>
+                    </div>
+                    <div className="detail-group">
+                      <p className="detail-label">Target Date:</p>
+                      <p className="detail-value">
+                        {start} — {end}
+                      </p>
+                    </div>
                   </div>
 
-                  <p><b>Status:</b> {project?.status || 'N/A'}</p>
+                  <div className="details-column">
+                    <div className="detail-group">
+                      <p className="detail-label">PIC:</p>
+                      <p className="detail-value">
+                        {Array.isArray(project?.pic) && project.pic.length > 0
+                          ? project.pic.map(p => p?.name).filter(Boolean).join(', ')
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div className="detail-group">
+                      <p className="detail-label">HR - Site:</p>
+                      <p className="detail-value">
+                        {Array.isArray(project?.hrsite) && project.hrsite.length > 0
+                          ? project.hrsite.map(h => h?.name).filter(Boolean).join(', ')
+                          : (userName || 'N/A')}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              )}
 
-              {/* Files */}
-              {activeTab === 'Files' && (
-                <div className="project-files-list">
-                  {project?.documents && project.documents.length > 0 ? (
+                {purchaseOrders.length > 0 && (
+                  <div style={{ color: 'red', fontSize: 13, marginBottom: 8 }}>
+                    Purchase Orders:
+                    <ul style={{ margin: 0, padding: '0 0 0 16px' }}>
+                      {purchaseOrders.map(po => (
+                        <li key={po._id}>
+                          PO#: <b>{po.purchaseOrder}</b> — ₱{Number(po.totalValue).toLocaleString()}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="manpower-section">
+                  <p className="detail-label">Manpower:</p>
+                  <p className="manpower-list">
+                    {manpowerText}
+                  </p>
+                </div>
+
+                <p><b>Status:</b> {status || project?.status || 'N/A'}</p>
+              </div>
+            )}
+
+            {/* --- Files --- */}
+            {activeTab === 'Files' && (
+              <div className="project-files-list">
+                {project?.documents && project.documents.length > 0 ? (
+                  <div>
+                    <h3 style={{ marginBottom: 18 }}>Project Documents</h3>
                     <ul>
                       {project.documents.map((docPath, idx) => {
                         const fileName = docPath.split('/').pop();
                         const url = docSignedUrls[idx];
                         return (
-                          <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <FaRegFileAlt />
+                          <li key={idx}>
+                            <FaRegFileAlt style={{ marginRight: 4 }} />
                             <span style={{ flex: 1 }}>{fileName}</span>
                             {url ? (
-                              <a href={url} download={fileName} target="_blank" rel="noopener noreferrer">
-                                View
+                              <a
+                                href={url}
+                                download={fileName}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                View Document
                               </a>
                             ) : (
                               <span style={{ color: '#aaa' }}>Loading link…</span>
@@ -569,21 +794,23 @@ const HRCurrentProject = () => {
                         );
                       })}
                     </ul>
-                  ) : (
-                    <div style={{ color: '#888', fontSize: 16 }}>No documents uploaded for this project.</div>
-                  )}
-                </div>
-              )}
+                  </div>
+                ) : (
+                  <div style={{ color: '#888', fontSize: 20 }}>No documents uploaded for this project.</div>
+                )}
+              </div>
+            )}
 
-              {/* Reports */}
-              {activeTab === 'Reports' && (
-                <div className="project-reports-placeholder">
-                  <h3 style={{ marginBottom: 12 }}>Project Reports</h3>
-                  <div style={{ color: '#888' }}>No reports are currently available.</div>
+            {/* --- Reports --- */}
+            {activeTab === 'Reports' && (
+              <div className="project-reports-placeholder">
+                <h3 style={{ marginBottom: 18 }}>Project Reports</h3>
+                <div style={{ color: '#888', fontSize: 20 }}>
+                  No reports are currently available.
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </main>
       </div>
     </>

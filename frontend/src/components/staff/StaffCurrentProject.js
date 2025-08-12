@@ -20,9 +20,16 @@ const chats = [
   { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
 ];
 
-// simple client-side highlight
-const highlightMentions = (text = '') =>
-  text.replace(/\B@([a-zA-Z0-9._-]+)/g, '<span class="mention">@$1</span>');
+// render mentions like @Name (no HTML injection)
+function renderMessageText(text = '') {
+  const parts = text.split(/(@[\w\s]+)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('@')) {
+      return <span key={i} className="mention" style={{ color: '#1976d2', fontWeight: 600 }}>{part}</span>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
 
 const StaffCurrentProject = () => {
   const navigate = useNavigate();
@@ -59,9 +66,37 @@ const StaffCurrentProject = () => {
   const [replyInputs, setReplyInputs] = useState({});
   const [showNewMsgInput, setShowNewMsgInput] = useState(false);
 
+  // Mention autocomplete (like HR view)
+  const textareaRef = useRef();
+  const [mentionDropdown, setMentionDropdown] = useState({
+    open: false,
+    options: [],
+    query: '',
+    position: { top: 0, left: 0 }
+  });
+
+  // Build staff list for @-mentions (PM, PIC, Staff, HR-Site if present)
+  const staffList = useMemo(() => {
+    if (!project) return [];
+    let staff = [];
+    if (project.projectmanager && typeof project.projectmanager === 'object') {
+      staff.push({ _id: project.projectmanager._id, name: project.projectmanager.name });
+    }
+    if (Array.isArray(project.pic)) {
+      staff = staff.concat(project.pic.map(p => ({ _id: p._id, name: p.name })));
+    }
+    if (Array.isArray(project.staff)) {
+      staff = staff.concat(project.staff.map(s => ({ _id: s._id, name: s.name })));
+    }
+    if (Array.isArray(project.hrsite)) {
+      staff = staff.concat(project.hrsite.map(h => ({ _id: h._id, name: h.name })));
+    }
+    const seen = new Set();
+    return staff.filter(u => u._id && !seen.has(u._id) && seen.add(u._id));
+  }, [project]);
+
   // Files
   const [docSignedUrls, setDocSignedUrls] = useState([]);
-  const [lastDocs, setLastDocs] = useState([]);
 
   // Socket refs
   const socketRef = useRef(null);
@@ -99,7 +134,8 @@ const StaffCurrentProject = () => {
     const onNewDiscussion = (payload) => {
       const currentPid = projectIdRef.current;
       if (!currentPid || payload?.projectId !== currentPid) return;
-      setMessages(prev => [payload.message, ...prev]);
+      // append to the end to keep chronological order
+      setMessages(prev => [...prev, payload.message]);
     };
 
     const onNewReply = (payload) => {
@@ -114,8 +150,7 @@ const StaffCurrentProject = () => {
     };
 
     const onMention = (payload) => {
-      // TODO: integrate with your NotificationBell / toast
-      // Example: toast(`${payload.fromUserName} mentioned you`);
+      // integrate with NotificationBell/toast if desired
       console.log('🔔 mentionNotification:', payload);
     };
 
@@ -123,10 +158,6 @@ const StaffCurrentProject = () => {
     sock.on('project:newDiscussion', onNewDiscussion);
     sock.on('project:newReply', onNewReply);
     sock.on('mentionNotification', onMention);
-
-    // Optional debug
-    // sock.on('connect_error', (e) => console.log('[socket] connect_error:', e?.message || e));
-    // sock.on('disconnect', (r) => console.log('[socket] disconnect:', r));
 
     return () => {
       sock.off('connect', onConnect);
@@ -237,48 +268,106 @@ const StaffCurrentProject = () => {
   // Reset guard if project changes
   useEffect(() => { setHasLoadedDiscussions(false); }, [projectId]);
 
-  // Files – fetch signed URLs only when tab open & list changed
+  // Files – fetch signed URLs initially and refresh every 4.5 minutes while on Files
   useEffect(() => {
-    if (
-      activeTab === 'Files' &&
-      project?.documents?.length &&
-      JSON.stringify(project.documents) !== JSON.stringify(lastDocs)
-    ) {
-      setLastDocs(project.documents);
-      Promise.all(
-        project.documents.map(async docPath => {
-          try {
-            const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(docPath)}`);
-            return data.signedUrl;
-          } catch { return null; }
-        })
-      ).then(setDocSignedUrls);
+    let intervalId;
+    async function fetchSignedUrls() {
+      if (project?.documents?.length) {
+        const urls = await Promise.all(
+          project.documents.map(async docPath => {
+            try {
+              const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(docPath)}`);
+              return data.signedUrl;
+            } catch { return null; }
+          })
+        );
+        setDocSignedUrls(urls);
+      } else {
+        setDocSignedUrls([]);
+      }
     }
-  }, [activeTab, project, lastDocs]);
+    if (activeTab === 'Files') {
+      fetchSignedUrls();
+      intervalId = setInterval(fetchSignedUrls, 270000); // 4.5 minutes
+    }
+    return () => clearInterval(intervalId);
+  }, [activeTab, project]);
 
-  // Post discussion
-  const handlePostMessage = async () => {
-    if (!newMessage.trim()) return;
-    await api.post(
-      `/projects/${projectId}/discussions`,
-      { text: newMessage, userName },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    setNewMessage('');
-    setShowNewMsgInput(false);
-    // socket event will inject it
+  // ----- Mentions: input & select -----
+  const handleTextareaInput = (e) => {
+    const value = e.target.value;
+    setNewMessage(value);
+    const caret = e.target.selectionStart;
+    const textUpToCaret = value.slice(0, caret);
+    const match = /(^|\s)@(\w*)$/.exec(textUpToCaret);
+    if (match) {
+      const query = match[2].toLowerCase();
+      const options = staffList.filter(u => (u.name || '').toLowerCase().includes(query));
+      const rect = e.target.getBoundingClientRect();
+      setMentionDropdown({
+        open: true,
+        options,
+        query,
+        position: { top: rect.top + e.target.offsetHeight, left: rect.left + 10 }
+      });
+    } else {
+      setMentionDropdown({ open: false, options: [], query: '', position: { top: 0, left: 0 } });
+    }
   };
 
-  // Post reply
+  const handleMentionSelect = (selUser) => {
+    if (!textareaRef.current) return;
+    const value = newMessage;
+    const caret = textareaRef.current.selectionStart;
+    const textUpToCaret = value.slice(0, caret);
+    const match = /(^|\s)@(\w*)$/.exec(textUpToCaret);
+    if (!match) return;
+    const before = value.slice(0, match.index + match[1].length);
+    const after  = value.slice(caret);
+    const mentionText = `@${selUser.name} `;
+    const newVal = before + mentionText + after;
+    setNewMessage(newVal);
+    setMentionDropdown({ open: false, options: [], query: '', position: { top: 0, left: 0 } });
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.selectionStart = textareaRef.current.selectionEnd = (before + mentionText).length;
+      }
+    }, 0);
+  };
+
+  // Post discussion (rely on socket echo)
+  const handlePostMessage = async () => {
+    if (!newMessage.trim() || !projectId) return;
+    try {
+      await api.post(
+        `/projects/${projectId}/discussions`,
+        { text: newMessage, userName },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setNewMessage('');
+      setShowNewMsgInput(false);
+      // new discussion arrives via 'project:newDiscussion'
+    } catch (e) {
+      alert('Failed to post message');
+    }
+  };
+
+  // Post reply (rely on socket echo)
   const handlePostReply = async (msgId) => {
     const replyText = replyInputs[msgId];
-    if (!replyText?.trim()) return;
-    await api.post(
-      `/projects/${projectId}/discussions/${msgId}/reply`,
-      { text: replyText, userName },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    setReplyInputs(prev => ({ ...prev, [msgId]: '' }));
+    if (!replyText?.trim() || !projectId) return;
+    try {
+      await api.post(
+        `/projects/${projectId}/discussions/${msgId}/reply`,
+        { text: replyText, userName },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setReplyInputs(prev => ({ ...prev, [msgId]: '' }));
+      // reply arrives via 'project:newReply'
+    } catch (e) {
+      alert('Failed to post reply');
+    }
   };
 
   // Profile menu blur
@@ -386,7 +475,7 @@ const StaffCurrentProject = () => {
 
               <h1 className="project-title">{project.projectName}</h1>
 
-              {/* Tabs */}
+              {/* Tabs (match HR/Area style) */}
               <div className="tabs-row">
                 <button className={`tab-btn${activeTab === 'Discussions' ? ' active' : ''}`} onClick={() => setActiveTab('Discussions')}>
                   <FaRegCommentDots /> Discussions
@@ -406,7 +495,7 @@ const StaffCurrentProject = () => {
               {activeTab === 'Discussions' && (
                 <div className="discussions-card">
                   {showSpinner ? (
-                    <div>Loading…</div>
+                    <div style={{ textAlign: 'center', color: '#aaa' }}>Loading…</div>
                   ) : (
                     messages.length === 0 && !showNewMsgInput ? (
                       <div style={{ textAlign: 'center', color: '#bbb', padding: 40 }}>Start a conversation</div>
@@ -415,55 +504,81 @@ const StaffCurrentProject = () => {
                         const ts = msg?.timestamp ? new Date(msg.timestamp).toLocaleString() : '';
                         return (
                           <div key={msg._id} className="discussion-msg">
-                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                              <div style={{ fontWeight: 600 }}>{msg.userName}</div>
-                              {ts && <div style={{ color: '#888', fontSize: 12 }}>{ts}</div>}
+                            <div className="discussion-user">
+                              <div className="discussion-avatar">{msg.userName?.charAt(0) ?? '?'}</div>
+                              <div className="discussion-user-info">
+                                <span className="discussion-user-name">{msg.userName || 'Unknown'}</span>
+                                <span className="discussion-timestamp">{ts}</span>
+                              </div>
                             </div>
-                            <div
-                              className="message-text"
-                              dangerouslySetInnerHTML={{ __html: highlightMentions(msg.text) }}
-                            />
-                            {msg.replies?.map(reply => {
-                              const rts = reply?.timestamp ? new Date(reply.timestamp).toLocaleString() : '';
-                              return (
-                                <div key={reply._id} style={{ marginLeft: 16, paddingLeft: 10, borderLeft: '2px solid #eee' }}>
-                                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                                    <b>{reply.userName}:</b>
-                                    {rts && <span style={{ color: '#888', fontSize: 12 }}>{rts}</span>}
+
+                            <div className="discussion-text">{renderMessageText(msg.text)}</div>
+
+                            {/* Replies */}
+                            <div className="discussion-replies">
+                              {msg.replies?.map(reply => {
+                                const rts = reply?.timestamp ? new Date(reply.timestamp).toLocaleString() : '';
+                                return (
+                                  <div key={reply._id} className="discussion-reply">
+                                    <div className="reply-avatar">{reply.userName?.charAt(0) ?? '?'}</div>
+                                    <div className="reply-info">
+                                      <span className="reply-name">{reply.userName || 'Unknown'}</span>
+                                      <span className="reply-timestamp">{rts}</span>
+                                      <span className="reply-text">{reply.text}</span>
+                                    </div>
                                   </div>
-                                  <div
-                                    className="message-text"
-                                    dangerouslySetInnerHTML={{ __html: highlightMentions(reply.text) }}
-                                  />
-                                </div>
-                              );
-                            })}
-                            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                              <input
-                                className="reply-input"
-                                value={replyInputs[msg._id] || ''}
-                                onChange={e => setReplyInputs(prev => ({ ...prev, [msg._id]: e.target.value }))}
-                                placeholder="Reply… (you can @john or @all)"
-                              />
-                              <button onClick={() => handlePostReply(msg._id)}>Reply</button>
+                                );
+                              })}
+
+                              {/* Reply input */}
+                              <div className="reply-input-row">
+                                <input
+                                  type="text"
+                                  value={replyInputs[msg._id] || ''}
+                                  onChange={e => setReplyInputs(prev => ({ ...prev, [msg._id]: e.target.value }))}
+                                  placeholder="Reply... (you can @Name)"
+                                />
+                                <button onClick={() => handlePostReply(msg._id)}>Reply</button>
+                              </div>
                             </div>
                           </div>
                         );
                       })
                     )
                   )}
-                  <button className="discussion-plus-btn" onClick={() => setShowNewMsgInput(true)} title="Start a new conversation">
+
+                  {/* Floating add discussion button */}
+                  <button className="discussion-plus-btn" onClick={() => setShowNewMsgInput(v => !v)} title="Start a new conversation">
                     <FaPlus />
                   </button>
+
+                  {/* New message input modal/box with @-mentions autocomplete */}
                   {showNewMsgInput && (
                     <div className="new-msg-modal" onClick={() => setShowNewMsgInput(false)}>
                       <div className="new-msg-box" onClick={e => e.stopPropagation()}>
                         <h3 style={{ margin: 0, marginBottom: 16 }}>Start a new conversation</h3>
                         <textarea
                           value={newMessage}
-                          onChange={e => setNewMessage(e.target.value)}
-                          placeholder="Type your message... (you can @john or @all)"
+                          onChange={handleTextareaInput}
+                          ref={textareaRef}
+                          placeholder="Type your message... (you can @Name)"
                         />
+                        {mentionDropdown.open && (
+                          <div
+                            className="mention-dropdown"
+                            style={{ top: mentionDropdown.position.top, left: mentionDropdown.position.left }}
+                          >
+                            {mentionDropdown.options.map(u => (
+                              <div
+                                key={u._id}
+                                className="mention-option"
+                                onClick={() => handleMentionSelect(u)}
+                              >
+                                {u.name}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                         <div className="new-msg-actions">
                           <button className="cancel-btn" onClick={() => setShowNewMsgInput(false)}>Cancel</button>
                           <button className="post-btn" onClick={handlePostMessage}>Post</button>

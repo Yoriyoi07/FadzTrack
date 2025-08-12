@@ -4,13 +4,32 @@ import "../style/pic_style/Pic_Project.css";
 import NotificationBell from '../NotificationBell';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaPlus } from 'react-icons/fa';
+import { io } from 'socket.io-client';
+
+/** ---- Socket endpoint setup ----
+ * REACT_APP_API_URL is usually like https://api.example.com or http://localhost:5000
+ * We want to connect to the ORIGIN (no trailing /api).
+ */
+const RAW = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const SOCKET_ORIGIN = RAW.replace(/\/api$/, ''); // strip trailing /api if present
+const SOCKET_PATH = '/socket.io'; // must match server
 
 const Pm_Project = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
-  const stored = localStorage.getItem('user');
-  const user = stored ? JSON.parse(stored) : null;
+
+  // ✅ Parse user once (stable identity)
+  const userRef = useRef(null);
+  if (userRef.current === null) {
+    try {
+      const raw = localStorage.getItem('user');
+      userRef.current = raw ? JSON.parse(raw) : null;
+    } catch {
+      userRef.current = null;
+    }
+  }
+  const user = userRef.current;
   const userId = user?._id;
 
   const [userName] = useState(user?.name || 'ALECK');
@@ -21,15 +40,26 @@ const Pm_Project = () => {
   const [showEditFields, setShowEditFields] = useState(false);
   const [editTasks, setEditTasks] = useState([{ name: '', percent: '' }]);
   const [activeTab, setActiveTab] = useState('Details');
+
+  // Discussions
   const [messages, setMessages] = useState([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [replyInputs, setReplyInputs] = useState({});
   const [showNewMsgInput, setShowNewMsgInput] = useState(false);
-  const [fileInputKey, setFileInputKey] = useState(Date.now());
+
+  // Files
+  const [fileInputKey] = useState(Date.now());
+  const [docSignedUrls, setDocSignedUrls] = useState([]);
+
+  // Mentions
   const [mentionDropdown, setMentionDropdown] = useState({ open: false, options: [], query: '', position: { top: 0, left: 0 } });
   const textareaRef = useRef();
-  const [docSignedUrls, setDocSignedUrls] = useState([]);
+
+  // --- Realtime (Socket.IO)
+  const socketRef = useRef(null);
+  const joinedRoomRef = useRef(null);
+  const projectIdRef = useRef(null); // avoid stale closures in socket handlers
 
   // Build staff list (PM + PICs, no manpower)
   const staffList = useMemo(() => {
@@ -46,57 +76,156 @@ const Pm_Project = () => {
     return staff.filter(u => u._id && !seen.has(u._id) && seen.add(u._id));
   }, [project]);
 
+  // Keep current project id in a ref
+  useEffect(() => {
+    const pid = project?._id ? String(project._id) : (id ? String(id) : null);
+    projectIdRef.current = pid;
+  }, [project?._id, id]);
+
+  /* -------------------- Create socket & listeners (once) -------------------- */
+  useEffect(() => {
+    if (socketRef.current) return;
+
+    const sock = io(SOCKET_ORIGIN, {
+      path: SOCKET_PATH,
+      withCredentials: true,
+      transports: ['websocket'],
+      auth: { userId }, // lets server put us in user:{id} room
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      randomizationFactor: 0.5,
+    });
+    socketRef.current = sock;
+
+    const onConnect = () => {
+      if (joinedRoomRef.current) {
+        sock.emit('joinProject', joinedRoomRef.current);
+      }
+    };
+
+    const onNewDiscussion = (payload) => {
+      const currentPid = projectIdRef.current;
+      if (!currentPid || payload?.projectId !== currentPid) return;
+      setMessages(prev => [payload.message, ...prev]);
+    };
+
+    const onNewReply = (payload) => {
+      const currentPid = projectIdRef.current;
+      if (!currentPid || payload?.projectId !== currentPid) return;
+      setMessages(prev => {
+        const clone = prev.map(m => ({ ...m, replies: [...(m.replies || [])] }));
+        const idx = clone.findIndex(m => String(m._id) === String(payload.msgId));
+        if (idx !== -1) clone[idx].replies.push(payload.reply);
+        return clone;
+      });
+    };
+
+    const onMention = (payload) => {
+      // TODO: integrate with NotificationBell/toast if needed
+      console.log('[PM mentionNotification]', payload);
+    };
+
+    sock.on('connect', onConnect);
+    sock.on('project:newDiscussion', onNewDiscussion);
+    sock.on('project:newReply', onNewReply);
+    sock.on('mentionNotification', onMention);
+
+    return () => {
+      sock.off('connect', onConnect);
+      sock.off('project:newDiscussion', onNewDiscussion);
+      sock.off('project:newReply', onNewReply);
+      sock.off('mentionNotification', onMention);
+      sock.disconnect();
+      socketRef.current = null;
+      joinedRoomRef.current = null;
+    };
+  }, [userId]);
+
+  /* -------- Join/leave project room when Discussions tab is active -------- */
+  useEffect(() => {
+    const sock = socketRef.current;
+    if (!sock) return;
+
+    const pid = project?._id || id;
+    const desiredRoom = (activeTab === 'Discussions' && pid) ? `project:${pid}` : null;
+
+    if (joinedRoomRef.current === desiredRoom) return;
+
+    // leave previous
+    if (joinedRoomRef.current && (!desiredRoom || joinedRoomRef.current !== desiredRoom)) {
+      const prev = joinedRoomRef.current;
+      sock.emit('leaveProject', prev);
+      joinedRoomRef.current = null;
+    }
+
+    // join new
+    if (desiredRoom && joinedRoomRef.current !== desiredRoom) {
+      sock.emit('joinProject', desiredRoom);
+      joinedRoomRef.current = desiredRoom;
+    }
+  }, [project?._id, id, activeTab]);
+
   // Fetch project by ID
   useEffect(() => {
     if (!id) return;
-    const fetchProject = async () => {
+    let cancelled = false;
+    (async () => {
       try {
         const res = await api.get(`/projects/${id}`);
-        setProject(res.data);
-      } catch (err) {
-        setProject(null);
+        if (!cancelled) setProject(res.data);
+      } catch {
+        if (!cancelled) setProject(null);
       }
-    };
-    fetchProject();
+    })();
+    return () => { cancelled = true; };
   }, [id]);
 
+  // ✅ FIXED: This was looping because `user` in deps changes every render.
+  // Only depend on stable `userId`. (token not needed for this call)
   useEffect(() => {
-    if (!token || !user) return;
-    const fetchProjects = async () => {
+    if (!userId) return;
+    let cancelled = false;
+    (async () => {
       try {
         const { data } = await api.get('/projects');
+        if (cancelled) return;
         const filtered = data.filter(p =>
           (typeof p.projectmanager === 'object' &&
             (p.projectmanager._id === userId || p.projectmanager.id === userId)) ||
           p.projectManager === userId
         );
         setProjects(filtered);
-      } catch (err) {
-        setProjects([]);
+      } catch {
+        if (!cancelled) setProjects([]);
       }
-    };
-    fetchProjects();
-  }, [token, user, userId]);
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
 
   // Fetch signed URLs for documents (private bucket)
   useEffect(() => {
+    let cancelled = false;
     async function fetchSignedUrls() {
       if (project?.documents?.length) {
-        const promises = project.documents.map(async docPath => {
-          try {
-            const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(docPath)}`);
-            return data.signedUrl;
-          } catch {
-            return null;
-          }
-        });
-        const urls = await Promise.all(promises);
-        setDocSignedUrls(urls);
+        const urls = await Promise.all(
+          project.documents.map(async docPath => {
+            try {
+              const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(docPath)}`);
+              return data.signedUrl;
+            } catch {
+              return null;
+            }
+          })
+        );
+        if (!cancelled) setDocSignedUrls(urls);
       } else {
-        setDocSignedUrls([]);
+        if (!cancelled) setDocSignedUrls([]);
       }
     }
     fetchSignedUrls();
+    return () => { cancelled = true; };
   }, [project]);
 
   // Auto-refresh signed URLs on Files tab
@@ -104,15 +233,16 @@ const Pm_Project = () => {
     let intervalId;
     if (activeTab === 'Files' && project?.documents?.length) {
       const fetchSignedUrls = async () => {
-        const promises = project.documents.map(async docPath => {
-          try {
-            const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(docPath)}`);
-            return data.signedUrl;
-          } catch {
-            return null;
-          }
-        });
-        const urls = await Promise.all(promises);
+        const urls = await Promise.all(
+          project.documents.map(async docPath => {
+            try {
+              const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(docPath)}`);
+              return data.signedUrl;
+            } catch {
+              return null;
+            }
+          })
+        );
         setDocSignedUrls(urls);
       };
       fetchSignedUrls();
@@ -177,26 +307,27 @@ const Pm_Project = () => {
     }
   };
 
-  // ------------- Discussions Logic (Persistent) -------------
-  // Fetch discussions from backend on load and tab change
+  // ------------- Discussions Logic -------------
   useEffect(() => {
     if (!id || activeTab !== 'Discussions') return;
-    const fetchMessages = async () => {
+    let cancelled = false;
+    (async () => {
       setLoadingMsgs(true);
       try {
         const { data } = await api.get(`/projects/${id}/discussions`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setMessages(data || []);
+        if (!cancelled) setMessages(data || []);
       } catch {
-        setMessages([]);
+        if (!cancelled) setMessages([]);
+      } finally {
+        if (!cancelled) setLoadingMsgs(false);
       }
-      setLoadingMsgs(false);
-    };
-    fetchMessages();
+    })();
+    return () => { cancelled = true; };
   }, [id, activeTab, token]);
 
-  // Post new message (discussion)
+  // Post new message (discussion) — rely on socket echo, no refetch
   const handlePostMessage = async () => {
     if (!newMessage.trim()) return;
     try {
@@ -206,17 +337,13 @@ const Pm_Project = () => {
       }, { headers: { Authorization: `Bearer ${token}` } });
       setNewMessage('');
       setShowNewMsgInput(false);
-      // Refetch
-      const { data } = await api.get(`/projects/${id}/discussions`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMessages(data || []);
+      // The newly added discussion will arrive via socket
     } catch (err) {
       alert("Failed to post message");
     }
   };
 
-  // Post reply to a message
+  // Post reply to a message — rely on socket echo, no refetch
   const handlePostReply = async (msgId) => {
     const replyText = replyInputs[msgId];
     if (!replyText || !replyText.trim()) return;
@@ -226,17 +353,13 @@ const Pm_Project = () => {
         userName: userName
       }, { headers: { Authorization: `Bearer ${token}` } });
       setReplyInputs({ ...replyInputs, [msgId]: '' });
-      // Refetch
-      const { data } = await api.get(`/projects/${id}/discussions`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMessages(data || []);
+      // Reply will arrive via socket
     } catch (err) {
       alert("Failed to post reply");
     }
   };
 
-  // Mention logic (optional for user highlight, not required for backend saving)
+  // Mention logic (optional for user highlight)
   const handleTextareaInput = (e) => {
     const value = e.target.value;
     setNewMessage(value);
@@ -350,7 +473,7 @@ const Pm_Project = () => {
           </div>
 
           <div className="project-image-container">
-            <img 
+            <img
               src={project.photos && project.photos[0] ? project.photos[0] : ''}
               alt={project.projectName}
               className="project-image"

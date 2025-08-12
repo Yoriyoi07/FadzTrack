@@ -16,7 +16,7 @@ export default function AreaChat() {
 
   const token  = localStorage.getItem('token');
   const user   = JSON.parse(localStorage.getItem('user') || '{}');
-  const userId = user?._id;
+  const userId = user?.id || user?._id; // supports either shape
 
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
   const socket  = useRef(null);
@@ -395,6 +395,13 @@ export default function AreaChat() {
     navigate('/');
   };
 
+  // Emoji picker handler (works for v3 and v4 of emoji-picker-react)
+  const handleEmojiClick = (arg1, arg2) => {
+    const data = arg1?.emoji ? arg1 : arg2;        // v4 sends (emojiData, event), v3 sends (event, emojiObject)
+    const picked = data?.emoji || data?.native || '';
+    if (picked) setNewMessage((m) => (m || '') + picked);
+  };
+
   const activeList = searchQuery.trim() ? searchResults : chatList;
 
   const renderSidebarItem = (item) => {
@@ -615,7 +622,7 @@ export default function AreaChat() {
                       <button className="modern-emoji-btn" onClick={() => setShowEmojiPicker((p) => !p)}>😊</button>
                       {showEmojiPicker && (
                         <div className="modern-emoji-picker">
-                          <EmojiPicker onEmojiClick={(_, d) => setNewMessage((m) => (m || '') + d.emoji)} height={360} width={300} />
+                          <EmojiPicker onEmojiClick={handleEmojiClick} height={360} width={300} />
                         </div>
                       )}
                       <button className="modern-send-btn" onClick={sendMessage} disabled={!newMessage.trim()}>

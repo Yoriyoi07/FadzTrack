@@ -4,6 +4,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axiosInstance'; 
 import NotificationBell from '../NotificationBell';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaPlus } from 'react-icons/fa';
+import { io } from 'socket.io-client';
+
+const RAW = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const SOCKET_ORIGIN = RAW.replace(/\/api$/, ''); // strip trailing /api if present
+const SOCKET_PATH = '/socket.io';
 
 const AreaViewSpecificProj = () => {
   const { id } = useParams();
@@ -31,6 +36,82 @@ const AreaViewSpecificProj = () => {
 
   // Files
   const [docSignedUrls, setDocSignedUrls] = useState([]);
+
+  // ---- SOCKET REFS (for realtime) ----
+  const socketRef = useRef(null);
+  const joinedRoomRef = useRef(null);
+  const projectIdRef = useRef(null);
+
+  useEffect(() => {
+    projectIdRef.current = id ? String(id) : null;
+  }, [id]);
+
+  // Connect socket once
+  useEffect(() => {
+    if (socketRef.current) return;
+
+    const sock = io(SOCKET_ORIGIN, {
+      path: SOCKET_PATH,
+      withCredentials: true,
+      transports: ['websocket'],
+      auth: { userId }, // lets server also put us in user:<id> room
+    });
+    socketRef.current = sock;
+
+    const onConnect = () => {
+      if (joinedRoomRef.current) {
+        sock.emit('joinProject', joinedRoomRef.current);
+      }
+    };
+
+    const onNewDiscussion = (payload) => {
+      const currentPid = projectIdRef.current;
+      if (!currentPid || payload?.projectId !== currentPid) return;
+      setMessages(prev => [payload.message, ...prev]);
+    };
+
+    const onNewReply = (payload) => {
+      const currentPid = projectIdRef.current;
+      if (!currentPid || payload?.projectId !== currentPid) return;
+      setMessages(prev => {
+        const next = prev.map(m => ({ ...m, replies: [...(m.replies || [])] }));
+        const idx = next.findIndex(m => String(m._id) === String(payload.msgId));
+        if (idx !== -1) next[idx].replies.push(payload.reply);
+        return next;
+      });
+    };
+
+    sock.on('connect', onConnect);
+    sock.on('project:newDiscussion', onNewDiscussion);
+    sock.on('project:newReply', onNewReply);
+
+    return () => {
+      sock.off('connect', onConnect);
+      sock.off('project:newDiscussion', onNewDiscussion);
+      sock.off('project:newReply', onNewReply);
+      sock.disconnect();
+      socketRef.current = null;
+      joinedRoomRef.current = null;
+    };
+  }, [userId]);
+
+  // Join/leave project room only on Discussions tab
+  useEffect(() => {
+    const sock = socketRef.current;
+    if (!sock) return;
+    const desiredRoom = activeTab === 'Discussions' && id ? `project:${id}` : null;
+
+    if (joinedRoomRef.current === desiredRoom) return;
+
+    if (joinedRoomRef.current && (!desiredRoom || joinedRoomRef.current !== desiredRoom)) {
+      sock.emit('leaveProject', joinedRoomRef.current);
+      joinedRoomRef.current = null;
+    }
+    if (desiredRoom && joinedRoomRef.current !== desiredRoom) {
+      sock.emit('joinProject', desiredRoom);
+      joinedRoomRef.current = desiredRoom;
+    }
+  }, [id, activeTab]);
 
   // Staff list for mention autocomplete
   const staffList = useMemo(() => {
@@ -69,7 +150,7 @@ const AreaViewSpecificProj = () => {
     fetchProject();
   }, [id]);
 
-  // Fetch discussions
+  // Fetch discussions (initial + when tab opens)
   useEffect(() => {
     if (!id || activeTab !== 'Discussions') return;
     const fetchMessages = async () => {
@@ -136,19 +217,22 @@ const AreaViewSpecificProj = () => {
     const value = e.target.value;
     setNewMessage(value);
     const caret = e.target.selectionStart;
-    const textUpToCaret = value.slice(0, caret);
-    const match = /(^|\s)@(\w*)$/.exec(textUpToCaret);
-    if (match) {
-      const query = match[2].toLowerCase();
-      const options = staffList.filter(u => u.name.toLowerCase().includes(query));
-      const rect = e.target.getBoundingClientRect();
-      setMentionDropdown({
-        open: true,
-        options,
-        query,
-        position: { top: rect.top + e.target.offsetHeight, left: rect.left + 10 }
-      });
-    } else {
+    theTextUpToCaret:
+    {
+      const textUpToCaret = value.slice(0, caret);
+      const match = /(^|\s)@(\w*)$/.exec(textUpToCaret);
+      if (match) {
+        const query = match[2].toLowerCase();
+        const options = staffList.filter(u => u.name.toLowerCase().includes(query));
+        const rect = e.target.getBoundingClientRect();
+        setMentionDropdown({
+          open: true,
+          options,
+          query,
+          position: { top: rect.top + e.target.offsetHeight, left: rect.left + 10 }
+        });
+        break theTextUpToCaret;
+      }
       setMentionDropdown({ open: false, options: [], query: '', position: { top: 0, left: 0 } });
     }
   };
@@ -184,7 +268,7 @@ const AreaViewSpecificProj = () => {
     });
   }
 
-  // Post new message (discussion)
+  // Post new message (discussion) — rely on socket event to append
   const handlePostMessage = async () => {
     if (!newMessage.trim()) return;
     try {
@@ -194,17 +278,13 @@ const AreaViewSpecificProj = () => {
       }, { headers: { Authorization: `Bearer ${token}` } });
       setNewMessage('');
       setShowNewMsgInput(false);
-      // Refetch
-      const { data } = await api.get(`/projects/${id}/discussions`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMessages(data || []);
+      // socket 'project:newDiscussion' will insert it
     } catch (err) {
       alert("Failed to post message");
     }
   };
 
-  // Post reply to a message
+  // Post reply to a message — rely on socket event to append
   const handlePostReply = async (msgId) => {
     const replyText = replyInputs[msgId];
     if (!replyText || !replyText.trim()) return;
@@ -213,12 +293,8 @@ const AreaViewSpecificProj = () => {
         text: replyText,
         userName: userName
       }, { headers: { Authorization: `Bearer ${token}` } });
-      setReplyInputs({ ...replyInputs, [msgId]: '' });
-      // Refetch
-      const { data } = await api.get(`/projects/${id}/discussions`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setMessages(data || []);
+      setReplyInputs(prev => ({ ...prev, [msgId]: '' }));
+      // socket 'project:newReply' will insert it
     } catch (err) {
       alert("Failed to post reply");
     }
@@ -353,7 +429,6 @@ const AreaViewSpecificProj = () => {
               <FaRegFileAlt /> Reports
             </button>
           </div>
-
 
           {/* Tab Content */}
           {activeTab === 'Discussions' && (
@@ -547,7 +622,6 @@ const AreaViewSpecificProj = () => {
               </div>
             </div>
           )}
-
 
         </div>
       </main>
