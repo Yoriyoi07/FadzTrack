@@ -5,6 +5,9 @@ import ApproveDenyActions from '../ApproveDenyActions';
 import '../style/pm_style/Pm_MatRequest.css'; 
 import api from '../../api/axiosInstance';
 
+// React Icons
+import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaProjectDiagram, FaClipboardList, FaChartBar } from 'react-icons/fa';
+
 const AreaMaterialReq = () => {
   const { id } = useParams();
   const navigate = useNavigate();

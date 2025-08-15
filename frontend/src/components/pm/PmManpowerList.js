@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 import '../style/pm_style/Pm_ViewRequest.css';
+// Nav icons
+import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaEye, FaClipboardList, FaChartBar, FaCalendarAlt } from 'react-icons/fa';
 
 const chats = [
   { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
@@ -113,35 +115,48 @@ const PmManpowerList = () => {
 
   return (
     <div>
-      <header className="header">
-        <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-          <h1 className="brand-name">FadzTrack</h1>
-        </div>
-        <nav className="nav-menu">
-          <Link to="/pm" className="nav-link">Dashboard</Link>
-          <Link to="/pm/chat" className="nav-link">Chat</Link>
-          <Link to="/pm/request/:id" className="nav-link">Material</Link>
-          <Link to="/pm/manpower-list" className="nav-link">Manpower</Link>
-          {project && (
-            <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">View Project</Link>
-          )}
-          <Link to="/pm/daily-logs" className="nav-link">Logs</Link>
-          <Link to="/reports" className="nav-link">Reports</Link>
-        </nav>
-       <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-  <NotificationBell />
-  <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-    {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+     <header className="header">
+  <div className="logo-container">
+    <img
+      src={require('../../assets/images/FadzLogo1.png')}
+      alt="FadzTrack Logo"
+      className="logo-img"
+    />
+    <h1 className="brand-name">FadzTrack</h1>
   </div>
-  {profileMenuOpen && (
-    <div className="profile-menu">
-      <button onClick={handleLogout}>Logout</button>
-    </div>
-  )}
-</div>
 
-      </header>
+  <nav className="nav-menu">
+    <Link to="/pm" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
+    <Link to="/pm/chat" className="nav-link"><FaComments /> Chat</Link>
+    <Link to="/pm/request/:id" className="nav-link"><FaBoxes /> Material</Link>
+    <Link to="/pm/manpower-list" className="nav-link"><FaUsers /> Manpower</Link>
+    {project && (
+      <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">
+        <FaEye /> View Project
+      </Link>
+    )}
+    <Link to="/pm/daily-logs" className="nav-link"><FaClipboardList /> Logs</Link>
+    {project && (
+      <Link to={`/pm/progress-report/${project._id}`} className="nav-link">
+        <FaChartBar /> Reports
+      </Link>
+    )}
+    <Link to="/pm/daily-logs-list" className="nav-link"><FaCalendarAlt /> Daily Logs</Link>
+  </nav>
+
+  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+    <NotificationBell />
+    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+    </div>
+    {profileMenuOpen && (
+      <div className="profile-menu">
+        <button onClick={handleLogout}>Logout</button>
+      </div>
+    )}
+  </div>
+</header>
+
 
       {/* --- Layout with Sidebar Chat --- */}
       <div className="dashboard-layout">

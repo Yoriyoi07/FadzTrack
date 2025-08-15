@@ -555,6 +555,37 @@
   background-color: #5a6268;
   transform: translateY(-1px);
 }
+/* Nav links with icons */
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 6px; /* space between icon and label */
+  line-height: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.nav-link svg {
+  font-size: 1.05rem; /* consistent icon size */
+  flex-shrink: 0;
+}
+
+.nav-link:hover {
+  color: #cfd8ff;
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Optional: active page highlight if using NavLink */
+.nav-link.active {
+  background-color: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+@media (max-width: 900px) {
+  .nav-menu { gap: 1rem; }
+  .nav-link { gap: 5px; padding: 6px 6px; }
+}
 
 /* Responsive Design */
 @media (max-width: 768px) {

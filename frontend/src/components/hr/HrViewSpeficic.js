@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import "../style/ceo_style/Ceo_ViewSpecific.css";
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axiosInstance'; 
+// Nav icons
+import { FaTachometerAlt, FaComments, FaUsers, FaExchangeAlt, FaProjectDiagram } from 'react-icons/fa';
 
 const HrViewSpecific = () => {
   const stored = localStorage.getItem('user');
@@ -217,29 +219,35 @@ const HrViewSpecific = () => {
   return (
     <div>
       {/* Header */}
-      <header className="header">
-        <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-          <h1 className="brand-name">FadzTrack</h1>
-        </div>
-        <nav className="nav-menu">
-          <Link to="/hr/dash" className="nav-link">Dashboard</Link>
-          <Link to="/hr/chat" className="nav-link">Chat</Link>
-          <Link to="/hr/mlist" className="nav-link">Manpower</Link>
-          <Link to="/hr/movement" className="nav-link">Movement</Link>
-          <Link to="/hr/project-records" className="nav-link">Projects</Link>
-        </nav>
-        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {userName.charAt(0).toUpperCase() || 'Z'}
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
-        </div>
-      </header>
+     <header className="header">
+  <div className="logo-container">
+    <img
+      src={require('../../assets/images/FadzLogo1.png')}
+      alt="FadzTrack Logo"
+      className="logo-img"
+    />
+    <h1 className="brand-name">FadzTrack</h1>
+  </div>
+
+  <nav className="nav-menu">
+    <Link to="/hr/dash" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
+    <Link to="/hr/chat" className="nav-link"><FaComments /> Chat</Link>
+    <Link to="/hr/mlist" className="nav-link"><FaUsers /> Manpower</Link>
+    <Link to="/hr/movement" className="nav-link"><FaExchangeAlt /> Movement</Link>
+    <Link to="/hr/project-records" className="nav-link"><FaProjectDiagram /> Projects</Link>
+  </nav>
+
+  <div className="profile-menu-container">
+    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+    </div>
+    {profileMenuOpen && (
+      <div className="profile-menu">
+        <button onClick={handleLogout}>Logout</button>
+      </div>
+    )}
+  </div>
+</header>
 
       <main className="main">
         <div className="project-detail-container">

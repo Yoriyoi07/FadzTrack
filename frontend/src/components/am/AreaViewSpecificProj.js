@@ -6,6 +6,9 @@ import NotificationBell from '../NotificationBell';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaPlus } from 'react-icons/fa';
 import { io } from 'socket.io-client';
 
+// React Icons
+import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaProjectDiagram, FaClipboardList, FaChartBar } from 'react-icons/fa';
+
 const RAW = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
 const SOCKET_ORIGIN = RAW.replace(/\/api$/, ''); // strip trailing /api if present
 const SOCKET_PATH = '/socket.io';
@@ -324,31 +327,35 @@ const AreaViewSpecificProj = () => {
     <div>
       {/* Header */}
       <header className="header">
-        <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-          <h1 className="brand-name">FadzTrack</h1>
-        </div>
-        <nav className="nav-menu">
-          <Link to="/am" className="nav-link">Dashboard</Link>
-          <Link to="/am/chat" className="nav-link">Chat</Link>
-          <Link to="/am/matreq" className="nav-link">Material</Link>
-          <Link to="/am/manpower-requests" className="nav-link">Manpower</Link>
-          <Link to="/am/viewproj" className="nav-link">Projects</Link>
-          <Link to="/logs" className="nav-link">Logs</Link>
-          <Link to="/reports" className="nav-link">Reports</Link>
-        </nav>
-        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <NotificationBell />
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
-        </div>
-      </header>
+  <div className="logo-container">
+    <img
+      src={require('../../assets/images/FadzLogo1.png')}
+      alt="FadzTrack Logo"
+      className="logo-img"
+    />
+    <h1 className="brand-name">FadzTrack</h1>
+  </div>
+  <nav className="nav-menu">
+    <Link to="/am" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
+    <Link to="/am/chat" className="nav-link"><FaComments /> Chat</Link>
+    <Link to="/am/matreq" className="nav-link"><FaBoxes /> Material</Link>
+    <Link to="/am/manpower-requests" className="nav-link"><FaUsers /> Manpower</Link>
+    <Link to="/am/viewproj" className="nav-link"><FaProjectDiagram /> Projects</Link>
+    <Link to="/logs" className="nav-link"><FaClipboardList /> Logs</Link>
+    <Link to="/reports" className="nav-link"><FaChartBar /> Reports</Link>
+  </nav>
+  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+    <NotificationBell />
+    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+    </div>
+    {profileMenuOpen && (
+      <div className="profile-menu">
+        <button onClick={handleLogout}>Logout</button>
+      </div>
+    )}
+  </div>
+</header>
 
       <main className="main">
         <div className="project-detail-container">

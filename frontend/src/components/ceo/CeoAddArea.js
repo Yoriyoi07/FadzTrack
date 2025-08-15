@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../api/axiosInstance';
 
+// Nav icons
+import { FaTachometerAlt, FaComments, FaBoxes, FaProjectDiagram, FaClipboardList, FaChartBar } from 'react-icons/fa';
+
+
 const CeoAddArea = ({ onSuccess, onCancel }) => {
   const [areaManagers, setAreaManagers] = useState([]);
   const [locations, setLocations] = useState([]);

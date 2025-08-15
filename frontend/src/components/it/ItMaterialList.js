@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Material_List.css';
 import api from '../../api/axiosInstance';
+// Nav icons
+import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaClipboardList } from 'react-icons/fa';
 
 const ITEMS_PER_PAGE = 5;
 
@@ -100,31 +102,37 @@ const ItMaterialList = () => {
   return (
     <div>
       <header className="header">
-        <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-          <h1 className="brand-name">FadzTrack</h1>
-        </div>
-        <nav className="nav-menu">
-            <Link to="/it" className="nav-link">Dashboard</Link>
-            <Link to="/it/chat" className="nav-link">Chat</Link>
-            <Link to='/it/material-list' className="nav-link">Materials</Link>
-            <Link to='/it/manpower-list' className="nav-link">Manpower</Link>
-            <Link to="/it/auditlogs" className="nav-link">Audit Logs</Link>
-        </nav>
-        <div className="profile-menu-container">
-          <div
-            className="profile-circle"
-            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-          >
-            {user.name ? user.name[0] : 'I'}
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
-        </div>
-      </header>
+  <div className="logo-container">
+    <img
+      src={require('../../assets/images/FadzLogo1.png')}
+      alt="FadzTrack Logo"
+      className="logo-img"
+    />
+    <h1 className="brand-name">FadzTrack</h1>
+  </div>
+
+  <nav className="nav-menu">
+    <Link to="/it" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
+    <Link to="/it/chat" className="nav-link"><FaComments /> Chat</Link>
+    <Link to="/it/material-list" className="nav-link"><FaBoxes /> Materials</Link>
+    <Link to="/it/manpower-list" className="nav-link"><FaUsers /> Manpower</Link>
+    <Link to="/it/auditlogs" className="nav-link"><FaClipboardList /> Audit Logs</Link>
+  </nav>
+
+  <div className="profile-menu-container">
+    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+      {localStorage.getItem('user')
+        ? JSON.parse(localStorage.getItem('user')).name[0]
+        : 'U'}
+    </div>
+    {profileMenuOpen && (
+      <div className="profile-menu">
+        <button onClick={handleLogout}>Logout</button>
+      </div>
+    )}
+  </div>
+</header>
+
 
       <main className="main-content">
         <div className="requests-container">

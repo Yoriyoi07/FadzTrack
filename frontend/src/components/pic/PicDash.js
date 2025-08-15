@@ -5,6 +5,8 @@ import api from '../../api/axiosInstance';
 import { PieChart, Pie, Cell } from 'recharts';
 import ProgressTracker from '../ProgressTracker';
 import NotificationBell from '../NotificationBell';
+// Nav icons
+import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram } from 'react-icons/fa';
 
 const PicDash = () => {
   const navigate = useNavigate();
@@ -161,30 +163,44 @@ const handleLogout = () => {
   return (
     <div className="head">
       {/* Header with Navigation */}
-     <header className="header">
-        <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-          <h1 className="brand-name">FadzTrack</h1>
-        </div>
-        <nav className="nav-menu">
-          <Link to="/pic" className="nav-link">Dashboard</Link>
-            <Link to="/pic/chat" className="nav-link">Chat</Link>
-            {project && (<Link to={`/pic/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
-            {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
-            <Link to="/pic/projects" className="nav-link">My Projects</Link>
-        </nav>
-        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <NotificationBell />
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {userName.charAt(0).toUpperCase() || 'Z'}
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
-        </div>
-      </header>
+    <header className="header">
+  <div className="logo-container">
+    <img
+      src={require('../../assets/images/FadzLogo1.png')}
+      alt="FadzTrack Logo"
+      className="logo-img"
+    />
+    <h1 className="brand-name">FadzTrack</h1>
+  </div>
+
+  <nav className="nav-menu">
+    <Link to="/pic" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
+    <Link to="/pic/chat" className="nav-link"><FaComments /> Chat</Link>
+    {project && (
+      <Link to={`/pic/projects/${project._id}/request`} className="nav-link">
+        <FaClipboardList /> Requests
+      </Link>
+    )}
+    {project && (
+      <Link to={`/pic/${project._id}`} className="nav-link">
+        <FaEye /> View Project
+      </Link>
+    )}
+    <Link to="/pic/projects" className="nav-link"><FaProjectDiagram /> My Projects</Link>
+  </nav>
+
+  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+    <NotificationBell />
+    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+    </div>
+    {profileMenuOpen && (
+      <div className="profile-menu">
+        <button onClick={handleLogout}>Logout</button>
+      </div>
+    )}
+  </div>
+</header>
 
       {/* Main Content */}
       <div className="dashboard-layout">

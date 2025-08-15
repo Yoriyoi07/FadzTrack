@@ -5,6 +5,8 @@ import NotificationBell from '../NotificationBell';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaPlus } from 'react-icons/fa';
 import { io } from 'socket.io-client';
 import "../style/pic_style/Pic_Project.css";
+// Nav icons
+import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram } from 'react-icons/fa';
 
 // ---- Socket endpoint setup ----
 const RAW = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
@@ -409,29 +411,44 @@ const PicProject = () => {
     <>
       {/* HEADER */}
       <header className="header">
-        <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-          <h1 className="brand-name">FadzTrack</h1>
-        </div>
-        <nav className="nav-menu">
-          <Link to="/pic" className="nav-link">Dashboard</Link>
-          {project && (<Link to={`/pic/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
-          {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
-          <Link to="/pic/projects" className="nav-link">My Projects</Link>
-          <Link to="/pic/chat" className="nav-link">Chat</Link>
-        </nav>
-        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <NotificationBell />
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {userName?.charAt(0).toUpperCase() || 'Z'}
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
-        </div>
-      </header>
+  <div className="logo-container">
+    <img
+      src={require('../../assets/images/FadzLogo1.png')}
+      alt="FadzTrack Logo"
+      className="logo-img"
+    />
+    <h1 className="brand-name">FadzTrack</h1>
+  </div>
+
+  <nav className="nav-menu">
+    <Link to="/pic" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
+    <Link to="/pic/chat" className="nav-link"><FaComments /> Chat</Link>
+    {project && (
+      <Link to={`/pic/projects/${project._id}/request`} className="nav-link">
+        <FaClipboardList /> Requests
+      </Link>
+    )}
+    {project && (
+      <Link to={`/pic/${project._id}`} className="nav-link">
+        <FaEye /> View Project
+      </Link>
+    )}
+    <Link to="/pic/projects" className="nav-link"><FaProjectDiagram /> My Projects</Link>
+  </nav>
+
+  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+    <NotificationBell />
+    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+    </div>
+    {profileMenuOpen && (
+      <div className="profile-menu">
+        <button onClick={handleLogout}>Logout</button>
+      </div>
+    )}
+  </div>
+</header>
+
 
       {/* LAYOUT with left chats kept */}
       <div className="dashboard-layout">
