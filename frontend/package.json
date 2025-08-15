@@ -11,6 +11,7 @@
     "emoji-picker-react": "^4.12.2",
     "focus-trap-react": "^11.0.4",
     "jspdf": "^3.0.1",
+    "jspdf-autotable": "^5.0.2",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.503.0",
     "papaparse": "^5.5.3",

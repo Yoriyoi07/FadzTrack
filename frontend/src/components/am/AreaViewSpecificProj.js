@@ -4,7 +4,7 @@ import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaTrash } from 'react-icons/fa';
 import { io } from 'socket.io-client';
-
+import { exportProjectDetails } from '../../utils/projectPdf';
 // React Icons
 import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaProjectDiagram, FaClipboardList, FaChartBar } from 'react-icons/fa';
 import "../style/pic_style/Pic_Project.css";
@@ -1048,6 +1048,30 @@ const AmViewSpecificProject = () => {
             {/* --- Details --- */}
             {activeTab === 'Details' && (
               <div>
+                <button
+  onClick={() =>
+    exportProjectDetails(project, {
+      contextTitle: 'Project Details — Area Manager',
+      includeBudget: true,
+      includePM: true,
+      includeAM: true,
+      includePIC: true,
+      includeHrSite: true,
+      includeStaff: true
+    })
+  }
+  style={{
+    marginLeft: 8,
+    background: '#1976d2',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    padding: '8px 12px',
+    cursor: 'pointer'
+  }}
+>
+  Download PDF
+</button>
                 <div className="project-details-grid">
                   <div className="details-column">
                     <p className="detail-item">

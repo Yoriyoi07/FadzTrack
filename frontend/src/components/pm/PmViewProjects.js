@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaTrash, FaPlus } from 'react-icons/fa';
 import { io } from 'socket.io-client';
+import { exportProjectDetails } from '../../utils/projectPdf';
 // Nav icons
 import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaEye, FaClipboardList, FaChartBar, FaCalendarAlt } from 'react-icons/fa';
 import "../style/pic_style/Pic_Project.css";
@@ -13,6 +14,12 @@ const RAW = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/
 const SOCKET_ORIGIN = RAW.replace(/\/api$/, '');
 const SOCKET_PATH = '/socket.io';
 
+const peso = new Intl.NumberFormat('en-PH', {
+  style: 'currency',
+  currency: 'PHP',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 /* ---------- Signed URL opener ---------- */
 async function openSignedPath(path) {
   try {
@@ -1075,6 +1082,30 @@ const Pm_Project = () => {
             {/* --- Details --- */}
             {activeTab === 'Details' && (
               <div>
+                <button
+  onClick={() =>
+    exportProjectDetails(project, {
+      contextTitle: 'Project Details — Project Manager',
+      includeBudget: true,
+      includePM: true,
+      includeAM: true,
+      includePIC: true,
+      includeHrSite: true, 
+      includeStaff: true
+    })
+  }
+  style={{
+    marginLeft: 8,
+    background: '#1976d2',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    padding: '8px 12px',
+    cursor: 'pointer'
+  }}
+>
+  Download PDF
+</button>
                 <div className="project-details-grid">
                   <div className="details-column">
                     <p className="detail-item">
@@ -1095,18 +1126,18 @@ const Pm_Project = () => {
                     </div>
                   </div>
 
-                  <div className="details-column">
-                    <div className="budget-container">
-                      <p className="budget-amount">
-                        ₱{(budgetNum || 0).toLocaleString()}
-                        {totalPO > 0 && (
-                          <span style={{ color: 'red', fontSize: 16, marginLeft: 8 }}>
-                            - ₱{totalPO.toLocaleString()} (POs)
-                          </span>
-                        )}
-                      </p>
-                      <p className="budget-label">Estimated Budget</p>
-                    </div>
+                <div className="details-column">
+  <div className="budget-container">
+    <p className="budget-amount">
+      {peso.format(budgetNum || 0)}
+      {totalPO > 0 && (
+        <span style={{ color: 'red', fontSize: 16, marginLeft: 8 }}>
+          − {peso.format(totalPO)} (POs)
+        </span>
+      )}
+    </p>
+    <p className="budget-label">Estimated Budget</p>
+  </div>
 
                     {totalPO > 0 && (
                       <div style={{ color: '#219653', fontWeight: 600, marginBottom: 8 }}>
