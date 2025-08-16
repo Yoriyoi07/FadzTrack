@@ -2,6 +2,8 @@ const ManpowerRequest = require('../models/ManpowerRequest');
 const Project = require('../models/Project'); 
 const { logAction } = require('../utils/auditLogger');
 const Manpower = require('../models/Manpower');
+const User = require('../models/User'); // ensure this exists and has role/name
+
 // CREATE Manpower Request
 const createManpowerRequest = async (req, res) => {
   try {
@@ -40,7 +42,7 @@ const createManpowerRequest = async (req, res) => {
       })),
       description,
       createdBy,              
-      status: 'Pending',      
+      status: 'Pending',      // Optionally 'Pending PM Approval'
       approvedBy: '',
       received: false,
       returnDate: null
@@ -133,6 +135,25 @@ const getManpowerRequestsForAreaManager = async (req, res) => {
   }
 };
 
+// NEW: GET manpower requests inbox for all Project Managers (broadcast)
+const getManpowerRequestsForProjectManagers = async (req, res) => {
+  try {
+    // Restrict access to PMs
+    if (req.user?.role !== 'Project Manager') {
+      return res.status(403).json({ message: 'Only Project Managers can view this list.' });
+    }
+    // Show all pending requests (you can add org/region filters here if needed)
+    const requests = await ManpowerRequest.find({ status: 'Pending' })
+      .sort({ createdAt: -1 })
+      .populate('project', 'projectName location')
+      .populate('createdBy', 'name email role');
+    res.status(200).json(requests);
+  } catch (error) {
+    console.error('❌ Error fetching PM inbox:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 // UPDATE - Update a specific request
 const updateManpowerRequest = async (req, res) => {
   try {
@@ -217,6 +238,11 @@ const approveManpowerRequest = async (req, res) => {
     const { id } = req.params;
     const { manpowerProvided, area, project } = req.body;
 
+    // Only PMs can approve now
+    if (req.user?.role !== 'Project Manager') {
+      return res.status(403).json({ message: 'Only Project Managers can approve manpower requests.' });
+    }
+
     // Validate manpower IDs array
     if (!Array.isArray(manpowerProvided) || manpowerProvided.length === 0) {
       return res.status(400).json({ message: "No manpower selected." });
@@ -233,7 +259,7 @@ const approveManpowerRequest = async (req, res) => {
     // Update manpower request
     const updated = await ManpowerRequest.findByIdAndUpdate(id, {
       status: "Approved",
-      approvedBy: req.user?.name || 'Unknown',
+      approvedBy: req.user?.name || 'Unknown (PM)',
       manpowerProvided,
       area,
       project
@@ -245,7 +271,7 @@ const approveManpowerRequest = async (req, res) => {
       action: 'APPROVE_MANPOWER_REQUEST',
       performedBy: req.user.id,
       performedByRole: req.user.role,
-      description: `Approved manpower request for project ${updated.project}`,
+      description: `PM approved manpower request for project ${updated.project}`,
       meta: { requestId: updated._id }
     });
 
@@ -255,7 +281,6 @@ const approveManpowerRequest = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 const getSingleManpowerRequest = async (req, res) => {
   try {
@@ -331,6 +356,7 @@ module.exports = {
   deleteManpowerRequest,
   approveManpowerRequest,
   getManpowerRequestsForAreaManager,
+  getManpowerRequestsForProjectManagers, // export
   getSingleManpowerRequest,
   getMyManpowerRequests,
   markManpowerRequestReceived,

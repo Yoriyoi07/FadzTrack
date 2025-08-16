@@ -62,6 +62,7 @@ import HrSiteCurrentProject from './hrSite/HrSiteCurrentProject';
 import HrViewSpecific from './hr/HrViewSpeficic';
 import HrSiteAllProjects from './hrSite/HrSiteAllProjects';
 import HrSiteAttendanceReport from './hrSite/HrSiteAttendanceReport';
+import PM_Manpower_Request_List from './pm/PM_Manpower_Request_List';
 
 
 const AppRoutes = ({ forceUserUpdate }) => {
@@ -88,6 +89,9 @@ const AppRoutes = ({ forceUserUpdate }) => {
   <Route path="/pm/progress-report/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmProgressReport /></PrivateRoute>} />
   <Route path="/pm/daily-logs-list" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmDailyLogsList /></PrivateRoute>} />
   <Route path="/pm/daily-logs/:id" element={<PrivateRoute allowedRoles={["Project Manager"]}><PmViewDailyLogs /></PrivateRoute>} />
+  <Route path='/pm/manpower-requests' element={<PrivateRoute allowedRoles={["Project Manager"]}><PM_Manpower_Request_List /></PrivateRoute>} />
+    
+
 
   {/* PIC */}
   <Route path="/pic" element={<PrivateRoute allowedRoles={["Person in Charge"]}><PicDash /></PrivateRoute>} />
