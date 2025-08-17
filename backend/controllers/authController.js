@@ -5,24 +5,86 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 const { logAction } = require('../utils/auditLogger');
+const TrustedDevice = require('../models/TrustedDevice');
+const { createHash } = require('crypto');
 
 const JWT_SECRET     = process.env.JWT_SECRET     || 'your_jwt_secret';
 const REFRESH_SECRET = process.env.REFRESH_SECRET || 'your_refresh_secret';
 const isProd = process.env.NODE_ENV === 'production';
+const TRUST_COOKIE = 'mfa_trust';
 
-// ⏱️ lifetimes (override in .env while testing)
-const ACCESS_TTL_SEC  = Number(process.env.ACCESS_TTL_SEC  || (isProd ? 900 : 900));           // 15m prod, 15m dev
-const REFRESH_TTL_SEC = Number(process.env.REFRESH_TTL_SEC || (isProd ? 7*24*60*60 : 7*24*60*60));     // 7d prod, 7d dev
+// lifetimes
+const ACCESS_TTL_SEC  = Number(process.env.ACCESS_TTL_SEC  || (isProd ? 900 : 900));               // 15m
+const REFRESH_TTL_SEC = Number(process.env.REFRESH_TTL_SEC || (isProd ? 7*24*60*60 : 7*24*60*60)); // 7d
+const TRUST_TTL_SEC   = Number(process.env.TRUST_TTL_SEC   || 30 * 24 * 60 * 60);                  // 30d
 
-// dev-only in-memory store
+// in-memory 2FA codes
 const twoFACodes = {};
 
-// ───────────────── helpers ─────────────────
+// ───────────── helpers ─────────────
 function makeTransport() {
   return nodemailer.createTransport({
     service: 'gmail',
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
   });
+}
+
+function sha256(x) {
+  return createHash('sha256').update(String(x)).digest('hex');
+}
+
+function clientIpPrefix(req) {
+  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString();
+  const m = ip.match(/(\d+\.\d+)\./); // v4 best-effort
+  return m ? m[1] : '';
+}
+
+function ipFirstOctet(req) {
+  return (clientIpPrefix(req) || '').split('.').slice(0, 1).join('.');
+}
+
+// Normalize UA to resist minor version bumps
+function stableUA(ua = '') {
+  return ua
+    .replace(/Chrome\/\d+\.\d+\.\d+\.\d+/, 'Chrome/*')
+    .replace(/Edg\/\d+\.\d+\.\d+\.\d+/, 'Edg/*')
+    .replace(/Safari\/\d+\.\d+/, 'Safari/*')
+    .replace(/Firefox\/\d+\.\d+/, 'Firefox/*');
+}
+
+// Choose cookie attributes that work on localhost (HTTP) and prod (HTTPS)
+function cookieAttrs(req, { path = '/', maxAge } = {}) {
+  const host  = (req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+  const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'http').split(',')[0].trim();
+
+  const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+
+  // Local HTTP: allow non-secure + LAX
+  // Hosted HTTPS (or any non-local): Secure + None
+  const secure   = !isLocal && proto === 'https';
+  const sameSite = isLocal ? 'lax' : 'none';
+
+  return {
+    httpOnly: true,
+    secure,
+    sameSite,
+    path,
+    ...(maxAge != null ? { maxAge } : {}),
+  };
+}
+
+function setTrustCookie(req, res, rawToken) {
+  res.cookie(TRUST_COOKIE, rawToken, cookieAttrs(req, { path: '/', maxAge: TRUST_TTL_SEC * 1000 }));
+}
+function clearTrustCookie(req, res) {
+  res.clearCookie(TRUST_COOKIE, cookieAttrs(req, { path: '/' }));
+}
+
+function setRefreshCookie(req, res, token) {
+  res.cookie('refreshToken', token, cookieAttrs(req, { path: '/api/auth/refresh-token', maxAge: REFRESH_TTL_SEC * 1000 }));
+}
+function clearRefreshCookie(req, res) {
+  res.clearCookie('refreshToken', cookieAttrs(req, { path: '/api/auth/refresh-token' }));
 }
 
 async function sendEmailLink(to, subject, linkText, linkURL, buttonText = 'Activate Account') {
@@ -44,35 +106,17 @@ async function sendTwoFACode(email, code) {
   await t.sendMail({ from: '"FadzTrack" <no-reply@fadztrack.com>', to: email, subject: 'Your FadzTrack 2FA Code', html });
 }
 
-function setRefreshCookie(res, token) {
-  res.cookie('refreshToken', token, {
-    httpOnly: true,
-    secure: isProd,                       // false in dev, true in prod
-    sameSite: isProd ? 'none' : 'lax',    // 'lax' in dev proxy, 'none' in prod
-    path: '/api/auth/refresh-token',
-    maxAge: REFRESH_TTL_SEC * 1000,
-  });
-}
-function clearRefreshCookie(res) {
-  res.clearCookie('refreshToken', {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
-    path: '/api/auth/refresh-token',
-  });
-}
-
-// ───────────────── Users CRUD ─────────────────
-exports.getAllUsers = async (req, res) => {
+// ───────────── Users CRUD ─────────────
+async function getAllUsers(req, res) {
   try {
     const users = await User.find({}, 'name role phone email status');
     res.json(users);
   } catch (err) {
     res.status(500).json({ msg: 'Failed to get users', err });
   }
-};
+}
 
-exports.updateUser = async (req, res) => {
+async function updateUser(req, res) {
   try {
     const userId = req.params.id;
     const updateData = { ...req.body };
@@ -92,9 +136,9 @@ exports.updateUser = async (req, res) => {
   } catch (err) {
     res.status(500).json({ msg: 'Failed to update user', err });
   }
-};
+}
 
-exports.updateUserStatus = async (req, res) => {
+async function updateUserStatus(req, res) {
   try {
     const user = await User.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
     if (!user) return res.status(404).json({ msg: 'User not found' });
@@ -102,19 +146,19 @@ exports.updateUserStatus = async (req, res) => {
   } catch (err) {
     res.status(500).json({ msg: 'Server error' });
   }
-};
+}
 
-exports.deleteUser = async (req, res) => {
+async function deleteUser(req, res) {
   try {
     await User.findByIdAndDelete(req.params.id);
     res.json({ msg: 'User deleted successfully' });
   } catch (err) {
     res.status(500).json({ msg: 'Failed to delete user', err });
   }
-};
+}
 
-// ───────────────── Register / Activate / Reset ─────────────────
-exports.registerUser = async (req, res) => {
+// ───────────── Register / Activate / Reset ─────────────
+async function registerUser(req, res) {
   try {
     const { name, email, phone, role } = req.body;
 
@@ -144,9 +188,9 @@ exports.registerUser = async (req, res) => {
   } catch (err) {
     res.status(500).json({ msg: 'Registration failed', err });
   }
-};
+}
 
-exports.activateAccount = async (req, res) => {
+async function activateAccount(req, res) {
   try {
     const { token, password } = req.body;
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -162,9 +206,9 @@ exports.activateAccount = async (req, res) => {
   } catch (err) {
     res.status(400).json({ msg: 'Invalid or expired token' });
   }
-};
+}
 
-exports.resetPasswordRequest = async (req, res) => {
+async function resetPasswordRequest(req, res) {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email: email.toLowerCase() });
@@ -186,9 +230,9 @@ exports.resetPasswordRequest = async (req, res) => {
   } catch (err) {
     res.status(500).json({ msg: 'Failed to send reset email' });
   }
-};
+}
 
-exports.resetPassword = async (req, res) => {
+async function resetPassword(req, res) {
   try {
     const { token, newPassword } = req.body;
     const decoded = jwt.verify(token, JWT_SECRET);
@@ -201,22 +245,64 @@ exports.resetPassword = async (req, res) => {
   } catch (err) {
     res.status(400).json({ msg: 'Invalid or expired token' });
   }
-};
+}
 
-// ───────────────── Login / 2FA / Refresh / Logout ─────────────────
-exports.loginUser = async (req, res) => {
+// ───────────── Login / 2FA / Refresh / Logout ─────────────
+async function loginUser(req, res) {
   try {
     const { email, password } = req.body || {};
     const user = await User.findOne({ email: (email || '').toLowerCase() });
     if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
-
-    if (user.status !== 'Active') {
-      return res.status(403).json({ msg: 'Your account is inactive. Please contact support.' });
-    }
+    if (user.status !== 'Active') return res.status(403).json({ msg: 'Your account is inactive. Please contact support.' });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
 
+    // ✅ Check trusted-device cookie
+    const rawTrust = req.cookies?.[TRUST_COOKIE];
+    if (rawTrust) {
+      const uaHashNow = sha256(stableUA(req.headers['user-agent'] || ''));
+      const ipNow     = ipFirstOctet(req);
+
+      const rec = await TrustedDevice.findOne({
+        tokenHash: sha256(rawTrust),
+        userId: user._id,
+      });
+
+      const ok =
+        rec &&
+        rec.expiresAt > new Date() &&
+        rec.uaHash === uaHashNow &&
+        (!rec.ipPrefix || rec.ipPrefix === ipNow);
+
+      if (ok) {
+        // sliding window
+        rec.expiresAt = new Date(Date.now() + TRUST_TTL_SEC * 1000);
+        await rec.save();
+        setTrustCookie(req, res, rawTrust);
+
+        // Issue tokens now — no 2FA
+        const accessToken  = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET,  { expiresIn: `${ACCESS_TTL_SEC}s` });
+        const refreshToken = jwt.sign({ id: user._id, role: user.role, tv: user.tokenVersion }, REFRESH_SECRET, { expiresIn: `${REFRESH_TTL_SEC}s` });
+        setRefreshCookie(req, res, refreshToken);
+
+        await logAction({
+          action: 'login_trusted',
+          performedBy: user._id,
+          performedByRole: user.role,
+          description: `${user.name} (${user.email}) logged in (trusted device).`,
+          meta: { ip: req.ip, userAgent: req.headers['user-agent'] }
+        });
+
+        return res.json({
+          requires2FA: false,
+          accessToken,
+          user: { id: user._id, email: user.email, name: user.name, role: user.role, status: user.status }
+        });
+      }
+    }
+
+    // ❗ Not trusted → send 2FA
     const twoFACode = Math.floor(100000 + Math.random() * 900000).toString();
     twoFACodes[user.email] = { code: twoFACode, expires: Date.now() + 5 * 60 * 1000 };
     if (!isProd) console.log(`[2FA DEV] Code for ${user.email}: ${twoFACode}`);
@@ -230,14 +316,14 @@ exports.loginUser = async (req, res) => {
   } catch (err) {
     res.status(500).json({ msg: 'Login error', err });
   }
-};
+}
 
-exports.verify2FACode = async (req, res) => {
+async function verify2FACode(req, res) {
   try {
-    const { email, code } = req.body;
+    const { email, code, rememberDevice } = req.body;
+
     const record = twoFACodes[email];
     if (!record) return res.status(400).json({ msg: 'No 2FA code requested' });
-
     if (Date.now() > record.expires) {
       delete twoFACodes[email];
       return res.status(400).json({ msg: '2FA code expired' });
@@ -249,10 +335,23 @@ exports.verify2FACode = async (req, res) => {
 
     delete twoFACodes[email];
 
+    // ✅ Issue tokens
     const accessToken  = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: `${ACCESS_TTL_SEC}s` });
     const refreshToken = jwt.sign({ id: user._id, role: user.role, tv: user.tokenVersion }, REFRESH_SECRET, { expiresIn: `${REFRESH_TTL_SEC}s` });
+    setRefreshCookie(req, res, refreshToken);
 
-    setRefreshCookie(res, refreshToken);
+    // ✅ Create trusted device + cookie if requested
+    if (rememberDevice) {
+      const rawToken = crypto.randomBytes(48).toString('hex'); // only hash is stored
+      await TrustedDevice.create({
+        userId:    user._id,
+        tokenHash: sha256(rawToken),
+        uaHash:    sha256(stableUA(req.headers['user-agent'] || '')),
+        ipPrefix:  ipFirstOctet(req), // set '' to disable IP pinning entirely
+        expiresAt: new Date(Date.now() + TRUST_TTL_SEC * 1000),
+      });
+      setTrustCookie(req, res, rawToken);
+    }
 
     await logAction({
       action: 'login',
@@ -269,9 +368,9 @@ exports.verify2FACode = async (req, res) => {
   } catch (err) {
     res.status(500).json({ msg: '2FA verification error', err });
   }
-};
+}
 
-exports.resend2FACode = async (req, res) => {
+async function resend2FACode(req, res) {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email: (email || '').toLowerCase() });
@@ -286,9 +385,9 @@ exports.resend2FACode = async (req, res) => {
   } catch (error) {
     res.status(500).json({ msg: 'Error resending 2FA code' });
   }
-};
+}
 
-exports.refreshToken = async (req, res) => {
+async function refreshToken(req, res) {
   const token = req.cookies?.refreshToken;
   if (!token) return res.status(401).json({ msg: 'No refresh token' });
 
@@ -300,16 +399,16 @@ exports.refreshToken = async (req, res) => {
 
     // rotate refresh
     const newRefresh = jwt.sign({ id: user._id, role: user.role, tv: user.tokenVersion }, REFRESH_SECRET, { expiresIn: `${REFRESH_TTL_SEC}s` });
-    setRefreshCookie(res, newRefresh);
+    setRefreshCookie(req, res, newRefresh);
 
     const accessToken = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: `${ACCESS_TTL_SEC}s` });
     return res.json({ accessToken });
   } catch (err) {
     return res.status(401).json({ msg: 'Invalid refresh token' });
   }
-};
+}
 
-exports.logoutUser = async (req, res) => {
+async function logoutUser(req, res) {
   try {
     if (req.user) {
       await logAction({
@@ -321,6 +420,70 @@ exports.logoutUser = async (req, res) => {
       });
     }
   } catch {}
-  clearRefreshCookie(res);
+  clearRefreshCookie(req, res);
+  clearTrustCookie(req, res); // also clear trust cookie on logout
   res.json({ msg: 'Logged out successfully' });
+}
+
+// ───────────── Trusted devices endpoints ─────────────
+async function listTrustedDevices(req, res) {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    if (!userId) return res.status(401).json({ msg: 'Unauthorized' });
+
+    const items = await TrustedDevice.find({ userId }).sort({ createdAt: -1 }).select('-tokenHash');
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ msg: 'Failed to list trusted devices' });
+  }
+}
+
+async function revokeTrustedDevices(req, res) {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    if (!userId) return res.status(401).json({ msg: 'Unauthorized' });
+
+    const { all, ids } = req.body || {};
+    if (all) {
+      await TrustedDevice.deleteMany({ userId });
+      clearTrustCookie(req, res);
+      return res.json({ msg: 'All trusted devices revoked' });
+    }
+
+    if (Array.isArray(ids) && ids.length) {
+      await TrustedDevice.deleteMany({ userId, _id: { $in: ids } });
+      clearTrustCookie(req, res);
+      return res.json({ msg: 'Selected trusted devices revoked' });
+    }
+
+    return res.status(400).json({ msg: 'Specify { all: true } or { ids: [...] }' });
+  } catch (err) {
+    res.status(500).json({ msg: 'Failed to revoke trusted devices' });
+  }
+}
+
+// ───────────── Export ─────────────
+module.exports = {
+  // Users CRUD
+  getAllUsers,
+  updateUser,
+  updateUserStatus,
+  deleteUser,
+
+  // Register / Activate / Reset
+  registerUser,
+  activateAccount,
+  resetPasswordRequest,
+  resetPassword,
+
+  // Login / 2FA / Refresh / Logout
+  loginUser,
+  verify2FACode,
+  resend2FACode,
+  refreshToken,
+  logoutUser,
+
+  // Trusted devices
+  listTrustedDevices,
+  revokeTrustedDevices,
 };

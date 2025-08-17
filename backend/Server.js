@@ -7,7 +7,6 @@ const cookieParser = require('cookie-parser');
 const http         = require('http');
 const socketio     = require('socket.io');
 
-// Routes
 const geminiRoutes           = require('./route/gemini');
 const authRoutes             = require('./route/auth');
 const userRoutes             = require('./route/user');
@@ -24,24 +23,43 @@ const messageRoutes          = require('./route/messageRoutes');
 const dssReportRoutes        = require('./route/dssReport');
 const photoSignedUrlRoute    = require('./route/photoSignedUrl');
 
-// Models needed in socket handlers
 const Message = require('./models/Messages');
 const Chat    = require('./models/Chats');
 
 const app    = express();
 const server = http.createServer(app);
 
+/* -------------------------- NEW: trust proxy -------------------------- */
+// Ensures req.protocol / x-forwarded-* are respected behind proxies (Render, Vercel, Nginx, etc.)
+app.set('trust proxy', 1);
+
 /* ------------------------------- CORS ----------------------------------- */
+const defaultFE = process.env.FRONTEND_URL || 'http://localhost:3000';
 const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:3000',
+  defaultFE,
   'http://localhost:3000',
   'https://fadztrack.vercel.app',
+  // add any additional frontends here
 ];
 
+// normalize function so http(s)://host[:port] comparisons succeed
+function norm(url = '') {
+  try {
+    const u = new URL(url);
+    return `${u.protocol}//${u.host}`;
+  } catch { return url; }
+}
+
+const allowedSet = new Set(allowedOrigins.map(norm));
+
 const corsOptions = {
-  origin: (origin, cb) => (!origin || allowedOrigins.includes(origin))
-    ? cb(null, true)
-    : cb(new Error('Not allowed by CORS')),
+  origin: (origin, cb) => {
+    // no origin = same-origin or curl; allow it
+    if (!origin) return cb(null, true);
+    const o = norm(origin);
+    if (allowedSet.has(o)) return cb(null, true);
+    return cb(new Error(`Not allowed by CORS: ${origin}`));
+  },
   credentials: true,
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type','Authorization'],
@@ -49,6 +67,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+
+/* ---------------------------- Body/Cookies ------------------------------ */
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -61,7 +81,7 @@ mongoose.connect(process.env.MONGO_URI, {
 
 /* ------------------------------ Socket.IO ------------------------------- */
 const io = socketio(server, {
-  cors: { origin: allowedOrigins, credentials: true },
+  cors: { origin: Array.from(allowedSet), credentials: true },
   pingInterval: 25000,
   pingTimeout: 60000,
   connectionStateRecovery: { maxDisconnectionDuration: 2 * 60 * 1000 },
@@ -69,11 +89,9 @@ const io = socketio(server, {
 });
 app.set('io', io);
 
-// NEW: user socket registry (supports multiple tabs/devices per user)
 const userSockets = new Map(); // Map<userIdString, Set<socketId>>
 app.set('userSockets', userSockets);
 
-// OPTIONAL: small helpers
 function addUserSocket(userId, socketId) {
   const uid = String(userId);
   if (!userSockets.has(uid)) userSockets.set(uid, new Set());
@@ -87,26 +105,19 @@ function removeUserSocket(userId, socketId) {
   if (set.size === 0) userSockets.delete(uid);
 }
 
-// IMPORTANT: Messages are created via REST; sockets just join rooms and receive events.
 io.on('connection', (socket) => {
-  // Expect client to pass auth at connect: io({ auth: { userId } })
   const rawUserId = socket.handshake?.auth?.userId || socket.handshake?.query?.userId;
   const userId = rawUserId ? String(rawUserId) : null;
 
   if (userId) {
-    // register socket
     addUserSocket(userId, socket.id);
-
-    // join a personal room for convenience (emit by uid)
     socket.join(`user:${userId}`);
   }
 
-  // Join a chat room to receive message events for that conversation
   socket.on('joinChat', (chatId) => {
     if (chatId) socket.join(String(chatId));
   });
 
-  /* ✅ NEW: join/leave per-project rooms for Discussions */
   socket.on('joinProject', (projectIdOrRoom) => {
     const room = String(projectIdOrRoom).startsWith('project:')
       ? String(projectIdOrRoom)
@@ -122,9 +133,7 @@ io.on('connection', (socket) => {
     console.log('[socket] leaveProject', socket.id, '->', room);
     socket.leave(room);
   });
-  /* ✅ END NEW */
 
-  // Idempotent "seen" over socket
   socket.on('messageSeen', async ({ messageId, userId: seenBy }) => {
     try {
       const msg = await Message.findById(messageId);
@@ -160,6 +169,7 @@ io.on('connection', (socket) => {
 
 /* -------------------------------- Routes -------------------------------- */
 app.get('/', (req, res) => res.send('API is working'));
+
 app.use('/api/auth',               authRoutes);
 app.use('/api/users',              userRoutes);
 app.use('/api/projects',           projectRoutes);

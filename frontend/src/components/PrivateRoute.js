@@ -1,19 +1,16 @@
-import React from "react";
-import { Navigate } from "react-router-dom";
+// src/components/PrivateRoute.jsx
+import React from 'react';
+import { Navigate, Outlet } from 'react-router-dom';
+import { getUser } from '../api/userStore';
 
-const PrivateRoute = ({ children, allowedRoles }) => {
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user"));
-console.log({ token, user, allowedRoles, userRole: user?.role });
-  if (!token || !user) {
-    return <Navigate to="/" replace />;
-  }
+const PrivateRoute = ({ allowedRoles }) => {
+  const token = localStorage.getItem('token');
+  const user = getUser();
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
-  }
+  if (!token || !user) return <Navigate to="/" replace />;
+  if (allowedRoles?.length && !allowedRoles.includes(user.role)) return <Navigate to="/" replace />;
 
-  return children;
+  return <Outlet />;
 };
 
 export default PrivateRoute;

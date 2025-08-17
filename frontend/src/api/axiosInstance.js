@@ -6,7 +6,7 @@ const baseURL = (process.env.REACT_APP_API_URL || 'https://fadztrack.onrender.co
 
 const api = axios.create({
   baseURL,
-  withCredentials: true,
+  withCredentials: true, // send cookies (refresh, trust)
 });
 
 // Plain client for refresh (no interceptors to avoid recursion)
@@ -19,14 +19,28 @@ let isRefreshing = false;
 let failedQueue = [];
 let refreshTimer = null;
 
+/* -------------------------- tiny helpers -------------------------- */
 const processQueue = (error, token = null) => {
   failedQueue.forEach(({ resolve, reject }) => (error ? reject(error) : resolve(token)));
   failedQueue = [];
 };
 
 const setAuthHeader = (token) => {
-  if (token) api.defaults.headers.common.Authorization = `Bearer ${token}`;
-  else delete api.defaults.headers.common.Authorization;
+  if (token) {
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
+  } else {
+    delete api.defaults.headers.common.Authorization;
+  }
+};
+
+const decodeJwtExpMs = (token) => {
+  try {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(b64));
+    return payload?.exp ? payload.exp * 1000 : 0;
+  } catch {
+    return 0;
+  }
 };
 
 const isAuthFailure = (err) => {
@@ -34,34 +48,18 @@ const isAuthFailure = (err) => {
   return s === 401 || s === 403;
 };
 
-const decodeJwtExpMs = (token) => {
-  try {
-    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(atob(b64));
-    return (payload?.exp ? payload.exp * 1000 : 0);
-  } catch { return 0; }
-};
-
+/* -------------------- proactive refresh handling ------------------- */
 const scheduleProactiveRefresh = (token) => {
   clearTimeout(refreshTimer);
   const expMs = decodeJwtExpMs(token);
   if (!expMs) return;
   const delay = Math.max(0, expMs - Date.now() - 60_000); // refresh ~60s early
   refreshTimer = setTimeout(() => {
-    refreshAccessToken().catch(() => {}); // ignore transient failures
+    refreshAccessToken().catch(() => {
+      // ignore transient errors; normal 401 flow will retry
+    });
   }, delay);
 };
-
-// Attach access token to all requests
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-    if (config._retryCount == null) config._retryCount = 0;
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
 
 async function refreshAccessToken() {
   if (isRefreshing) {
@@ -73,9 +71,11 @@ async function refreshAccessToken() {
     const newToken = data?.accessToken;
     if (!newToken) throw new Error('No accessToken in refresh response');
 
+    // persist & apply
     localStorage.setItem('token', newToken);
     setAuthHeader(newToken);
     scheduleProactiveRefresh(newToken);
+
     processQueue(null, newToken);
     return newToken;
   } catch (err) {
@@ -86,18 +86,47 @@ async function refreshAccessToken() {
   }
 }
 
-// Handle 401s -> refresh once -> replay queued requests
+/* --------------------------- public helpers -------------------------- */
+export function setAccessToken(token) {
+  if (!token) return;
+  localStorage.setItem('token', token);
+  setAuthHeader(token);
+  scheduleProactiveRefresh(token);
+}
+
+export function clearAuth() {
+  try { clearTimeout(refreshTimer); } catch {}
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  setAuthHeader(null);
+  // tell server to clear cookies (refresh & trust); ignore result
+  refreshClient.post('/auth/logout').catch(() => {});
+}
+
+/* ---------------------------- interceptors --------------------------- */
+// Attach access token to all requests
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (config._retryCount == null) config._retryCount = 0;
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// 401 handler -> try single refresh -> replay queued requests
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error?.config;
 
-    // canceled requests: just bubble up
+    // canceled requests
     if (error?.name === 'CanceledError' || axios.isCancel?.(error)) {
       return Promise.reject(error);
     }
 
-    // Network/CORS/timeout (no response): let caller handle (don’t log out)
+    // Network/CORS/timeout (no response)
     if (!originalRequest || !error.response) {
       return Promise.reject(error);
     }
@@ -117,7 +146,9 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshErr) {
         if (isAuthFailure(refreshErr)) {
-          cleanupAndRedirect();
+          clearAuth();
+          // hard redirect to login
+          window.location.replace('/');
         }
         return Promise.reject(refreshErr);
       }
@@ -125,22 +156,15 @@ api.interceptors.response.use(
 
     // If the refresh call itself failed
     if (isRefreshCall && isAuthFailure(error)) {
-      cleanupAndRedirect();
+      clearAuth();
+      window.location.replace('/');
     }
 
     return Promise.reject(error);
   }
 );
 
-function cleanupAndRedirect() {
-  clearTimeout(refreshTimer);
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-  refreshClient.post('/auth/logout').catch(() => {});
-  window.location.replace('/');
-}
-
-// Initialize from existing token (if any)
+/* -------------------- init from existing token (if any) -------------------- */
 const existing = localStorage.getItem('token');
 if (existing) {
   setAuthHeader(existing);

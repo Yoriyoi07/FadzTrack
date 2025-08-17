@@ -5,6 +5,7 @@ import NotificationBell from '../NotificationBell';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaTrash } from 'react-icons/fa';
 import { io } from 'socket.io-client';
 import "../style/pic_style/Pic_Project.css";
+import { getUser } from '../../api/userStore';
 
 /* ---------- Socket endpoint setup ---------- */
 const RAW = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
@@ -194,17 +195,9 @@ const HRCurrentProject = () => {
   const navigate = useNavigate();
 
   // Stable user
-  const userRef = useRef(null);
-  if (userRef.current === null) {
-    try {
-      const raw = localStorage.getItem('user');
-      userRef.current = raw ? JSON.parse(raw) : null;
-    } catch {
-      userRef.current = null;
-    }
-  }
+ const userRef = useRef(getUser());
   const user = userRef.current;
-  const userId = user?._id || null;
+const userId = user?._id || user?.id || null; // tolerant
   const [userName] = useState(user?.name || 'HR');
   const token = localStorage.getItem('token');
 

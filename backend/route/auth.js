@@ -22,4 +22,7 @@ router.put('/users/:id',       authController.updateUser);
 router.put('/users/:id/status',authController.updateUserStatus);
 router.delete('/users/:id',    authController.deleteUser);
 
+router.get('/trusted-devices', verifyToken, authController.listTrustedDevices);
+router.post('/trusted-devices/revoke', verifyToken, authController.revokeTrustedDevices);
+
 module.exports = router;
