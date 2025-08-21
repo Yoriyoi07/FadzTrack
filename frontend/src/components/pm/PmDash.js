@@ -2,10 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/pm_style/Pm_Dash.css';
 import api from '../../api/axiosInstance';
-import { PieChart, Pie, Cell } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import NotificationBell from '../NotificationBell';
 // Nav icons
-import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaEye, FaClipboardList, FaChartBar, FaCalendarAlt } from 'react-icons/fa';
+import { 
+  FaTachometerAlt, 
+  FaComments, 
+  FaBoxes, 
+  FaUsers, 
+  FaEye, 
+  FaClipboardList, 
+  FaChartBar, 
+  FaCalendarAlt,
+  FaUserCircle,
+  FaProjectDiagram,
+  FaTasks,
+  FaCheckCircle,
+  FaClock,
+  FaExclamationTriangle,
+  FaArrowRight
+} from 'react-icons/fa';
 
 const PmDash = ({forceUserUpdate}) => {
   const navigate = useNavigate();
@@ -19,7 +35,7 @@ const PmDash = ({forceUserUpdate}) => {
   const [userId, setUserId] = useState(() => user?._id);
 
   // --- 2. Listen for storage changes for live update on login/logout/user switch ---
- useEffect(() => {
+  useEffect(() => {
     const handleUserChange = () => {
       const stored = localStorage.getItem('user');
       setUser(stored ? JSON.parse(stored) : null);
@@ -42,12 +58,11 @@ const PmDash = ({forceUserUpdate}) => {
   // --- 4. Page data state ---
   const [project, setProject] = useState(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
 
-  const [chats] = useState([
-    { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
-    { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
-    { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
-  ]);
+  const [chats, setChats] = useState([]);
+  const [loadingChats, setLoadingChats] = useState(true);
+  const [chatsError, setChatsError] = useState(null);
 
   const [materialRequests, setMaterialRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
@@ -61,7 +76,20 @@ const PmDash = ({forceUserUpdate}) => {
     }
   }, [token, userId, navigate]);
 
-  // --- 6. Fetch assigned project for current PM ---
+  // --- 6. Scroll handler for header collapse ---
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const shouldCollapse = scrollTop > 50;
+      console.log('Scroll detected:', { scrollTop, shouldCollapse, currentState: isHeaderCollapsed });
+      setIsHeaderCollapsed(shouldCollapse);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isHeaderCollapsed]);
+
+  // --- 7. Fetch assigned project for current PM ---
   useEffect(() => {
     if (!token || !userId) return;
     const fetchAssignedPMProject = async () => {
@@ -77,7 +105,7 @@ const PmDash = ({forceUserUpdate}) => {
     fetchAssignedPMProject();
   }, [token, userId]);
 
-  // --- 7. Fetch material requests for current user ---
+  // --- 8. Fetch material requests for current user ---
   useEffect(() => {
     if (!token) {
       setRequestsError('Session expired. Please log in again.');
@@ -100,10 +128,79 @@ const PmDash = ({forceUserUpdate}) => {
     fetchRequests();
   }, [token]);
 
-  // --- 8. Close profile menu on outside click ---
+  // --- 9. Fetch recent chats for current user ---
+  useEffect(() => {
+    if (!token) {
+      setChatsError('Session expired. Please log in again.');
+      setLoadingChats(false);
+      return;
+    }
+    const fetchChats = async () => {
+      try {
+        // Try to fetch recent chats from the chat endpoint
+        const { data } = await api.get('/chats', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        console.log('Raw chat data received:', data);
+        
+        // If we get an array, use it directly
+        if (Array.isArray(data)) {
+          console.log('Using data as array directly');
+          setChats(data);
+        } 
+        // If we get an object with a chats property, use that
+        else if (data && data.chats && Array.isArray(data.chats)) {
+          console.log('Using data.chats array');
+          setChats(data.chats);
+        }
+        // If we get an object with a messages property, use that
+        else if (data && data.messages && Array.isArray(data.messages)) {
+          console.log('Using data.messages array');
+          setChats(data.messages);
+        }
+        // Otherwise, try to create a mock structure from the data
+        else if (data && typeof data === 'object') {
+          console.log('Converting object to array format');
+          // Convert object to array format
+          const chatArray = Object.keys(data).map(key => {
+            const chat = data[key];
+            return {
+              _id: key,
+              name: typeof chat.name === 'string' ? chat.name : 
+                    typeof chat.senderName === 'string' ? chat.senderName : 
+                    'Unknown User',
+              lastMessage: typeof chat.lastMessage === 'string' ? chat.lastMessage : 
+                         typeof chat.message === 'string' ? chat.message : 
+                         typeof chat.content === 'string' ? chat.content : 
+                         'No message',
+              lastMessageTime: chat.lastMessageTime || chat.timestamp || chat.createdAt || new Date(),
+              color: typeof chat.color === 'string' ? chat.color : '#4A6AA5'
+            };
+          });
+          console.log('Converted chat array:', chatArray);
+          setChats(chatArray);
+        } else {
+          console.log('No valid chat data found, setting empty array');
+          setChats([]);
+        }
+        
+        setChatsError(null);
+      } catch (error) {
+        console.log('Chat fetch error:', error);
+        // If chats endpoint doesn't exist, use empty array
+        setChats([]);
+        setChatsError(null);
+      }
+      setLoadingChats(false);
+    };
+    fetchChats();
+  }, [token]);
+
+  // --- 10. Close profile menu on outside click ---
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
+      if (!event.target.closest(".user-profile")) {
         setProfileMenuOpen(false);
       }
     };
@@ -111,7 +208,7 @@ const PmDash = ({forceUserUpdate}) => {
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
-  // --- 9. Logout handler ---
+  // --- 11. Logout handler ---
   const handleLogout = () => {
     api.post('/auth/logout', {}, {
       headers: { Authorization: `Bearer ${token}` }
@@ -121,13 +218,13 @@ const PmDash = ({forceUserUpdate}) => {
       setUser(null);
       setUserId(undefined);
       setToken("");
-      if (forceUserUpdate) forceUserUpdate(); // <--- Key line
-      window.dispatchEvent(new Event('storage')); // For other tabs
+      if (forceUserUpdate) forceUserUpdate();
+      window.dispatchEvent(new Event('storage'));
       navigate('/');
     });
   };
 
-  // --- 10. KPI data for Pie Chart ---
+  // --- 12. KPI data for Pie Chart ---
   const taskStatusData = React.useMemo(() => {
     if (!project?.tasks || !Array.isArray(project.tasks)) {
       return {
@@ -143,9 +240,9 @@ const PmDash = ({forceUserUpdate}) => {
     const notStartedTasks = project.tasks.filter(task => task.percent === 0).length;
     const totalTasks = project.tasks.length;
     const data = [
-      { name: 'Completed', value: completedTasks, color: '#4CAF50' },
-      { name: 'In Progress', value: inProgressTasks, color: '#5E4FDB' },
-      { name: 'Not Started', value: notStartedTasks, color: '#FF6B6B' },
+      { name: 'Completed', value: completedTasks, color: '#22c55e' },
+      { name: 'In Progress', value: inProgressTasks, color: '#3b82f6' },
+      { name: 'Not Started', value: notStartedTasks, color: '#ef4444' },
     ];
     return {
       data: data.filter(item => item.value > 0),
@@ -156,148 +253,334 @@ const PmDash = ({forceUserUpdate}) => {
     };
   }, [project?.tasks]);
 
+  const getStatusIcon = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+      case 'approved':
+        return <FaCheckCircle className="status-icon completed" />;
+      case 'in progress':
+      case 'pending':
+        return <FaClock className="status-icon pending" />;
+      case 'rejected':
+      case 'cancelled':
+        return <FaExclamationTriangle className="status-icon rejected" />;
+      default:
+        return <FaClock className="status-icon pending" />;
+    }
+  };
+
   return (
-    <div>
-      <header className="header">
-  <div className="logo-container">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
-  </div>
+    <div className="dashboard-container">
+      {/* Modern Header */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        {/* Top Row: Logo and Profile */}
+        <div className="header-top">
+          <div className="logo-section">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="header-logo"
+            />
+            <h1 className="header-brand">FadzTrack</h1>
+          </div>
+          
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">
+              <FaUserCircle />
+            </div>
+            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-dropdown">
+                <button onClick={handleLogout} className="logout-btn">
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
-  <nav className="nav-menu">
-    <Link to="/pm" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/pm/chat" className="nav-link"><FaComments /> Chat</Link>
-    <Link to="/pm/request/:id" className="nav-link"><FaBoxes /> Material</Link>
-    <Link to="/pm/manpower-list" className="nav-link"><FaUsers /> Manpower</Link>
-    {project && (
-      <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">
-        <FaEye /> View Project
-      </Link>
-    )}
-    <Link to="/pm/daily-logs" className="nav-link"><FaClipboardList /> Logs</Link>
-    {project && (
-      <Link to={`/pm/progress-report/${project._id}`} className="nav-link">
-        <FaChartBar /> Reports
-      </Link>
-    )}
-    <Link to="/pm/daily-logs-list" className="nav-link"><FaCalendarAlt /> Daily Logs</Link>
-  </nav>
+        {/* Bottom Row: Navigation and Notifications */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/pm" className="nav-item active">
+              <FaTachometerAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
+            </Link>
+            <Link to="/pm/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/pm/request/:id" className="nav-item">
+              <FaBoxes />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
+            </Link>
+            <Link to="/pm/manpower-list" className="nav-item">
+              <FaUsers />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
+            </Link>
+            {project && (
+              <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-item">
+                <FaEye />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
+              </Link>
+            )}
+            <Link to="/pm/daily-logs" className="nav-item">
+              <FaClipboardList />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
+            </Link>
+            {project && (
+              <Link to={`/pm/progress-report/${project._id}`} className="nav-item">
+                <FaChartBar />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
+              </Link>
+            )}
+            <Link to="/pm/daily-logs-list" className="nav-item">
+              <FaCalendarAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Daily Logs</span>
+            </Link>
+          </nav>
+          
+          <NotificationBell />
+        </div>
+      </header>
 
-  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-    <NotificationBell />
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-    </div>
-    {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-    )}
-  </div>
-</header>
-
-
-      <div className="pm-dash dashboard-layout">
-        <div className="left-column">
-          <div className="analytics-box">
-            <div>
-              <h1>Hello, {userName}!</h1>
-              <p style={{ fontSize: '14px', color: '#666' }}>
-                Currently logged in as <strong>{userRole}</strong>
-              </p>
+      {/* Main Dashboard Content */}
+      <main className="dashboard-main">
+        <div className="dashboard-grid">
+          {/* Welcome & Project Overview Card */}
+          <div className="dashboard-card welcome-card">
+            <div className="card-header">
+              <div className="welcome-content">
+                <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>
+                <p className="welcome-subtitle">Here's what's happening with your project today</p>
+              </div>
               {project && (
-                <>
-                  <h2 style={{ marginTop: '10px' }}>{project.projectName} Summary</h2>
-                  <div className="kpi">
-                    <p><b>Total Tasks:</b> {taskStatusData.totalTasks}</p>
-                    <p><b>Completed:</b> {taskStatusData.completedTasks}</p>
-                    <p><b>In Progress:</b> {taskStatusData.inProgressTasks}</p>
-                    <p><b>Not Started:</b> {taskStatusData.notStartedTasks}</p>
-                    <p><b>Assigned Manpower:</b> {project.manpower?.length || 0}</p>
-                  </div>
-                </>
+                <div className="project-badge">
+                  <FaProjectDiagram />
+                  <span>{project.projectName}</span>
+                </div>
               )}
             </div>
-            {project && taskStatusData.data.length > 0 && (
-              <PieChart width={160} height={160}>
-                <Pie
-                  data={taskStatusData.data}
-                  cx={80}
-                  cy={80}
-                  innerRadius={50}
-                  outerRadius={70}
-                  fill="#8884d8"
-                  paddingAngle={0}
-                  dataKey="value"
-                  label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
-                >
-                  {taskStatusData.data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            )}
-          </div>
-          <div className="chats-box">
-            <h3>Chats</h3>
-            <div className="pm-dash chats-list">
-              {chats.map(chat => (
-                <div key={chat.id} className="pm-dash chat-item">
-                  <div className="pm-dash chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
-                  <div className="pm-dash chat-details">
-                    <div className="pm-dash chat-name">{chat.name}</div>
-                    <div className="pm-dash chat-message">{chat.message}</div>
+            
+            {project && (
+              <div className="project-stats">
+                <div className="stat-item">
+                  <div className="stat-icon">
+                    <FaTasks />
+                  </div>
+                  <div className="stat-content">
+                    <span className="stat-value">{taskStatusData.totalTasks}</span>
+                    <span className="stat-label">Total Tasks</span>
                   </div>
                 </div>
-              ))}
+                <div className="stat-item">
+                  <div className="stat-icon completed">
+                    <FaCheckCircle />
+                  </div>
+                  <div className="stat-content">
+                    <span className="stat-value">{taskStatusData.completedTasks}</span>
+                    <span className="stat-label">Completed</span>
+                  </div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-icon in-progress">
+                    <FaClock />
+                  </div>
+                  <div className="stat-content">
+                    <span className="stat-value">{taskStatusData.inProgressTasks}</span>
+                    <span className="stat-label">In Progress</span>
+                  </div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-icon not-started">
+                    <FaExclamationTriangle />
+                  </div>
+                  <div className="stat-content">
+                    <span className="stat-value">{taskStatusData.notStartedTasks}</span>
+                    <span className="stat-label">Not Started</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Task Progress Chart */}
+          {project && taskStatusData.data.length > 0 && (
+            <div className="dashboard-card chart-card">
+              <div className="card-header">
+                <h3 className="card-title">Task Progress Overview</h3>
+              </div>
+              <div className="chart-container">
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={taskStatusData.data}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {taskStatusData.data.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
+          {/* Recent Chats */}
+          <div className="dashboard-card chats-card">
+            <div className="card-header">
+              <h3 className="card-title">Recent Conversations</h3>
+              <Link to="/pm/chat" className="view-all-link">
+                View All <FaArrowRight />
+              </Link>
+            </div>
+            <div className="chats-list">
+              {loadingChats ? (
+                <div className="loading-state">
+                  <div className="loading-spinner"></div>
+                  <span>Loading conversations...</span>
+                </div>
+              ) : chatsError ? (
+                <div className="error-state">
+                  <FaExclamationTriangle />
+                  <span>{chatsError}</span>
+                </div>
+              ) : chats.length === 0 ? (
+                <div className="empty-state">
+                  <FaComments />
+                  <span>No recent conversations</span>
+                  <p>Start chatting with your team members</p>
+                </div>
+              ) : (
+                chats.slice(0, 3).map((chat, index) => {
+                  console.log('Chat data for time debugging:', {
+                    chatId: chat._id || index,
+                    lastMessageTime: chat.lastMessageTime,
+                    timestamp: chat.timestamp,
+                    createdAt: chat.createdAt,
+                    fullChat: chat
+                  });
+                  
+                  return (
+                    <Link 
+                      key={chat._id || index} 
+                      to={`/pm/chat/${chat._id || chat.chatId || index}`}
+                      className="chat-item"
+                      style={{ textDecoration: 'none' }}
+                    >
+                      <div className="chat-avatar" style={{ backgroundColor: chat.color || '#3b82f6' }}>
+                        {typeof chat.name === 'string' ? chat.name.charAt(0).toUpperCase() : 'U'}
+                      </div>
+                      <div className="chat-content">
+                        <div className="chat-header">
+                          <span className="chat-name">
+                            {typeof chat.name === 'string' ? chat.name : 'Unknown User'}
+                          </span>
+                          <span className="chat-time">
+                            {(() => {
+                              const time = chat.lastMessageTime || chat.timestamp || chat.createdAt;
+                              if (!time) return 'Just now';
+                              
+                              try {
+                                if (typeof time === 'string') {
+                                  const date = new Date(time);
+                                  if (isNaN(date.getTime())) return 'Just now';
+                                  return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                } else if (time instanceof Date) {
+                                  return time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                } else if (typeof time === 'number') {
+                                  const date = new Date(time);
+                                  return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                }
+                                return 'Just now';
+                              } catch (error) {
+                                console.log('Time formatting error:', error, 'for time:', time);
+                                return 'Just now';
+                              }
+                            })()}
+                          </span>
+                        </div>
+                        <p className="chat-message">
+                          {typeof chat.lastMessage === 'string' ? chat.lastMessage : 'No messages yet'}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Material Requests */}
+          <div className="dashboard-card requests-card">
+            <div className="card-header">
+              <h3 className="card-title">Material Requests</h3>
+              <Link to="/pm/request/:id" className="view-all-link">
+                View All <FaArrowRight />
+              </Link>
+            </div>
+            <div className="requests-content">
+              {loadingRequests ? (
+                <div className="loading-state">
+                  <div className="loading-spinner"></div>
+                  <span>Loading requests...</span>
+                </div>
+              ) : requestsError ? (
+                <div className="error-state">
+                  <FaExclamationTriangle />
+                  <span>{requestsError}</span>
+                </div>
+              ) : materialRequests.length === 0 ? (
+                <div className="empty-state">
+                  <FaBoxes />
+                  <span>No material requests found</span>
+                  <p>All requests have been processed or none are pending</p>
+                </div>
+              ) : (
+                <div className="requests-list">
+                  {materialRequests.slice(0, 3).map(request => (
+                    <Link to={`/pm/request/${request._id}`} key={request._id} className="request-item">
+                      <div className="request-icon">
+                        <FaBoxes />
+                      </div>
+                      <div className="request-details">
+                        <h4 className="request-title">
+                          {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
+                        </h4>
+                        <p className="request-description">{request.description}</p>
+                        <div className="request-meta">
+                          <span className="request-project">{request.project?.projectName}</span>
+                          <span className="request-date">
+                            {new Date(request.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="request-status">
+                        {getStatusIcon(request.status)}
+                        <span className={`status-text ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
+                          {request.status}
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
-
-        <div className="right-column">
-          <div className="material-header">
-            <h2>Material Requests</h2>
-            <Link to="/pm/request/:id" className="view-all-btn">View All</Link>
-          </div>
-          <div className="pm-dash pending-requests-list">
-            {loadingRequests ? (
-              <div>Loading requests...</div>
-            ) : requestsError ? (
-              <div className="error-message">{requestsError}</div>
-            ) : materialRequests.length === 0 ? (
-              <div className="no-requests">No material requests found.</div>
-            ) : (
-              materialRequests.slice(0, 3).map(request => (
-                <Link to={`/pm/request/${request._id}`} key={request._id} className="pm-dash pending-request-item">
-                  <div className="pm-dash request-icon">📦</div>
-                  <div className="pm-dash request-details">
-                    <h3 className="request-title">
-                      {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
-                    </h3>
-                    <p className="request-description">{request.description}</p>
-                    <div className="request-meta">
-                      <span className="request-project">{request.project?.projectName}</span>
-                      <span className="request-date">
-                        Requested: {new Date(request.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="pm-dash request-status">
-                    <span className={`pm-dash status-badge ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
-                      {request.status}
-                    </span>
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
+      </main>
     </div>
   );
 };
