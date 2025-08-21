@@ -1,5 +1,6 @@
 // src/components/TwoFactorAuth.jsx
 import React, { useState, useEffect } from 'react';
+import { FaShieldAlt, FaClock, FaEnvelope, FaCheckCircle } from 'react-icons/fa';
 import api, { setAccessToken } from '../api/axiosInstance';
 import { setUser } from '../api/userStore';
 import './style/TwoFactorAuth.css';
@@ -37,7 +38,7 @@ const TwoFactorAuth = ({ email, onSuccess, forceUserUpdate }) => {
     setMessage('');
     try {
       const res = await api.post('/auth/resend-2fa', { email });
-      setMessage(res.data.msg || 'Code resent.');
+      setMessage(res.data.msg || 'Code resent successfully.');
       setCooldown(30);
     } catch (err) {
       setMessage(err?.response?.data?.msg || 'Error resending code.');
@@ -54,37 +55,98 @@ const TwoFactorAuth = ({ email, onSuccess, forceUserUpdate }) => {
 
   return (
     <div className="two-fa-container">
-      <h3>We sent a verification code to your email.</h3>
-      <h2>Enter Verification Code</h2>
+      <div className="two-fa-header">
+        <div className="two-fa-title-row">
+          <FaShieldAlt className="two-fa-icon" size={32} />
+          <h2 className="two-fa-title">Two-Factor Authentication</h2>
+        </div>
+        <p className="two-fa-subtitle">
+          We sent a verification code to <strong>{email}</strong>
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} className="two-fa-form">
-        <input
-          type="text"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          placeholder="6-digit code"
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-          maxLength={6}
-          className="two-fa-input"
-          required
-        />
+        <div className="verification-input-group">
+          <label htmlFor="verification-code" className="verification-label">
+            <FaEnvelope className="input-icon" />
+            Enter Verification Code
+          </label>
+          <input
+            id="verification-code"
+            type="text"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="Enter 6-digit code"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            maxLength={6}
+            className="verification-input"
+            required
+          />
+        </div>
 
-        <label className="two-fa-remember">
-          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-          Remember this device for 30 days
-        </label>
+        <div className="remember-device-group">
+          <label className="remember-device-label">
+            <input 
+              type="checkbox" 
+              checked={remember} 
+              onChange={(e) => setRemember(e.target.checked)}
+              className="remember-checkbox"
+            />
+            <span className="checkbox-custom"></span>
+            <span className="remember-text">Remember this device for 30 days</span>
+          </label>
+        </div>
 
-        <button type="submit" className="two-fa-verify-btn" disabled={submitting || code.length !== 6}>
-          {submitting ? 'Verifying…' : 'Verify'}
+        <button 
+          type="submit" 
+          className={`verify-button ${submitting ? 'loading' : ''}`} 
+          disabled={submitting || code.length !== 6}
+        >
+          {submitting ? (
+            <span className="loading-content">
+              <span className="spinner"></span>
+              Verifying...
+            </span>
+          ) : (
+            <>
+              <FaCheckCircle className="button-icon" />
+              Verify Code
+            </>
+          )}
         </button>
       </form>
 
-      <button onClick={handleResend} disabled={cooldown > 0 || resending} className="two-fa-resend-btn">
-        {cooldown > 0 ? `Resend in ${cooldown}s` : resending ? 'Sending…' : 'Resend Code'}
-      </button>
+      <div className="resend-section">
+        <button 
+          onClick={handleResend} 
+          disabled={cooldown > 0 || resending} 
+          className={`resend-button ${cooldown > 0 ? 'disabled' : ''}`}
+        >
+          {cooldown > 0 ? (
+            <>
+              <FaClock className="button-icon" />
+              Resend in {cooldown}s
+            </>
+          ) : resending ? (
+            <>
+              <span className="spinner"></span>
+              Sending...
+            </>
+          ) : (
+            <>
+              <FaEnvelope className="button-icon" />
+              Resend Code
+            </>
+          )}
+        </button>
+      </div>
 
-      {message && <p className="two-fa-message">{message}</p>}
+      {message && (
+        <div className={`message-display ${message.includes('successfully') ? 'success' : 'error'}`}>
+          <span className="message-text">{message}</span>
+        </div>
+      )}
     </div>
   );
 };
