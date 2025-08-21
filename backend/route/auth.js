@@ -10,6 +10,7 @@ router.post('/reset-password-request',authController.resetPasswordRequest);
 router.post('/reset-password',        authController.resetPassword);
 
 router.post('/login',       authController.loginUser);
+router.post('/check-email', authController.checkEmailExists);
 router.post('/verify-2fa',  authController.verify2FACode);
 router.post('/resend-2fa',  authController.resend2FACode);
 

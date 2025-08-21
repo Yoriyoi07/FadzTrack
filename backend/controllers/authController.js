@@ -462,6 +462,26 @@ async function revokeTrustedDevices(req, res) {
   }
 }
 
+// ───────────── Email check endpoint ─────────────
+async function checkEmailExists(req, res) {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ msg: 'Email is required' });
+    }
+
+    // Check if user exists with this email
+    const user = await User.findOne({ email: email.toLowerCase() });
+    
+    // Return whether the email exists (without revealing if it's a valid account)
+    res.json({ exists: !!user });
+  } catch (err) {
+    console.error('Error checking email existence:', err);
+    res.status(500).json({ msg: 'Failed to check email' });
+  }
+}
+
 // ───────────── Export ─────────────
 module.exports = {
   // Users CRUD
@@ -486,4 +506,5 @@ module.exports = {
   // Trusted devices
   listTrustedDevices,
   revokeTrustedDevices,
+  checkEmailExists,
 };
