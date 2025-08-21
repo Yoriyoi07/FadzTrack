@@ -322,8 +322,46 @@ body {
 .card-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 1.5rem;
+}
+
+.card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.refresh-btn {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #e9ecef;
+  border-color: #dee2e6;
+  color: #495057;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refresh-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.refresh-btn:not(:disabled):hover svg {
+  transform: rotate(180deg);
 }
 
 .card-title {
@@ -596,10 +634,17 @@ body {
 }
 
 .chat-message {
-  color: #64748b;
-  font-size: 0.875rem;
-  margin: 0;
-  line-height: 1.4;
+  color: #64748b !important;
+  font-size: 0.875rem !important;
+  margin: 0 !important;
+  line-height: 1.4 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100% !important;
+  display: block !important;
+  word-wrap: normal !important;
+  word-break: normal !important;
 }
 
 /* ===================== REQUESTS CARD ===================== */
@@ -1142,13 +1187,4 @@ body {
 .chat-content {
   flex: 1;
   min-width: 0;
-}
-
-.chat-message {
-  color: #64748b;
-  font-size: 0.875rem;
-  margin: 0;
-  line-height: 1.4;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
 }
