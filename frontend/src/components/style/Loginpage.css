@@ -64,6 +64,7 @@ body {
   margin-bottom: 0.5rem;
   opacity: 0.9;
   letter-spacing: 0.5px;
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .brand-text {
@@ -71,7 +72,7 @@ body {
   font-weight: 700;
   margin-bottom: 1rem;
   letter-spacing: -1px;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 6px 12px rgba(0, 0, 0, 0.6), 0 3px 6px rgba(0, 0, 0, 0.4);
 }
 
 .tagline {
@@ -81,6 +82,7 @@ body {
   line-height: 1.6;
   max-width: 400px;
   margin: 0 auto;
+  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* Right side with login form */
