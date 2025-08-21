@@ -292,3 +292,96 @@
     padding: 1.5rem;
   }
 }
+
+/* --- Reports: AI Summary --- */
+.ai-summary {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.ai-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+/* prevent long bullets/words from forcing horizontal scroll */
+.ai-panel {
+  overflow: hidden;
+  word-break: break-word;
+}
+
+/* optional: tighter bullets */
+.ai-panel ul,
+.ai-panel ol {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+
+/* --- General text wrapping --- */
+.files-table th,
+.files-table td,
+.project-reports,
+.project-files-list,
+.project-reports * {
+  word-break: break-word;      /* break long tokens */
+  overflow-wrap: anywhere;     /* modern wrap */
+  white-space: normal;         /* no nowrap cells */
+}
+
+/* Keep table cells tidy */
+.files-table td { vertical-align: top; }
+
+/* Latest AI Summary grid: allow columns to collapse nicely */
+.ai-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+.ai-grid > * { min-width: 0; } /* allow content to shrink in grid cells */
+
+/* Responsive “card table” for narrow screens */
+@media (max-width: 900px) {
+  .project-reports .files-table thead {
+    display: none;             /* hide header on small screens */
+  }
+  .project-reports .files-table,
+  .project-reports .files-table tbody,
+  .project-reports .files-table tr,
+  .project-reports .files-table td {
+    display: block;
+    width: 100%;
+  }
+  .project-reports .files-table tr {
+    border: 1px solid #eee;
+    border-radius: 10px;
+    margin: 0 0 12px 0;
+    background: #fff;
+  }
+  .project-reports .files-table td {
+    padding: 10px 12px;
+    border-top: 1px solid #f6f6f6;
+  }
+  .project-reports .files-table td:first-child {
+    border-top: none;
+    border-radius: 10px 10px 0 0;
+  }
+  .project-reports .files-table td:last-child {
+    border-radius: 0 0 10px 10px;
+  }
+  /* Optional field labels inside cells */
+  .project-reports .files-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 4px;
+  }
+}

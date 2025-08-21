@@ -1,8 +1,15 @@
+// controllers/projectController.js
 const Project = require('../models/Project');
 const { logAction } = require('../utils/auditLogger');
 const Manpower = require('../models/Manpower');
 const supabase = require('../utils/supabaseClient');
 const User = require('../models/User');
+const PDFDocument = require('pdfkit');
+
+// NEW: AI deps
+const axios = require('axios');
+const { extractPptText } = require('../utils/pptExtract');
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 /* -------------------- mention helpers -------------------- */
 const slugUser = (s = '') => s.toString().trim().toLowerCase().replace(/\s+/g, '');
@@ -94,6 +101,175 @@ function extractNameFromDoc(d) {
   if (typeof d === 'object' && d?.name) return d.name;
   const p = extractPathFromDoc(d) || '';
   return extractOriginalNameFromPath(p);
+}
+
+/* ===== NEW HELPERS: duration parsing + CPA shaping ===== */
+function parseDaysFromAny(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value !== 'string') return null;
+  const s = value.toLowerCase();
+
+  const mDays = s.match(/(\d+(?:\.\d+)?)\s*(?:d|day|days)\b/);
+  if (mDays) return +mDays[1];
+
+  const mHours = s.match(/(\d+(?:\.\d+)?)\s*(?:h|hour|hours)\b/);
+  if (mHours) return Math.round(((+mHours[1]) / 24) * 100) / 100;
+
+  return null;
+}
+
+function ensureCpaShape(ai) {
+  const out = ai && typeof ai === 'object' ? { ...ai } : { critical_path_analysis: [] };
+  const wantOrder = ['optimistic','realistic','pessimistic'];
+  const parallel = Array.isArray(out.critical_path_days) ? out.critical_path_days : null;
+
+  const byType = new Map(
+    (Array.isArray(out.critical_path_analysis) ? out.critical_path_analysis : [])
+      .map(x => [String(x?.path_type || '').toLowerCase(), x])
+  );
+
+  const pickDefaultDays = (idx, type) => {
+    if (parallel && Number.isFinite(parallel[idx])) return parallel[idx];
+    if (type === 'optimistic') return 7;
+    if (type === 'realistic')  return 14;
+    return 21;
+  };
+
+  const mk = (type, idx) => {
+    const src = byType.get(type) || (out.critical_path_analysis[idx] || {}) || {};
+    const fromItem =
+      parseDaysFromAny(src.estimated_days) ??
+      parseDaysFromAny(src.durationDays) ??
+      parseDaysFromAny(src.duration) ??
+      parseDaysFromAny(src.duration_text) ??
+      parseDaysFromAny(src?.meta?.duration) ??
+      null;
+
+    const estimated_days = Number.isFinite(fromItem) ? Math.max(1, Math.round(fromItem)) : pickDefaultDays(idx, type);
+
+    return {
+      path_type: type,
+      name: (src.name && String(src.name).trim()) || `${type.charAt(0).toUpperCase() + type.slice(1)} Path`,
+      estimated_days,
+      assumptions: Array.isArray(src.assumptions) && src.assumptions.length ? src.assumptions : ['Derived from available slides.'],
+      blockers: Array.isArray(src.blockers) ? src.blockers : [],
+      risk: (src.risk && String(src.risk).trim()) || (type === 'pessimistic' ? 'High risk due to possible supply/handover delays' : 'Moderate risk'),
+      next: Array.isArray(src.next) ? src.next : [],
+      _id: src._id
+    };
+  };
+
+  out.critical_path_analysis = wantOrder.map((t, i) => mk(t, i));
+  return out;
+}
+/* ======================================================= */
+
+function buildReportPdfBuffer(ai = {}, meta = {}, logoBuffer = null) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: { top: 60, left: 50, right: 50, bottom: 90 }, // reserve 90px for footer
+      bufferPages: true,                                      // let us add footer after body
+    });
+
+    const chunks = [];
+    doc.on('data', d => chunks.push(d));
+    doc.on('error', reject);
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+
+    /* ---------- helpers ---------- */
+    const drawHeader = () => {
+      // logo (optional)
+      if (logoBuffer) {
+        try { doc.image(logoBuffer, doc.page.width - 110, 18, { width: 60 }); } catch {}
+      }
+      doc
+        .font('Helvetica-Bold').fontSize(20).text('AI Analysis Summary', { align: 'left' })
+        .moveDown(0.3)
+        .font('Helvetica').fontSize(12);
+
+      if (meta.projectName)    doc.text(`Project: ${meta.projectName}`);
+      if (meta.projectLocation)doc.text(`Location: ${meta.projectLocation}`);
+      if (meta.filename)       doc.text(`Source: ${meta.filename}`);
+      doc.text(`Generated: ${new Date().toLocaleString()}`);
+      doc.moveDown(0.6);
+      doc.moveTo(doc.page.margins.left, doc.y).lineTo(doc.page.width - doc.page.margins.right, doc.y).stroke();
+      doc.moveDown(0.6);
+    };
+
+    const section = (title) => {
+      doc.moveDown(0.6);
+      doc.font('Helvetica-Bold').fontSize(14).text(title);
+      doc.moveDown(0.2);
+      doc.font('Helvetica').fontSize(11);
+    };
+
+    /* ---------- body ---------- */
+    drawHeader();
+
+    section('Summary of Work Done');
+    (ai.summary_of_work_done || []).forEach(s => doc.text(`• ${s}`, { indent: 18 }));
+
+    section('Completed Tasks');
+    (ai.completed_tasks || []).forEach(s => doc.text(`• ${s}`, { indent: 18 }));
+    
+    section('Critical Path Analysis');
+    (ai.critical_path_analysis || []).forEach((c, i) => {
+      const daysFromItem =
+        (Number.isFinite(c?.estimated_days) ? c.estimated_days : null) ??
+        parseDaysFromAny(c?.duration) ??
+        parseDaysFromAny(c?.duration_text);
+      const safeDays = Number.isFinite(daysFromItem) ? daysFromItem : (i === 0 ? 7 : i === 1 ? 14 : 21);
+
+      const title = `${i + 1}. ${c?.path_type ? c.path_type.charAt(0).toUpperCase() + c.path_type.slice(1) + ' Path' : 'Path'} — ${safeDays} days`;
+      doc.font('Helvetica-Bold').text(title, { indent: 10 });
+      doc.font('Helvetica');
+      if (c.risk)               doc.text(`Risk: ${c.risk}`, { indent: 20 });
+      if (c.blockers?.length)   doc.text(`Blockers: ${c.blockers.join('; ')}`, { indent: 20 });
+      if (c.next?.length)       doc.text(`Next: ${c.next.join('; ')}`, { indent: 20 });
+      doc.moveDown(0.4);
+    });
+
+    section('PiC Performance');
+    doc.text(ai?.pic_performance_evaluation?.text || '—', { indent: 10 });
+    if (typeof ai?.pic_performance_evaluation?.score === 'number') {
+      doc.text(`Score: ${ai.pic_performance_evaluation.score}/100`, { indent: 10 });
+    }
+    doc.text(`Contribution: ${Math.round(Number(ai.pic_contribution_percent) || 0)}%`, { indent: 10 });
+    if (typeof ai?.confidence === 'number') {
+      doc.text(`Model Confidence: ${(ai.confidence * 100).toFixed(0)}%`, { indent: 10 });
+    }
+
+    /* ---------- footer on every page (after body) ---------- */
+    const drawFooter = (pageNum, pageCount) => {
+      const y = doc.page.height - 55;
+      const x1 = doc.page.margins.left;
+      const x2 = doc.page.width - doc.page.margins.right;
+      doc.moveTo(x1, y).lineTo(x2, y).stroke();
+      doc.font('Helvetica').fontSize(9);
+      doc.text('Generated by FadzTrack AI', x1, y + 8, { align: 'left' });
+      doc.text(`Page ${pageNum} of ${pageCount}`, x1, y + 8, { align: 'right' });
+    };
+
+    // After all content is written, iterate buffered pages and add footers/headers
+    doc.on('pageAdded', () => {
+      // Keep new pages consistent (header is added automatically on first write of that page)
+      // Reserve footer space already via bottom margin, so nothing spills over.
+    });
+
+    // Finish the document and then decorate pages
+    doc.flushPages();
+
+    const range = doc.bufferedPageRange(); // {start, count}
+    for (let i = 0; i < range.count; i++) {
+      doc.switchToPage(range.start + i);
+      // Add header to every page except the first (first already has it)
+      if (i > 0) drawHeader();
+      drawFooter(i + 1, range.count);
+    }
+
+    doc.end();
+  });
 }
 
 /**
@@ -299,7 +475,6 @@ exports.getAllProjects = async (req, res) => {
       .populate('manpower', 'name position')
       .populate('contractor', 'name company companyName displayName');
 
-    // Optional: hydrate docs for consistency when listing all
     for (const p of projects) await hydrateProjectDocumentMetadata(p);
 
     res.status(200).json(projects);
@@ -324,7 +499,7 @@ exports.getProjectById = async (req, res) => {
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
     await hydrateProjectDocumentMetadata(project);
-    await project.save(); 
+    await project.save();
 
     res.status(200).json(project);
   } catch (err) {
@@ -372,7 +547,7 @@ exports.getAssignedProjectsAllRoles = async (req, res) => {
       .populate('pic', 'name')
       .populate('location', 'name region')
       .populate('manpower', 'name position')
-    .populate('contractor', 'name company companyName displayName');
+      .populate('contractor', 'name company companyName displayName');
 
     res.json(projects);
   } catch (error) {
@@ -523,7 +698,6 @@ exports.getProjectsByUserAndStatus = async (req, res) => {
       .populate('location', 'name region')
       .populate('manpower', 'name position')
       .populate('contractor', 'name company companyName displayName');
-
 
     res.json(projects);
   } catch (err) {
@@ -808,5 +982,449 @@ exports.deleteProjectDocument = async (req, res) => {
   } catch (e) {
     console.error('deleteProjectDocument error:', e);
     res.status(500).json({ message: 'Failed to delete file' });
+  }
+};
+
+/* ====================== REPORTS: AI helpers ====================== */
+function coerceJson(text = '') {
+  const t = text.trim();
+  const fence = t.match(/^\s*```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fence ? fence[1] : t;
+}
+const REPORT_SYS = `
+You analyze a construction/project PPT and return STRICT JSON ONLY with this shape:
+{
+  "summary_of_work_done": string[],                // short bullet points
+  "completed_tasks": string[],                     // concrete items completed
+  "critical_path_analysis": [                      // EXACTLY three objects, in this order:
+    {
+      "path_type": "optimistic",                   // "optimistic" | "realistic" | "pessimistic"
+      "name": string,                              // short label (e.g., "Floors 20–23 finishing")
+      "estimated_days": number,                    // time-to-complete in DAYS (integer)
+      "assumptions": string[],                     // what assumptions you used
+      "blockers": string[],                        // known or likely blockers
+      "risk": string,                              // short risk statement
+      "next": string[]                             // next steps after completion
+    },
+    { "path_type": "realistic",  "name": string, "estimated_days": number, "assumptions": string[], "blockers": string[], "risk": string, "next": string[] },
+    { "path_type": "pessimistic","name": string, "estimated_days": number, "assumptions": string[], "blockers": string[], "risk": string, "next": string[] }
+  ],
+  "pic_performance_evaluation": {                  // must NEVER be empty
+    "text": string,                                // concise narrative (2–4 sentences) based on the PPT
+    "score": number                                // 0–100 integer
+  },
+  "pic_contribution_percent": number,              // 0–100 integer
+  "confidence": number                             // 0–1 float
+}
+Rules:
+- Output JSON ONLY (no markdown fences, no prose).
+- "critical_path_analysis" MUST be exactly 3 entries: optimistic, realistic, pessimistic.
+- All numeric fields must be numbers (not strings).
+- If the PPT is sparse, infer sensible values from context instead of saying "insufficient".
+- Use the field name "estimated_days" for durations (integers in days). Do not use other names like "durationDays".
+`;
+
+async function generateReportJsonFromText(rawText) {
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not set');
+  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  const payload = {
+    contents: [{ parts: [{ text: `${REPORT_SYS}\n\n---\nPPT TEXT:\n${rawText}` }]}],
+    generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 2048 }
+  };
+  const { data } = await axios.post(`${url}?key=${GEMINI_API_KEY}`, payload, { timeout: 60000 });
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  if (!text) throw new Error('Empty AI response');
+  const cleaned = coerceJson(text);
+  const parsed = JSON.parse(cleaned);
+
+  // defaults
+  const def = {
+    summary_of_work_done: [],
+    completed_tasks: [],
+    critical_path_analysis: [],
+    pic_performance_evaluation: { text: '', score: null },
+    pic_contribution_percent: 0,
+    confidence: 0.6
+  };
+  const out = { ...def, ...parsed };
+
+  // normalize CPA
+  const wantOrder = ['optimistic', 'realistic', 'pessimistic'];
+  let cpa = Array.isArray(out.critical_path_analysis) ? out.critical_path_analysis : [];
+  cpa = cpa.map((c = {}) => ({
+    path_type: (c.path_type || '').toString().toLowerCase(),
+    name: c.name || '',
+    estimated_days: Number.isFinite(c.estimated_days) ? Math.max(1, Math.round(c.estimated_days)) : null,
+    assumptions: Array.isArray(c.assumptions) ? c.assumptions : [],
+    blockers: Array.isArray(c.blockers) ? c.blockers : [],
+    risk: c.risk || '',
+    next: Array.isArray(c.next) ? c.next : []
+  }));
+  const byType = new Map(cpa.map(x => [x.path_type, x]));
+  const safeCPA = wantOrder.map((t, i) => {
+    const picked = byType.get(t) || {};
+    return {
+      path_type: t,
+      name: picked.name || (t.charAt(0).toUpperCase() + t.slice(1) + ' path'),
+      estimated_days: Number.isFinite(picked.estimated_days) ? picked.estimated_days : (t === 'optimistic' ? 7 : t === 'realistic' ? 14 : 21),
+      assumptions: picked.assumptions?.length ? picked.assumptions : ['Derived from available slides.'],
+      blockers: picked.blockers || [],
+      risk: picked.risk || (t === 'pessimistic' ? 'Potential supply or handover delays' : 'Moderate'),
+      next: picked.next || []
+    };
+  });
+  out.critical_path_analysis = safeCPA;
+
+  // PiC perf must never be blank
+  const perf = out.pic_performance_evaluation || {};
+  if (!perf.text || typeof perf.text !== 'string') {
+    const doneCt = (out.completed_tasks || []).length;
+    const sumCt = (out.summary_of_work_done || []).length;
+    const trend = doneCt >= 5 ? 'strong' : doneCt >= 3 ? 'steady' : 'emerging';
+    perf.text = `The PiC shows ${trend} progress with ${doneCt} documented completions across key areas. Coordination appears adequate and site cadence is maintained. Focus should shift to unblocked handovers and closing open scopes.`;
+  }
+  if (!Number.isFinite(perf.score)) {
+    const base = Math.min(95, 60 + ((out.completed_tasks || []).length * 5));
+    perf.score = Math.max(50, Math.round(base));
+  }
+  out.pic_performance_evaluation = perf;
+
+  if (!Number.isFinite(out.pic_contribution_percent)) {
+    const denom = Math.max(1, (out.summary_of_work_done || []).length);
+    out.pic_contribution_percent = Math.min(100, Math.round(((out.completed_tasks || []).length / denom) * 60 + 20));
+  }
+  if (!Number.isFinite(out.confidence)) out.confidence = 0.6;
+
+  return out;
+}
+
+function normalizeAi(ai, rawText = '') {
+  const out = {
+    summary_of_work_done: Array.isArray(ai?.summary_of_work_done) ? ai.summary_of_work_done : [],
+    completed_tasks: Array.isArray(ai?.completed_tasks) ? ai.completed_tasks : [],
+    critical_path_analysis: Array.isArray(ai?.critical_path_analysis) ? ai.critical_path_analysis : [],
+    pic_performance_evaluation: ai?.pic_performance_evaluation || { text: '', score: null },
+    pic_contribution_percent: Number.isFinite(ai?.pic_contribution_percent) ? ai.pic_contribution_percent : 0,
+    confidence: Number.isFinite(ai?.confidence) ? ai.confidence : 0.6,
+  };
+
+  const WANT = ['optimistic', 'realistic', 'pessimistic'];
+  const byType = new Map(
+    out.critical_path_analysis.map(c => [String(c?.path_type || '').toLowerCase(), c])
+  );
+
+  const mk = (type, fallbackName) => {
+    const src = byType.get(type) || {};
+    const est =
+      Number.isFinite(src.estimated_days) ? Math.max(1, Math.round(src.estimated_days)) :
+      Number.isFinite(src.durationDays)    ? Math.max(1, Math.round(src.durationDays)) :
+      (type === 'optimistic' ? 7 : type === 'realistic' ? 14 : 21);
+
+    return {
+      path_type: type,
+      name: (src.name && String(src.name).trim()) || fallbackName,
+      estimated_days: est,
+      assumptions: Array.isArray(src.assumptions) && src.assumptions.length
+        ? src.assumptions
+        : ['Derived from available slides.'],
+      blockers: Array.isArray(src.blockers) ? src.blockers : [],
+      risk: (src.risk && String(src.risk).trim())
+        || (type === 'pessimistic' ? 'High risk due to possible supply/handover delays' : 'Moderate risk'),
+      next: Array.isArray(src.next) ? src.next : [],
+    };
+  };
+
+  out.critical_path_analysis = [
+    mk('optimistic',  'Optimistic Path'),
+    mk('realistic',   'Realistic Path'),
+    mk('pessimistic', 'Pessimistic Path'),
+  ];
+
+  const perf = out.pic_performance_evaluation || {};
+  if (!perf.text || typeof perf.text !== 'string') {
+    const doneCt = (out.completed_tasks || []).length;
+    const trend = doneCt >= 5 ? 'strong' : doneCt >= 3 ? 'steady' : 'emerging';
+    perf.text = `Progress appears ${trend}, with documented completions and continued activity across scopes. Priority is clearing dependencies and closing remaining work fronts.`;
+  }
+  if (!Number.isFinite(perf.score)) {
+    const base = Math.min(95, 60 + ((out.completed_tasks || []).length * 5));
+    perf.score = Math.max(55, Math.round(base));
+  }
+  out.pic_performance_evaluation = perf;
+
+  if (!(out.pic_contribution_percent >= 0 && out.pic_contribution_percent <= 100)) {
+    const denom = Math.max(1, (out.summary_of_work_done || []).length);
+    out.pic_contribution_percent = Math.min(
+      100,
+      Math.round(((out.completed_tasks || []).length / denom) * 60 + 20)
+    );
+  }
+
+  if (!(out.confidence > 0 && out.confidence <= 1)) out.confidence = 0.6;
+
+  return out;
+}
+
+function naiveAnalyze(text = '', picName = '') {
+  const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const bullets = lines.filter(s => s.length <= 200);
+
+  const summary = bullets.slice(0, 6);
+  const completed = bullets.filter(s =>
+    /done|completed|finished|achieved|installed|construction completed|cladding installation completed/i.test(s)
+  );
+
+  const floorNums = (text.match(/\b(1?\d|2\d|3\d|4\d) ?(st|nd|rd|th)?\b/gi) || [])
+    .map(s => parseInt(s, 10))
+    .filter(n => Number.isFinite(n));
+  const uniqueFloors = [...new Set(floorNums)].length;
+
+  const unit = Math.max(1, Math.ceil(uniqueFloors * 2));
+  const optimisticDays  = unit;
+  const realisticDays   = Math.max(unit + 5, Math.round(unit * 1.7));
+  const pessimisticDays = Math.max(realisticDays + 7, Math.round(unit * 2.4));
+
+  const scopeName = uniqueFloors >= 2
+    ? `Floors ${Math.min(...floorNums)}–${Math.max(...floorNums)} closeout`
+    : (bullets[0]?.replace(/^[-•\d.)\s]*/, '').slice(0, 60) || 'Scope closeout');
+
+  const cpa = [
+    {
+      path_type: 'optimistic',
+      name: scopeName,
+      estimated_days: optimisticDays || 7,
+      assumptions: ['All handovers ready; materials and access available.', 'Crew continuity maintained.'],
+      blockers: [],
+      risk: 'Low if handover is on time.',
+      next: ['Punchlisting', 'Turnover documentation']
+    },
+    {
+      path_type: 'realistic',
+      name: scopeName,
+      estimated_days: realisticDays || 14,
+      assumptions: ['Minor rework and coordination with other trades.', 'Standard inspection cycle.'],
+      blockers: ['Partial handovers', 'Inter-trade access conflicts'],
+      risk: 'Moderate schedule friction.',
+      next: ['QC inspections', 'Close NCRs, if any']
+    },
+    {
+      path_type: 'pessimistic',
+      name: scopeName,
+      estimated_days: pessimisticDays || 21,
+      assumptions: ['Late handover of areas and sporadic manpower constraints.'],
+      blockers: ['Late material approvals', 'Design clarifications'],
+      risk: 'High if dependencies slip.',
+      next: ['Re-baseline affected activities', 'Escalate blockers early']
+    }
+  ];
+
+  const doneCt = completed.length;
+  const sumCt = summary.length || 1;
+  const contribution = Math.min(100, Math.round((doneCt / sumCt) * 60 + 20));
+
+  return {
+    summary_of_work_done: summary,
+    completed_tasks: completed.slice(0, 10),
+    critical_path_analysis: cpa,
+    pic_performance_evaluation: {
+      text: `${picName || 'The PiC'} maintains steady site cadence with ${doneCt} recorded completions. Coordination across shared areas is evident; upcoming focus is eliminating access conflicts and securing timely handovers.`,
+      score: Math.max(55, Math.min(92, 65 + doneCt * 4))
+    },
+    pic_contribution_percent: contribution,
+    confidence: 0.6
+  };
+}
+
+/* ====================== REPORTS: List (with migration) ====================== */
+exports.getProjectReports = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const project = await Project.findById(id, 'reports');
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    // MIGRATE: ensure stored AI objects have path_type + estimated_days
+    let changed = false;
+    for (const rep of (project.reports || [])) {
+      if (!rep.ai) continue;
+      const before = JSON.stringify(rep.ai.critical_path_analysis || []);
+      rep.ai = ensureCpaShape(rep.ai);
+      const after = JSON.stringify(rep.ai.critical_path_analysis || []);
+      if (before !== after) changed = true;
+    }
+    if (changed) await project.save();
+
+    const reports = (project.reports || []).slice().sort((a,b) => new Date(b.uploadedAt||0) - new Date(a.uploadedAt||0));
+    res.json({ reports });
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to list reports' });
+  }
+};
+
+/* ====================== REPORTS: Delete ====================== */
+exports.deleteProjectReport = async (req, res) => {
+  try {
+    const { id, reportId } = req.params;
+    const project = await Project.findById(id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    if (!userCanUploadToProject(project, req.user)) {
+      return res.status(403).json({ message: 'Not allowed to delete reports for this project' });
+    }
+
+    const rep = project.reports.id(reportId);
+    if (!rep) return res.status(404).json({ message: 'Report not found' });
+
+    const toRemove = [];
+    if (rep.path)     toRemove.push(rep.path.replace(/^.*?project-reports\//, 'project-reports/'));
+    if (rep.jsonPath) toRemove.push(rep.jsonPath.replace(/^.*?project-reports\//, 'project-reports/'));
+    if (rep.pdfPath)  toRemove.push(rep.pdfPath.replace(/^.*?project-reports\//, 'project-reports/'));
+    if (toRemove.length) {
+      const { error } = await supabase.storage.from('documents').remove(toRemove);
+      if (error) console.error('Supabase remove (report) error:', error);
+    }
+
+    rep.deleteOne();
+    await project.save();
+
+    const io = req.app.get('io');
+    if (io) io.to(`project:${id}`).emit('project:reportsUpdated', { projectId: String(id) });
+
+    const reports = (project.reports || []).slice().sort((a,b) => new Date(b.uploadedAt||0) - new Date(a.uploadedAt||0));
+    res.json({ reports });
+  } catch (e) {
+    console.error('deleteProjectReport error:', e);
+    res.status(500).json({ message: 'Failed to delete report' });
+  }
+};
+
+/* ====================== REPORTS: Signed URL helper ====================== */
+exports.getReportSignedUrl = async (req, res) => {
+  try {
+    const { path } = req.query;
+    if (!path) return res.status(400).json({ message: 'Missing path' });
+    const { data, error } = await supabase
+      .storage
+      .from('documents')
+      .createSignedUrl(path, 60 * 10);
+    if (error || !data?.signedUrl) return res.status(500).json({ message: 'Failed to create signed URL' });
+    return res.json({ signedUrl: data.signedUrl });
+  } catch (e) {
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/* ====================== REPORTS: Upload + AI ====================== */
+exports.uploadProjectReport = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find project and permission check
+    const project = await Project.findById(id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+    if (!userCanUploadToProject(project, req.user)) {
+      return res.status(403).json({ message: 'Not allowed to upload reports for this project' });
+    }
+
+    // Accept exactly one file under field name "report"
+    const file = Array.isArray(req.files?.report) ? req.files.report[0]
+              : Array.isArray(req.files)         ? req.files[0]
+              : req.file;
+    if (!file) return res.status(400).json({ message: 'No report uploaded (expected field name "report")' });
+
+    const originalName = (file.originalname || 'Report.pptx').trim();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const baseDir   = `project-reports/project-${id}`;
+    const srcPath   = `${baseDir}/${timestamp}_${originalName}`;
+
+    // 1) Upload raw PPTX into 'documents' bucket
+    const up1 = await supabase.storage
+      .from('documents')
+      .upload(srcPath, file.buffer, {
+        contentType: file.mimetype || 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        upsert: true
+      });
+    if (up1.error) throw up1.error;
+
+    // 2) Extract text from PPTX
+    let extractedText = '';
+    try {
+      extractedText = await extractPptText(file.buffer);
+    } catch (e) {
+      const reportDoc = {
+        path: srcPath,
+        name: originalName,
+        uploadedBy: req.user.id,
+        uploadedByName: req.user.name,
+        uploadedAt: new Date(),
+        status: 'failed',
+        error: `PPT text extraction failed: ${e.message}`
+      };
+      project.reports.push(reportDoc);
+      await project.save();
+      return res.status(200).json({ message: 'Report stored but extraction failed', report: reportDoc });
+    }
+
+    // 3) AI JSON (Gemini) with a safe fallback
+    let aiJson;
+    try {
+      aiJson = await generateReportJsonFromText(extractedText);
+    } catch (e) {
+      aiJson = naiveAnalyze(extractedText, req.user?.name || '');
+    }
+    // <<< ensure scenarios + non‑blank performance
+    aiJson = normalizeAi(aiJson, extractedText);
+    // NEW: force CPA to have path_type + estimated_days (migration-proof for UI)
+    aiJson = ensureCpaShape(aiJson);
+
+    // 4) Upload JSON artifact
+    const jsonPath = `${baseDir}/${timestamp}_analysis.json`;
+    const up2 = await supabase.storage
+      .from('documents')
+      .upload(jsonPath, Buffer.from(JSON.stringify(aiJson, null, 2)), {
+        contentType: 'application/json',
+        upsert: true
+      });
+    if (up2.error) throw up2.error;
+
+    // 5) Build & upload short PDF summary
+    let pdfPath = '';
+    try {
+      const pdfBuf = await buildReportPdfBuffer(aiJson, {
+        title: 'AI Analysis Summary',
+        projectName: project.projectName,
+        filename: originalName
+      });
+      pdfPath = `${baseDir}/${timestamp}_analysis.pdf`;
+      const up3 = await supabase.storage
+        .from('documents')
+        .upload(pdfPath, pdfBuf, { contentType: 'application/pdf', upsert: true });
+      if (up3.error) throw up3.error;
+    } catch (e) {
+      console.warn('PDF render failed, continuing without pdfPath:', e.message);
+    }
+
+    // 6) Save to Mongo
+    const reportDoc = {
+      path: srcPath,
+      name: originalName,
+      uploadedBy: req.user.id,
+      uploadedByName: req.user.name,
+      uploadedAt: new Date(),
+      jsonPath,
+      pdfPath: pdfPath || undefined,
+      status: 'ready',
+      ai: aiJson
+    };
+    project.reports.push(reportDoc);
+    await project.save();
+
+    // 7) Notify via socket
+    const io = req.app.get('io');
+    if (io) io.to(`project:${id}`).emit('project:reportsUpdated', { projectId: String(id) });
+
+    return res.status(201).json({ report: reportDoc });
+  } catch (err) {
+    console.error('uploadProjectReport error:', err);
+    return res.status(500).json({ message: 'Upload/AI failed', details: err.message });
   }
 };

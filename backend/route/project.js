@@ -1,3 +1,4 @@
+// route/project.js
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/projectController');
@@ -5,7 +6,7 @@ const { verifyToken } = require('../middleware/authMiddleware');
 const upload = require('../middleware/upload');
 const supabase = require('../utils/supabaseClient');
 
-/* ---------- Signed URL: return JSON { signedUrl } ---------- */
+/* ---------- Signed URL: return JSON { signedUrl } (Files tab helper) ---------- */
 router.get('/photo-signed-url', async (req, res) => {
   try {
     const path = req.query.path;
@@ -60,5 +61,11 @@ router.patch('/:id/toggle-status', controller.toggleProjectStatus);
 router.get('/:id/discussions', verifyToken, controller.getProjectDiscussions);
 router.post('/:id/discussions', verifyToken, upload.any(), controller.addProjectDiscussion);
 router.post('/:id/discussions/:msgId/reply', verifyToken, upload.any(), controller.replyToProjectDiscussion);
+
+/* ---------- Reports tab ---------- */
+router.post('/:id/reports', verifyToken, upload.single('report'), controller.uploadProjectReport);
+router.get('/:id/reports', verifyToken, controller.getProjectReports);
+router.get('/:id/reports-signed-url', verifyToken, controller.getReportSignedUrl);
+router.delete('/:id/reports/:reportId', verifyToken, controller.deleteProjectReport);
 
 module.exports = router;
