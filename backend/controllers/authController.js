@@ -421,7 +421,6 @@ async function logoutUser(req, res) {
     }
   } catch {}
   clearRefreshCookie(req, res);
-  clearTrustCookie(req, res); // also clear trust cookie on logout
   res.json({ msg: 'Logged out successfully' });
 }
 
