@@ -5,16 +5,15 @@ import api from '../../api/axiosInstance';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import NotificationBell from '../NotificationBell';
 // Nav icons
-import { 
-  FaTachometerAlt, 
-  FaComments, 
-  FaBoxes, 
-  FaUsers, 
-  FaEye, 
-  FaClipboardList, 
-  FaChartBar, 
+import {
+  FaTachometerAlt,
+  FaComments,
+  FaBoxes,
+  FaUsers,
+  FaEye,
+  FaClipboardList,
+  FaChartBar,
   FaCalendarAlt,
-  FaUserCircle,
   FaProjectDiagram,
   FaTasks,
   FaCheckCircle,
@@ -23,7 +22,7 @@ import {
   FaArrowRight
 } from 'react-icons/fa';
 
-const PmDash = ({forceUserUpdate}) => {
+const PmDash = ({ forceUserUpdate }) => {
   const navigate = useNavigate();
 
   // --- 1. User, token, userId state ---
@@ -136,17 +135,17 @@ const PmDash = ({forceUserUpdate}) => {
       setLoadingChats(false);
       return;
     }
-    
+
     if (!userId) {
       console.log('No userId available for fetchChats');
       setChatsError('User ID not available');
       setLoadingChats(false);
       return;
     }
-    
+
     console.log('Starting fetchChats with token and userId:', { token: token.substring(0, 20) + '...', userId });
     setLoadingChats(true);
-    
+
     try {
       // First, let's test what user ID the backend expects
       try {
@@ -158,17 +157,17 @@ const PmDash = ({forceUserUpdate}) => {
       } catch (testError) {
         console.log('Could not get backend user info:', testError.message);
       }
-      
+
       // Fetch conversations for the current user
       const headers = { Authorization: `Bearer ${token}` };
       console.log('Making API call to /chats with headers:', headers);
-      
+
       const { data } = await api.get('/chats', { headers });
-      
+
       console.log('Raw chat data received:', data);
       console.log('Data type:', typeof data);
       console.log('Is array?', Array.isArray(data));
-      
+
       if (Array.isArray(data)) {
         console.log('Chat data is array, length:', data.length);
         if (data.length > 0) {
@@ -176,53 +175,53 @@ const PmDash = ({forceUserUpdate}) => {
           console.log('First chat users:', data[0].users);
           console.log('Current userId:', userId);
         }
-        
+
         // Process each conversation to extract proper data
         const processedChats = data.map((conversation, index) => {
           console.log(`Processing chat ${index}:`, conversation);
-          
+
           // Get the other user's name (not the current user)
           // Try different ways to find the other user
           let otherUser = conversation.users?.find(user => user._id !== userId);
-          
+
           // If no other user found, try with string comparison
           if (!otherUser && conversation.users?.length > 0) {
             otherUser = conversation.users.find(user => user._id.toString() !== userId.toString());
           }
-          
+
           // If still no other user, just take the first user that's not the current one
           if (!otherUser && conversation.users?.length > 0) {
             otherUser = conversation.users.find(user => user._id !== userId);
           }
-          
+
           console.log(`Other user for chat ${index}:`, otherUser);
           console.log(`Other user _id:`, otherUser?._id);
           console.log(`Current userId:`, userId);
           console.log(`Comparison result:`, otherUser?._id !== userId);
-          
+
           let otherUserName = 'Unknown User';
           if (otherUser) {
             otherUserName = otherUser.name || `${otherUser.firstname || ''} ${otherUser.lastname || ''}`.trim() || 'Unknown User';
           } else if (conversation.users?.length > 0) {
             // Fallback: show all users in the chat
-            const allUserNames = conversation.users.map(user => 
+            const allUserNames = conversation.users.map(user =>
               user.name || `${user.firstname || ''} ${user.lastname || ''}`.trim() || 'Unknown'
             ).filter(name => name !== 'Unknown');
             otherUserName = allUserNames.length > 0 ? allUserNames.join(', ') : 'Unknown User';
           }
-          
+
           console.log(`Other user name for chat ${index}:`, otherUserName);
-          
+
           // Get the last message content
           let lastMessageContent = 'No messages yet';
           let lastMessageTime = new Date();
-          
+
           if (conversation.lastMessage) {
             lastMessageContent = conversation.lastMessage.content || 'No messages yet';
             lastMessageTime = conversation.lastMessage.timestamp || new Date();
             console.log(`Last message for chat ${index}:`, { content: lastMessageContent, time: lastMessageTime });
           }
-          
+
           const processedChat = {
             _id: conversation._id,
             name: conversation.isGroup ? conversation.name : otherUserName,
@@ -232,11 +231,11 @@ const PmDash = ({forceUserUpdate}) => {
             users: conversation.users || [],
             color: '#4A6AA5'
           };
-          
+
           console.log(`Processed chat ${index}:`, processedChat);
           return processedChat;
         });
-        
+
         console.log('All processed chats:', processedChats);
         setChats(processedChats);
       } else {
@@ -244,7 +243,7 @@ const PmDash = ({forceUserUpdate}) => {
         console.log('Data received was:', data);
         setChats([]);
       }
-      
+
       setChatsError(null);
     } catch (error) {
       console.log('Chat fetch error:', error);
@@ -263,12 +262,12 @@ const PmDash = ({forceUserUpdate}) => {
   // Auto-refresh chats every 30 seconds
   useEffect(() => {
     if (!token || !userId) return;
-    
+
     const interval = setInterval(() => {
       console.log('Auto-refreshing conversations...');
       fetchChats();
     }, 30000); // 30 seconds
-    
+
     return () => clearInterval(interval);
   }, [token, userId, fetchChats]);
 
@@ -344,10 +343,10 @@ const PmDash = ({forceUserUpdate}) => {
   // Function to truncate text to about 10 words
   const truncateMessage = (text, maxWords = 10) => {
     if (!text || typeof text !== 'string') return 'No messages yet';
-    
+
     const words = text.trim().split(/\s+/);
     if (words.length <= maxWords) return text;
-    
+
     return words.slice(0, maxWords).join(' ') + '...';
   };
 
@@ -381,10 +380,10 @@ const PmDash = ({forceUserUpdate}) => {
             />
             <h1 className="header-brand">FadzTrack</h1>
           </div>
-          
+
           <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
             <div className="profile-avatar">
-              <FaUserCircle />
+              {userName ? userName.charAt(0).toUpperCase() : 'P'}
             </div>
             <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
               <span className="profile-name">{userName}</span>
@@ -440,7 +439,7 @@ const PmDash = ({forceUserUpdate}) => {
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Daily Logs</span>
             </Link>
           </nav>
-          
+
           <NotificationBell />
         </div>
       </header>
@@ -450,7 +449,7 @@ const PmDash = ({forceUserUpdate}) => {
         <div className="dashboard-grid">
           {/* Welcome & Project Overview Card */}
           <div className="dashboard-card welcome-card">
-            <div className="card-header">
+            
               <div className="welcome-content">
                 <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>
                 <p className="welcome-subtitle">Here's what's happening with your project today</p>
@@ -461,8 +460,8 @@ const PmDash = ({forceUserUpdate}) => {
                   <span>{project.projectName}</span>
                 </div>
               )}
-            </div>
             
+
             {project && (
               <div className="project-stats">
                 <div className="stat-item">
@@ -541,15 +540,15 @@ const PmDash = ({forceUserUpdate}) => {
             <div className="card-header">
               <h3 className="card-title">Recent Conversations</h3>
               <div className="card-actions">
-                <button 
-                  className="refresh-btn" 
+                <button
+                  className="refresh-btn"
                   onClick={fetchChats}
                   title="Refresh conversations"
                   disabled={loadingChats}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M1 4v6h6M23 20v-6h-6"/>
-                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                    <path d="M1 4v6h6M23 20v-6h-6" />
+                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
                   </svg>
                 </button>
                 <Link to="/pm/chat" className="view-all-link">
@@ -583,10 +582,10 @@ const PmDash = ({forceUserUpdate}) => {
                     createdAt: chat.createdAt,
                     fullChat: chat
                   });
-                  
+
                   return (
-                    <Link 
-                      key={chat._id || index} 
+                    <Link
+                      key={chat._id || index}
                       to={`/pm/chat/${chat._id || chat.chatId || index}`}
                       className="chat-item"
                       style={{ textDecoration: 'none' }}
@@ -603,17 +602,17 @@ const PmDash = ({forceUserUpdate}) => {
                             {(() => {
                               const time = chat.lastMessageTime || chat.timestamp || chat.createdAt;
                               if (!time) return 'Just now';
-                              
+
                               try {
                                 if (typeof time === 'string') {
                                   const date = new Date(time);
                                   if (isNaN(date.getTime())) return 'Just now';
-                                  return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                                 } else if (time instanceof Date) {
-                                  return time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                  return time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                                 } else if (typeof time === 'number') {
                                   const date = new Date(time);
-                                  return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                                 }
                                 return 'Just now';
                               } catch (error) {

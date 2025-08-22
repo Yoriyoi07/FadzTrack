@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
-import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaDownload, FaCalendarAlt, FaMapMarkerAlt, FaUsers, FaUserTie, FaBuilding, FaMoneyBillWave, FaCheckCircle, FaClock } from 'react-icons/fa';
+import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaDownload, FaCalendarAlt, FaMapMarkerAlt, FaUsers, FaUserTie, FaBuilding, FaMoneyBillWave, FaCheckCircle, FaClock, FaTrash, FaCamera } from 'react-icons/fa';
 import { exportProjectDetails } from '../../utils/projectPdf';
 // Nav icons
 import { FaTachometerAlt, FaComments, FaBoxes, FaUsers as FaUsersNav, FaEye, FaClipboardList, FaChartBar, FaCalendarAlt as FaCalendarAltNav } from 'react-icons/fa';
@@ -27,6 +27,21 @@ async function openSignedPath(path) {
   }
 }
 
+/* ---------- Reports signed URL helper ---------- */
+async function openReportSignedPath(path) {
+  try {
+    const { data } = await api.get(`/projects/${encodeURIComponent('dummy')}/reports-signed-url`, {
+      // backend ignores :id in this handler; pass dummy, keep query path param
+      params: { path }
+    });
+    const url = data?.signedUrl;
+    if (!url) throw new Error('No signedUrl in response');
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } catch {
+    alert('Failed to open report file.');
+  }
+}
+
 /* ---------- Filename helper ---------- */
 function extractOriginalNameFromPath(path) {
   const base = (path || '').split('/').pop() || '';
@@ -35,6 +50,138 @@ function extractOriginalNameFromPath(path) {
   const m = base.match(/^project-\d{8,}-(.+)$/i);
   if (m && m[1]) return m[1];
   return base;
+}
+
+/* ---------- File management helpers ---------- */
+function getFileType(fileName) {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  const typeMap = {
+    'pdf': 'PDF',
+    'doc': 'DOC',
+    'docx': 'DOCX',
+    'xls': 'XLS',
+    'xlsx': 'XLSX',
+    'ppt': 'PPT',
+    'pptx': 'PPTX',
+    'txt': 'TXT',
+    'rtf': 'RTF',
+    'csv': 'CSV',
+    'jpg': 'JPG',
+    'jpeg': 'JPEG',
+    'png': 'PNG',
+    'gif': 'GIF',
+    'bmp': 'BMP',
+    'svg': 'SVG'
+  };
+  return typeMap[extension] || 'FILE';
+}
+
+function getFileSize(fileName) {
+  // Since we don't have actual file sizes from the backend, we'll show a placeholder
+  // In a real implementation, you'd want to store file sizes in the database
+  return 'N/A';
+}
+
+function getFileIcon(fileType) {
+  const iconMap = {
+    'PDF': '📄',
+    'DOC': '📝',
+    'DOCX': '📝',
+    'XLS': '📊',
+    'XLSX': '📊',
+    'PPT': '📈',
+    'PPTX': '📈',
+    'TXT': '📄',
+    'RTF': '📄',
+    'CSV': '📊',
+    'JPG': '🖼️',
+    'JPEG': '🖼️',
+    'PNG': '🖼️',
+    'GIF': '🖼️',
+    'BMP': '🖼️',
+    'SVG': '🖼️',
+    'FILE': '📁'
+  };
+  return iconMap[fileType] || '��';
+}
+
+/* ---------- Fetch signed URLs for image files ---------- */
+async function fetchSignedUrlsForImages(files) {
+  const imageFiles = files.filter(file => {
+    const fileName = typeof file === 'string' 
+      ? extractOriginalNameFromPath(file) 
+      : file.name || extractOriginalNameFromPath(file.path);
+    const fileType = getFileType(fileName);
+    return ['JPG', 'JPEG', 'PNG', 'GIF', 'BMP', 'SVG'].includes(fileType);
+  });
+
+  const signedUrls = {};
+  
+  for (const file of imageFiles) {
+    const filePath = typeof file === 'string' ? file : file.path;
+    try {
+      const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(filePath)}`);
+      if (data?.signedUrl) {
+        signedUrls[filePath] = data.signedUrl;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch signed URL for:', filePath, error);
+    }
+  }
+  
+  return signedUrls;
+}
+
+/* ---------- File thumbnail generation ---------- */
+function generateFileThumbnail(fileName, filePath, fileType, signedUrl = null) {
+  const isImage = ['JPG', 'JPEG', 'PNG', 'GIF', 'BMP', 'SVG'].includes(fileType);
+  
+  if (isImage) {
+    // Use signed URL if available, otherwise fall back to file path
+    const imageSrc = signedUrl || filePath;
+    return (
+      <div className="file-thumbnail image-thumbnail">
+        <img 
+          src={imageSrc} 
+          alt={fileName}
+          onError={(e) => {
+            e.target.style.display = 'none';
+            e.target.nextSibling.style.display = 'flex';
+          }}
+        />
+        <div className="fallback-icon" style={{ display: 'none' }}>
+          {getFileIcon(fileType)}
+        </div>
+      </div>
+    );
+  }
+  
+  // For non-image files, create styled thumbnails based on file type
+  const thumbnailStyles = {
+    'PDF': { background: 'linear-gradient(135deg, #ff6b6b, #ee5a52)', icon: '📄' },
+    'DOC': { background: 'linear-gradient(135deg, #4ecdc4, #44a08d)', icon: '📝' },
+    'DOCX': { background: 'linear-gradient(135deg, #4ecdc4, #44a08d)', icon: '📝' },
+    'XLS': { background: 'linear-gradient(135deg, #45b7d1, #96c93d)', icon: '📊' },
+    'XLSX': { background: 'linear-gradient(135deg, #45b7d1, #96c93d)', icon: '📊' },
+    'PPT': { background: 'linear-gradient(135deg, #f093fb, #f5576c)', icon: '📈' },
+    'PPTX': { background: 'linear-gradient(135deg, #f093fb, #f5576c)', icon: '📈' },
+    'TXT': { background: 'linear-gradient(135deg, #a8edea, #fed6e3)', icon: '📄' },
+    'RTF': { background: 'linear-gradient(135deg, #a8edea, #fed6e3)', icon: '📄' },
+    'CSV': { background: 'linear-gradient(135deg, #ffecd2, #fcb69f)', icon: '📊' },
+    'FILE': { background: 'linear-gradient(135deg, #667eea, #764ba2)', icon: '📁' }
+  };
+  
+  const style = thumbnailStyles[fileType] || thumbnailStyles['FILE'];
+  
+  return (
+    <div 
+      className="file-thumbnail document-thumbnail"
+      style={{ background: style.background }}
+    >
+      <span className="thumbnail-icon">{style.icon}</span>
+      <span className="thumbnail-extension">{fileType}</span>
+    </div>
+  );
 }
 
 /* ---------- Mention rendering (inline chips) ---------- */
@@ -167,6 +314,16 @@ const Pm_Project = () => {
   const listBottomRef = useRef(null);
   const textareaRef = useRef(null);
 
+  // File management state
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState('');
+
+  // Project image upload state
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageUploadProgress, setImageUploadProgress] = useState(0);
+  const [imageUploadError, setImageUploadError] = useState('');
+
   // Mentions
   const [mentionDropdown, setMentionDropdown] = useState({ 
     open: false, 
@@ -176,6 +333,11 @@ const Pm_Project = () => {
     activeInputId: null // Track which input triggered the dropdown
   });
   const [projectUsers, setProjectUsers] = useState([]);
+  const [fileSignedUrls, setFileSignedUrls] = useState({});
+  const [fileSearchTerm, setFileSearchTerm] = useState('');
+
+  // Reports state
+  const [reports, setReports] = useState([]);
 
 
   // Scroll handler for header collapse
@@ -259,6 +421,27 @@ const Pm_Project = () => {
     return () => controller.abort();
   }, [project?._id, activeTab, token]);
 
+  /* ---------------- Fetch reports ---------------- */
+  const fetchReports = async (pid = project?._id) => {
+    if (!pid) return;
+    try {
+      const { data } = await api.get(`/projects/${pid}/reports`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setReports(data?.reports || []);
+      if (process.env.NODE_ENV !== 'production') {
+        console.debug('[reports payload]', data?.reports);
+      }
+    } catch {
+      setReports([]);
+    }
+  };
+
+  // Fetch reports when Reports tab is active
+  useEffect(() => {
+    if (activeTab === 'Reports' && project?._id) fetchReports(project._id);
+  }, [activeTab, project?._id]); // eslint-disable-line
+
   // Auto-scroll to bottom on message change
   useEffect(() => {
     if (activeTab !== 'Discussions') return;
@@ -267,6 +450,49 @@ const Pm_Project = () => {
       else if (listScrollRef.current) listScrollRef.current.scrollTop = listScrollRef.current.scrollHeight;
     });
   }, [messages, activeTab]);
+
+  /* ---------------- Fetch signed URLs for image files ---------------- */
+  useEffect(() => {
+    if (!project?._id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        // Collect all files that need signed URLs
+        const allFiles = [];
+        
+        // Add project documents
+        if (project.documents && Array.isArray(project.documents)) {
+          allFiles.push(...project.documents);
+        }
+        
+        // Add message attachments
+        if (messages && Array.isArray(messages)) {
+          messages.forEach(msg => {
+            if (msg.attachments && Array.isArray(msg.attachments)) {
+              allFiles.push(...msg.attachments);
+            }
+            if (msg.replies && Array.isArray(msg.replies)) {
+              msg.replies.forEach(reply => {
+                if (reply.attachments && Array.isArray(reply.attachments)) {
+                  allFiles.push(...reply.attachments);
+                }
+              });
+            }
+          });
+        }
+        
+        if (allFiles.length > 0) {
+          const signedUrls = await fetchSignedUrlsForImages(allFiles);
+          if (!cancelled) {
+            setFileSignedUrls(prev => ({ ...prev, ...signedUrls }));
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch signed URLs for images:', error);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [project?.documents, messages]);
 
   /* ---------------- Fetch project users for mentions ---------------- */
   useEffect(() => {
@@ -294,7 +520,7 @@ const Pm_Project = () => {
   /* ---------------- misc ---------------- */
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest('.profile-menu-container')) setProfileMenuOpen(false);
+      if (!event.target.closest('.user-profile')) setProfileMenuOpen(false);
     };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
@@ -616,6 +842,107 @@ const Pm_Project = () => {
     navigate('/');
   };
 
+  /* ---------------- File management handlers ---------------- */
+  const handleFileUpload = async (files) => {
+    if (!files?.length || !project?._id) return;
+    
+    setUploading(true);
+    setUploadProgress(0);
+    setUploadError('');
+    
+    try {
+      const formData = new FormData();
+      files.forEach(file => formData.append('files', file));
+      
+      // Simulate progress (in real implementation, you'd track actual upload progress)
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+      
+      const response = await api.post(`/projects/${project._id}/documents`, formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      
+      // Update project documents
+      if (response.data?.documents) {
+        setProject(prev => ({
+          ...prev,
+          documents: response.data.documents
+        }));
+      }
+      
+      // Show success message for renamed/replaced files
+      if (response.data?.renamed?.length) {
+        const renamedMsg = response.data.renamed.map(r => 
+          `⚠️ "${r.from}" renamed to "${r.to}"`
+        ).join('\n');
+        alert(renamedMsg);
+      }
+      
+      if (response.data?.replaced?.length) {
+        const replacedMsg = response.data.replaced.map(r => 
+          `ℹ️ "${r.originalName}" replaced (${r.removed} old version(s) removed)`
+        ).join('\n');
+        alert(replacedMsg);
+      }
+      
+      setTimeout(() => {
+        setUploading(false);
+        setUploadProgress(0);
+      }, 1000);
+      
+    } catch (error) {
+      console.error('File upload error:', error);
+      setUploadError('Upload failed. Please try again.');
+      setUploading(false);
+      setUploadProgress(0);
+      
+      if (error.response?.status === 403) {
+        alert('You do not have permission to upload files to this project.');
+      } else {
+        alert('Upload failed. Please try again.');
+      }
+    }
+  };
+
+  const handleDeleteFile = async (doc, index) => {
+    if (!project?._id || !window.confirm('Are you sure you want to delete this file?')) return;
+    
+    try {
+      const filePath = typeof doc === 'string' ? doc : doc.path;
+      const fileName = typeof doc === 'string' 
+        ? extractOriginalNameFromPath(doc) 
+        : doc.name || extractOriginalNameFromPath(doc.path);
+      
+      await api.delete(`/projects/${project._id}/documents`, {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { path: filePath }
+      });
+      
+      // Remove file from project state
+      setProject(prev => ({
+        ...prev,
+        documents: prev.documents.filter((_, i) => i !== index)
+      }));
+      
+    } catch (error) {
+      console.error('File delete error:', error);
+      alert('Failed to delete file. Please try again.');
+    }
+  };
+
   if (loading) return (
     <div className="dashboard-container">
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -736,6 +1063,89 @@ const Pm_Project = () => {
                 className="project-hero-image"
               />
               
+              {/* Image Upload Overlay */}
+              <div className="image-upload-overlay">
+                <input
+                  type="file"
+                  id="project-image-upload"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    if (!file.type.startsWith('image/')) {
+                      alert('Please select an image file.');
+                      return;
+                    }
+                    
+                    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+                      alert('Image size must be less than 5MB.');
+                      return;
+                    }
+                    
+                    try {
+                      setImageUploading(true);
+                      setImageUploadProgress(0);
+                      setImageUploadError('');
+                      
+                      const formData = new FormData();
+                      formData.append('photo', file);
+                      
+                      const response = await api.post(`/projects/${project._id}/upload-photo`, formData, {
+                        headers: {
+                          'Content-Type': 'multipart/form-data',
+                        },
+                        onUploadProgress: (progressEvent) => {
+                          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                          setImageUploadProgress(progress);
+                        },
+                      });
+                      
+                      // Update the project with new photo
+                      setProject(prev => ({
+                        ...prev,
+                        photos: [response.data.photoUrl, ...(prev.photos || []).slice(1)]
+                      }));
+                      
+                      alert('Project image updated successfully!');
+                    } catch (error) {
+                      console.error('Error uploading image:', error);
+                      setImageUploadError('Failed to upload image. Please try again.');
+                      alert('Failed to upload image. Please try again.');
+                    } finally {
+                      setImageUploading(false);
+                      setImageUploadProgress(0);
+                      e.target.value = ''; // Reset file input
+                    }
+                  }}
+                />
+                <label htmlFor="project-image-upload" className="change-image-btn">
+                  <FaCamera />
+                  <span>Change Image</span>
+                </label>
+                
+                {/* Upload Progress */}
+                {imageUploading && (
+                  <div className="image-upload-progress">
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill" 
+                        style={{ width: `${imageUploadProgress}%` }}
+                      ></div>
+                    </div>
+                    <p className="progress-text">Uploading... {imageUploadProgress}%</p>
+                  </div>
+                )}
+                
+                {/* Upload Error */}
+                {imageUploadError && (
+                  <div className="image-upload-error">
+                    <p>{imageUploadError}</p>
+                  </div>
+                )}
+              </div>
+              
               {/* Status Toggle Button */}
               {progress === 100 && (
                 <button
@@ -787,6 +1197,13 @@ const Pm_Project = () => {
             >
               <FaRegFileAlt />
               <span>Files</span>
+            </button>
+            <button 
+              className={`project-tab ${activeTab === 'Reports' ? 'active' : ''}`} 
+              onClick={() => setActiveTab('Reports')}
+            >
+              <FaRegFileAlt />
+              <span>Reports</span>
             </button>
           </div>
 
@@ -1033,21 +1450,31 @@ const Pm_Project = () => {
                             {/* Attachments */}
                             {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
                               <div className="message-attachments">
-                                {msg.attachments.map((att, i) => (
-                                  <div key={i} className="attachment-item">
-                                    <FaRegFileAlt />
-                                    <a 
-                                      href="#" 
-                                      onClick={(e) => { 
-                                        e.preventDefault(); 
-                                        openSignedPath(att.path); 
-                                      }} 
-                                      title={att.name}
-                                    >
-                                      {att.name || extractOriginalNameFromPath(att.path)}
-                                    </a>
-                                  </div>
-                                ))}
+                                {msg.attachments.map((att, i) => {
+                                  const attachmentName = att.name || extractOriginalNameFromPath(att.path);
+                                  const attachmentType = getFileType(attachmentName);
+                                  return (
+                                    <div key={i} className="attachment-item">
+                                      <div className="attachment-thumbnail">
+                                        {generateFileThumbnail(attachmentName, att.path, attachmentType, fileSignedUrls[att.path])}
+                                      </div>
+                                      <div className="attachment-info">
+                                        <a 
+                                          href="#" 
+                                          onClick={(e) => { 
+                                            e.preventDefault(); 
+                                            openSignedPath(att.path); 
+                                          }} 
+                                          title={attachmentName}
+                                          className="attachment-name"
+                                        >
+                                          {attachmentName}
+                                        </a>
+                                        <span className="attachment-type">{attachmentType}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -1091,21 +1518,31 @@ const Pm_Project = () => {
                                       {/* Reply Attachments */}
                                       {Array.isArray(reply.attachments) && reply.attachments.length > 0 && (
                                         <div className="reply-attachments">
-                                          {reply.attachments.map((att, i) => (
-                                            <div key={i} className="attachment-item">
-                                              <FaRegFileAlt />
-                                              <a 
-                                                href="#" 
-                                                onClick={(e) => { 
-                                                  e.preventDefault(); 
-                                                  openSignedPath(att.path); 
-                                                }} 
-                                                title={att.name}
-                                              >
-                                                {att.name || extractOriginalNameFromPath(att.path)}
-                                              </a>
-                                            </div>
-                                          ))}
+                                          {reply.attachments.map((att, i) => {
+                                            const attachmentName = att.name || extractOriginalNameFromPath(att.path);
+                                            const attachmentType = getFileType(attachmentName);
+                                            return (
+                                              <div key={i} className="attachment-item">
+                                                <div className="attachment-thumbnail">
+                                                  {generateFileThumbnail(attachmentName, att.path, attachmentType, fileSignedUrls[att.path])}
+                                                </div>
+                                                <div className="attachment-info">
+                                                  <a 
+                                                    href="#" 
+                                                    onClick={(e) => { 
+                                                      e.preventDefault(); 
+                                                      openSignedPath(att.path); 
+                                                    }} 
+                                                    title={attachmentName}
+                                                    className="attachment-name"
+                                                  >
+                                                    {attachmentName}
+                                                  </a>
+                                                  <span className="attachment-type">{attachmentType}</span>
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
                                         </div>
                                       )}
                                     </div>
@@ -1314,14 +1751,278 @@ const Pm_Project = () => {
               </div>
             )}
 
-            {/* --- Files Tab (Placeholder) --- */}
+            {/* --- Files Tab --- */}
             {activeTab === 'Files' && (
-              <div className="files-placeholder">
-                <div className="placeholder-content">
-                  <FaRegFileAlt />
-                  <h3>Project Files</h3>
-                  <p>File management feature will be implemented in the next phase.</p>
+              <div className="files-container">
+                {/* Files Header */}
+                <div className="files-header">
+                  <div className="files-title-section">
+                    <h2 className="files-title">Project Files</h2>
+                    <p className="files-subtitle">
+                      {project?.documents && project.documents.length > 0 
+                        ? `Showing ${Math.min(project.documents.filter(doc => {
+                            if (!fileSearchTerm) return true;
+                            const fileName = typeof doc === 'string' 
+                              ? extractOriginalNameFromPath(doc) 
+                              : doc.name || extractOriginalNameFromPath(doc.path);
+                            return fileName.toLowerCase().includes(fileSearchTerm.toLowerCase());
+                          }).length, 5)} of ${project.documents.length} files`
+                        : 'Manage and organize project documents'
+                      }
+                    </p>
+                  </div>
+                  <div className="files-actions">
+                    <div className="search-container">
+                      <input
+                        type="text"
+                        placeholder="Search files..."
+                        value={fileSearchTerm}
+                        onChange={(e) => setFileSearchTerm(e.target.value)}
+                        className="file-search-input"
+                      />
+                    </div>
+                    <label htmlFor="file-upload" className="upload-btn">
+                      <FaRegFileAlt />
+                      <span>Upload Files</span>
+                    </label>
+                    <input
+                      id="file-upload"
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.csv,image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        if (e.target.files?.length) {
+                          handleFileUpload(Array.from(e.target.files));
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
                 </div>
+
+                {/* Upload Progress */}
+                {uploading && (
+                  <div className="upload-progress">
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill" 
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                    <span className="progress-text">Uploading... {uploadProgress}%</span>
+                  </div>
+                )}
+
+                {/* Files Table */}
+                <div className="files-table-container">
+                  {project?.documents && project.documents.length > 0 ? (
+                    <table className="files-table">
+                      <thead className="table-header">
+                        <tr>
+                          <th className="header-cell file-name">File Name</th>
+                          <th className="header-cell file-type">Type</th>
+                          <th className="header-cell file-size">Size</th>
+                          <th className="header-cell file-uploader">Uploaded By</th>
+                          <th className="header-cell file-date">Date</th>
+                          <th className="header-cell file-actions">Actions</th>
+                        </tr>
+                      </thead>
+                      
+                      <tbody className="table-body">
+                        {project.documents
+                          .filter((doc) => {
+                            if (!fileSearchTerm) return true;
+                            const fileName = typeof doc === 'string' 
+                              ? extractOriginalNameFromPath(doc) 
+                              : doc.name || extractOriginalNameFromPath(doc.path);
+                            return fileName.toLowerCase().includes(fileSearchTerm.toLowerCase());
+                          })
+                          .slice(0, 5)
+                          .map((doc, index) => {
+                          const fileName = typeof doc === 'string' 
+                            ? extractOriginalNameFromPath(doc) 
+                            : doc.name || extractOriginalNameFromPath(doc.path);
+                          const filePath = typeof doc === 'string' ? doc : doc.path;
+                          const fileType = getFileType(fileName);
+                          const fileSize = getFileSize(fileName);
+                          const uploadedBy = typeof doc === 'string' ? 'Unknown' : (doc.uploadedByName || 'Unknown');
+                          const uploadedAt = typeof doc === 'string' ? null : doc.uploadedAt;
+                          
+                          return (
+                            <tr key={index} className="table-row">
+                              <td className="table-cell file-name">
+                                <div className="file-info">
+                                  <div className="file-thumbnail-container">
+                                    {generateFileThumbnail(fileName, filePath, fileType, fileSignedUrls[filePath])}
+                                  </div>
+                                  <span className="file-name-text" title={fileName}>
+                                    {fileName}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="table-cell file-type">
+                                <span className="file-type-badge">{fileType.toUpperCase()}</span>
+                              </td>
+                              <td className="table-cell file-size">
+                                {fileSize}
+                              </td>
+                              <td className="table-cell file-uploader">
+                                {uploadedBy}
+                              </td>
+                              <td className="table-cell file-date">
+                                {uploadedAt ? new Date(uploadedAt).toLocaleDateString() : 'N/A'}
+                              </td>
+                              <td className="table-cell file-actions">
+                                <div className="action-buttons">
+                                  <button
+                                    onClick={() => openSignedPath(filePath)}
+                                    className="action-btn download-btn"
+                                    title="Download"
+                                  >
+                                    <FaDownload />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteFile(doc, index)}
+                                    className="action-btn delete-btn"
+                                    title="Delete"
+                                  >
+                                    <FaTrash />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="empty-files">
+                      <FaRegFileAlt />
+                      <h3>No files uploaded yet</h3>
+                      <p>Upload project documents to get started</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* --- Reports Tab --- */}
+            {activeTab === 'Reports' && (
+              <div className="reports-container">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                  <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600, color: '#1f2937' }}>Project Reports</h3>
+                </div>
+
+                {reports.length === 0 ? (
+                  <div className="reports-placeholder">
+                    <FaRegFileAlt />
+                    <h3>Project Reports</h3>
+                    <p>No reports are currently available.</p>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="files-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '2px solid #e5e7eb', background: '#f9fafb', fontWeight: 600, fontSize: '0.875rem', color: '#374151' }}>Report Period</th>
+                          <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '2px solid #e5e7eb', background: '#f9fafb', fontWeight: 600, fontSize: '0.875rem', color: '#374151' }}>Report File</th>
+                          <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '2px solid #e5e7eb', background: '#f9fafb', fontWeight: 600, fontSize: '0.875rem', color: '#374151' }}>Submitted By</th>
+                          <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '2px solid #e5e7eb', background: '#f9fafb', fontWeight: 600, fontSize: '0.875rem', color: '#374151' }}>Submitted At</th>
+                          <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '2px solid #e5e7eb', background: '#f9fafb', fontWeight: 600, fontSize: '0.875rem', color: '#374151' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reports.map((rep) => {
+                          const uploadedAt = rep?.uploadedAt ? new Date(rep.uploadedAt).toLocaleString() : '—';
+                          const reportPeriod = rep?.reportPeriod || 'N/A';
+                          return (
+                            <tr key={rep._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                              <td style={{ padding: '12px 16px', fontSize: '0.875rem', color: '#374151' }}>
+                                {reportPeriod}
+                              </td>
+                              <td style={{ padding: '12px 16px', fontSize: '0.875rem', color: '#374151' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                  <FaRegFileAlt style={{ marginRight: 8, color: '#6b7280' }} />
+                                  {rep?.name || 'Report.pptx'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 16px', fontSize: '0.875rem', color: '#374151' }}>
+                                {rep?.uploadedByName || 'Unknown'}
+                              </td>
+                              <td style={{ padding: '12px 16px', fontSize: '0.875rem', color: '#374151' }}>
+                                {uploadedAt}
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  {/* View PPT */}
+                                  {rep?.path ? (
+                                    <button
+                                      onClick={() => openReportSignedPath(rep.path)}
+                                      style={{ 
+                                        border: '1px solid #d1d5db', 
+                                        background: '#ffffff', 
+                                        padding: '6px 12px', 
+                                        borderRadius: 6, 
+                                        cursor: 'pointer',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 500,
+                                        color: '#374151',
+                                        transition: 'all 0.2s ease'
+                                      }}
+                                      onMouseOver={(e) => {
+                                        e.target.style.background = '#f9fafb';
+                                        e.target.style.borderColor = '#9ca3af';
+                                      }}
+                                      onMouseOut={(e) => {
+                                        e.target.style.background = '#ffffff';
+                                        e.target.style.borderColor = '#d1d5db';
+                                      }}
+                                    >
+                                      View PPT
+                                    </button>
+                                  ) : (
+                                    <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>No PPT</span>
+                                  )}
+
+                                  {/* Download PDF */}
+                                  {rep?.pdfPath ? (
+                                    <button
+                                      onClick={() => openReportSignedPath(rep.pdfPath)}
+                                      style={{ 
+                                        border: '1px solid #d1d5db', 
+                                        background: '#ffffff', 
+                                        padding: '6px 12px', 
+                                        borderRadius: 6, 
+                                        cursor: 'pointer',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 500,
+                                        color: '#374151',
+                                        transition: 'all 0.2s ease'
+                                      }}
+                                      onMouseOver={(e) => {
+                                        e.target.style.background = '#f9fafb';
+                                        e.target.style.borderColor = '#9ca3af';
+                                      }}
+                                      onMouseOut={(e) => {
+                                        e.target.style.background = '#ffffff';
+                                        e.target.style.borderColor = '#d1d5db';
+                                      }}
+                                    >
+                                      Download PDF
+                                    </button>
+                                  ) : (
+                                    <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>No PDF</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -1,7 +1,7 @@
 // src/components/PmChat.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { FaUsers, FaPaperPlane, FaCheck, FaTachometerAlt, FaComments, FaBoxes, FaEye, FaClipboardList, FaChartBar, FaCalendarAlt, FaUserCircle } from 'react-icons/fa';
+import { FaUsers, FaPaperPlane, FaCheck, FaTachometerAlt, FaComments, FaBoxes, FaEye, FaClipboardList, FaChartBar, FaCalendarAlt } from 'react-icons/fa';
 import { io } from 'socket.io-client';
 import EmojiPicker from 'emoji-picker-react';
 import api from '../../api/axiosInstance';
@@ -69,6 +69,17 @@ const PmChat = () => {
   useEffect(() => {
     setIsHeaderCollapsed(!!selectedChat);
   }, [selectedChat]);
+
+  // Close profile menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.user-profile')) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const getDisplayName = (u) => {
     if (!u) return '';
@@ -549,19 +560,19 @@ const PmChat = () => {
           
           <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
             <div className="profile-avatar">
-              <FaUserCircle />
-        </div>
+              {userName ? userName.charAt(0).toUpperCase() : 'P'}
+            </div>
             <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
               <span className="profile-name">{userName}</span>
               <span className="profile-role">{userRole}</span>
-          </div>
-          {profileMenuOpen && (
+            </div>
+            {profileMenuOpen && (
               <div className="profile-dropdown">
                 <button onClick={handleLogout} className="logout-btn">
                   <span>Logout</span>
                 </button>
-            </div>
-          )}
+              </div>
+            )}
           </div>
         </div>
 

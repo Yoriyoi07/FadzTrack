@@ -14,7 +14,6 @@ import {
   FaClipboardList, 
   FaChartBar, 
   FaCalendarAlt,
-  FaUserCircle,
   FaSearch,
   FaFilter,
   FaEllipsisV
@@ -189,7 +188,7 @@ const PmMatRequestList = () => {
           
           <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
             <div className="profile-avatar">
-              <FaUserCircle />
+              {userName ? userName.charAt(0).toUpperCase() : 'P'}
             </div>
             <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
               <span className="profile-name">{userName}</span>

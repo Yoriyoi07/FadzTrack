@@ -13,7 +13,6 @@ import {
   FaClipboardList, 
   FaChartBar, 
   FaCalendarAlt,
-  FaUserCircle,
   FaPlus,
   FaTrash,
   FaSave,
@@ -234,7 +233,7 @@ const PmRequestManpower = () => {
           
           <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
             <div className="profile-avatar">
-              <FaUserCircle />
+              {userName ? userName.charAt(0).toUpperCase() : 'P'}
             </div>
             <div className="profile-info">
               <span className="profile-name">{userName}</span>

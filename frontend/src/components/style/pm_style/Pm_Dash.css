@@ -35,12 +35,12 @@ body {
 
 /* Dashboard Container */
 .dashboard-container {
-  height: 100vh;
+  height: 100vh; /* Fixed height to enable scrolling */
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   margin: 0;
   padding: 0;
   width: 100%;
-  overflow: auto; /* Allow scrolling */
+  overflow: hidden; /* Prevent container scrolling */
   position: relative;
   display: flex;
   flex-direction: column;
@@ -209,8 +209,17 @@ body {
 }
 
 .profile-avatar {
-  font-size: 2rem;
-  color: #cbd5e1;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 1.125rem;
+  text-transform: uppercase;
 }
 
 .profile-info {
@@ -220,15 +229,18 @@ body {
 }
 
 .profile-name {
-  font-weight: 600;
-  font-size: 0.875rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #0f172a;
+  line-height: 1.2;
 }
 
 .profile-role {
-  font-size: 0.75rem;
-  color: #94a3b8;
+  font-size: 0.8rem;
+  color: #475569;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-weight: 500;
 }
 
 .profile-dropdown {
@@ -270,10 +282,11 @@ body {
   margin: 0 auto;
   width: 100%;
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow-y: auto; /* Enable vertical scrolling */
+  overflow-x: hidden; /* Prevent horizontal scrolling */
   position: relative;
   right: 0;
+  min-height: 0; /* Allow flex item to shrink */
 }
 
 .dashboard-grid {
@@ -283,7 +296,8 @@ body {
   align-items: start;
   width: 100%;
   overflow: visible;
-  min-height: 100%;
+  min-height: auto;
+  padding-bottom: 8rem; /* Much more bottom padding for extensive scrolling */
 }
 
 /* ===================== DASHBOARD CARDS ===================== */
@@ -324,6 +338,7 @@ body {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1.5rem;
+  background: hsla(0, 0%, 0%, 0);
 }
 
 .card-actions {
@@ -400,20 +415,22 @@ body {
 }
 
 .welcome-card .card-header {
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
+  background-color: hsla(0, 0%, 0%, 0);
 }
 
 .welcome-content h2 {
   font-size: 2rem;
   font-weight: 700;
-  margin-bottom: 0.5rem;
-  color: white;
+  margin-bottom: 1rem;
+  
 }
 
 .welcome-subtitle {
   font-size: 1rem;
   color: rgba(255, 255, 255, 0.9);
   margin: 0;
+  margin-bottom: 2rem;
 }
 
 .project-badge {
@@ -434,7 +451,8 @@ body {
 .project-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
+  gap: 2rem;
+  margin-top: 1rem;
 }
 
 .stat-item {
@@ -1169,8 +1187,8 @@ body {
   position: relative;
 }
 
-.chats-card .card-header,
-.requests-card .card-header {
+.chats-card 
+.requests-card  {
   padding-bottom: 1rem;
   margin-bottom: 1rem;
   border-bottom: 1px solid #e2e8f0;
