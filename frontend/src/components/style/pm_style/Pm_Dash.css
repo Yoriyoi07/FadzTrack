@@ -390,9 +390,9 @@ body {
 /* ===================== WELCOME CARD ===================== */
 .welcome-card {
   grid-column: 1 / -1;
-  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
-  color: white;
-  border: none;
+  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%) !important;
+  color: white !important;
+  border: none !important;
 }
 
 .welcome-card::before {
@@ -634,17 +634,17 @@ body {
 }
 
 .chat-message {
-  color: #64748b !important;
+  color: #1e293b !important;
   font-size: 0.875rem !important;
   margin: 0 !important;
   line-height: 1.4 !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
   max-width: 100% !important;
   display: block !important;
-  word-wrap: normal !important;
-  word-break: normal !important;
+  word-wrap: break-word !important;
+  word-break: break-word !important;
 }
 
 /* ===================== REQUESTS CARD ===================== */

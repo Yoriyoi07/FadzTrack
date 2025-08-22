@@ -1,6 +1,6 @@
 // src/utils/projectPdf.js
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 /* ---------- helpers ---------- */
 const pesoIntl = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' });
@@ -190,7 +190,7 @@ export async function exportProjectDetails(project, opts = {}) {
   ];
   if (includeBudget) detailsRows.splice(1, 0, ['Budget', pesoText(project?.budget)]);
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: detailsStartY,
     head: [['Field', 'Value']],
     body: detailsRows,
@@ -210,7 +210,7 @@ export async function exportProjectDetails(project, opts = {}) {
   if (includeStaff && Array.isArray(project?.staff)) project.staff.forEach((s) => staffRows.push(['Staff', s?.name || '']));
 
   if (staffRows.length) {
-    doc.autoTable({
+    autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 18,
       head: [['Role', 'Name']],
       body: staffRows,

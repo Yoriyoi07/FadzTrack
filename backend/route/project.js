@@ -57,6 +57,9 @@ router.get('/:id', controller.getProjectById);
 router.patch('/:id/tasks', verifyToken, controller.updateProjectTasks);
 router.patch('/:id/toggle-status', controller.toggleProjectStatus);
 
+/* ---------- Project Users for Mentions ---------- */
+router.get('/:id/users', verifyToken, controller.getProjectUsers);
+
 /* ---------- Discussions — accept ANY attachment field ---------- */
 router.get('/:id/discussions', verifyToken, controller.getProjectDiscussions);
 router.post('/:id/discussions', verifyToken, upload.any(), controller.addProjectDiscussion);

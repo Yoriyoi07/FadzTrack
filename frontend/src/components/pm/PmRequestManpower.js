@@ -1,16 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import api from '../../api/axiosInstance'; // Adjust the path if needed
+import api from '../../api/axiosInstance';
 import '../style/pm_style/Pm_ManpowerRequest.css';
 import NotificationBell from '../NotificationBell';
 // Nav icons
-import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaEye, FaClipboardList, FaChartBar, FaCalendarAlt } from 'react-icons/fa';
-
-const chats = [
-  { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
-  { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
-  { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
-];
+import { 
+  FaTachometerAlt, 
+  FaComments, 
+  FaBoxes, 
+  FaUsers, 
+  FaEye, 
+  FaClipboardList, 
+  FaChartBar, 
+  FaCalendarAlt,
+  FaUserCircle,
+  FaPlus,
+  FaTrash,
+  FaSave,
+  FaArrowLeft
+} from 'react-icons/fa';
 
 const PmRequestManpower = () => {
   const navigate = useNavigate();
@@ -19,6 +27,7 @@ const PmRequestManpower = () => {
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
   const [userName, setUserName] = useState(user?.name || 'ALECK');
+  const [userRole, setUserRole] = useState(user?.role || '');
   const { id } = useParams();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [project, setProject] = useState(null);
@@ -108,7 +117,7 @@ const PmRequestManpower = () => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
+      if (!event.target.closest(".user-profile")) {
         setProfileMenuOpen(false);
       }
     };
@@ -117,9 +126,13 @@ const PmRequestManpower = () => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
+    api.post('/auth/logout', {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).finally(() => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    });
   };
 
   useEffect(() => {
@@ -193,93 +206,151 @@ const PmRequestManpower = () => {
     }
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="dashboard-container">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Loading manpower request form...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      {/* Header/Nav always at the top, like your list page */}
-      <header className="header">
-  <div className="logo-container">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
-  </div>
-
-  <nav className="nav-menu">
-    <Link to="/pm" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/pm/chat" className="nav-link"><FaComments /> Chat</Link>
-    <Link to="/pm/request/:id" className="nav-link"><FaBoxes /> Material</Link>
-    <Link to="/pm/manpower-list" className="nav-link"><FaUsers /> Manpower</Link>
-    {project && (
-      <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">
-        <FaEye /> View Project
-      </Link>
-    )}
-    <Link to="/pm/daily-logs" className="nav-link"><FaClipboardList /> Logs</Link>
-    {project && (
-      <Link to={`/pm/progress-report/${project._id}`} className="nav-link">
-        <FaChartBar /> Reports
-      </Link>
-    )}
-    <Link to="/pm/daily-logs-list" className="nav-link"><FaCalendarAlt /> Daily Logs</Link>
-  </nav>
-
-  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-    <NotificationBell />
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-    </div>
-    {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-    )}
-  </div>
-</header>
-
-      {/* Main two-column layout */}
-      <div className="dashboard-layout" style={{ display: 'flex', minHeight: '100vh' }}>
-        {/* Sidebar (identical to your list page) */}
-        <div
-          className="sidebar"
-          style={{
-            minWidth: 270,
-            background: "#f7f9fa",
-            borderRight: "1px solid #ececec",
-            minHeight: "100vh",
-            display: 'flex',
-            flexDirection: 'column',
-            boxShadow: "none",
-            padding: 0,
-            margin: 0
-          }}
-        >
-          <div style={{ fontWeight: 600, fontSize: 20, margin: '28px 0 22px 0', marginLeft: 24 }}>Chats</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {chats.map(chat => (
-              <div key={chat.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 22px', borderRadius: 10, background: '#fff', margin: '0 18px 8px 12px', boxShadow: '0 1px 5px 0 rgba(25,25,25,0.04)', cursor: 'pointer', transition: 'background .2s' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: chat.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 20 }}>{chat.initial}</div>
-                <div>
-                  <div style={{ fontWeight: 500, fontSize: 15 }}>{chat.name}</div>
-                  <div style={{ fontSize: 13, color: '#767676', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 135 }}>
-                    {chat.message}
-                  </div>
-                </div>
+    <div className="dashboard-container">
+      {/* Modern Header - Same as PM Dashboard */}
+      <header className="dashboard-header">
+        {/* Top Row: Logo and Profile */}
+        <div className="header-top">
+          <div className="logo-section">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="header-logo"
+            />
+            <h1 className="header-brand">FadzTrack</h1>
+          </div>
+          
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">
+              <FaUserCircle />
+            </div>
+            <div className="profile-info">
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-dropdown">
+                <button onClick={handleLogout} className="logout-btn">
+                  <span>Logout</span>
+                </button>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
-        {/* Main Content Area */}
-        <div style={{ flex: 1, minHeight: "100vh" }}>
-          <main className="main-content">
-            <div className="form-container">
-              <h2 className="page-title">{editMode ? "Edit Manpower Request" : "Request Manpower"}</h2>
-              <form onSubmit={handleSubmit} className="project-form">
-                {/* Acquisition Date & Duration */}
+        {/* Bottom Row: Navigation and Notifications */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/pm" className="nav-item">
+              <FaTachometerAlt />
+              <span>Dashboard</span>
+            </Link>
+            <Link to="/pm/chat" className="nav-item">
+              <FaComments />
+              <span>Chat</span>
+            </Link>
+            <Link to="/pm/request/:id" className="nav-item">
+              <FaBoxes />
+              <span>Material</span>
+            </Link>
+            <Link to="/pm/manpower-list" className="nav-item active">
+              <FaUsers />
+              <span>Manpower</span>
+            </Link>
+            {project && (
+              <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-item">
+                <FaEye />
+                <span>View Project</span>
+              </Link>
+            )}
+            <Link to="/pm/daily-logs" className="nav-item">
+              <FaClipboardList />
+              <span>Logs</span>
+            </Link>
+            {project && (
+              <Link to={`/pm/progress-report/${project._id}`} className="nav-item">
+                <FaChartBar />
+                <span>Reports</span>
+              </Link>
+            )}
+            <Link to="/pm/daily-logs-list" className="nav-item">
+              <FaCalendarAlt />
+              <span>Daily Logs</span>
+            </Link>
+          </nav>
+          
+          <NotificationBell />
+        </div>
+      </header>
+
+      {/* Main Content Area */}
+      <main className="dashboard-main">
+        <div className="content-wrapper">
+          {/* Page Header */}
+          <div className="page-header">
+            <div className="page-header-content">
+              <button 
+                onClick={() => navigate('/pm/manpower-list')} 
+                className="back-button"
+              >
+                <FaArrowLeft />
+                <span>Back to Manpower List</span>
+              </button>
+              <div className="page-title-section">
+                <h1 className="page-title">
+                  {editMode ? "Edit Manpower Request" : "Request Manpower"}
+                </h1>
+                <p className="page-subtitle">
+                  {editMode 
+                    ? "Update your manpower request details" 
+                    : "Submit a new manpower request for your project"
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Form Container */}
+          <div className="form-container">
+            <form onSubmit={handleSubmit} className="manpower-form">
+              {/* Project Information */}
+              {project && (
+                <div className="form-section">
+                  <div className="section-header">
+                    <h3>Project Information</h3>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group full-width">
+                      <label htmlFor="projectName">Project Name</label>
+                      <input
+                        type="text"
+                        id="projectName"
+                        value={project.projectName || 'Project Name Not Available'}
+                        readOnly
+                        className="readonly-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Request Details */}
+              <div className="form-section">
+                <div className="section-header">
+                  <h3>Request Details</h3>
+                </div>
                 <div className="form-row">
                   <div className="form-group">
                     <label htmlFor="acquisitionDate">Target Acquisition Date</label>
@@ -290,6 +361,7 @@ const PmRequestManpower = () => {
                       value={formData.acquisitionDate}
                       onChange={handleChange}
                       required
+                      className="form-input"
                     />
                   </div>
                   <div className="form-group">
@@ -303,115 +375,125 @@ const PmRequestManpower = () => {
                       value={formData.duration}
                       onChange={handleChange}
                       required
+                      className="form-input"
                     />
                   </div>
                 </div>
+              </div>
 
-                {/* Project Name (read-only) */}
-                {project && (
-                  <div className="form-row">
-                    <div className="form-group" style={{ width: '100%' }}>
-                      <label>Project</label>
-                      <input
-                        type="text"
-                        value={project.projectName}
-                        readOnly
-                      />
-                    </div>
+              {/* Manpower Requirements */}
+              <div className="form-section">
+                <div className="section-header">
+                  <h3>Manpower Requirements</h3>
+                  <p className="section-description">
+                    Specify the types and quantities of manpower needed
+                  </p>
+                </div>
+                
+                <div className="manpower-table">
+                  <div className="table-header">
+                    <div className="header-cell">Type of Manpower</div>
+                    <div className="header-cell">Quantity</div>
+                    <div className="header-cell actions">Actions</div>
                   </div>
-                )}
-
-                {/* Dynamic Manpower Rows */}
-                <div style={{ marginTop: '18px' }}>
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Type of Manpower</label>
-                    </div>
-                    <div className="form-group">
-                      <label>Quantity</label>
-                    </div>
-                    <div style={{ width: '80px' }}></div>
-                  </div>
+                  
                   {formData.manpowers.map((mp, idx) => (
-                    <div className="form-row manpower-row" key={idx}>
-                      <div className="form-group">
+                    <div className="table-row" key={idx}>
+                      <div className="table-cell">
                         <input
                           type="text"
-                          name={`manpowerType_${idx}`}
-                          placeholder="Type of Manpower"
+                          placeholder="e.g., Electrician, Plumber, Carpenter"
                           value={mp.type}
                           onChange={e => handleManpowerChange(idx, 'type', e.target.value)}
                           required
+                          className="form-input"
                         />
                       </div>
-                      <div className="form-group">
+                      <div className="table-cell">
                         <input
                           type="number"
-                          name={`manpowerQuantity_${idx}`}
-                          placeholder="Quantity"
+                          placeholder="Number of workers"
                           min="1"
                           value={mp.quantity}
                           onChange={e => handleManpowerChange(idx, 'quantity', e.target.value)}
                           required
+                          className="form-input"
                         />
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (formData.manpowers.length > 1) removeManpowerRow(idx);
-                        }}
-                        className="remove-btn"
-                        title={
-                          formData.manpowers.length === 1
-                            ? "At least one manpower row is required"
-                            : "Remove this manpower requirement"
-                        }
-                        disabled={formData.manpowers.length === 1}
-                        style={{
-                          opacity: formData.manpowers.length === 1 ? 0.6 : 1,
-                          cursor: formData.manpowers.length === 1 ? 'not-allowed' : 'pointer'
-                        }}
-                      >
-                        Remove
-                      </button>
+                      <div className="table-cell actions">
+                        <button
+                          type="button"
+                          onClick={() => removeManpowerRow(idx)}
+                          className="remove-btn"
+                          title="Remove this manpower requirement"
+                          disabled={formData.manpowers.length === 1}
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
                     </div>
                   ))}
-                  <div className="button-container">
-                    <button
-                      type="button"
-                      onClick={addManpowerRow}
-                      className="add-btn"
-                    >
-                      <span>+</span> Add Another
-                    </button>
-                  </div>
                 </div>
+                
+                <div className="add-manpower-section">
+                  <button
+                    type="button"
+                    onClick={addManpowerRow}
+                    className="add-manpower-btn"
+                  >
+                    <FaPlus />
+                    <span>Add Another Manpower Type</span>
+                  </button>
+                </div>
+              </div>
 
-                {/* Description */}
+              {/* Description */}
+              <div className="form-section">
+                <div className="section-header">
+                  <h3>Request Description</h3>
+                  <p className="section-description">
+                    Provide detailed information about your manpower request
+                  </p>
+                </div>
                 <div className="form-row">
-                  <div className="form-group" style={{ width: '100%' }}>
-                    <label htmlFor="description">Request Description</label>
+                  <div className="form-group full-width">
+                    <label htmlFor="description">Description</label>
                     <textarea
                       id="description"
                       name="description"
-                      placeholder="Provide a detailed description of your request"
+                      placeholder="Describe the specific requirements, skills needed, work scope, and any other relevant details..."
                       value={formData.description}
                       onChange={handleChange}
-                      rows={5}
+                      rows={6}
                       required
+                      className="form-textarea"
                     ></textarea>
                   </div>
                 </div>
-                <div className="form-row submit-row">
-                  <button type="submit" className="submit-button">
-                    {editMode ? "Save Changes" : "Submit Manpower Request"}
+              </div>
+
+              {/* Submit Section */}
+              <div className="form-section submit-section">
+                <div className="submit-actions">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/pm/manpower-list')}
+                    className="cancel-btn"
+                  >
+                    Cancel
+                  </button>
+                  <button type="submit" className="submit-btn">
+                    <FaSave />
+                    <span>
+                      {editMode ? "Update Request" : "Submit Request"}
+                    </span>
                   </button>
                 </div>
-              </form>
-            </div>
-          </main>
+              </div>
+            </form>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

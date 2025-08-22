@@ -3,15 +3,30 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 import {
-  FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaEye,
-  FaClipboardList, FaChartBar, FaCalendarAlt
+  FaTachometerAlt, 
+  FaComments, 
+  FaBoxes, 
+  FaUsers, 
+  FaEye,
+  FaClipboardList, 
+  FaChartBar, 
+  FaCalendarAlt,
+  FaUserCircle,
+  FaArrowLeft,
+  FaEdit,
+  FaTrash,
+  FaCheck,
+  FaTimes,
+  FaCalendarPlus,
+  FaUserTie,
+  FaProjectDiagram,
+  FaClock,
+  FaFileAlt,
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaHourglassHalf
 } from 'react-icons/fa';
-
-const chats = [
-  { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
-  { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
-  { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
-];
+import '../style/pm_style/Pm_ManpowerRequestDetail.css';
 
 export default function PmRequestedManpowerDetail() {
   const { id } = useParams();
@@ -47,16 +62,20 @@ export default function PmRequestedManpowerDetail() {
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (!e.target.closest('.profile-menu-container')) setProfileMenuOpen(false);
+      if (!e.target.closest('.user-profile')) setProfileMenuOpen(false);
     };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
+    api.post('/auth/logout', {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).finally(() => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      navigate('/');
+    });
   };
 
   // load request
@@ -145,7 +164,7 @@ export default function PmRequestedManpowerDetail() {
       await api.put(`/manpower-requests/${id}/approve`, {
         manpowerProvided: selectedManpowerIds,
         project: request.project._id,       // destination
-        // NOTE: we’re NOT sending "area" anymore to avoid the ObjectId confusion
+        // NOTE: we're NOT sending "area" anymore to avoid the ObjectId confusion
       });
       alert('✅ Approved');
       const { data } = await api.get(`/manpower-requests/${id}`);
@@ -210,135 +229,303 @@ export default function PmRequestedManpowerDetail() {
   const sourceProjectName = pmProject?.projectName || 'your project';
   const destProjectName = request?.project?.projectName || 'this project';
 
-  if (loading) return <div style={{ padding: 24 }}>Loading...</div>;
-  if (error || !request) return <div style={{ color: 'red', padding: 24 }}>{error || 'Request not found.'}</div>;
+  const getStatusIcon = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+        return <FaCheckCircle className="status-icon approved" />;
+      case 'rejected':
+        return <FaTimes className="status-icon rejected" />;
+      case 'pending':
+        return <FaHourglassHalf className="status-icon pending" />;
+      default:
+        return <FaHourglassHalf className="status-icon pending" />;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="dashboard-container">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Loading manpower request details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !request) {
+    return (
+      <div className="dashboard-container">
+        <div className="error-container">
+          <FaExclamationTriangle className="error-icon" />
+          <p>{error || 'Request not found.'}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      {/* HEADER / NAV like the PM pages */}
-      <header className="header">
-        <div className="logo-container">
-          <img
-            src={require('../../assets/images/FadzLogo1.png')}
-            alt="FadzTrack Logo"
-            className="logo-img"
-          />
-          <h1 className="brand-name">FadzTrack</h1>
+    <div className="dashboard-container">
+      {/* Modern Header - Same as PM Dashboard */}
+      <header className="dashboard-header">
+        {/* Top Row: Logo and Profile */}
+        <div className="header-top">
+          <div className="logo-section">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="header-logo"
+            />
+            <h1 className="header-brand">FadzTrack</h1>
+          </div>
+          
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">
+              <FaUserCircle />
+            </div>
+            <div className="profile-info">
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-dropdown">
+                <button onClick={handleLogout} className="logout-btn">
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        <nav className="nav-menu">
-          <Link to="/pm" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-          <Link to="/pm/chat" className="nav-link"><FaComments /> Chat</Link>
-          <Link to="/pm/request/:id" className="nav-link"><FaBoxes /> Material</Link>
-          <Link to="/pm/manpower-list" className="nav-link"><FaUsers /> Manpower</Link>
-          {pmProject && (
-            <Link to={`/pm/viewprojects/${pmProject._id || pmProject.id}`} className="nav-link">
-              <FaEye /> View Project
+        {/* Bottom Row: Navigation and Notifications */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/pm" className="nav-item">
+              <FaTachometerAlt />
+              <span>Dashboard</span>
             </Link>
-          )}
-          <Link to="/pm/daily-logs" className="nav-link"><FaClipboardList /> Logs</Link>
-          {pmProject && (
-            <Link to={`/pm/progress-report/${pmProject._id}`} className="nav-link">
-              <FaChartBar /> Reports
+            <Link to="/pm/chat" className="nav-item">
+              <FaComments />
+              <span>Chat</span>
             </Link>
-          )}
-          <Link to="/pm/daily-logs-list" className="nav-link"><FaCalendarAlt /> Daily Logs</Link>
-        </nav>
-
-        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            <Link to="/pm/request/:id" className="nav-item">
+              <FaBoxes />
+              <span>Material</span>
+            </Link>
+            <Link to="/pm/manpower-list" className="nav-item active">
+              <FaUsers />
+              <span>Manpower</span>
+            </Link>
+            {pmProject && (
+              <Link to={`/pm/viewprojects/${pmProject._id || pmProject.id}`} className="nav-item">
+                <FaEye />
+                <span>View Project</span>
+              </Link>
+            )}
+            <Link to="/pm/daily-logs" className="nav-item">
+              <FaClipboardList />
+              <span>Logs</span>
+            </Link>
+            {pmProject && (
+              <Link to={`/pm/progress-report/${pmProject._id}`} className="nav-item">
+                <FaChartBar />
+                <span>Reports</span>
+              </Link>
+            )}
+            <Link to="/pm/daily-logs-list" className="nav-item">
+              <FaCalendarAlt />
+              <span>Daily Logs</span>
+            </Link>
+          </nav>
+          
           <NotificationBell />
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
         </div>
       </header>
 
-      <div className="dashboard-layout">
-        {/* Sidebar (optional) */}
-        <div className="sidebar">
-          <div className="chats-section">
-            <h3 className="chats-title">Chats</h3>
-            <div className="chats-list">
-              {chats.map(chat => (
-                <div key={chat.id} className="chat-item">
-                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
-                  <div className="chat-info">
-                    <div className="chat-name">{chat.name}</div>
-                    <div className="chat-message">{chat.message}</div>
-                  </div>
-                </div>
-              ))}
+      {/* Main Content Area */}
+      <main className="dashboard-main">
+        <div className="content-wrapper">
+          {/* Page Header */}
+          <div className="page-header">
+            <div className="page-header-content">
+              <button 
+                onClick={() => navigate('/pm/manpower-list')} 
+                className="back-button"
+              >
+                <FaArrowLeft />
+                <span>Back to Manpower List</span>
+              </button>
+              <div className="page-title-section">
+                <h1 className="page-title">
+                  Manpower Request Details
+                </h1>
+                <p className="page-subtitle">
+                  Review and manage manpower request #{request.requestNumber || id?.slice(-3)}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Main */}
-        <main className="main-content" style={{ position: 'relative' }}>
-          <div className="form-container" style={{ minWidth: 550, marginTop: 30, marginBottom: 40 }}>
-            {/* received toggle once approved */}
-            {isApproved && (
-              <div style={{ position: 'absolute', right: 40, top: 25, zIndex: 2 }}>
-                <label style={{ fontWeight: 600, marginRight: 12 }}>Mark as Received</label>
-                <input type="checkbox" checked={markReceived} onChange={handleToggleReceived} style={{ transform: 'scale(1.5)' }} />
+          {/* Request Details Container */}
+          <div className="request-details-container">
+                         {/* Status Banner */}
+             <div className={`status-banner ${request.status?.toLowerCase()}`}>
+               {/* Overdue Ribbon for Pending Requests */}
+               {request.status?.toLowerCase() === 'pending' && 
+                request.acquisitionDate && 
+                new Date(request.acquisitionDate) < new Date() && (
+                 <div className="overdue-ribbon">
+                   <span>OVERDUE</span>
+                 </div>
+               )}
+               
+               <div className="status-content">
+                 {getStatusIcon(request.status)}
+                 <div className="status-info">
+                   <h3 className="status-title">
+                     {request.status || 'Pending'} Request
+                   </h3>
+                   <p className="status-description">
+                     {request.status?.toLowerCase() === 'approved' 
+                       ? 'This request has been approved and manpower assigned'
+                       : request.status?.toLowerCase() === 'rejected'
+                       ? 'This request has been rejected'
+                       : isMine 
+                         ? 'Awaiting approval from another project manager'
+                         : 'Waiting for approval'
+                     }
+                   </p>
+                 </div>
+               </div>
+               
+               {/* Received Toggle for Approved Requests */}
+               {isApproved && (
+                 <div className="received-toggle">
+                   <label className="toggle-label">
+                     <input 
+                       type="checkbox" 
+                       checked={markReceived} 
+                       onChange={handleToggleReceived}
+                       className="toggle-input"
+                     />
+                     <span className="toggle-text">Mark as Received</span>
+                   </label>
+                 </div>
+               )}
+             </div>
+
+            {/* Request Information Cards */}
+            <div className="info-grid">
+              {/* Basic Info Card */}
+              <div className="info-card">
+                <div className="card-header">
+                  <FaFileAlt className="card-icon" />
+                  <h3>Request Information</h3>
+                </div>
+                <div className="card-content">
+                  <div className="info-row">
+                    <span className="info-label">Request Number:</span>
+                    <span className="info-value">#{request.requestNumber || id?.slice(-3)}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">Created By:</span>
+                    <span className="info-value">
+                      <FaUserTie className="inline-icon" />
+                      {request.createdBy?.name || 'Unknown'}
+                    </span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">Project:</span>
+                    <span className="info-value">
+                      <FaProjectDiagram className="inline-icon" />
+                      {request.project?.projectName || 'Unknown Project'}
+                    </span>
+                  </div>
+                </div>
               </div>
-            )}
 
-            {/* Title */}
-            <h2 style={{ textAlign: 'center', fontSize: 32, fontWeight: 700 }}>
-              Manpower Req. {request.requestNumber || id?.slice(-3)}
-            </h2>
-            <div style={{ textAlign: 'center', fontSize: 16, fontWeight: 500, marginBottom: 15 }}>
-              {request.project?.projectName} | Engr. {request.createdBy?.name}
+              {/* Timeline Card */}
+              <div className="info-card">
+                <div className="card-header">
+                  <FaClock className="card-icon" />
+                  <h3>Timeline</h3>
+                </div>
+                <div className="card-content">
+                  <div className="info-row">
+                    <span className="info-label">Target Date:</span>
+                    <span className="info-value">
+                      {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : 'Not set'}
+                    </span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">Duration:</span>
+                    <span className="info-value">{request.duration} days</span>
+                  </div>
+                  {request.returnDate && (
+                    <div className="info-row">
+                      <span className="info-label">Return Date:</span>
+                      <span className="info-value">
+                        {new Date(request.returnDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
-            {/* Meta */}
-            <div style={{ display: 'flex', flexDirection: 'row', gap: 40, justifyContent: 'center', marginBottom: 12 }}>
-              <div><b>Target Acquisition Date:</b><br />{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : ''}</div>
-              <div><b>Duration:</b><br />{request.duration} days</div>
-            </div>
-
-            {/* Summary */}
-            <div style={{ margin: '0 auto', width: 320, marginBottom: 24 }}>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Request Summary</div>
-              <div style={{ border: '1px solid #ddd', borderRadius: 8, padding: 12, minHeight: 60, background: '#fafbfd', fontSize: 16 }}>
-                {Array.isArray(request?.manpowers) && request.manpowers.length > 0
-                  ? request.manpowers.map((mp, i) => <div key={i}>{mp.quantity} {mp.type}</div>)
-                  : <div>No manpower types listed</div>}
+            {/* Manpower Requirements */}
+            <div className="requirements-card">
+              <div className="card-header">
+                <FaUsers className="card-icon" />
+                <h3>Manpower Requirements</h3>
+              </div>
+              <div className="card-content">
+                {Array.isArray(request?.manpowers) && request.manpowers.length > 0 ? (
+                  <div className="manpower-grid">
+                    {request.manpowers.map((mp, i) => (
+                      <div key={i} className="manpower-item">
+                        <div className="manpower-quantity">{mp.quantity}</div>
+                        <div className="manpower-type">{mp.type}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="no-manpower">
+                    <p>No manpower types listed</p>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Description */}
-            <div style={{ margin: '0 auto', width: 480, marginBottom: 24 }}>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Request Description</div>
-              <textarea
-                value={request.description || ''}
-                readOnly
-                style={{ width: '100%', minHeight: 70, border: '1px solid #ddd', borderRadius: 8, padding: 10, background: '#fafbfd', resize: 'none' }}
-              />
+            <div className="description-card">
+              <div className="card-header">
+                <FaFileAlt className="card-icon" />
+                <h3>Request Description</h3>
+              </div>
+              <div className="card-content">
+                <div className="description-text">
+                  {request.description || 'No description provided'}
+                </div>
+              </div>
             </div>
 
-            {/* ===== APPROVAL PANEL (Others' request only) ===== */}
+            {/* Approval Panel (Others' request only) */}
             {!isMine && isPM && !isApproved && (
-              <div style={{
-                margin: '0 auto', width: 520, padding: 16, borderRadius: 12,
-                border: '1px solid #e5e7eb', background: '#ffffff', boxShadow: '0 2px 10px rgba(0,0,0,.04)'
-              }}>
-                <div style={{ fontWeight: 800, marginBottom: 10 }}>
-                  Approve & assign <span style={{ color: '#1d4ed8' }}>from {sourceProjectName}</span> →{' '}
-                  <span style={{ color: '#16a34a' }}>{destProjectName}</span>
+              <div className="approval-panel">
+                <div className="panel-header">
+                  <h3>Approve & Assign Manpower</h3>
+                  <p className="panel-description">
+                    Transfer manpower from <span className="source-project">{sourceProjectName}</span> to{' '}
+                    <span className="dest-project">{destProjectName}</span>
+                  </p>
                 </div>
 
-                {/* Manpower from THIS PM's project */}
-                <div>
-                  <label style={{ fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                <div className="manpower-selection">
+                  <label className="selection-label">
                     Select manpower from your project
                   </label>
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div className="selection-controls">
                     <select
                       defaultValue=""
                       onChange={(e) => {
@@ -346,7 +533,7 @@ export default function PmRequestedManpowerDetail() {
                         if (!val) return;
                         setSelectedManpowerIds(prev => (prev.includes(val) ? prev : [...prev, val]));
                       }}
-                      style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: '1px solid #e5e7eb' }}
+                      className="manpower-select"
                     >
                       <option value="">
                         {pmProject ? 'Pick manpower…' : 'No PM project found'}
@@ -362,7 +549,7 @@ export default function PmRequestedManpowerDetail() {
                     <button
                       type="button"
                       onClick={() => setSelectedManpowerIds([])}
-                      style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #e5e7eb', background: '#fff', fontWeight: 700 }}
+                      className="clear-btn"
                       title="Clear selection"
                     >
                       Clear
@@ -370,18 +557,15 @@ export default function PmRequestedManpowerDetail() {
                   </div>
 
                   {selectedManpowerIds.length > 0 && (
-                    <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 8, border: '1px dashed #e5e7eb', borderRadius: 10, padding: 10 }}>
+                    <div className="selected-manpower">
                       {selectedManpowerIds.map(idv => {
                         const mp = availableManpowers.find(m => m._id === idv);
                         return (
-                          <span key={idv} style={{
-                            display: 'inline-flex', alignItems: 'center',
-                            padding: '6px 10px', borderRadius: 999, background: '#eef2ff', color: '#4338ca', fontWeight: 700
-                          }}>
+                          <span key={idv} className="manpower-tag">
                             {mp ? `${mp.name} (${mp.position})` : idv}
                             <button
                               onClick={() => setSelectedManpowerIds(prev => prev.filter(x => x !== idv))}
-                              style={{ marginLeft: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: '#3730a3', fontWeight: 900 }}
+                              className="remove-tag-btn"
                               title="Remove"
                             >
                               ×
@@ -393,64 +577,59 @@ export default function PmRequestedManpowerDetail() {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 14 }}>
+                <div className="approval-actions">
                   <button
                     onClick={handleDeny}
                     disabled={busy}
-                    style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #e5e7eb', background: '#fff', fontWeight: 800, color: '#991b1b' }}
+                    className="deny-btn"
                   >
-                    Deny
+                    <FaTimes />
+                    <span>Deny Request</span>
                   </button>
                   <button
                     onClick={handleApprove}
                     disabled={busy || selectedManpowerIds.length === 0}
-                    style={{ padding: '10px 14px', border: 'none', borderRadius: 10, fontWeight: 800, color: '#fff', background: '#2e7d32' }}
+                    className="approve-btn"
                   >
-                    {busy ? 'Processing…' : 'Approve & Assign'}
+                    <FaCheck />
+                    <span>{busy ? 'Processing…' : 'Approve & Assign'}</span>
                   </button>
                 </div>
               </div>
             )}
 
-            {/* CREATOR ACTIONS */}
+            {/* Creator Actions */}
             {isMine && !isApproved && (
-              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 18 }}>
-                <button
-                  onClick={handleEdit}
-                  style={{ width: 180, height: 40, background: '#3a539b', color: '#fff', border: 'none', borderRadius: 6, fontSize: 16, fontWeight: 700 }}
-                >
-                  Edit Request
+              <div className="creator-actions">
+                <button onClick={handleEdit} className="edit-btn">
+                  <FaEdit />
+                  <span>Edit Request</span>
                 </button>
-                <button
-                  onClick={handleCancel}
-                  style={{ width: 200, height: 40, background: '#c0392b', color: '#fff', border: 'none', borderRadius: 6, fontSize: 16, fontWeight: 700 }}
-                >
-                  Cancel Request
+                <button onClick={handleCancel} className="cancel-btn">
+                  <FaTrash />
+                  <span>Cancel Request</span>
                 </button>
               </div>
             )}
 
-            {/* RETURN SCHEDULING */}
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 18 }}>
+            {/* Return Scheduling & Navigation */}
+            <div className="bottom-actions">
               <button
                 onClick={() => navigate(-1)}
-                style={{ width: 160, height: 40, background: '#6b7280', color: '#fff', border: 'none', borderRadius: 6, fontSize: 16, fontWeight: 700 }}
+                className="back-btn"
               >
-                Back
+                <FaArrowLeft />
+                <span>Go Back</span>
               </button>
 
               {isApproved && !request.returnDate && (
                 <button
                   onClick={handleScheduleReturn}
                   disabled={!markReceived}
-                  style={{
-                    width: 220, height: 40,
-                    background: markReceived ? '#3a539b' : '#aaa',
-                    color: '#fff', border: 'none', borderRadius: 6, fontSize: 16, fontWeight: 700,
-                    cursor: markReceived ? 'pointer' : 'not-allowed'
-                  }}
+                  className={`schedule-btn ${!markReceived ? 'disabled' : ''}`}
                 >
-                  Schedule for Return
+                  <FaCalendarPlus />
+                  <span>Schedule Return</span>
                 </button>
               )}
             </div>
@@ -458,32 +637,30 @@ export default function PmRequestedManpowerDetail() {
 
           {/* Calendar Modal */}
           {showCalendar && (
-            <div style={{
-              position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-              background: 'rgba(0,0,0,0.25)', zIndex: 999, display: 'flex', justifyContent: 'center', alignItems: 'center'
-            }}>
-              <div style={{
-                background: '#fff', borderRadius: 10, boxShadow: '0 2px 8px #0002',
-                padding: 32, width: 360, display: 'flex', flexDirection: 'column', alignItems: 'center'
-              }}>
-                <h3>Schedule Return Date</h3>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  min={new Date().toISOString().split('T')[0]}
-                  onChange={e => setSelectedDate(e.target.value)}
-                  style={{ fontSize: 18, padding: 8, margin: '20px 0', width: '100%' }}
-                />
-                <div style={{ display: 'flex', gap: 24 }}>
+            <div className="modal-overlay">
+              <div className="calendar-modal">
+                <div className="modal-header">
+                  <h3>Schedule Return Date</h3>
+                </div>
+                <div className="modal-content">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={e => setSelectedDate(e.target.value)}
+                    className="date-input"
+                  />
+                </div>
+                <div className="modal-actions">
                   <button
-                    style={{ padding: '8px 24px', borderRadius: 6, background: '#3a539b', color: '#fff', fontSize: 16 }}
+                    className="confirm-btn"
                     disabled={!selectedDate}
                     onClick={handleDateConfirm}
                   >
                     Confirm
                   </button>
                   <button
-                    style={{ padding: '8px 24px', borderRadius: 6, background: '#c0392b', color: '#fff', fontSize: 16 }}
+                    className="cancel-modal-btn"
                     onClick={() => setShowCalendar(false)}
                   >
                     Cancel
@@ -492,8 +669,8 @@ export default function PmRequestedManpowerDetail() {
               </div>
             </div>
           )}
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

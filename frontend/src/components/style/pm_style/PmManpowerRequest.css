@@ -170,80 +170,199 @@
 /* ===================== REQUESTS GRID ===================== */
 .requests-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.5rem;
   margin-bottom: 2rem;
+  justify-items: center;
 }
 
 .requests-grid.table-view {
   display: block;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Table Header */
+.table-view .table-header {
+  display: grid;
+  grid-template-columns: 150px 120px 1fr 140px 100px 80px 100px 100px;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1rem;
+  background: transparent;
+  border-bottom: 1px solid #e2e8f0;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.table-view .table-header > div {
+  padding-left: 0;
+  margin-left: 0;
+}
+
+.table-view .table-header .header-project {
+  grid-column: 1;
+}
+
+.table-view .table-header .header-requester {
+  grid-column: 2;
+}
+
+.table-view .table-header .header-details {
+  grid-column: 3;
+}
+
+.table-view .table-header .header-manpower {
+  grid-column: 4;
+}
+
+.table-view .table-header .header-target-date {
+  grid-column: 5;
+}
+
+.table-view .table-header .header-duration {
+  grid-column: 6;
+}
+
+.table-view .table-header .header-date-posted {
+  grid-column: 7;
+}
+
+.table-view .table-header .header-actions {
+  grid-column: 8;
+  text-align: center;
+  justify-self: center;
 }
 
 /* Request Card */
 .request-card {
-  background: white;
-  border-radius: 16px;
-  border: none;
-  overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-  position: relative;
+  background: white !important;
+  border-radius: 16px !important;
+  border: none !important;
+  overflow: hidden !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+  position: relative !important;
+}
+
+/* ===================== OVERDUE RIBBON ===================== */
+.overdue-ribbon {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  padding: 0.5rem 1.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  transform: rotate(0deg);
+  z-index: 10;
+}
+
+.overdue-ribbon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -10px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 10px 10px 0;
+  border-color: transparent #dc2626 transparent transparent;
+}
+
+.overdue-ribbon::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  right: -10px;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 10px 0 0 10px;
+  border-color: transparent transparent transparent #dc2626;
+}
+
+/* Force drop shadow on all request cards */
+.request-card,
+.request-card.status-pending,
+.request-card.status-approved,
+.request-card.status-rejected {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
 }
 
 /* Status-based card styling */
 .request-card.status-pending {
-  border-color: #f59e0b;
-  background: linear-gradient(145deg, #ffffff 0%, #fefce8 100%);
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+  border: none !important;
+  background: linear-gradient(145deg, #ffffff 0%, #fefce8 100%) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
 }
 
 .request-card.status-approved {
-  border-color: #10b981;
-  background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+  border: none !important;
+  background: linear-gradient(145deg, #ffffff 0%, #f0fdf4 100%) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
 }
 
 .request-card.status-rejected {
-  border-color: #ef4444;
-  background: linear-gradient(145deg, #ffffff 0%, #fef2f2 100%);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+  border: none !important;
+  background: linear-gradient(145deg, #ffffff 0%, #fef2f2 100%) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Status-specific hover effects */
+.request-card.status-pending:hover {
+  outline: 2px solid #f59e0b;
+}
+
+.request-card.status-approved:hover {
+  outline: 2px solid #10b981;
+}
+
+.request-card.status-rejected:hover {
+  outline: 2px solid #ef4444;
 }
 
 /* Ensure text readability on all status backgrounds */
 .request-card.status-pending .meta-label,
 .request-card.status-pending .meta-value,
-.request-card.status-pending .project-name,
 .request-card.status-pending .request-title {
   color: #000000 !important;
 }
 
 .request-card.status-approved .meta-label,
 .request-card.status-approved .meta-value,
-.request-card.status-approved .project-name,
 .request-card.status-approved .request-title {
   color: #000000 !important;
 }
 
 .request-card.status-rejected .meta-label,
 .request-card.status-rejected .meta-value,
-.request-card.status-rejected .project-name,
 .request-card.status-rejected .request-title {
   color: #000000 !important;
 }
 
 .request-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid #cbd5e1;
+  outline: 2px solid #e2e8f0;
 }
 
-.card-header {
+.request-card .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.0625rem 0.75rem;
-  border-bottom: 1px solid #f1f5f9;
-  background: rgba(248, 250, 252, 0.6);
+  padding: 0 !important;
+  border-bottom: none !important;
+  background: transparent !important;
 }
 
 .request-icon {
@@ -273,27 +392,74 @@
   letter-spacing: 0.025em;
 }
 
-.card-body {
-  padding: 0.25rem 0.75rem 0.75rem 0.75rem;
+.request-card .card-body {
+  padding: 0.5rem 0.75rem 0.25rem 0.75rem !important;
 }
 
-.project-name {
-  font-size: 0.875rem;
-  font-weight: 700;
+/* Force card spacing override */
+.requests-grid .request-card .card-body {
+  padding: 0.5rem 0.75rem 0.25rem 0.75rem !important;
+}
+
+/* Force center alignment for project names - HIGHEST PRIORITY */
+.request-card .request-title,
+.request-card .card-body .request-title,
+.request-card .card-body .request-title *,
+.requests-grid .request-card .request-title,
+.requests-grid .request-card .card-body .request-title {
+  font-size: 1.125rem !important;
+  font-weight: 700 !important;
   color: #1e293b !important;
-  margin: 0 0 0.125rem 0;
-  line-height: 1.2;
-  letter-spacing: -0.025em;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.025em !important;
+  text-align: center !important;
+}
+
+/* Force center alignment for project names */
+.request-card .card-body .request-title {
+  text-align: center !important;
+  display: block !important;
+  width: 100% !important;
+}
+
+/* Override any conflicting text-align rules */
+.request-card .card-body .request-title,
+.request-card .card-body .request-title * {
+  text-align: center !important;
+}
+
+/* ULTIMATE OVERRIDE - Force project name centering */
+.request-card .card-body .request-title {
+  text-align: center !important;
+  text-align-last: center !important;
+  -webkit-text-align: center !important;
+  -moz-text-align: center !important;
+  -ms-text-align: center !important;
+}
+
+/* OVERRIDE IMPORTED STYLES FROM PM_DASH.CSS */
+.requests-grid .request-card .request-title,
+.requests-grid .request-card .card-body .request-title,
+.requests-grid .request-card .card-body .request-title * {
+  text-align: center !important;
+  font-size: 1.125rem !important;
+  font-weight: 700 !important;
+  margin: 0 !important;
 }
 
 .request-title {
-  font-size: 1rem;
+  font-size: 1.125rem;
   font-weight: 800;
   color: #1e293b !important;
-  margin: 0 0 0.25rem 0;
+  margin: 0 0 0.125rem 0;
   line-height: 1.1;
   letter-spacing: -0.025em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .request-description {
@@ -306,12 +472,14 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   font-style: italic;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .request-meta {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .meta-item {
@@ -342,18 +510,37 @@
   font-size: 0.75rem;
 }
 
-.card-footer {
-  padding: 0.75rem;
-  background: rgba(248, 250, 252, 0.8);
-  border-top: 1px solid #f1f5f9;
+.request-card .card-footer {
+  padding: 0.5rem 0.75rem;
+  background: transparent !important;
+  border-top: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Force card footer spacing override */
+.requests-grid .request-card .card-footer {
+  padding: 0.5rem 0.75rem !important;
+  background: transparent !important;
+  border-top: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Force footer transparency */
+.request-card .card-footer,
+.request-card .card-footer * {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* View Details Button */
-.view-details-btn {
+.request-card .view-details-btn {
   display: inline-block;
   padding: 0.625rem 1rem;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-  color: white;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+  color: white !important;
   text-decoration: none;
   border-radius: 8px;
   font-weight: 600;
@@ -363,6 +550,8 @@
   width: 100%;
   border: none;
   cursor: pointer;
+  outline: none;
+  box-shadow: none;
 }
 
 .view-details-btn:hover {
@@ -373,94 +562,237 @@
 
 /* ===================== TABLE VIEW STYLES ===================== */
 .table-view .request-card {
-  display: flex;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.5rem;
-  border-radius: 8px;
-}
-
-.table-view .card-header {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 150px 120px 1fr 140px 100px 80px 100px 100px;
   gap: 1rem;
-  padding: 0;
-  border: none;
-  flex: 1;
+  align-items: center;
+  padding: 1rem 1rem;
+  background: white;
+  border-bottom: 1px solid #e2e8f0;
+  transition: background-color 0.2s ease;
+  margin-bottom: 1rem;
+  min-height: 60px;
 }
 
-.table-view .request-icon {
-  width: 32px;
-  height: 32px;
-  font-size: 0.875rem;
+/* Add tooltip support for truncated text */
+.table-view .request-title,
+.table-view .requester-info,
+.table-view .details-info,
+.table-view .manpower-info,
+.table-view .target-date-info,
+.table-view .duration-info,
+.table-view .date-posted-info {
+  position: relative;
 }
 
-.table-view .card-body {
+.table-view .request-title:hover::after,
+.table-view .requester-info:hover::after,
+.table-view .details-info:hover::after,
+.table-view .manpower-info:hover::after,
+.table-view .target-date-info:hover::after,
+.table-view .duration-info:hover::after,
+.table-view .date-posted-info:hover::after {
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: white;
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+}
+
+.table-view .request-card:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.table-view .request-card:hover {
+  background: #f8fafc;
+}
+
+/* Project Column */
+.table-view .card-header {
+  grid-column: 1;
   display: flex;
   align-items: center;
-  gap: 2rem;
+  justify-content: flex-start;
+  height: 100%;
+  margin: 0;
   padding: 0;
-  flex: 2;
+  padding-left: 0;
 }
 
 .table-view .request-title {
   font-size: 0.875rem;
   margin: 0;
-  min-width: 120px;
-}
-
-.table-view .project-name {
-  font-size: 1rem;
-  margin: 0;
-  min-width: 150px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
-}
-
-.table-view .request-description {
-  font-size: 0.75rem;
-  margin: 0;
-  min-width: 150px;
-  -webkit-line-clamp: 1;
-}
-
-.table-view .request-meta {
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  line-height: 1;
   display: flex;
-  flex-direction: row;
-  gap: 2rem;
   align-items: center;
+  height: 100%;
 }
 
-.table-view .meta-item {
+/* Requester Column */
+.table-view .card-body {
+  grid-column: 2;
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
-  min-width: 100px;
-}
-
-.table-view .meta-label {
-  font-size: 0.65rem;
-  color: #6b7280;
-}
-
-.table-view .meta-value {
-  font-size: 0.75rem;
-  color: #000000;
-  font-weight: 700;
-  text-align: left;
-  max-width: none;
-}
-
-.table-view .card-footer {
+  gap: 0.25rem;
+  align-items: flex-start;
+  justify-content: center;
+  height: 100%;
+  margin: 0;
   padding: 0;
-  background: transparent;
-  border: none;
-  flex: 0 0 auto;
+  padding-left: 0;
+}
+
+.table-view .requester-info {
+  font-size: 0.75rem;
+  color: #1e293b;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  line-height: 1;
+}
+
+/* Details Column */
+.table-view .request-details {
+  grid-column: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 100%;
+  overflow: hidden;
+  align-items: flex-start;
+  justify-content: center;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  padding-left: 0;
+}
+
+.table-view .details-info {
+  font-size: 0.75rem;
+  color: #1e293b;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  line-height: 1;
+}
+
+/* Manpower Column */
+.table-view .request-meta {
+  grid-column: 4;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  height: 100%;
+  margin: 0;
+  padding-left: 0 !important;
+}
+
+.table-view .manpower-info {
+  font-size: 0.75rem;
+  color: #1e293b;
+  font-weight: 600;
+  text-align: left !important;
+  line-height: 1;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Target Date Column */
+.table-view .target-date-info {
+  grid-column: 5;
+  font-size: 0.75rem;
+  color: #1e293b;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+  padding-left: 0;
+}
+
+/* Duration Column */
+.table-view .duration-info {
+  grid-column: 6;
+  font-size: 0.75rem;
+  color: #1e293b;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+  padding-left: 0;
+}
+
+/* Date Posted Column */
+.table-view .date-posted-info {
+  grid-column: 7;
+  font-size: 0.75rem;
+  color: #1e293b;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+  padding-left: 0;
+}
+
+/* Actions Column */
+.table-view .card-footer {
+  grid-column: 8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
 }
 
 .table-view .view-details-btn {
   padding: 0.375rem 0.75rem;
   font-size: 0.7rem;
+  min-width: 80px;
 }
 
 /* Layout Toggle Buttons */
@@ -772,9 +1104,17 @@
 }
 
 /* ===================== RESPONSIVE DESIGN ===================== */
+@media (min-width: 1400px) {
+  .requests-grid {
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2rem;
+  }
+}
+
 @media (max-width: 1200px) {
   .requests-grid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.25rem;
   }
 }
 
@@ -858,6 +1198,47 @@
     height: auto;
     padding: 0.75rem;
   }
+  
+  /* Table view mobile adjustments */
+  .table-view .request-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+  }
+  
+  .table-view .card-header,
+  .table-view .card-body,
+  .table-view .card-footer {
+    flex: none;
+    width: 100%;
+  }
+  
+  .table-view .request-meta {
+    flex-direction: row !important;
+    gap: 0 !important;
+  }
+  
+  .table-view .meta-item {
+    min-width: auto;
+  }
+  
+  .overdue-ribbon {
+    padding: 0.5rem 1.25rem;
+    font-size: 0.7rem;
+  }
+  
+  .overdue-ribbon::before {
+    border-width: 0 9px 9px 0;
+    left: -9px;
+  }
+  
+  .overdue-ribbon::after {
+    border-width: 9px 0 0 9px;
+    right: -9px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -889,6 +1270,21 @@
   .pagination-controls {
     flex-wrap: wrap;
     justify-content: center;
+  }
+  
+  .overdue-ribbon {
+    padding: 0.375rem 1rem;
+    font-size: 0.7rem;
+  }
+  
+  .overdue-ribbon::before {
+    border-width: 0 8px 8px 0;
+    left: -8px;
+  }
+  
+  .overdue-ribbon::after {
+    border-width: 8px 0 0 8px;
+    right: -8px;
   }
 }
 

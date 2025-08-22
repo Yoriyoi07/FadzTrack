@@ -364,61 +364,135 @@ export default function PmManpowerList() {
                 <p>No requests match your current filters. Try adjusting your search criteria.</p>
               </div>
             ) : (
-              pageRows.map(request => {
-                const summary = (request.manpowers || [])
-                  .map((m) => `${m.quantity} ${m.type}`)
-                  .join(', ');
-
-                                 return (
-                                       <div className={`request-card status-${(request.status || 'pending').toLowerCase()}`} key={request._id}>
-                      <div className="card-header">
-                      </div>
-                    
-                    <div className="card-body">
-                      <h3 className="request-title">
-                        {request.project?.projectName || '(No Project Name)'}
-                      </h3>
-                      <p className="request-description">{request.description || 'No description provided'}</p>
-                      
-                      <div className="request-meta">
-                        <div className="meta-item">
-                          <span className="meta-label">Requested by:</span>
-                          <span className="meta-value">{request.createdBy?.name || 'Unknown'}</span>
-                        </div>
-                        <div className="meta-item">
-                          <span className="meta-label">Manpower needed:</span>
-                          <span className="meta-value">{summary || '—'}</span>
-                        </div>
-                        <div className="meta-item">
-                          <span className="meta-label">Date:</span>
-                          <span className="meta-value">
-                            {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
-                          </span>
-                        </div>
-                        <div className="meta-item">
-                          <span className="meta-label">Target Date:</span>
-                          <span className="meta-value">
-                            {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}
-                          </span>
-                        </div>
-                        <div className="meta-item">
-                          <span className="meta-label">Duration:</span>
-                          <span className="meta-value">{request.duration || '—'} day(s)</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="card-footer">
-                      <Link
-                        to={`/pm/manpower-request/${request._id}`}
-                        className="view-details-btn"
-                      >
-                        View Details
-                      </Link>
-                    </div>
+              <>
+                {/* Table Header */}
+                {layoutView === 'table' && (
+                  <div className="table-header">
+                    <div className="header-project">Project Name</div>
+                    <div className="header-requester">Requestor</div>
+                    <div className="header-details">Details</div>
+                    <div className="header-manpower">Manpower Needed</div>
+                    <div className="header-target-date">Target Date</div>
+                    <div className="header-duration">Duration</div>
+                    <div className="header-date-posted">Date Posted</div>
+                    <div className="header-actions">View Request</div>
                   </div>
-                );
-              })
+                )}
+                
+                {pageRows.map(request => {
+                  const summary = (request.manpowers || [])
+                    .map((m) => `${m.quantity} ${m.type}`)
+                    .join(', ');
+
+                  if (layoutView === 'table') {
+                    // Table View Layout
+                    return (
+                      <div className={`request-card status-${(request.status || 'pending').toLowerCase()}`} key={request._id}>
+                        {/* Overdue Ribbon for Pending Requests */}
+                        {request.status?.toLowerCase() === 'pending' && 
+                         request.acquisitionDate && 
+                         new Date(request.acquisitionDate) < new Date() && (
+                          <div className="overdue-ribbon">
+                            <span>OVERDUE</span>
+                          </div>
+                        )}
+                        <div className="card-header">
+                          <h3 className="request-title">
+                            {request.project?.projectName || '(No Project Name)'}
+                          </h3>
+                        </div>
+                        
+                        <div className="card-body">
+                          <div className="requester-info">
+                            {request.createdBy?.name || 'Unknown'}
+                          </div>
+                        </div>
+                        
+                        <div className="request-details">
+                          <div className="details-info">
+                            {request.description || 'No description'}
+                          </div>
+                        </div>
+                        
+                        <div className="request-meta">
+                          <div className="manpower-info">
+                            {summary || '—'}
+                          </div>
+                        </div>
+                        
+                        <div className="target-date-info">
+                          {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}
+                        </div>
+                        
+                        <div className="duration-info">
+                          {request.duration || '—'} day(s)
+                        </div>
+                        
+                        <div className="date-posted-info">
+                          {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}
+                        </div>
+                        
+                        <div className="card-footer">
+                          <Link
+                            to={`/pm/manpower-request/${request._id}`}
+                            className="view-details-btn"
+                          >
+                            View Request
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    // Card View Layout (Original)
+                    return (
+                      <div className={`request-card status-${(request.status || 'pending').toLowerCase()}`} key={request._id}>
+                        <div className="card-body">
+                          <h3 className="request-title">
+                            {request.project?.projectName || '(No Project Name)'}
+                          </h3>
+                          <p className="request-description">{request.description || 'No description provided'}</p>
+                          
+                          <div className="request-meta">
+                            <div className="meta-item">
+                              <span className="meta-label">Requested by:</span>
+                              <span className="meta-value">{request.createdBy?.name || 'Unknown'}</span>
+                            </div>
+                            <div className="meta-item">
+                              <span className="meta-label">Manpower needed:</span>
+                              <span className="meta-value">{summary || '—'}</span>
+                            </div>
+                            <div className="meta-item">
+                              <span className="meta-label">Date:</span>
+                              <span className="meta-value">
+                                {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}
+                              </span>
+                            </div>
+                            <div className="meta-item">
+                              <span className="meta-label">Target Date:</span>
+                              <span className="meta-value">
+                                {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}
+                              </span>
+                            </div>
+                            <div className="meta-item">
+                              <span className="meta-label">Duration:</span>
+                              <span className="meta-value">{request.duration || '—'} day(s)</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="card-footer">
+                          <Link
+                            to={`/pm/manpower-request/${request._id}`}
+                            className="view-details-btn"
+                          >
+                            View Details
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  }
+                })}
+              </>
             )}
           </div>
 

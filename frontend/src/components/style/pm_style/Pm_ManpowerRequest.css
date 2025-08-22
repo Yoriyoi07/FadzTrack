@@ -1,229 +1,537 @@
-/* --- Modern Card Styling for Form (Inspired by AddProject) --- */
-.main-content {
-  padding: 40px;
-  background-color: #f3f6fb;
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
+/* ===================== PM MANPOWER REQUEST STYLES ===================== */
+
+/* Import PM Dashboard styles for header consistency */
+@import url('./Pm_Dash.css');
+
+/* ===================== MAIN CONTENT LAYOUT ===================== */
+.dashboard-main {
+  flex: 1;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  min-height: calc(100vh - 140px); /* Account for header height */
+  overflow-y: auto;
 }
 
-.form-container {
-  background-color: #ffffff;
-  padding: 40px;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-  max-width: 960px;
-  width: 100%;
-  animation: fadeIn 0.3s ease-in-out;
+.content-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ===================== PAGE HEADER ===================== */
+.page-header {
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.page-header-content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #475569;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.back-button:hover {
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.page-title-section {
+  flex: 1;
 }
 
 .page-title {
-  font-size: 26px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.page-subtitle {
+  font-size: 0.95rem;
+  color: #64748b;
+  margin: 0;
+  font-weight: 400;
+}
+
+/* ===================== FORM CONTAINER ===================== */
+.form-container {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  overflow: hidden;
+}
+
+.manpower-form {
+  padding: 0;
+}
+
+/* ===================== FORM SECTIONS ===================== */
+.form-section {
+  padding: 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.form-section:last-child {
+  border-bottom: none;
+}
+
+.section-header {
+  margin-bottom: 1rem;
+}
+
+.section-header h3 {
+  font-size: 1.1rem;
   font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 16px;
-  text-align: center; 
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
 }
 
-.project-form {
-  display: flex;
-  flex-direction: column;
+.section-description {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.4;
 }
 
+/* ===================== FORM ROWS AND GROUPS ===================== */
 .form-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 2px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.form-row:last-child {
+  margin-bottom: 0;
 }
 
 .form-group {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  margin-bottom: 6px; 
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
 }
 
 .form-group label {
   font-weight: 500;
-  color: #2c3e50;
-  margin-bottom: 4px; 
+  color: #374151;
+  margin-bottom: 0.375rem;
+  font-size: 0.9rem;
 }
 
-.form-group input,
-.form-group select,
-.form-group textarea {
-  padding: 12px 16px;
-  font-size: 14px;
-  border: 1px solid #dfe6e9;
-  border-radius: 10px;
-  transition: border 0.2s ease;
-  background-color: #fff;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: #3498db;
-}
-
-textarea {
-  resize: vertical;
-}
-
-.submit-button {
-  background-color: #3498db;
-  color: #fff;
-  border: none;
-  padding: 14px 24px;
-  font-size: 16px;
-  font-weight: 600;
+/* ===================== FORM INPUTS ===================== */
+.form-input,
+.form-textarea,
+.readonly-input {
+  padding: 0.625rem 0.75rem;
+  border: 2px solid #e2e8f0;
   border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  background: #ffffff;
+  color: #1f2937;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.readonly-input {
+  background: #f8fafc;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+/* ===================== MANPOWER TABLE ===================== */
+.manpower-table {
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 60px;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  padding: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.header-cell {
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.header-cell.actions {
+  text-align: center;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 60px;
+  padding: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.table-row:last-child {
+  border-bottom: none;
+}
+
+.table-cell {
+  display: flex;
+  align-items: center;
+}
+
+.table-cell.actions {
+  justify-content: center;
+}
+
+/* ===================== BUTTONS ===================== */
+.add-manpower-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.2s ease;
-  width: 100%;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
 }
 
-.submit-button:hover {
-  background-color: #2980b9;
+.add-manpower-btn:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
-/* Responsive Tweaks */
-@media (max-width: 768px) {
-  .form-row {
-    flex-direction: column;
+.remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.8rem;
+}
+
+.remove-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: scale(1.05);
+}
+
+.remove-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ===================== SUBMIT SECTION ===================== */
+.submit-section {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-top: 1px solid #e2e8f0;
+}
+
+.submit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.cancel-btn {
+  padding: 0.625rem 1.25rem;
+  background: #ffffff;
+  color: #64748b;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.cancel-btn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.submit-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.5rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.submit-btn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* ===================== LOADING STATES ===================== */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  gap: 1rem;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ===================== RESPONSIVE DESIGN ===================== */
+@media (max-width: 1024px) {
+  .dashboard-main {
+    padding: 1rem;
   }
+  
+  .content-wrapper {
+    max-width: 100%;
+  }
+  
+  .page-header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .form-section {
+    padding: 1rem;
+  }
+}
 
-  .add-btn,
-  .submit-button,
-  .remove-btn {
+@media (max-width: 768px) {
+  .dashboard-main {
+    padding: 0.75rem;
+  }
+  
+  .page-header {
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .form-section {
+    padding: 0.75rem;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  
+  .table-header,
+  .table-row {
+    grid-template-columns: 1fr 1fr 50px;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+  
+  .submit-actions {
+    flex-direction: column;
     width: 100%;
   }
+  
+  .cancel-btn,
+  .submit-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .page-title {
+    font-size: 1.25rem;
+  }
+  
+  .page-subtitle {
+    font-size: 0.9rem;
+  }
 }
 
-/* Fade in animation */
+@media (max-width: 480px) {
+  .dashboard-main {
+    padding: 0.5rem;
+  }
+  
+  .page-header {
+    padding: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .form-section {
+    padding: 0.5rem;
+  }
+  
+  .table-header,
+  .table-row {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+  
+  .header-cell.actions,
+  .table-cell.actions {
+    display: none;
+  }
+  
+  .remove-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 24px;
+    height: 24px;
+    font-size: 0.7rem;
+  }
+  
+  .table-row {
+    position: relative;
+    padding-top: 2rem;
+  }
+  
+  .page-title {
+    font-size: 1.1rem;
+  }
+  
+  .page-subtitle {
+    font-size: 0.8rem;
+  }
+}
+
+/* ===================== ANIMATIONS ===================== */
+.form-container {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.form-section {
+  animation: fadeIn 0.4s ease-out;
+}
+
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-/* Retain existing button styles */
-/* Add Another Button Styling */
-.add-btn {
-  background-color: #28a745;
-  color: white;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 6px;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
+/* ===================== ACCESSIBILITY ===================== */
+.form-input:focus-visible,
+.form-textarea:focus-visible,
+.add-manpower-btn:focus-visible,
+.remove-btn:focus-visible,
+.submit-btn:focus-visible,
+.cancel-btn:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
 }
 
-.add-btn:hover {
-  background-color: #218838;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .form-input,
+  .form-textarea {
+    border-width: 3px;
+  }
+  
+  .submit-btn,
+  .add-manpower-btn {
+    border: 2px solid #000000;
+  }
 }
 
-.add-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
-}
-
-/* Remove Button Styling */
-.remove-btn {
-  background-color: #dc3545;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 80px;
-  height: 36px;
-  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
-}
-
-.remove-btn:hover {
-  background-color: #c82333;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
-}
-
-.remove-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
-}
-
-.button-container {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 8px;
-  margin-bottom: 20px;
-}
-
-.form-row.manpower-row {
-  display: flex;
-  align-items: center;
-  margin-bottom: 16px;
-  border-radius: 10px;
-}
-
-.form-row.manpower-row .form-group {
-  flex: 1;
-  margin-bottom: 0;
-}
-
-.form-row.manpower-row .form-group input {
-  width: 100%;
-  box-sizing: border-box;
-    border-radius: 10px;
-}
-
-.form-row.manpower-row .remove-btn {
-  flex-shrink: 0;
-  margin-top: 0;
-  align-self: center;
-  width: 80px;
-}
-/* Icon + text spacing for PM header */
-.nav-link {
-  display: flex;
-  align-items: center;
-  gap: 6px;              /* space between icon and label */
-  line-height: 1;
-  padding: 6px 8px;
-  border-radius: 6px;
-  transition: color .15s ease, background-color .15s ease;
-}
-
-.nav-link svg {
-  font-size: 1.05rem;    /* consistent icon size */
-  flex-shrink: 0;
-}
-
-.nav-link:hover {
-  color: #cfd8ff;
-  background-color: rgba(255,255,255,0.08);
-}
-
-/* Optional active state if using NavLink */
-.nav-link.active {
-  background-color: rgba(255,255,255,0.14);
-  color: #fff;
-}
-
-@media (max-width: 900px) {
-  .nav-menu { gap: 1rem; }
-  .nav-link { gap: 5px; padding: 6px 6px; }
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .form-container,
+  .form-section {
+    animation: none;
+  }
+  
+  .submit-btn:hover,
+  .add-manpower-btn:hover,
+  .remove-btn:hover {
+    transform: none;
+  }
 }

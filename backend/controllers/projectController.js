@@ -4,6 +4,7 @@ const { logAction } = require('../utils/auditLogger');
 const Manpower = require('../models/Manpower');
 const supabase = require('../utils/supabaseClient');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const PDFDocument = require('pdfkit');
 
 // NEW: AI deps
@@ -712,8 +713,24 @@ exports.getProjectDiscussions = async (req, res) => {
       .populate('discussions.user', 'name')
       .populate('discussions.replies.user', 'name');
     if (!project) return res.status(404).json({ error: 'Project not found' });
+    
+    console.log('🔍 Fetching discussions for project:', req.params.id);
+    console.log('🔍 Number of discussions:', project.discussions?.length || 0);
+    console.log('🔍 First discussion sample:', project.discussions?.[0]);
+    console.log('🔍 All discussions with labels:');
+    project.discussions?.forEach((disc, index) => {
+      console.log(`🔍 Discussion ${index}:`, {
+        _id: disc._id,
+        text: disc.text?.substring(0, 50) + '...',
+        label: disc.label,
+        labelType: typeof disc.label,
+        hasLabel: !!disc.label
+      });
+    });
+    
     res.json(project.discussions || []);
   } catch (err) {
+    console.error('❌ Error fetching discussions:', err);
     res.status(500).json({ error: 'Failed to fetch discussions' });
   }
 };
@@ -741,6 +758,9 @@ async function uploadDiscussionFiles(projectId, incomingFiles = []) {
 exports.addProjectDiscussion = async (req, res) => {
   try {
     const text = (req.body?.text || '').trim();
+    const label = req.body?.label || '';
+    console.log('🔍 Backend received label:', label);
+    console.log('🔍 Backend received body:', req.body);
     const projectId = req.params.id;
     const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ error: 'Project not found' });
@@ -757,24 +777,58 @@ exports.addProjectDiscussion = async (req, res) => {
       text,
       timestamp: new Date(),
       replies: [],
-      attachments: uploadedAttachments
+      attachments: uploadedAttachments,
+      label
     };
+    console.log('🔍 Discussion object being saved:', discussion);
 
+    // 1) Persist the message (this is the critical operation)
     project.discussions.push(discussion);
+    console.log('💾 About to save project with discussion');
     await project.save();
+    console.log('✅ Project saved successfully');
 
-    const io = req.app.get('io');
-    if (io) {
-      const added = project.discussions[project.discussions.length - 1];
-      io.to(`project:${projectId}`).emit('project:newDiscussion', {
-        projectId,
-        message: added
-      });
-    }
-    res.json(project.discussions[project.discussions.length - 1]);
+    // Get the added discussion for response
+    const responseData = project.discussions[project.discussions.length - 1];
+    console.log('📤 Backend sending response:', responseData);
+    console.log('📤 Response label:', responseData.label);
+    console.log('📤 Response label type:', typeof responseData.label);
+    
+    // 2) Send the HTTP response now (this is the success contract)
+    res.status(201).json(responseData);
+
+    // 3) Fire-and-forget side effects; don't let errors crash the route
+    process.nextTick(async () => {
+      try {
+        console.log('🔄 Starting side effects...');
+        
+        // TEMPORARILY DISABLED: All side effects for debugging
+        console.log('📢 All side effects temporarily disabled for debugging');
+        console.log('📡 Socket.IO disabled');
+        console.log('📢 Notifications disabled');
+        
+      } catch (sideEffectError) {
+        console.error('❌ Error in side effects (non-critical):', sideEffectError);
+      }
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to post discussion' });
+    console.error('❌ Error in addProjectDiscussion:', err);
+    console.error('❌ Error stack:', err.stack);
+    console.error('❌ Error name:', err.name);
+    console.error('❌ Error message:', err.message);
+    console.error('❌ Error code:', err.code);
+    
+    // Check if this is a validation error
+    if (err.name === 'ValidationError') {
+      console.error('❌ Validation error details:', err.errors);
+    }
+    
+    // Check if this is a MongoDB error
+    if (err.code) {
+      console.error('❌ MongoDB error code:', err.code);
+    }
+    
+    res.status(500).json({ error: 'Failed to post discussion', details: err.message });
   }
 };
 
@@ -803,19 +857,30 @@ exports.replyToProjectDiscussion = async (req, res) => {
       attachments: uploadedAttachments
     };
 
+    // 1) Persist the reply (this is the critical operation)
     discussion.replies.push(reply);
     await project.save();
 
-    const io = req.app.get('io');
-    if (io) {
-      const addedReply = discussion.replies[discussion.replies.length - 1];
-      io.to(`project:${projectId}`).emit('project:newReply', {
-        projectId,
-        msgId,
-        reply: addedReply
-      });
-    }
-    res.json(discussion.replies[discussion.replies.length - 1]);
+    // Get the added reply for response
+    const responseReply = discussion.replies[discussion.replies.length - 1];
+    
+    // 2) Send the HTTP response now (this is the success contract)
+    res.status(201).json(responseReply);
+
+    // 3) Fire-and-forget side effects; don't let errors crash the route
+    process.nextTick(async () => {
+      try {
+        console.log('🔄 Starting reply side effects...');
+        
+        // TEMPORARILY DISABLED: All side effects for debugging
+        console.log('📢 All reply side effects temporarily disabled for debugging');
+        console.log('📡 Socket.IO disabled');
+        console.log('📢 Reply notifications disabled');
+        
+      } catch (sideEffectError) {
+        console.error('❌ Error in reply side effects (non-critical):', sideEffectError);
+      }
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to post reply' });
@@ -1313,7 +1378,49 @@ exports.getReportSignedUrl = async (req, res) => {
   }
 };
 
-/* ====================== REPORTS: Upload + AI ====================== */
+/* --- GET PROJECT USERS FOR MENTIONS --- */
+exports.getProjectUsers = async (req, res) => {
+  console.log('🎯 getProjectUsers endpoint called!');
+  console.log('🎯 Request params:', req.params);
+  console.log('🎯 Request headers:', req.headers);
+  
+  try {
+    const { id } = req.params;
+    console.log('🔍 getProjectUsers called for project ID:', id);
+    
+    const project = await Project.findById(id);
+    if (!project) {
+      console.log('❌ Project not found:', id);
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    console.log('📋 Project found:', project.projectName);
+    console.log('👥 Project manager:', project.projectmanager);
+    console.log('👥 PIC:', project.pic);
+    console.log('👥 Staff:', project.staff);
+    console.log('👥 HR Site:', project.hrsite);
+    console.log('👥 Area Manager:', project.areamanager);
+
+    // Get all users in the project (PM, PIC, Staff, HR Site, Area Manager)
+    const projectUsers = await User.find({
+      $or: [
+        { _id: project.projectmanager },
+        { _id: { $in: project.pic || [] } },
+        { _id: { $in: project.staff || [] } },
+        { _id: { $in: project.hrsite || [] } },
+        { _id: project.areamanager }
+      ]
+    }).select('name _id');
+
+    console.log('✅ Found project users:', projectUsers);
+    res.json(projectUsers);
+  } catch (err) {
+    console.error('❌ Error fetching project users:', err);
+    res.status(500).json({ message: 'Failed to fetch project users' });
+  }
+};
+
+/* ====================== UPLOAD PROJECT REPORTS ====================== */
 exports.uploadProjectReport = async (req, res) => {
   try {
     const { id } = req.params;

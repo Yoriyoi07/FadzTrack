@@ -21,7 +21,12 @@ const discussionSchema = new mongoose.Schema({
   text: String,
   timestamp: Date,
   attachments: [attachmentSchema],
-  replies: [replySchema]
+  replies: [replySchema],
+  label: { 
+    type: String, 
+    enum: ['', 'Important', 'Announcement', 'Update', 'Reminder', 'Urgent'], 
+    default: '' 
+  }
 }, { _id: true });
 
 /* ---------------- AI (reports) schemas ---------------- */
