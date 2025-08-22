@@ -412,8 +412,6 @@ const Pm_Project = () => {
         const list = Array.isArray(res.data) ? [...res.data].sort(
           (a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0)
         ) : [];
-        console.log('📥 Fetched discussions:', list);
-        console.log('📥 Discussions with labels:', list.filter(msg => msg.label));
         setMessages(list);
       })
       .catch(() => setMessages([]))
@@ -557,82 +555,41 @@ const Pm_Project = () => {
 
     // Join project room
     socket.emit('joinProject', `project:${project._id}`);
-    console.log('🏠 Joined project room:', `project:${project._id}`);
 
     // Handle new discussion
-    const handleNewDiscussion = (data) => {
-      console.log('📨 Received new discussion:', data);
-      console.log('📨 Comparing projectId:', data.projectId, 'with project._id:', project._id);
-      console.log('📨 Types - data.projectId:', typeof data.projectId, 'project._id:', typeof project._id);
-      console.log('📨 Message ID:', data.message?._id);
-      console.log('📨 Message label:', data.message?.label);
-      
-      if (String(data.projectId) === String(project._id) && data.message) {
-        const messageId = String(data.message._id);
-        
-        // Check if we've already processed this message ID
-        if (processedMessageIds.has(messageId)) {
-          console.log('⚠️ Message ID already processed, skipping:', messageId);
-          return;
-        }
-        
-        console.log('✅ Adding new discussion to state');
-        setMessages(prev => {
-          console.log('📊 Current messages count:', prev.length);
-          console.log('📊 Current message IDs:', prev.map(msg => msg._id));
-          
-          // Check if this message already exists to prevent duplicates
-          const exists = prev.some(msg => String(msg._id) === messageId);
-          if (exists) {
-            console.log('⚠️ Message already exists in state, skipping duplicate');
-            console.log('⚠️ Existing message ID:', messageId);
-            return prev;
-          }
-          
-          console.log('✅ Message is new, adding to state');
-          const newList = [...prev, data.message];
-          const sortedList = newList.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
-          console.log('📊 New messages count:', sortedList.length);
-          
-          // Mark this message ID as processed
-          processedMessageIds.add(messageId);
-          
-          return sortedList;
-        });
-      } else {
-        console.log('❌ Project ID mismatch or no message data');
-      }
-    };
+const handleNewDiscussion = (data) => {
+  if (String(data.projectId) === String(project._id) && data.message) {
+    const messageId = String(data.message._id);
+    if (processedMessageIds.has(messageId)) return;
 
-    // Handle new reply
-    const handleNewReply = (data) => {
-      console.log('📨 Received new reply:', data);
-      console.log('📨 Comparing projectId:', data.projectId, 'with project._id:', project._id);
-      if (String(data.projectId) === String(project._id) && data.msgId && data.reply) {
-        console.log('✅ Adding new reply to state');
-        setMessages(prev => prev.map(msg => {
-          if (String(msg._id) === String(data.msgId)) {
-            // Check if this reply already exists to prevent duplicates
-            const replyExists = (msg.replies || []).some(reply => String(reply._id) === String(data.reply._id));
-            if (replyExists) {
-              console.log('⚠️ Reply already exists, skipping duplicate');
-              return msg;
-            }
-            return {
-              ...msg,
-              replies: [...(msg.replies || []), data.reply]
-            };
-          }
-          return msg;
-        }));
-      } else {
-        console.log('❌ Project ID mismatch or missing reply data');
+    setMessages(prev => {
+      const newList = [...prev, data.message];
+      return newList.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    });
+    processedMessageIds.add(messageId);
+  }
+};
+
+const handleNewReply = (data) => {
+  if (String(data.projectId) === String(project._id) && data.msgId && data.reply) {
+    setMessages(prev => prev.map(msg => {
+      if (String(msg._id) === String(data.msgId)) {
+        const replyExists = msg.replies?.some(reply => String(reply._id) === String(data.reply._id));
+        if (!replyExists) {
+          return { ...msg, replies: [...msg.replies, data.reply] };
+        }
       }
-    };
+      return msg;
+    }));
+  }
+};
+
 
     // Listen for events
-    socket.on('project:newDiscussion', handleNewDiscussion);
-    socket.on('project:newReply', handleNewReply);
+  socket.on('project:newDiscussion', handleNewDiscussion);
+  socket.on('project:newReply', handleNewReply);
+
+
 
     // Cleanup
     return () => {
@@ -648,71 +605,39 @@ const Pm_Project = () => {
   }, [project?._id, activeTab, userId]);
   
   /* ---------------- Discussion posting and replies ---------------- */
-  const handlePostMessage = async () => {
-    if ((!newMessage.trim() && composerFiles.length === 0) || posting || !project?._id) return;
+const handlePostMessage = async () => {
+  if ((!newMessage.trim() && composerFiles.length === 0) || posting || !project?._id) return;
+
+  try {
+    setPosting(true);
+    const fd = new FormData();
+    if (newMessage.trim()) fd.append('text', newMessage.trim());
+    if (selectedLabel) fd.append('label', selectedLabel);
+    composerFiles.forEach(f => fd.append('files', f));
     
-    // Prevent rapid duplicate submissions
-    if (posting) {
-      console.log('⚠️ Already posting, ignoring duplicate submission');
-      return;
-    }
+    const response = await api.post(`/projects/${project._id}/discussions`, fd, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    // After posting the message, add it to the local state `messages`
+    setMessages(prev => {
+      const newMessage = response.data;
+      return [...prev, newMessage].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    });
+
+    // Clear the form after posting
+    setNewMessage('');
+    setComposerFiles([]);
+    setSelectedLabel('');
     
-    try {
-      setPosting(true);
-      const fd = new FormData();
-      if (newMessage.trim()) fd.append('text', newMessage.trim());
-      if (selectedLabel) fd.append('label', selectedLabel);
-      composerFiles.forEach(f => fd.append('files', f));
-      
-      console.log('📤 Frontend sending label:', selectedLabel);
-      console.log('📤 Frontend FormData contents:');
-      for (let [key, value] of fd.entries()) {
-        console.log('📤', key, ':', value);
-      }
-      
-      const response = await api.post(`/projects/${project._id}/discussions`, fd, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      console.log('📝 Posted discussion response:', response.data);
-      console.log('📝 Label in response:', response.data.label);
-      
-      // Clear form after successful post
-      setNewMessage('');
-      setComposerFiles([]);
-      setSelectedLabel('');
-      
-      console.log('✅ Message posted successfully');
-         } catch (error) {
-       console.error('❌ Failed to post message:', error);
-       console.error('❌ Error details:', {
-         message: error.message,
-         status: error.response?.status,
-         data: error.response?.data,
-         config: error.config
-       });
-       
-       // Only show alert for actual critical errors
-       if (error.response?.status >= 500) {
-         // Server error (5xx) - show alert
-         alert(`Server error: ${error.response?.data?.error || error.message}`);
-       } else if (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK') {
-         // Network error - show alert
-         alert('Network error. Please check your connection and try again.');
-       } else if (error.message?.includes('timeout')) {
-         // Timeout error - show alert
-         alert('Request timed out. Please try again.');
-       } else {
-         // Client errors (4xx) and other errors - don't show alert, just log
-         console.log('⚠️ Non-critical error, message may have been posted successfully');
-         console.log('⚠️ Error type:', error.constructor.name);
-         console.log('⚠️ Error message:', error.message);
-         console.log('⚠️ Response status:', error.response?.status);
-       }
-     } finally {
-       setPosting(false);
-     }
-  };
+    console.log('✅ Message posted successfully');
+  } catch (error) {
+    console.error('❌ Failed to post message:', error);
+  } finally {
+    setPosting(false);
+  }
+};
+
 
   const handlePostReply = async (msgId) => {
     const replyText = (replyInputs[msgId] || '').trim();
@@ -1377,11 +1302,6 @@ const Pm_Project = () => {
                   ) : (
                     messages.map(msg => {
                       const mentionedMe = isMentioned(msg.text, userName);
-                      console.log('🎨 Rendering message with label:', msg.label, 'for message ID:', msg._id);
-                      console.log('🎨 Full message object:', msg);
-                      console.log('🎨 Label type:', typeof msg.label);
-                      console.log('🎨 Label truthy check:', !!msg.label);
-                      console.log('🎨 Label length:', msg.label ? msg.label.length : 0);
                       
                       return (
                         <div 

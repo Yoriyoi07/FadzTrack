@@ -90,22 +90,23 @@ export default function Hr_ManpowerList() {
   const handleCSVUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: function (results) {
-          const parsedManpower = results.data.map(item => ({
-            name: item.name,
-            position: item.position,
-            status: item.status,
-            project: item.project || 'N/A',
-            avatar: item.avatar
-          }));
-          axios.post('http://localhost:5000/api/manpower/bulk', { manpowers: parsedManpower })
-            .then(response => setManpowers(prev => [...prev, ...response.data]))
-            .catch(error => console.error('Error uploading manpower CSV data:', error));
-        }
-      });
+     Papa.parse(file, {
+  header: true,
+  skipEmptyLines: true,
+  complete: function (results) {
+    console.log('Parsed CSV Data:', results.data); // Log the data to check its structure
+    const parsedManpower = results.data.map(item => ({
+      name: item.name,
+      position: item.position,
+      status: item.status,
+      project: item.project || 'N/A',
+      avatar: item.avatar
+    }));
+    axios.post('http://localhost:5000/api/manpower/bulk', { manpowers: parsedManpower })
+      .then(response => setManpowers(prev => [...prev, ...response.data]))
+      .catch(error => console.error('Error uploading manpower CSV data:', error));
+  }
+});
     }
   };
 

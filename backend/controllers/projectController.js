@@ -6,6 +6,8 @@ const supabase = require('../utils/supabaseClient');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const PDFDocument = require('pdfkit');
+const { Server } = require("socket.io");
+const io = require('socket.io')(server);
 
 // NEW: AI deps
 const axios = require('axios');
@@ -790,6 +792,10 @@ exports.addProjectDiscussion = async (req, res) => {
 
     // Get the added discussion for response
     const responseData = project.discussions[project.discussions.length - 1];
+    const io = req.app.get('io');  // <-- Get io from the app
+if (io) {
+  io.to(`project:${projectId}`).emit('project:newDiscussion', responseData);
+} 
     console.log('📤 Backend sending response:', responseData);
     console.log('📤 Response label:', responseData.label);
     console.log('📤 Response label type:', typeof responseData.label);
@@ -863,7 +869,7 @@ exports.replyToProjectDiscussion = async (req, res) => {
 
     // Get the added reply for response
     const responseReply = discussion.replies[discussion.replies.length - 1];
-    
+     io.to(`project:${projectId}`).emit('project:newReply', responseReply);
     // 2) Send the HTTP response now (this is the success contract)
     res.status(201).json(responseReply);
 
