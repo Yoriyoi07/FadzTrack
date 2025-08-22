@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import '../style/pic_style/Pic_Dash.css';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
-import { PieChart, Pie, Cell } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import ProgressTracker from '../ProgressTracker';
 import NotificationBell from '../NotificationBell';
 // Nav icons
-import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram } from 'react-icons/fa';
+import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaBoxes, FaArrowRight, FaCheckCircle, FaClock, FaExclamationTriangle } from 'react-icons/fa';
 
 const PicDash = () => {
   const navigate = useNavigate();
@@ -25,6 +25,7 @@ const PicDash = () => {
   const [nudgeCooldowns, setNudgeCooldowns] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+  const [reports, setReports] = useState([]);
 
   useEffect(() => {
   const saved = localStorage.getItem('nudgeCooldowns');
@@ -50,6 +51,22 @@ useEffect(() => {
 
   const goToPage = (pageNumber) => {
     if (pageNumber > 0 && pageNumber <= totalPages) setCurrentPage(pageNumber);
+  };
+
+  // Helper function for status icons (from PMDash)
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'Completed':
+        return <FaCheckCircle className="status-icon completed" />;
+      case 'Pending Project Manager':
+      case 'Pending Area Manager':
+      case 'Pending CEO':
+        return <FaClock className="status-icon pending" />;
+      case 'Rejected':
+        return <FaExclamationTriangle className="status-icon rejected" />;
+      default:
+        return <FaClock className="status-icon pending" />;
+    }
   };
 
   // Auth guard
@@ -115,28 +132,41 @@ useEffect(() => {
     fetchActiveProject();
   }, [token, userId]);
 
-  // Fetch requests for this PIC's current project **only**
+     // Fetch requests for this PIC's current project **only**
+   useEffect(() => {
+     if (!token || !project) return;
+
+     api.get('/requests/mine', {
+       headers: { Authorization: `Bearer ${token}` }
+     })
+       .then(({ data }) => {
+         console.log('Fetched requests:', data); // Debug log
+         const projectRequests = Array.isArray(data)
+           ? data.filter(r => r.project && r.project._id === project._id)
+           : [];
+         console.log('Filtered project requests:', projectRequests); // Debug log
+         setRequests(projectRequests);
+       })
+       .catch((error) => {
+         console.error('Error fetching requests:', error);
+         setRequests([]);
+       });
+   }, [token, project]);
+
+  // Fetch reports for this PIC's current project
   useEffect(() => {
     if (!token || !project) return;
 
-    api.get('/requests/mine', {
+    api.get(`/projects/${project._id}/reports`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(({ data }) => {
-        const projectRequests = Array.isArray(data)
-          ? data.filter(r => r.project && r.project._id === project._id)
-          : [];
-        setRequests(projectRequests);
+        setReports(data?.reports || []);
       })
-      .catch(() => setRequests([]));
+      .catch(() => setReports([]));
   }, [token, project]);
 
-  // Sample chats data
-  const [chats] = useState([
-    { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
-    { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
-    { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
-  ]);
+
 
 const handleLogout = () => {
   const token = localStorage.getItem('token');
@@ -161,192 +191,254 @@ const handleLogout = () => {
   }, []);
 
   return (
-    <div className="head">
-      {/* Header with Navigation */}
-    <header className="header">
-  <div className="logo-container">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
-  </div>
+    <div className="dashboard-container">
+      {/* Modern Header */}
+      <header className="dashboard-header">
+        {/* Top Row: Logo and Profile */}
+        <div className="header-top">
+          <div className="logo-section">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="header-logo"
+            />
+            <h1 className="header-brand">FadzTrack</h1>
+          </div>
 
-  <nav className="nav-menu">
-    <Link to="/pic" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/pic/chat" className="nav-link"><FaComments /> Chat</Link>
-    {project && (
-      <Link to={`/pic/projects/${project._id}/request`} className="nav-link">
-        <FaClipboardList /> Requests
-      </Link>
-    )}
-    {project && (
-      <Link to={`/pic/${project._id}`} className="nav-link">
-        <FaEye /> View Project
-      </Link>
-    )}
-    <Link to="/pic/projects" className="nav-link"><FaProjectDiagram /> My Projects</Link>
-  </nav>
-
-  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-    <NotificationBell />
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-    </div>
-    {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-    )}
-  </div>
-</header>
-
-      {/* Main Content */}
-      <div className="dashboard-layout">
-        {/* Left Sidebar */}
-        <div className="sidebar">
-          {/* Chats List in Left Sidebar */}
-          <div className="chats-section">
-            <h3 className="chats-title">Chats</h3>
-            <div className="chats-list">
-              {chats.map(chat => (
-                <div key={chat.id} className="chat-item">
-                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
-                    {chat.initial}
-                  </div>
-                  <div className="chat-info">
-                    <div className="chat-name">{chat.name}</div>
-                    <div className="chat-message">{chat.message}</div>
-                  </div>
-                </div>
-              ))}
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">
+              {userName ? userName.charAt(0).toUpperCase() : 'P'}
             </div>
+            <div className="profile-info">
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-dropdown">
+                <button onClick={handleLogout} className="logout-btn">
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Center Content */}
-        <div className="main1">
-          <div className="main-content-container">
-            <h1 className="main-title">Hello, {userName}!</h1>
-            <p style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>
-              Currently logged in as <strong>{userRole}</strong>
-            </p>
-
-            {/* --- Project Summary and Requests Section --- */}
-            {project ? (
-              <div className="clean-project-summary">
-                <div className="left-summary">
-                  <h2 style={{ marginBottom: 10 }}>{project.projectName} Summary</h2>
-                  <ProjectStats project={project} />
-                </div>
-                <div className="right-summary flat-summary">
-                  <span className="request-title">Requests</span>
-                  <button
-                    className="add-project-btn"
-                    onClick={() => navigate(`/pic/projects/${project._id}/request`)}
-                  >
-                    Add New Request
-                  </button>
-                  <span className="request-total-label">Total Requests</span>
-                  <span className="request-total-number">{requests.length}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="clean-project-summary">
-                <div style={{ padding: 32, width: "100%" }}>
-                  <h2>No Ongoing Project Assigned</h2>
-                  <p>
-                    You are not currently assigned to any ongoing project.<br />
-                    See <Link to="/pic/projects">My Projects</Link> for completed/archived.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Request Overview only if active project */}
+        {/* Bottom Row: Navigation and Notifications */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/pic" className="nav-item active">
+              <FaTachometerAlt />
+              <span>Dashboard</span>
+            </Link>
+            <Link to="/pic/chat" className="nav-item">
+              <FaComments />
+              <span>Chat</span>
+            </Link>
             {project && (
-              <div>
-                <h2 className="section-title">Request Overview</h2>
-                <div className="request-list">
-                  {currentRequests.map(request => {
-  // Logic to check which role is pending
-  let pendingRole = null;
-  if (request.status === 'Pending Project Manager') pendingRole = 'Project Manager';
-  else if (request.status === 'Pending Area Manager') pendingRole = 'Area Manager';
-  else if (request.status === 'Pending CEO') pendingRole = 'CEO';
-
-  return (
-    <div key={request._id} className="request-item"
-      style={{ cursor: "pointer" }}
-      onClick={() => navigate(`/pic/request/${request._id}`)}>
-      <div className="request-icon">📦</div>
-      <div className="request-details">
-        <div className="request-name">
-          <p>request for</p>
-          {request.materials && request.materials.length > 0
-            ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
-            : '-'}
-        </div>
-        <div className="request-project">
-          {request.project?.projectName || '-'}
-        </div>
-        <div>
-          <ProgressTracker request={request} />
-        </div>
-        {/* Nudge button (only show if there's a pending role) */}
-        {pendingRole && (
-         <button
-            className="nudge-btn"
-            disabled={!!nudgeCooldowns[request._id]} // disable if in cooldown
-            onClick={e => {
-              e.stopPropagation();
-              handleNudge(request, pendingRole);
-            }}>
-            {nudgeCooldowns[request._id]
-              ? `Nudge Disabled (${Math.ceil((nudgeCooldowns[request._id] - Date.now()) / 60000)}m left)`
-              : `Remind ${pendingRole}`}
-          </button>
-
-                  )}
-                </div>
-                <div className="request-requester">
-                  <div className="request-requester-name">{request.createdBy?.name || '-'}</div>
-                  <div className="request-date">
-                    {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-                </div>
-                <div className="pagination-controls">
-                  <span className="pagination-info">
-                    Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, requests.length)} of {requests.length} entries.
-                  </span>
-                  <div className="pagination-buttons">
-                    <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>&lt;</button>
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, index) => {
-                      let pageNum = index + 1;
-                      if (currentPage > 3 && totalPages > 5) {
-                        pageNum = (currentPage + index) - 2;
-                        if (pageNum > totalPages) pageNum = totalPages - 4 + index;
-                      }
-                      return (
-                        <button
-                          key={index}
-                          onClick={() => goToPage(pageNum)}
-                          className={pageNum === currentPage ? 'active' : ''}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
-                    <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>&gt;</button>
-                  </div>
-                </div>
-              </div>
+              <Link to={`/pic/projects/${project._id}/request`} className="nav-item">
+                <FaClipboardList />
+                <span>Requests</span>
+              </Link>
             )}
+            {project && (
+              <Link to={`/pic/${project._id}`} className="nav-item">
+                <FaEye />
+                <span>View Project</span>
+              </Link>
+            )}
+            <Link to="/pic/projects" className="nav-item">
+              <FaProjectDiagram />
+              <span>My Projects</span>
+            </Link>
+          </nav>
+          
+          <NotificationBell />
+        </div>
+      </header>
+
+             {/* Main Content */}
+       <div className="dashboard-layout">
+         {/* Center Content */}
+         <div className="main1">
+          <div className="main-content-container">
+                         {/* Welcome Section */}
+             <div className="welcome-section">
+               <div className="welcome-title">Welcome back, {userName}! 👋</div>
+               <div className="welcome-subtitle">Here's what's happening with your project today</div>
+               {project && (
+                 <div className="welcome-project">{project.projectName}</div>
+               )}
+             </div>
+
+                                       {/* Project Analytics Section - Side by Side Layout */}
+              {project ? (
+                <div className="project-analytics-section">
+                  <h2 className="analytics-title">Project Analytics</h2>
+                  
+                  <div className="analytics-grid">
+                    {/* Left Side - Work Progress Trend Chart */}
+                    <div className="chart-section">
+                      <div className="chart-card">
+                        <h3>Work Progress Trend</h3>
+                        {reports.length > 0 ? (
+                          <ResponsiveContainer width="100%" height={300}>
+                            <LineChart data={reports.slice(0, 6).reverse().map((report, index) => ({
+                              name: new Date(report.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                              completedTasks: report.ai?.completed_tasks?.length || 0,
+                              workItems: report.ai?.summary_of_work_done?.length || 0,
+                              contribution: report.ai?.pic_contribution_percent || 0
+                            }))}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="name" />
+                              <YAxis />
+                              <Tooltip />
+                              <Line type="monotone" dataKey="completedTasks" stroke="#10b981" strokeWidth={2} name="Completed Tasks" />
+                              <Line type="monotone" dataKey="workItems" stroke="#3b82f6" strokeWidth={2} name="Work Items" />
+                              <Line type="monotone" dataKey="contribution" stroke="#f59e0b" strokeWidth={2} name="Contribution %" />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="no-data-state">
+                            <span>No report data available</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Side - Metrics Grid */}
+                    <div className="metrics-section">
+                      <div className="metrics-grid">
+                        <div className="metric-card">
+                          <div className="metric-header">
+                            <span className="metric-title">Completed Task</span>
+                            <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+                              <FaClipboardList />
+                            </div>
+                          </div>
+                          <div className="metric-value">
+                            {reports.length > 0 && reports[0]?.ai?.completed_tasks 
+                              ? reports[0].ai.completed_tasks.length 
+                              : 0}
+                          </div>
+                          <div className="metric-description">Tasks completed from latest report</div>
+                        </div>
+
+                        <div className="metric-card">
+                          <div className="metric-header">
+                            <span className="metric-title">PIC Contribution</span>
+                            <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
+                              <FaEye />
+                            </div>
+                          </div>
+                          <div className="metric-value">
+                            {reports.length > 0 && reports[0]?.ai?.pic_contribution_percent 
+                              ? `${reports[0].ai.pic_contribution_percent}%`
+                              : 'N/A'}
+                          </div>
+                          <div className="metric-description">Contribution percentage from latest report</div>
+                        </div>
+
+                        <div className="metric-card">
+                          <div className="metric-header">
+                            <span className="metric-title">Latest Report</span>
+                            <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+                              <FaProjectDiagram />
+                            </div>
+                          </div>
+                          <div className="metric-value">
+                            {reports.length > 0 
+                              ? new Date(reports[0].uploadedAt).toLocaleDateString()
+                              : 'No Reports'}
+                          </div>
+                          <div className="metric-description">Date of latest report</div>
+                        </div>
+
+                        <div className="metric-card">
+                          <div className="metric-header">
+                            <span className="metric-title">Total Reports</span>
+                            <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #06b6d4, #0891b2)' }}>
+                              <FaClipboardList />
+                            </div>
+                          </div>
+                          <div className="metric-value">{reports.length}</div>
+                          <div className="metric-description">Number of reports submitted</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="no-project-state">
+                  <div className="no-project-card">
+                    <div className="no-project-icon">📊</div>
+                    <h3 className="no-project-title">No Active Project</h3>
+                    <p className="no-project-description">
+                      You don't have any active projects assigned at the moment. 
+                      Check back later or contact your project manager for updates.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+             
+
+                                       {/* Material Requests - PMDash Style */}
+              {project && (
+                <div className="dashboard-card requests-card">
+                                     <div className="card-header">
+                     <h3 className="card-title">Material Requests</h3>
+                     <div className="card-actions">
+                       <button className="quick-request-btn" onClick={() => navigate(`/pic/projects/${project._id}/request`)}>
+                         <FaBoxes />
+                         <span>Quick Request</span>
+                       </button>
+                       <Link to="/pic/projects" className="view-all-link">
+                         View All <FaArrowRight />
+                       </Link>
+                     </div>
+                   </div>
+                  <div className="requests-content">
+                    {requests.length === 0 ? (
+                      <div className="empty-state">
+                        <FaBoxes />
+                        <span>No material requests found</span>
+                        <p>All requests have been processed or none are pending</p>
+                      </div>
+                    ) : (
+                                             <div className="requests-list">
+                         {requests.slice(0, 3).map(request => (
+                           <Link to={`/pic/request/${request._id}`} key={request._id} className="request-item">
+                             <div className="request-icon">
+                               <FaBoxes />
+                             </div>
+                             <div className="request-details">
+                               <h4 className="request-title">
+                                 {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
+                               </h4>
+                               <p className="request-description">{request.description || 'No description provided'}</p>
+                               <div className="request-meta">
+                                 <span className="request-project">{request.project?.projectName}</span>
+                                 <span className="request-date">
+                                   {new Date(request.createdAt).toLocaleDateString()}
+                                 </span>
+                               </div>
+                             </div>
+                             <div className="request-status">
+                               {getStatusIcon(request.status)}
+                               <span className={`status-text ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
+                                 {request.status}
+                               </span>
+                             </div>
+                             <div className="request-action">
+                               <span className="view-details">View Details →</span>
+                             </div>
+                           </Link>
+                         ))}
+                       </div>
+                    )}
+                  </div>
+                </div>
+              )}
           </div>
         </div>
       </div>
@@ -354,49 +446,6 @@ const handleLogout = () => {
   );
 };
 
-// --- Helper Component: ProjectStats (KPI + Pie Chart) ---
-const ProjectStats = ({ project }) => {
-  const tasks = Array.isArray(project?.tasks) ? project.tasks : [];
-  const completed = tasks.filter(t => t.percent === 100).length;
-  const inProgress = tasks.filter(t => t.percent > 0 && t.percent < 100).length;
-  const notStarted = tasks.filter(t => t.percent === 0).length;
-  const total = tasks.length;
 
-  const pieData = [
-    { name: 'Completed', value: completed, color: '#4CAF50' },
-    { name: 'In Progress', value: inProgress, color: '#5E4FDB' },
-    { name: 'Not Started', value: notStarted, color: '#FF6B6B' },
-  ].filter(d => d.value > 0);
-
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-      <div>
-        <p><b>Total Tasks:</b> {total}</p>
-        <p><b>Completed:</b> {completed}</p>
-        <p><b>In Progress:</b> {inProgress}</p>
-        <p><b>Not Started:</b> {notStarted}</p>
-        <p><b>Assigned Team:</b> {project.manpower?.length || 0}</p>
-      </div>
-      {pieData.length > 0 && (
-        <PieChart width={120} height={120}>
-          <Pie
-            data={pieData}
-            cx={60}
-            cy={60}
-            innerRadius={36}
-            outerRadius={54}
-            dataKey="value"
-            labelLine={false}
-            label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-          >
-            {pieData.map((entry, idx) => (
-              <Cell key={idx} fill={entry.color} />
-            ))}
-          </Pie>
-        </PieChart>
-      )}
-    </div>
-  );
-};
 
 export default PicDash;

@@ -8,7 +8,7 @@ import {
   FaTachometerAlt, 
   FaBoxes, 
   FaUsers, 
-  FaEye, 
+  FaProjectDiagram, 
   FaClipboardList, 
   FaChartBar, 
   FaCalendarAlt,
@@ -240,10 +240,10 @@ export default function PmManpowerList() {
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
             </Link>
             {project && (
-              <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-item">
-                <FaEye />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
-              </Link>
+                          <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
+            </Link>
             )}
             <Link to="/pm/daily-logs" className="nav-item">
               <FaClipboardList />

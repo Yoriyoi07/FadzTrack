@@ -7,7 +7,6 @@ import {
   FaComments, 
   FaBoxes, 
   FaUsers, 
-  FaEye,
   FaClipboardList, 
   FaChartBar, 
   FaCalendarAlt,
@@ -317,7 +316,7 @@ export default function PmRequestedManpowerDetail() {
             </Link>
             {pmProject && (
               <Link to={`/pm/viewprojects/${pmProject._id || pmProject.id}`} className="nav-item">
-                <FaEye />
+                <FaProjectDiagram />
                 <span>View Project</span>
               </Link>
             )}

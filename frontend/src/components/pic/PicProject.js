@@ -6,7 +6,17 @@ import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaTrash } from 'react-ico
 import { io } from 'socket.io-client';
 import "../style/pic_style/Pic_Project.css";
 // Nav icons
-import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram } from 'react-icons/fa';
+import { 
+  FaTachometerAlt, 
+  FaComments, 
+  FaClipboardList, 
+  FaEye, 
+  FaProjectDiagram,
+  FaUsers,
+  FaChartBar,
+  FaCalendarAlt,
+  FaBoxes
+} from 'react-icons/fa';
 
 /* ---------- Socket endpoint setup ---------- */
 const RAW = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
@@ -204,9 +214,11 @@ const PicCurrentProject = () => {
   const user = userRef.current;
   const userId = user?._id || null;
   const [userName] = useState(user?.name || 'PIC');
+  const [userRole] = useState(user?.role || 'Person in Charge');
   const token = localStorage.getItem('token');
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
 
   const [project, setProject] = useState(null);
   const [activeTab, setActiveTab] = useState('Discussions');
@@ -1149,31 +1161,76 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
     navigate('/');
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return (
+    <div className="loading-container">
+      <p>Loading project details...</p>
+    </div>
+  );
 
   if (!project) {
     return (
-      <>
-        <header className="header">
-          <div className="logo-container">
-            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-            <h1 className="brand-name">FadzTrack</h1>
-          </div>
-          <nav className="nav-menu">
-            <Link to="/pic" className="nav-link">Dashboard</Link>
-            <Link to="/pic/projects" className="nav-link">My Projects</Link>
-            <Link to="/pic/chat" className="nav-link">Chat</Link>
-          </nav>
-          <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            <NotificationBell />
-            <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-              {userName?.charAt(0).toUpperCase() || 'P'}
+      <div className="dashboard-container">
+        {/* Modern Header */}
+        <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+          {/* Top Row: Logo and Profile */}
+          <div className="header-top">
+            <div className="logo-section">
+              <img
+                src={require('../../assets/images/FadzLogo1.png')}
+                alt="FadzTrack Logo"
+                className="header-logo"
+              />
+              <h1 className="header-brand">FadzTrack</h1>
             </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
+
+            <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+              <div className="profile-avatar">
+                {userName ? userName.charAt(0).toUpperCase() : 'P'}
               </div>
-            )}
+              <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
+                <span className="profile-name">{userName}</span>
+                <span className="profile-role">{userRole}</span>
+              </div>
+              {profileMenuOpen && (
+                <div className="profile-dropdown">
+                  <button onClick={handleLogout} className="logout-btn">
+                    <span>Logout</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Row: Navigation and Notifications */}
+          <div className="header-bottom">
+            <nav className="header-nav">
+              <Link to="/pic" className="nav-item">
+                <FaTachometerAlt />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
+              </Link>
+              <Link to="/pic/chat" className="nav-item">
+                <FaComments />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+              </Link>
+              <Link to="/pic/request/:id" className="nav-item">
+                <FaBoxes />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
+              </Link>
+              <Link to="/pic/manpower-list" className="nav-item">
+                <FaUsers />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
+              </Link>
+              <Link to="/pic/daily-logs" className="nav-item">
+                <FaClipboardList />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
+              </Link>
+              <Link to="/pic/daily-logs-list" className="nav-item">
+                <FaCalendarAlt />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Daily Logs</span>
+              </Link>
+            </nav>
+            
+            <NotificationBell />
           </div>
         </header>
 
@@ -1204,7 +1261,7 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
             </div>
           </main>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -1220,44 +1277,80 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
       : 'No Manpower Assigned';
 
   return (
-    <>
-      {/* HEADER */}
-      <header className="header">
-        <div className="logo-container">
-          <img
-            src={require('../../assets/images/FadzLogo1.png')}
-            alt="FadzTrack Logo"
-            className="logo-img"
-          />
-          <h1 className="brand-name">FadzTrack</h1>
+    <div className="dashboard-container">
+      {/* Modern Header */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        {/* Top Row: Logo and Profile */}
+        <div className="header-top">
+          <div className="logo-section">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="header-logo"
+            />
+            <h1 className="header-brand">FadzTrack</h1>
+          </div>
+
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">
+              {userName ? userName.charAt(0).toUpperCase() : 'P'}
+            </div>
+            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-dropdown">
+                <button onClick={handleLogout} className="logout-btn">
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        <nav className="nav-menu">
-          <Link to="/pic" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-          <Link to="/pic/chat" className="nav-link"><FaComments /> Chat</Link>
-          {project && (
-            <Link to={`/pic/projects/${project._id}/request`} className="nav-link">
-              <FaClipboardList /> Requests
+        {/* Bottom Row: Navigation and Notifications */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/pic" className="nav-item">
+              <FaTachometerAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
             </Link>
-          )}
-          {project && (
-            <Link to={`/pic/${project._id}`} className="nav-link">
-              <FaEye /> View Project
+            <Link to="/pic/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
             </Link>
-          )}
-          <Link to="/pic/projects" className="nav-link"><FaProjectDiagram /> My Projects</Link>
-        </nav>
-
-        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            <Link to="/pic/request/:id" className="nav-item">
+              <FaBoxes />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
+            </Link>
+            <Link to="/pic/manpower-list" className="nav-item">
+              <FaUsers />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
+            </Link>
+            {project && (
+              <Link to={`/pic/viewprojects/${project._id || project.id}`} className="nav-item">
+                <FaEye />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
+              </Link>
+            )}
+            <Link to="/pic/daily-logs" className="nav-item">
+              <FaClipboardList />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
+            </Link>
+            {project && (
+              <Link to={`/pic/progress-report/${project._id}`} className="nav-item">
+                <FaChartBar />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
+              </Link>
+            )}
+            <Link to="/pic/daily-logs-list" className="nav-item">
+              <FaCalendarAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Daily Logs</span>
+            </Link>
+          </nav>
+          
           <NotificationBell />
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
         </div>
       </header>
 
@@ -1285,8 +1378,65 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
 
         {/* MAIN CONTENT */}
         <main className="main1">
+          {/* Project Metrics */}
+          <div className="project-metrics">
+            <div className="metric-card">
+              <div className="metric-header">
+                <span className="metric-title">Project Progress</span>
+                <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+                  <FaChartBar />
+                </div>
+              </div>
+              <div className="metric-value">{progress}%</div>
+              <div className="metric-description">Overall project completion</div>
+              <div className="progress-container">
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+                </div>
+                <div className="progress-text">{progress}% Complete</div>
+              </div>
+            </div>
+
+            <div className="metric-card">
+              <div className="metric-header">
+                <span className="metric-title">Project Status</span>
+                <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>
+                  <FaEye />
+                </div>
+              </div>
+              <div className="metric-value">{status || 'Active'}</div>
+              <div className="metric-description">Current project status</div>
+            </div>
+
+            <div className="metric-card">
+              <div className="metric-header">
+                <span className="metric-title">Team Members</span>
+                <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
+                  <FaUsers />
+                </div>
+              </div>
+              <div className="metric-value">
+                {Array.isArray(project?.manpower) ? project.manpower.length : 0}
+              </div>
+              <div className="metric-description">Assigned manpower</div>
+            </div>
+
+            <div className="metric-card">
+              <div className="metric-header">
+                <span className="metric-title">Documents</span>
+                <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
+                  <FaRegFileAlt />
+                </div>
+              </div>
+              <div className="metric-value">
+                {Array.isArray(project?.documents) ? project.documents.length : 0}
+              </div>
+              <div className="metric-description">Project documents</div>
+            </div>
+          </div>
+
           <div className="project-detail-container">
-            <div className="project-image-container" style={{ marginBottom: 12 }}>
+            <div className="project-image-container">
               <img
                 src={(project.photos && project.photos[0]) || 'https://placehold.co/800x300?text=No+Photo'}
                 alt={project.projectName}
@@ -1942,7 +2092,7 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 

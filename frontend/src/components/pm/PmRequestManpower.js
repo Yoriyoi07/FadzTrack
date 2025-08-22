@@ -9,7 +9,7 @@ import {
   FaComments, 
   FaBoxes, 
   FaUsers, 
-  FaEye, 
+  FaProjectDiagram, 
   FaClipboardList, 
   FaChartBar, 
   FaCalendarAlt,
@@ -270,7 +270,7 @@ const PmRequestManpower = () => {
             </Link>
             {project && (
               <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-item">
-                <FaEye />
+                <FaProjectDiagram />
                 <span>View Project</span>
               </Link>
             )}

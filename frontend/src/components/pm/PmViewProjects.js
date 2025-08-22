@@ -6,7 +6,7 @@ import NotificationBell from '../NotificationBell';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaDownload, FaCalendarAlt, FaMapMarkerAlt, FaUsers, FaUserTie, FaBuilding, FaMoneyBillWave, FaCheckCircle, FaClock, FaTrash, FaCamera } from 'react-icons/fa';
 import { exportProjectDetails } from '../../utils/projectPdf';
 // Nav icons
-import { FaTachometerAlt, FaComments, FaBoxes, FaUsers as FaUsersNav, FaEye, FaClipboardList, FaChartBar, FaCalendarAlt as FaCalendarAltNav } from 'react-icons/fa';
+import { FaTachometerAlt, FaComments, FaBoxes, FaUsers as FaUsersNav, FaProjectDiagram, FaClipboardList, FaChartBar, FaCalendarAlt as FaCalendarAltNav } from 'react-icons/fa';
 import "../style/pm_style/Pm_Dash.css";
 import "../style/pm_style/Pm_ViewProjects.css";
 
@@ -870,10 +870,27 @@ const handlePostMessage = async () => {
 
   if (loading) return (
     <div className="dashboard-container">
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🔄</div>
-          <div style={{ fontSize: '1.2rem', color: '#64748b' }}>Loading project details...</div>
+      <div className="professional-loading-screen">
+        <div className="loading-content">
+          <div className="loading-logo">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="loading-logo-img"
+            />
+          </div>
+          <div className="loading-spinner-container">
+            <div className="loading-spinner"></div>
+          </div>
+          <div className="loading-text">
+            <h2 className="loading-title">Loading Project Details</h2>
+            <p className="loading-subtitle">Please wait while we fetch your project information...</p>
+          </div>
+          <div className="loading-progress">
+            <div className="progress-bar">
+              <div className="progress-fill"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -881,10 +898,46 @@ const handlePostMessage = async () => {
   
   if (!project) return (
     <div className="dashboard-container">
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>❌</div>
-          <div style={{ fontSize: '1.2rem', color: '#64748b' }}>Project not found</div>
+      <div className="professional-loading-screen">
+        <div className="loading-content">
+          <div className="loading-logo">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="loading-logo-img"
+            />
+          </div>
+          <div className="loading-text">
+            <h2 className="loading-title" style={{ color: '#ef4444' }}>Project Not Found</h2>
+            <p className="loading-subtitle">The project you're looking for doesn't exist or you don't have access to it.</p>
+          </div>
+          <div style={{ marginTop: '2rem' }}>
+            <button 
+              onClick={() => navigate('/pm')}
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)';
+              }}
+              onMouseOut={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+              }}
+            >
+              Return to Dashboard
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -955,7 +1008,7 @@ const handlePostMessage = async () => {
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
             </Link>
             <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-item active">
-              <FaEye />
+              <FaProjectDiagram />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
             </Link>
             <Link to="/pm/daily-logs" className="nav-item">

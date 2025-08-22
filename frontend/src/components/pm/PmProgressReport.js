@@ -5,7 +5,7 @@ import jsPDF from "jspdf";
 import api from "../../api/axiosInstance";
 import '../style/pm_style/PmProgressReport.css';
 // Nav icons
-import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaEye, FaClipboardList, FaChartBar, FaCalendarAlt } from 'react-icons/fa';
+import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaProjectDiagram, FaClipboardList, FaChartBar, FaCalendarAlt } from 'react-icons/fa';
 
 export default function PmProgressReport({ userName = 'Z', handleLogout }) {
   const { id: projectId } = useParams(); // Get project id from URL
@@ -83,7 +83,7 @@ export default function PmProgressReport({ userName = 'Z', handleLogout }) {
     <Link to="/pm/manpower-list" className="nav-link"><FaUsers /> Manpower</Link>
     {project && (
       <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-link">
-        <FaEye /> View Project
+        <FaProjectDiagram /> View Project
       </Link>
     )}
     <Link to="/pm/daily-logs" className="nav-link"><FaClipboardList /> Logs</Link>
