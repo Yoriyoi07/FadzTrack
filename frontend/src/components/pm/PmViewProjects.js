@@ -558,31 +558,31 @@ const Pm_Project = () => {
 
     // Handle new discussion
 const handleNewDiscussion = (data) => {
-  if (String(data.projectId) === String(project._id) && data.message) {
-    const messageId = String(data.message._id);
-    if (processedMessageIds.has(messageId)) return;
-
-    setMessages(prev => {
-      const newList = [...prev, data.message];
-      return newList.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-    });
-    processedMessageIds.add(messageId);
-  }
-};
+      if (String(data.projectId) === String(project._id) && data.message) {
+        const messageId = String(data.message._id);
+        if (processedMessageIds.has(messageId)) return;
+        
+        setMessages(prev => {
+          const newList = [...prev, data.message];
+          return newList.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        });
+        processedMessageIds.add(messageId);
+      }
+    };
 
 const handleNewReply = (data) => {
-  if (String(data.projectId) === String(project._id) && data.msgId && data.reply) {
-    setMessages(prev => prev.map(msg => {
-      if (String(msg._id) === String(data.msgId)) {
-        const replyExists = msg.replies?.some(reply => String(reply._id) === String(data.reply._id));
-        if (!replyExists) {
-          return { ...msg, replies: [...msg.replies, data.reply] };
-        }
+      if (String(data.projectId) === String(project._id) && data.msgId && data.reply) {
+        setMessages(prev => prev.map(msg => {
+          if (String(msg._id) === data.msgId) {
+            const replyExists = msg.replies?.some(reply => String(reply._id) === String(data.reply._id));
+            if (!replyExists) {
+              return { ...msg, replies: [...msg.replies, data.reply] };
+            }
+          }
+          return msg;
+        }));
       }
-      return msg;
-    }));
-  }
-};
+    };
 
 
     // Listen for events
@@ -639,46 +639,37 @@ const handlePostMessage = async () => {
 };
 
 
+
   const handlePostReply = async (msgId) => {
     const replyText = (replyInputs[msgId] || '').trim();
-    const filesKey = `_replyFiles_${msgId}`;
-    const replyFiles = (replyInputs[filesKey] || []);
     
-    if ((!replyText && replyFiles.length === 0) || !project?._id) return;
-    
+    if (!replyText || posting || !project?._id) return;
+
+    setPosting(true);
     try {
       const fd = new FormData();
-      if (replyText) fd.append('text', replyText);
-      replyFiles.forEach(f => fd.append('files', f));
+      fd.append('text', replyText);
       
       const response = await api.post(`/projects/${project._id}/discussions/${msgId}/reply`, fd, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
-      // Clear reply form after successful post
-      setReplyInputs(prev => ({ ...prev, [msgId]: '', [filesKey]: [] }));
-      console.log('✅ Reply posted successfully');
+
+      setMessages(prev => prev.map(msg => {
+        if (String(msg._id) === msgId) {
+          const updatedMsg = { ...msg, replies: [...msg.replies, response.data] };
+          return updatedMsg;
+        }
+        return msg;
+      }));
+
+      setReplyInputs(prev => ({ ...prev, [msgId]: '' }));
     } catch (error) {
-      console.error('❌ Failed to post reply:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      });
-      
-      // Only show alert for actual critical errors
-      if (error.response?.status >= 500) {
-        alert(`Server error: ${error.response?.data?.error || error.message}`);
-      } else if (error.code === 'NETWORK_ERROR' || error.code === 'ERR_NETWORK') {
-        alert('Network error. Please check your connection and try again.');
-      } else {
-        console.log('⚠️ Non-critical error, reply may have been posted successfully');
-        console.log('⚠️ Error type:', error.constructor.name);
-        console.log('⚠️ Error message:', error.message);
-        console.log('⚠️ Response status:', error.response?.status);
-      }
+      console.error('Failed to post reply:', error);
+    } finally {
+      setPosting(false);
     }
-  };
+};
+
 
   const handleKeyDownComposer = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {

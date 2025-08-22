@@ -7,7 +7,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const PDFDocument = require('pdfkit');
 const { Server } = require("socket.io");
-const io = require('socket.io')(server);
+
 
 // NEW: AI deps
 const axios = require('axios');
@@ -868,10 +868,13 @@ exports.replyToProjectDiscussion = async (req, res) => {
     await project.save();
 
     // Get the added reply for response
-    const responseReply = discussion.replies[discussion.replies.length - 1];
-     io.to(`project:${projectId}`).emit('project:newReply', responseReply);
-    // 2) Send the HTTP response now (this is the success contract)
-    res.status(201).json(responseReply);
+const responseReply = discussion.replies[discussion.replies.length - 1];
+const io = req.app.get('io');
+if (io) {
+  io.to(`project:${projectId}`).emit('project:newReply', responseReply);
+}
+// 2) Send the HTTP response now (this is the success contract)
+res.status(201).json(responseReply);
 
     // 3) Fire-and-forget side effects; don't let errors crash the route
     process.nextTick(async () => {
