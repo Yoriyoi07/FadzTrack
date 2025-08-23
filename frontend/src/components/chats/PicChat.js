@@ -1,13 +1,13 @@
 // src/components/PicChat.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { FaPaperPlane, FaUsers, FaCheck } from 'react-icons/fa';
-import EmojiPicker from 'emoji-picker-react';
+import { FaUsers, FaPaperPlane, FaCheck, FaTachometerAlt, FaComments, FaBoxes, FaEye, FaClipboardList, FaProjectDiagram } from 'react-icons/fa';
 import { io } from 'socket.io-client';
+import EmojiPicker from 'emoji-picker-react';
 import api from '../../api/axiosInstance';
 import attachIcon from '../../assets/images/attach.png';
 import NotificationBell from '../NotificationBell';
-import '../style/pic_style/Pic_Chat.css';
+import '../style/pm_style/PmChat.css';
 
 const SOCKET_URL  = process.env.REACT_APP_SOCKET_URL || '/';
 const SOCKET_PATH = process.env.REACT_APP_SOCKET_PATH || '/socket.io';
@@ -19,35 +19,34 @@ const PicChat = () => {
   const token  = localStorage.getItem('token');
   const user   = JSON.parse(localStorage.getItem('user') || '{}');
   const userId = user?._id;
+  const userName = user?.name || 'Z';
+  const userRole = user?.role || '';
 
-  // memo headers so effects don’t churn
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
 
-  // single socket ref
   const socket = useRef(null);
-
-  // keep current chat id for socket handlers
   const selectedChatIdRef = useRef(null);
 
-  // top-bar
-  const [userName, setUserName] = useState(user?.name || '');
-
-  // project bits you had
-  const [project, setProject] = useState(null);
-  const [requests, setRequests] = useState([]);
-
-  // sidebar
+  // Sidebar
   const [chatList, setChatList] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
 
-  // conversation
+  // Conversation
   const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // group modal
+  // UI
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showInfoSidebar, setShowInfoSidebar] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [showSeenDetails, setShowSeenDetails] = useState(null);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+
+  // Group modal
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [availableUsers, setAvailableUsers] = useState([]);
@@ -55,13 +54,34 @@ const PicChat = () => {
   const [userSearch, setUserSearch] = useState('');
   const [selectedUsers, setSelectedUsers] = useState([]);
 
-  // UI toggles
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [showInfoSidebar, setShowInfoSidebar] = useState(false);
-  const [reactionPickerMsg, setReactionPickerMsg] = useState(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  // Project (kept)
+  const [project, setProject] = useState(null);
+  const [requests, setRequests] = useState([]);
+
+  // Chat customization
+  const [editingGroupName, setEditingGroupName] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [showAddMembers, setShowAddMembers] = useState(false);
+  const [availableMembers, setAvailableMembers] = useState([]);
+  const [selectedNewMembers, setSelectedNewMembers] = useState([]);
 
   const messagesEndRef = useRef(null);
+
+  // Update header collapse state when chat is selected
+  useEffect(() => {
+    setIsHeaderCollapsed(!!selectedChat);
+  }, [selectedChat]);
+
+  // Close profile menu on click outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.user-profile')) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   const getDisplayName = (u) => {
     if (!u) return '';
@@ -69,7 +89,49 @@ const PicChat = () => {
     if (u.firstname || u.lastname) return `${u.firstname || ''} ${u.lastname || ''}`.trim();
     return u.email || '';
   };
+  
+  const getSeenDisplayNames = (seenArray) => {
+    if (!seenArray || seenArray.length === 0) return [];
+    return seenArray.map(seen => {
+      const user = chatList.find(chat => 
+        chat.users.some(u => u._id === seen.userId)
+      )?.users.find(u => u._id === seen.userId);
+      return getDisplayName(user);
+    }).filter(name => name);
+  };
+  
+  const getGroupSeenDisplay = (seenNames) => {
+    if (!seenNames || seenNames.length === 0) return '';
+    
+    // Get first names only
+    const firstNames = seenNames.map(name => name.split(' ')[0]);
+    
+    if (firstNames.length === 1) {
+      return firstNames[0];
+    } else if (firstNames.length === 2) {
+      return `${firstNames[0]} and ${firstNames[1]}`;
+    } else if (firstNames.length === 3) {
+      return `${firstNames[0]}, ${firstNames[1]} and ${firstNames[2]}`;
+    } else {
+      // Show first 2 names + count of others
+      const othersCount = firstNames.length - 2;
+      return `${firstNames[0]}, ${firstNames[1]} and ${othersCount} others`;
+    }
+  };
+
   const formatTime = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Manual scroll to bottom function
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/');
+  };
 
   // ── 0) Guard
   useEffect(() => {
@@ -97,9 +159,15 @@ const PicChat = () => {
       .catch(() => setRequests([]));
   }, [token, project, headers]);
 
-  // ── B) Single socket connection + stable handlers
+  // ── Single socket connection + stable handlers
   useEffect(() => {
     if (!userId) return;
+
+    // Clean up any existing socket connection
+    if (socket.current) {
+      socket.current.disconnect();
+      socket.current = null;
+    }
 
     socket.current = io(SOCKET_URL, {
       path: SOCKET_PATH,
@@ -108,7 +176,10 @@ const PicChat = () => {
       auth: { userId },
     });
 
+    console.log('Socket connected for user:', userId);
+
     const onReceive = (msg) => {
+      console.log('Received message:', msg);
       // update sidebar preview
       setChatList((list) =>
         list.map((c) =>
@@ -118,10 +189,23 @@ const PicChat = () => {
         )
       );
 
-      // if viewing this chat, append
+      // append to open chat - prevent duplicates and replace temp messages
       if (selectedChatIdRef.current === msg.conversation) {
-        setMessages((ms) => [
-          ...ms,
+        setMessages((ms) => {
+          // Check if message already exists to prevent duplicates
+          const messageExists = ms.some(m => m._id === msg._id);
+          if (messageExists) {
+            console.log('Message already exists, skipping duplicate:', msg._id);
+            return ms; // Don't add duplicate
+          }
+          
+          // Remove any temporary messages with the same content to replace with real message
+          const filteredMs = ms.filter(m => !(m._id.startsWith('tmp-') && m.content === msg.content && m.isOwn));
+          
+          console.log('Adding new message, filtered temp messages:', { newMsg: msg, filteredCount: ms.length - filteredMs.length });
+          
+          return [
+            ...filteredMs,
           {
             _id: msg._id,
             content: msg.content ?? msg.fileUrl ?? '',
@@ -130,8 +214,9 @@ const PicChat = () => {
             reactions: [],
             seen: [],
           },
-        ]);
-        // mark seen if not mine
+          ];
+        });
+        
         if (msg.sender !== userId) {
           socket.current.emit('messageSeen', { messageId: msg._id, userId });
         }
@@ -149,6 +234,7 @@ const PicChat = () => {
     };
 
     const onReaction = ({ messageId, reactions }) => {
+      console.log('Received reaction update:', { messageId, reactions });
       setMessages((ms) => ms.map((m) => (m._id === messageId ? { ...m, reactions } : m)));
     };
 
@@ -166,7 +252,7 @@ const PicChat = () => {
     };
   }, [userId]);
 
-  // keep ref in sync
+  // keep current chat id for handlers
   useEffect(() => {
     selectedChatIdRef.current = selectedChat?._id || null;
   }, [selectedChat?._id]);
@@ -187,10 +273,11 @@ const PicChat = () => {
     if (c) setSelectedChat(c);
   }, [chatId, chatList]);
 
-  // ── E) Join room & fetch messages when chat changes
+  // ── Join + fetch messages when chat changes
   useEffect(() => {
     if (!selectedChat) return;
     socket.current.emit('joinChat', selectedChat._id);
+
     (async () => {
       try {
         setLoadingMessages(true);
@@ -205,13 +292,40 @@ const PicChat = () => {
         }));
         setMessages(norm);
 
-        // mark incoming as seen
+        // mark incoming seen
         norm.filter((m) => !m.isOwn).forEach((m) => socket.current.emit('messageSeen', { messageId: m._id, userId }));
       } finally {
         setLoadingMessages(false);
+        // Scroll to bottom after messages are loaded
+        setTimeout(() => scrollToBottom(), 100);
       }
     })();
   }, [selectedChat?._id, userId, headers]);
+
+  // Auto-scroll to bottom when messages change or chat is selected
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, selectedChat]);
+
+  // Scroll to bottom button visibility
+  useEffect(() => {
+    const handleScroll = () => {
+      const messagesContainer = document.querySelector('.modern-chat-messages');
+      if (messagesContainer) {
+        const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
+        const isNearBottom = scrollHeight - scrollTop - clientHeight < 20;
+        setShowScrollToBottom(!isNearBottom);
+      }
+    };
+
+    const messagesContainer = document.querySelector('.modern-chat-messages');
+    if (messagesContainer) {
+      messagesContainer.addEventListener('scroll', handleScroll);
+      return () => messagesContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, [selectedChat]);
 
   // ── F) Debounced sidebar search
   useEffect(() => {
@@ -265,7 +379,7 @@ const PicChat = () => {
       setShowGroupModal(false);
       setGroupName(''); setSelectedUsers([]); setFilteredUsers([]); setUserSearch('');
       setSelectedChat(groupChat);
-      navigate(`/ceo/chat/${groupChat._id}`);
+      navigate(`/pic/chat/${groupChat._id}`);
     } catch (err) {
       console.error('Failed to create group:', err);
     }
@@ -282,64 +396,141 @@ const PicChat = () => {
     setSelectedChat(chatToOpen);
     setSearchQuery('');
     setSearchResults([]);
-    navigate(`/ceo/chat/${chatToOpen._id}`);
+    navigate(`/pic/chat/${chatToOpen._id}`);
   };
 
-  // ── I) Send message (POST only; server broadcasts receiveMessage)
+  // POST only; server broadcasts receiveMessage
   const sendMessage = async () => {
     const content = (newMessage || '').trim();
     if (!content || !selectedChat) return;
 
-    // optimistic append (optional – feels snappier)
-    const tempId = `tmp-${Date.now()}`;
-    setMessages((ms) => [...ms, { _id: tempId, content, timestamp: Date.now(), isOwn: true, reactions: [], seen: [] }]);
+    console.log('Sending message:', { content, chatId: selectedChat._id, userId });
+
+    // Clear input immediately to prevent double-send
     setNewMessage('');
 
+    // optimistic - use a unique temp ID to prevent duplicates
+    const tempId = `tmp-${Date.now()}-${Math.random()}`;
+    const tempMessage = { 
+      _id: tempId, 
+      content, 
+      timestamp: Date.now(), 
+      isOwn: true, 
+      reactions: [], 
+      seen: [] 
+    };
+    
+    console.log('Adding temp message:', tempMessage);
+    setMessages((ms) => [...ms, tempMessage]);
+
     try {
-      await api.post('/messages', { sender: userId, conversation: selectedChat._id, content, type: 'text' }, { headers });
-      // server emits 'receiveMessage' to the room; both sides update
-    } catch (e) {
-      // rollback optimistic on failure
+      const response = await api.post('/messages', { sender: userId, conversation: selectedChat._id, content, type: 'text' }, { headers });
+      console.log('Message sent successfully:', response.data);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Remove temp message on error
       setMessages((ms) => ms.filter((m) => m._id !== tempId));
     }
   };
 
   const toggleReaction = async (msg, emoji) => {
+    console.log('Toggling reaction:', { msgId: msg._id, emoji, currentReactions: msg.reactions });
     const getUid = (r) => (typeof r.userId === 'string' ? r.userId : r.userId?._id);
     const mine = msg.reactions.find((r) => getUid(r) === userId);
 
     if (mine && mine.emoji === emoji) {
+      console.log('Removing reaction');
       await api.delete(`/messages/${msg._id}/reactions`, { data: { userId, emoji }, headers });
     } else {
-      if (mine) await api.delete(`/messages/${msg._id}/reactions`, { data: { userId, emoji: mine.emoji }, headers });
+      if (mine) {
+        console.log('Replacing reaction');
+        await api.delete(`/messages/${msg._id}/reactions`, { data: { userId, emoji: mine.emoji }, headers });
+      }
+      console.log('Adding reaction');
       await api.post(`/messages/${msg._id}/reactions`, { userId, emoji }, { headers });
     }
-    // server emits 'messageReaction'; local state updated in onReaction
-    setReactionPickerMsg(null);
+    // server emits 'messageReaction' which updates state
   };
-
-  const handleLogout = () => { localStorage.clear(); navigate('/'); };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   };
 
-  const activeList = searchQuery.trim() ? searchResults : chatList;
+  // Chat customization functions
+  const startEditGroupName = () => {
+    setEditingGroupName(true);
+    setNewGroupName(selectedChat.name || '');
+  };
 
-  const renderSidebarItem = (item) => {
-    const isUser = item.type === 'user';
-    const isGroup = item.isGroup;
-    const other = isGroup ? null : item.users?.find((u) => u._id !== userId) || {};
-    const name = isUser ? getDisplayName(item) : isGroup ? item.name : getDisplayName(other);
-    const preview = item.lastMessage?.content?.slice(0, 30) || 'Start chatting';
-    const timeStr = item.lastMessage?.timestamp ? formatTime(item.lastMessage.timestamp) : '';
+  const saveGroupName = async () => {
+    try {
+      await api.put(`/chats/${selectedChat._id}`, { name: newGroupName }, { headers });
+      setSelectedChat(prev => ({ ...prev, name: newGroupName }));
+      setEditingGroupName(false);
+      await reloadChats();
+    } catch (error) {
+      console.error('Failed to update group name:', error);
+    }
+  };
 
-    return (
-      <div
-        key={item._id}
-        className={`modern-chat-item ${selectedChat?._id === item._id ? 'active' : ''}`}
-        onClick={() => openChat(item)}
-      >
+  const cancelEditGroupName = () => {
+    setEditingGroupName(false);
+    setNewGroupName('');
+  };
+
+  const loadAvailableMembers = async () => {
+    try {
+      const { data } = await api.get('/users', { headers });
+      const currentMemberIds = selectedChat.users.map(u => u._id);
+      const available = data.filter(u => !currentMemberIds.includes(u._id));
+      setAvailableMembers(available);
+    } catch (error) {
+      console.error('Failed to load available members:', error);
+    }
+  };
+
+  const addMembersToGroup = async () => {
+    try {
+      const updatedUsers = [...selectedChat.users.map(u => u._id), ...selectedNewMembers];
+      await api.put(`/chats/${selectedChat._id}`, { users: updatedUsers }, { headers });
+      setShowAddMembers(false);
+      setSelectedNewMembers([]);
+      await reloadChats();
+      // Refresh selected chat
+      const updatedChat = chatList.find(c => c._id === selectedChat._id);
+      if (updatedChat) setSelectedChat(updatedChat);
+    } catch (error) {
+      console.error('Failed to add members:', error);
+    }
+  };
+
+  const removeMemberFromGroup = async (memberId) => {
+    try {
+      const updatedUsers = selectedChat.users.filter(u => u._id !== memberId).map(u => u._id);
+      await api.put(`/chats/${selectedChat._id}`, { users: updatedUsers }, { headers });
+      await reloadChats();
+      // Refresh selected chat
+      const updatedChat = chatList.find(c => c._id === selectedChat._id);
+      if (updatedChat) setSelectedChat(updatedChat);
+    } catch (error) {
+      console.error('Failed to remove member:', error);
+    }
+  };
+
+  // ── J) Helper functions
+  const activeList = searchQuery ? searchResults : chatList;
+
+  const renderSidebarItem = (chat) => {
+    const isGroup = chat.isGroup;
+    const name = isGroup ? chat.name : getDisplayName(chat.users.find((u) => u._id !== userId));
+    const preview = chat.lastMessage?.content || 'No messages yet';
+    const timeStr = chat.lastMessage?.timestamp ? formatTime(chat.lastMessage.timestamp) : '';
+
+         return (
+       <div key={chat._id} className={`modern-chat-item ${selectedChat?._id === chat._id ? 'active' : ''}`} onClick={() => openChat(chat)}>
         <div className="modern-chat-avatar">{isGroup ? <FaUsers /> : name.charAt(0).toUpperCase()}</div>
         <div className="modern-chat-info">
           <div className="modern-chat-name">{name}</div>
@@ -377,33 +568,71 @@ const PicChat = () => {
         </div>
       )}
 
-      {/* HEADER */}
-      <header className="header">
-        <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-          <h1 className="brand-name">FadzTrack</h1>
-        </div>
-        <nav className="nav-menu">
-          <Link to="/pic" className="nav-link">Dashboard</Link>
-          <Link to="/pic/chat" className="nav-link">Chat</Link>
-          {project && (<Link to={`/pic/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
-          {project && (<Link to={`/pic/${project._id}`} className="nav-link">View Project</Link>)}
-          <Link to="/pic/projects" className="nav-link">My Projects</Link>
-        </nav>
-        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <NotificationBell />
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {userName.charAt(0).toUpperCase() || 'Z'}
+      {/* MODERN HEADER - Same as PM Dash */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        {/* Top Row: Logo and Profile */}
+        <div className="header-top">
+          <div className="logo-section">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="header-logo"
+            />
+            <h1 className="header-brand">FadzTrack</h1>
           </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
+
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">
+              {userName ? userName.charAt(0).toUpperCase() : 'P'}
             </div>
-          )}
+            <div className="profile-info">
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-dropdown">
+                <button onClick={handleLogout} className="logout-btn">
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Row: Navigation and Notifications */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/pic" className="nav-item">
+              <FaTachometerAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
+            </Link>
+            <Link to="/pic/chat" className="nav-item active">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            {project && (
+              <Link to={`/pic/projects/${project._id}/request`} className="nav-item">
+                <FaClipboardList />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span>
+              </Link>
+            )}
+            {project && (
+              <Link to={`/pic/${project._id}`} className="nav-item">
+                <FaEye />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
+              </Link>
+            )}
+            <Link to="/pic/projects" className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
+            </Link>
+          </nav>
+          
+          <NotificationBell />
         </div>
       </header>
 
-      {/* MAIN */}
+      {/* MAIN CONTENT */}
       <div className="pic-chat-content">
         {/* SIDEBAR */}
         <div className="modern-sidebar">
@@ -445,36 +674,125 @@ const PicChat = () => {
                     {loadingMessages ? (
                       <div className="messages-loading">Loading messages…</div>
                     ) : (
-                      messages.map((msg, idx) => {
-                        const counts = msg.reactions.reduce((a, r) => { a[r.emoji] = (a[r.emoji] || 0) + 1; return a; }, {});
-                        const isLastOwn = msg.isOwn && idx === messages.length - 1;
-                        const seenByRecipient = isLastOwn && msg.seen?.length > 0;
+                                             messages.map((msg, idx) => {
+                         const counts = msg.reactions.reduce((a, r) => { a[r.emoji] = (a[r.emoji] || 0) + 1; return a; }, {});
+                         console.log('Message reactions:', { msgId: msg._id, reactions: msg.reactions, counts });
+                         const isLastOwn = msg.isOwn && idx === messages.length - 1;
+                         const seenByRecipient = isLastOwn && msg.seen?.length > 0;
+                         const seenNames = getSeenDisplayNames(msg.seen);
+                         const hasSeen = msg.seen && msg.seen.length > 0;
+                         
+                         // Only show seen indicator if this is the most recent message seen by any user
+                         // This prevents showing "Seen by: Gian" on multiple messages when he's seen them all
+                         const isMostRecentSeen = hasSeen && (() => {
+                           if (!selectedChat.isGroup) {
+                             // For DMs, only show on the last message
+                             return isLastOwn;
+                           } else {
+                             // For group chats, check if this is the most recent message seen by any user
+                             const currentMessageIndex = idx;
+                             const laterMessages = messages.slice(currentMessageIndex + 1);
+                             
+                             // If any later message has been seen by the same users, don't show seen on this one
+                             return !laterMessages.some(laterMsg => {
+                               if (!laterMsg.seen || laterMsg.seen.length === 0) return false;
+                               
+                               // Check if the same users have seen the later message
+                               const laterSeenUserIds = laterMsg.seen.map(s => s.userId);
+                               const currentSeenUserIds = msg.seen.map(s => s.userId);
+                               
+                               // If all users who saw this message also saw a later message, don't show seen here
+                               return currentSeenUserIds.every(userId => laterSeenUserIds.includes(userId));
+                             });
+                           }
+                         })();
 
-                        return (
+                         return (
                           <div key={msg._id} className={`modern-message-wrapper ${msg.isOwn ? 'own' : 'other'}`}>
                             <div className={`modern-message ${msg.isOwn ? 'own' : 'other'}`}>
-                              <button className="reaction-add-btn" onClick={() => setReactionPickerMsg(msg)}>+</button>
                               <div className="modern-message-content">
                                 {msg.content}
-                                {seenByRecipient && <FaCheck className="message-tick" />}
+                                {/* Only show seen indicator on the last message in DMs */}
+                                {!selectedChat.isGroup && isLastOwn && seenByRecipient && (
+                                  <FaCheck className="message-tick" />
+                                )}
                               </div>
-                              <div className="modern-message-time">{formatTime(msg.timestamp)}</div>
-                              <div className="reactions-bar">
-                                {Object.entries(counts).map(([e, c]) => (
-                                  <button key={e} className="reaction-pill" onClick={() => toggleReaction(msg, e)}>
-                                    {e}{c > 1 ? ` ${c}` : ''}
+                              <div className="modern-message-time">
+                                {formatTime(msg.timestamp)}
+                                {/* Seen feature - different for DMs vs Group Chats */}
+                                {isMostRecentSeen && (
+                                  <div className="message-seen-info">
+                                    {selectedChat.isGroup ? (
+                                      /* Group Chat: Show names of people who have seen it */
+                                      <span 
+                                        className="seen-indicator group-seen"
+                                        onClick={() => setShowSeenDetails(showSeenDetails === msg._id ? null : msg._id)}
+                                        title={`Seen by ${seenNames.join(', ')}`}
+                                      >
+                                        Seen by: {getGroupSeenDisplay(seenNames)}
+                                      </span>
+                                    ) : (
+                                      /* DM: Only show on last message */
+                                      <span className="seen-indicator dm-seen">
+                                        Seen
+                                      </span>
+                                    )}
+                                    {/* Expandable seen details for group chats */}
+                                    {selectedChat.isGroup && showSeenDetails === msg._id && (
+                                      <div className="seen-details-tooltip">
+                                        <div className="tooltip-header">Seen by:</div>
+                                        <div className="seen-users-list">
+                                          {seenNames.map((name, index) => (
+                                            <div key={index} className="seen-user">
+                                              <span className="seen-user-name">{name}</span>
+                                              <span className="seen-time">
+                                                {formatTime(msg.seen.find(s => 
+                                                  getSeenDisplayNames([s])[0] === name
+                                                )?.timestamp)}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              {/* Simple horizontal reaction bar on hover */}
+                              <div className="hover-reactions-bar">
+                                {['👍', '❤️', '😂', '😮', '😢', '👎'].map((emoji) => (
+                                  <button 
+                                    key={emoji} 
+                                    className="hover-reaction-btn" 
+                                    onClick={() => toggleReaction(msg, emoji)}
+                                    title={emoji}
+                                  >
+                                    {emoji}
                                   </button>
                                 ))}
                               </div>
-                              {reactionPickerMsg?._id === msg._id && (
-                                <div className="reaction-picker-overlay">
-                                  {['👍', '❤️', '😂', '😮', '😢', '👎'].map((em) => (
-                                    <button key={em} className="reaction-btn" onClick={() => toggleReaction(msg, em)}>{em}</button>
-                                  ))}
-                                  <button className="reaction-btn close" onClick={() => setReactionPickerMsg(null)}>×</button>
-                                </div>
-                              )}
-                            </div>
+                                                           {/* Reactions Bar - positioned inside the message bubble */}
+                               {Object.keys(counts).length > 0 && (
+                                 <div className="reactions-bar">
+                                   {Object.entries(counts).map(([emoji, count]) => {
+                                     const hasReacted = msg.reactions.some(r => 
+                                       (typeof r.userId === 'string' ? r.userId : r.userId?._id) === userId && r.emoji === emoji
+                                     );
+                                     return (
+                                       <button 
+                                         key={emoji} 
+                                         className={`reaction-pill ${hasReacted ? 'reacted' : ''}`} 
+                                         onClick={() => toggleReaction(msg, emoji)}
+                                         title={`${emoji} ${count > 1 ? `(${count} reactions)` : ''}`}
+                                       >
+                                         <span className="reaction-emoji">{emoji}</span>
+                                         {count > 1 && <span className="reaction-count">{count}</span>}
+                                       </button>
+                                     );
+                                   })}
+                                 </div>
+                               )}
+                             </div>
                           </div>
                         );
                       })
@@ -482,11 +800,18 @@ const PicChat = () => {
                     <div ref={messagesEndRef} />
                   </div>
 
+                  {/* Scroll to Bottom Button */}
+                  {showScrollToBottom && (
+                    <button className="scroll-to-bottom-btn" onClick={scrollToBottom}>
+                      ↓
+                    </button>
+                  )}
+
                   {/* Input */}
                   <div className="modern-message-input-container">
                     <div className="modern-input-wrapper">
                       <label className="modern-attach-btn">
-                        <img src={attachIcon} className="attach-icon" alt="attach" />
+                        <img src={require('../../assets/images/attach.png')} className="attach-icon" alt="attach" />
                         <input type="file" hidden />
                       </label>
                       <input
@@ -494,7 +819,7 @@ const PicChat = () => {
                         placeholder="Type your message here"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                        onKeyDown={handleKeyDown}
                       />
                       <button className="modern-emoji-btn" onClick={() => setShowEmojiPicker((p) => !p)}>😊</button>
                       {showEmojiPicker && (
@@ -514,21 +839,161 @@ const PicChat = () => {
             {/* Info Sidebar */}
             {showInfoSidebar && selectedChat && (
               <div className="modern-contact-info">
-                <h3>Details</h3>
-                {selectedChat.isGroup ? (
-                  <>
-                    <p><strong>Group Name:</strong> {selectedChat.name}</p>
-                    <p><strong>Join Code:</strong> {selectedChat.joinCode}</p>
-                    <ul>
-                      {selectedChat.users.map((u) => (<li key={u._id}>{getDisplayName(u)}</li>))}
-                    </ul>
-                  </>
-                ) : (
-                  <>
-                    <p><strong>Name:</strong> {getDisplayName(selectedChat.users.find((u) => u._id !== userId))}</p>
-                    <p><strong>Email:</strong> {selectedChat.users.find((u) => u._id !== userId)?.email}</p>
-                  </>
-                )}
+                <div className="messenger-header">
+                  <h3>Contact Info</h3>
+                  <button className="close-details-btn" onClick={() => setShowInfoSidebar(false)}>×</button>
+                </div>
+                <div className="messenger-content">
+                  <div className="profile-section">
+                    <div className="profile-avatar-large">
+                      {selectedChat.isGroup ? <FaUsers /> : getDisplayName(selectedChat.users.find((u) => u._id !== userId)).charAt(0).toUpperCase()}
+                    </div>
+                    <div className="profile-info-large">
+                      <div className="name-container">
+                        {editingGroupName ? (
+                          <div className="edit-name-container">
+                            <input
+                              type="text"
+                              className="edit-name-input"
+                              value={newGroupName}
+                              onChange={(e) => setNewGroupName(e.target.value)}
+                              autoFocus
+                            />
+                            <div className="edit-name-actions">
+                              <button className="save-name-btn" onClick={saveGroupName}>Save</button>
+                              <button className="cancel-name-btn" onClick={cancelEditGroupName}>Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <h4>
+                              {selectedChat.isGroup ? selectedChat.name : getDisplayName(selectedChat.users.find((u) => u._id !== userId))}
+                            </h4>
+                            {selectedChat.isGroup && (
+                              <button className="edit-name-btn" onClick={startEditGroupName}>Edit</button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                      <p className="chat-type">{selectedChat.isGroup ? 'Group Chat' : 'Direct Message'}</p>
+                    </div>
+                  </div>
+
+                  {!selectedChat.isGroup && (
+                    <div className="details-section">
+                      <h5>Contact Details</h5>
+                      {selectedChat.users.filter(u => u._id !== userId).map((member) => (
+                        <div key={member._id} className="detail-item">
+                          <span className="detail-label">NAME</span>
+                          <span className="detail-value">{getDisplayName(member)}</span>
+                        </div>
+                      ))}
+                      {selectedChat.users.filter(u => u._id !== userId).map((member) => (
+                        <div key={member._id} className="detail-item">
+                          <span className="detail-label">EMAIL</span>
+                          <span className="detail-value">{member.email}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {selectedChat.isGroup && (
+                    <div className="members-section">
+                      <div className="members-header">
+                        <h5>Members ({selectedChat.users.length})</h5>
+                      </div>
+                      <div className="members-list">
+                        {selectedChat.users.map((member) => (
+                          <div key={member._id} className="member-item">
+                            <div className="member-avatar">
+                              {getDisplayName(member).charAt(0).toUpperCase()}
+                            </div>
+                            <div className="member-info">
+                              <span className="member-name">{getDisplayName(member)}</span>
+                              {member._id === userId && <span className="member-badge">You</span>}
+                            </div>
+                            {member._id !== userId && (
+                              <button 
+                                className="remove-member-btn"
+                                onClick={() => removeMemberFromGroup(member._id)}
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="actions-section">
+                    {selectedChat.isGroup && (
+                      <button className="action-btn add-members-btn" onClick={() => { setShowAddMembers(true); loadAvailableMembers(); }}>
+                        <FaUsers />
+                        Add Members
+                      </button>
+                    )}
+                    <button className="action-btn block-btn">
+                      <span>🚫</span>
+                      Block
+                    </button>
+                    <button className="action-btn report-btn">
+                      <span>⚠️</span>
+                      Report
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Add Members Modal */}
+            {showAddMembers && (
+              <div className="add-members-modal">
+                <div className="modal-header">
+                  <h4>Add Members</h4>
+                  <button className="close-modal-btn" onClick={() => setShowAddMembers(false)}>×</button>
+                </div>
+                <div className="modal-content">
+                  <div className="search-container">
+                    <input
+                      type="text"
+                      className="search-input"
+                      placeholder="Search users..."
+                      onChange={(e) => {
+                        const query = e.target.value.toLowerCase();
+                        const filtered = availableMembers.filter(user => 
+                          getDisplayName(user).toLowerCase().includes(query)
+                        );
+                        setAvailableMembers(filtered);
+                      }}
+                    />
+                  </div>
+                  <div className="users-list">
+                    {availableMembers.map((user) => (
+                      <label key={user._id} className="user-checkbox-item">
+                        <input
+                          type="checkbox"
+                          checked={selectedNewMembers.includes(user._id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedNewMembers([...selectedNewMembers, user._id]);
+                            } else {
+                              setSelectedNewMembers(selectedNewMembers.filter(id => id !== user._id));
+                            }
+                          }}
+                        />
+                        <span>{getDisplayName(user)}</span>
+                      </label>
+                    ))}
+                  </div>
+                  <button 
+                    className="add-members-submit-btn"
+                    onClick={addMembersToGroup}
+                    disabled={selectedNewMembers.length === 0}
+                  >
+                    Add Selected Members
+                  </button>
+                </div>
               </div>
             )}
           </div>

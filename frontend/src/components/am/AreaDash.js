@@ -1,12 +1,38 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { PieChart, Pie, Cell } from 'recharts';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Dash.css';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 
 // React Icons
-import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaProjectDiagram, FaClipboardList, FaChartBar } from 'react-icons/fa';
+import {
+  FaTachometerAlt,
+  FaComments,
+  FaBoxes,
+  FaUsers,
+  FaProjectDiagram,
+  FaClipboardList,
+  FaChartBar,
+  FaCalendarAlt,
+  FaTasks,
+  FaCheckCircle,
+  FaClock,
+  FaExclamationTriangle,
+  FaArrowRight,
+  FaChevronDown,
+  FaChevronUp,
+  FaFolder,
+  FaFolderOpen,
+  FaBuilding,
+  FaMapMarkerAlt,
+  FaUserTie,
+  FaChartLine,
+  FaBell,
+  FaSearch,
+  FaChevronRight,
+  FaChevronLeft
+} from 'react-icons/fa';
 
 const AreaDash = () => {
   const navigate = useNavigate();
@@ -23,18 +49,33 @@ const AreaDash = () => {
   const [userName, setUserName] = useState(user?.name || '');
   const [userRole, setUserRole] = useState(user?.role || '');
 
+  // Header state
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Data state
   const [projects, setProjects] = useState([]);
   const [allProjects, setAllProjects] = useState([]);
   const [enrichedAllProjects, setEnrichedAllProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [, setMaterialRequests] = useState([]);
+  const [materialRequests, setMaterialRequests] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
-  const [, setRequestsError] = useState(null);
+  const [requestsError, setRequestsError] = useState(null);
   const [assignedLocations, setAssignedLocations] = useState([]);
   const [expandedLocations, setExpandedLocations] = useState({});
 
-  // ---------- Data load (production-safe, won’t spam) ----------
+  // Metrics data
+  const [metrics, setMetrics] = useState({
+    totalProjects: 0,
+    activeProjects: 0,
+    completedProjects: 0,
+    pendingRequests: 0,
+    totalEngineers: 0,
+    averageProgress: 0
+  });
+
+  // ---------- Data load (production-safe, won't spam) ----------
   useEffect(() => {
     if (!userId) {
       navigate('/');
@@ -128,7 +169,7 @@ const AreaDash = () => {
 
         const pending = data.filter(
           (request) =>
-            request.status === 'Pending AM' &&
+             (request.status === 'Pending AM' || request.status === 'PENDING AREA MANAGER') &&
             request.project &&
             locations.some(
               (loc) =>
@@ -189,42 +230,42 @@ const AreaDash = () => {
     }
   }, [assignedLocations, allProjects]);
 
-  // Static sample data (unchanged)
-  const [sidebarProjects] = useState([
-    { id: 1, name: 'Batangas', engineer: 'Engr. Daryll Miralles' },
-    { id: 2, name: 'Twin Lakes Project', engineer: 'Engr. Shaquille' },
-    { id: 3, name: 'Calatagan Townhomes', engineer: 'Engr. Rychea Miralles' },
-    { id: 4, name: 'Makati', engineer: 'Engr. Michelle Amor' },
-    { id: 5, name: 'Cavite', engineer: 'Engr. Zenarose Miranda' },
-    { id: 6, name: 'Taguig', engineer: 'Engr. Third Castellar' },
-  ]);
+  // Calculate metrics
+  useEffect(() => {
+    if (enrichedAllProjects.length > 0) {
+      const totalProjects = enrichedAllProjects.length;
+      const activeProjects = enrichedAllProjects.filter(p => p.status === 'active' || p.status === 'ongoing').length;
+      const completedProjects = enrichedAllProjects.filter(p => p.status === 'completed').length;
+      const totalEngineers = new Set(enrichedAllProjects.map(p => p.engineer)).size;
+      const averageProgress = projects.length > 0 
+        ? projects.reduce((acc, p) => {
+            const completed = p.progress.find(prog => prog.name === 'Completed');
+            return acc + (completed ? completed.value : 0);
+          }, 0) / projects.length
+        : 0;
 
-  const [activities] = useState([
-    {
-      id: 1,
-      user: { name: 'Daniel Pocon', initial: 'D' },
-      date: 'July 1, 2029',
-      activity: 'Submitted Daily Logs for San Miguel Corporation Project B',
-      details: [
-        'Weather: Cloudy in AM, Light Rain in PM ☁️',
-        '1. 📊 Site Attendance Log',
-        'Total Workers: 16',
-        'Trades on Site...',
-      ],
-    },
-  ]);
+      setMetrics({
+        totalProjects,
+        activeProjects,
+        completedProjects,
+        pendingRequests: pendingRequests.length,
+        totalEngineers,
+        averageProgress: Math.round(averageProgress)
+      });
+    }
+  }, [enrichedAllProjects, pendingRequests, projects]);
 
-  const [reports] = useState([
-    { id: 1, name: 'BGC Hotel', dateRange: '7/13/25 - 7/27/25', engineer: 'Engr.' },
-    { id: 2, name: 'Protacio Townhomes', dateRange: '7/13/25 - 7/27/25', engineer: 'Engr.' },
-    { id: 3, name: 'Fegarido Residences', dateRange: '7/13/25 - 7/27/25', engineer: 'Engr.' },
-  ]);
+  // Scroll handler for header collapse
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const shouldCollapse = scrollTop > 50;
+      setIsHeaderCollapsed(shouldCollapse);
+    };
 
-  const [chats] = useState([
-    { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
-    { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
-    { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' },
-  ]);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -242,14 +283,9 @@ const AreaDash = () => {
     navigate('/');
   };
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading dashboard data...</p>
-      </div>
-    );
-  }
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
 
   const projectsByLocation = enrichedAllProjects.reduce((acc, project) => {
     const locationId = project.location?._id || 'unknown';
@@ -264,78 +300,284 @@ const AreaDash = () => {
     return acc;
   }, {});
 
+  // Project metrics data
+  const [projectMetrics, setProjectMetrics] = useState([]);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+
+  // Fetch project metrics from reports
+  useEffect(() => {
+    const fetchProjectMetrics = async () => {
+      if (!enrichedAllProjects.length) return;
+      
+      setMetricsLoading(true);
+      const metrics = [];
+
+      for (const project of enrichedAllProjects) {
+        try {
+          // Get all reports for this project
+          const { data: reports } = await api.get(`/daily-reports/project/${project._id}`);
+          
+          if (reports && reports.length > 0) {
+            // Get the latest report from each PIC
+            const latestReports = [];
+            const picReports = {};
+            
+            reports.forEach(report => {
+              const picId = report.pic?._id || report.pic;
+              if (!picReports[picId] || new Date(report.date) > new Date(picReports[picId].date)) {
+                picReports[picId] = report;
+              }
+            });
+
+            // Calculate average progress from latest reports
+            const progressValues = Object.values(picReports).map(report => {
+              if (report.progress && Array.isArray(report.progress)) {
+                const completed = report.progress.find(p => p.name === 'Completed');
+                return completed ? completed.value : 0;
+              }
+              return 0;
+            });
+
+            const averageProgress = progressValues.length > 0 
+              ? Math.round(progressValues.reduce((sum, val) => sum + val, 0) / progressValues.length)
+              : 0;
+
+            metrics.push({
+              projectId: project._id,
+              projectName: project.name,
+              pm: project.engineer,
+              area: project.location?.name || 'Unknown Area',
+              progress: averageProgress,
+              totalPics: Object.keys(picReports).length,
+              latestDate: Object.values(picReports).reduce((latest, report) => 
+                new Date(report.date) > new Date(latest) ? report.date : latest, 
+                Object.values(picReports)[0]?.date || new Date()
+              )
+            });
+          }
+        } catch (error) {
+          console.error(`Error fetching metrics for project ${project.name}:`, error);
+        }
+      }
+
+      setProjectMetrics(metrics);
+      setMetricsLoading(false);
+    };
+
+    fetchProjectMetrics();
+  }, [enrichedAllProjects]);
+
+  // Sample metrics data for charts
+  const progressData = [
+    { name: 'Completed', value: 65, color: '#10B981' },
+    { name: 'In Progress', value: 25, color: '#3B82F6' },
+    { name: 'Not Started', value: 10, color: '#EF4444' }
+  ];
+
+  const monthlyProgress = [
+    { month: 'Jan', progress: 45 },
+    { month: 'Feb', progress: 52 },
+    { month: 'Mar', progress: 58 },
+    { month: 'Apr', progress: 65 },
+    { month: 'May', progress: 72 },
+    { month: 'Jun', progress: 78 }
+  ];
+
+  // Timeline status logic function
+  const getTimelineStatus = (status, stage) => {
+    const statusLower = status?.toLowerCase() || '';
+    
+    // Check for rejected statuses
+    if (statusLower.includes('rejected')) {
+      return 'rejected';
+    }
+    
+    switch (stage) {
+      case 'placed':
+        // Placed should be green (one step behind) when PM is pending
+        if (statusLower.includes('pending pm') || statusLower.includes('project manager')) {
+          return 'completed one-step-behind'; // Green - one step behind pending
+        } else if (statusLower.includes('pending am') || statusLower.includes('area manager') || 
+                   statusLower.includes('pending cio') || statusLower.includes('received')) {
+          return 'completed'; // Blue - two or more steps behind pending
+        }
+        return 'completed'; // Default to blue for placed
+        
+      case 'pm':
+        if (statusLower.includes('rejected pm') || statusLower.includes('pm rejected')) {
+          return 'rejected';
+        } else if (statusLower.includes('pending pm') || statusLower.includes('project manager')) {
+          return 'pending'; // Yellow/Orange - pending
+        } else if (statusLower.includes('pending am') || statusLower.includes('area manager')) {
+          return 'completed one-step-behind'; // Green - one step behind pending
+        } else if (statusLower.includes('pending cio') || statusLower.includes('received')) {
+          return 'completed'; // Blue - two or more steps behind pending
+        }
+        break;
+        
+      case 'am':
+        if (statusLower.includes('rejected am') || statusLower.includes('am rejected')) {
+          return 'rejected';
+        } else if (statusLower.includes('pending am') || statusLower.includes('area manager')) {
+          return 'pending'; // Yellow/Orange - pending
+        } else if (statusLower.includes('pending cio')) {
+          return 'completed one-step-behind'; // Green - one step behind pending
+        } else if (statusLower.includes('received')) {
+          return 'completed'; // Blue - two or more steps behind pending
+        }
+        break;
+        
+      case 'cio':
+        if (statusLower.includes('rejected cio') || statusLower.includes('cio rejected')) {
+          return 'rejected';
+        } else if (statusLower.includes('pending cio')) {
+          return 'pending'; // Yellow/Orange - pending
+        } else if (statusLower.includes('received')) {
+          return 'completed one-step-behind'; // Green - one step behind pending
+        }
+        break;
+        
+      case 'done':
+        if (statusLower.includes('received')) {
+          return 'completed'; // Blue - completed
+        }
+        break;
+    }
+    
+    return ''; // Default - no special styling
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading dashboard data...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="area-dash head">
-      <header className="header">
-  <div className="logo-container">
+    <div className="dashboard-container">
+      {/* Modern Header - PM Style */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        {/* Top Row: Logo and Profile */}
+        <div className="header-top">
+          <div className="logo-section">
     <img
       src={require('../../assets/images/FadzLogo1.png')}
       alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
+              className="header-logo"
+            />
+            <h1 className="header-brand">FadzTrack</h1>
+          </div>
+
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">
+              {userName ? userName.charAt(0).toUpperCase() : 'A'}
   </div>
-  <nav className="nav-menu">
-    <Link to="/am" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/am/chat" className="nav-link"><FaComments /> Chat</Link>
-    <Link to="/am/matreq" className="nav-link"><FaBoxes /> Material</Link>
-    <Link to="/am/manpower-requests" className="nav-link"><FaUsers /> Manpower</Link>
-    <Link to="/am/viewproj" className="nav-link"><FaProjectDiagram /> Projects</Link>
-    <Link to="/logs" className="nav-link"><FaClipboardList /> Logs</Link>
-    <Link to="/reports" className="nav-link"><FaChartBar /> Reports</Link>
-  </nav>
-  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-    <NotificationBell />
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
     </div>
     {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
+              <div className="profile-dropdown">
+                <button onClick={handleLogout} className="logout-btn">
+                  <span>Logout</span>
+                </button>
       </div>
     )}
+          </div>
+        </div>
+
+        {/* Bottom Row: Navigation and Notifications */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/am" className="nav-item active">
+              <FaTachometerAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
+            </Link>
+            <Link to="/am/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/am/matreq" className="nav-item">
+              <FaBoxes />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
+            </Link>
+            <Link to="/am/manpower-requests" className="nav-item">
+              <FaUsers />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
+            </Link>
+            <Link to="/am/viewproj" className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
+            </Link>
+            <Link to="/logs" className="nav-item">
+              <FaClipboardList />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
+            </Link>
+            <Link to="/reports" className="nav-item">
+              <FaChartBar />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
+            </Link>
+          </nav>
+
+          <NotificationBell />
   </div>
 </header>
 
-      {/* Main Content */}
-      <div className="area-dash dashboard-layout">
-        {/* Sidebar */}
-        <div className="area-dash sidebar">
-          <h2>Dashboard</h2>
-          <button className="area-dash add-project-btn" onClick={() => navigate('/am/addproj')}>
-            Add New Project
+      {/* Main Dashboard Content */}
+      <main className="dashboard-main">
+        {/* Sidebar Toggle Button */}
+        <button className="sidebar-toggle-btn" onClick={toggleSidebar}>
+          <FaChevronRight />
+        </button>
+
+        {/* Areas & Projects Sidebar */}
+        <div className={`areas-projects-sidebar ${sidebarOpen ? 'open' : ''}`}>
+          <div className="sidebar-header">
+            <h3>Areas & Projects</h3>
+            <button className="close-sidebar-btn" onClick={toggleSidebar}>
+              <FaChevronLeft />
+            </button>
+          </div>
+          <div className="areas-projects-card">
+            <div className="card-header">
+              <button className="add-project-btn" onClick={() => navigate('/am/addproj')}>
+                Add Project
           </button>
-          <div className="area-dash location-folders">
+            </div>
+            <div className="areas-list">
             {Object.entries(projectsByLocation).map(([locationId, locationData]) => (
-              <div key={locationId} className="area-dash location-folder">
-                <div
-                  className="area-dash location-header"
-                  onClick={() =>
-                    setExpandedLocations((prev) => ({ ...prev, [locationId]: !prev[locationId] }))
-                  }
-                >
-                  <div className="area-dash folder-icon">
-                    <span className={`area-dash folder-arrow ${expandedLocations[locationId] ? 'expanded' : ''}`}>▶</span>
-                    <span className="area-dash folder-icon-img">📁</span>
+                <div key={locationId} className="area-item">
+                  <div className="area-header">
+                    <div className="area-info">
+                      <FaMapMarkerAlt className="area-icon" />
+                      <div>
+                        <h4>{locationData.name}</h4>
+                        <p>{locationData.region}</p>
+                      </div>
+                    </div>
+                    <div className="area-stats">
+                      <span className="project-count">{locationData.projects.length} projects</span>
+                      <button 
+                        className="expand-btn"
+                        onClick={() => setExpandedLocations(prev => ({ ...prev, [locationId]: !prev[locationId] }))}
+                      >
+                        {expandedLocations[locationId] ? <FaChevronUp /> : <FaChevronDown />}
+                      </button>
                   </div>
-                  <div className="area-dash location-info">
-                    <div className="area-dash location-name">{locationData.name}</div>
-                    <div className="area-dash location-region">{locationData.region}</div>
-                  </div>
-                  <div className="area-dash project-count">{locationData.projects.length}</div>
                 </div>
                 {expandedLocations[locationId] && (
-                  <div className="area-dash projects-list">
+                    <div className="projects-list">
                     {locationData.projects.map((project) => (
-                      <Link to={`/am/projects/${project._id}`} key={project._id} className="area-dash project-item">
-                        <div className="area-dash project-icon">
-                          <span className="area-dash icon">🏗️</span>
-                          <div className="area-dash icon-bg"></div>
+                        <Link to={`/am/projects/${project._id}`} key={project._id} className="project-item">
+                          <FaProjectDiagram className="project-icon" />
+                          <div className="project-info">
+                            <h5>{project.name}</h5>
+                            <p>{project.engineer}</p>
                         </div>
-                        <div className="area-dash project-info">
-                          <div className="area-dash project-name">{project.name}</div>
-                          <div className="area-dash project-engineer">{project.engineer}</div>
-                        </div>
+                          <FaArrowRight className="arrow-icon" />
                       </Link>
                     ))}
                   </div>
@@ -344,77 +586,104 @@ const AreaDash = () => {
             ))}
           </div>
         </div>
+        </div>
 
-        {/* Main */}
-        <div className="area-dash main1">
-          <div className="area-dash chart-wrapper-container">
-            <div className="area-dash greeting-header">
-              <div className="area-dash greeting-left">
-                <h1>Hello, {userName}!</h1>
-                <p style={{ fontSize: '14px', color: '#666' }}>
-                  Currently logged in as <strong>{userRole}</strong>
-                </p>
+        {/* Sidebar Overlay */}
+        {sidebarOpen && <div className="sidebar-overlay" onClick={toggleSidebar}></div>}
+
+        {/* Main Content Area */}
+        <div className="dashboard-content">
+          {/* Main Content Grid */}
+          <div className="dashboard-grid">
+            {/* Welcome Card */}
+            <div className="dashboard-card welcome-card">
+              <div className="welcome-content">
+                <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>
+                <p className="welcome-subtitle">Here's what's happening with your areas today</p>
               </div>
-              <div className="area-dash total-projects">
-                <span className="area-dash total-projects-label">Total Projects:</span>
-                <span className="area-dash total-projects-count">{enrichedAllProjects.length}</span>
+              <div className="welcome-stats">
+                <div className="stat-item">
+                  <span className="stat-number">{enrichedAllProjects.length}</span>
+                  <span className="stat-label">Total Projects</span>
+                </div>
+                <div className="stat-item">
+                  <span className="stat-number">{assignedLocations.length}</span>
+                  <span className="stat-label">Areas Managed</span>
+                </div>
               </div>
             </div>
 
-            <div className="area-dash progress-tracking-section">
-              <h2>Progress Tracking</h2>
-              <div className="area-dash latest-projects-progress">
-                <h3>Latest Projects Progress</h3>
-                {projects.length === 0 ? (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-                    No updated projects with progress data yet.
+            {/* Project Metrics - Full Width */}
+            <div className="dashboard-card project-metrics-card">
+              <div className="card-header">
+                <h3>Project Progress</h3>
+                <span className="metrics-subtitle">Based on latest PIC reports</span>
+              </div>
+              <div className="project-metrics-container">
+                {metricsLoading ? (
+                  <div className="metrics-loading">
+                    <div className="loading-spinner"></div>
+                    <span>Loading project metrics...</span>
+                  </div>
+                ) : projectMetrics.length === 0 ? (
+                  <div className="metrics-empty">
+                    <FaChartBar />
+                    <span>No project metrics available</span>
+                    <p>Reports need to be submitted to see progress</p>
                   </div>
                 ) : (
-                  <div className="area-dash project-charts scroll-x">
-                    {projects.map((project) => (
-                      <div key={project.id} className="area-dash project-chart-container">
-                        <h4>{project.name}</h4>
-                        <div className="area-dash pie-chart-wrapper">
-                          <PieChart width={160} height={160}>
-                            <Pie
-                              data={project.progress}
-                              cx={80}
-                              cy={80}
-                              innerRadius={0}
-                              outerRadius={65}
-                              paddingAngle={0}
-                              dataKey="value"
-                            >
-                              {project.progress.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                          </PieChart>
-                        </div>
-                        <div className="area-dash chart-legend">
-                          {['Completed', 'In Progress', 'Not Started'].map((status) => {
-                            const item = project.progress.find((p) => p.name === status);
-                            const color = item
-                              ? item.color
-                              : status === 'Completed'
-                              ? '#4CAF50'
-                              : status === 'In Progress'
-                              ? '#5E4FDB'
-                              : '#FF6B6B';
-                            const value = item ? item.value : 0;
-                            return (
-                              <div key={status} className="area-dash legend-item">
-                                <span className="area-dash color-box" style={{ backgroundColor: color }}></span>
-                                <span className="area-dash legend-text">{status}</span>
-                                <span style={{ marginLeft: 6, color: '#555', fontWeight: 500 }}>
-                                  {value.toFixed(1)}%
-                                </span>
+                  <div className="project-metrics-scroll">
+                    {projectMetrics.map((metric) => (
+                      <div key={metric.projectId} className="project-metric-item">
+                        <div className="metric-header">
+                          <div className="metric-project-info">
+                            <h4 className="metric-project-name">{metric.projectName}</h4>
+                            <p className="metric-project-details">
+                              <span className="metric-pm">{metric.pm}</span>
+                              <span className="metric-area">{metric.area}</span>
+                            </p>
+                          </div>
+                          <div className="metric-progress-circle">
+                            <div className="progress-ring">
+                              <svg width="60" height="60">
+                                <circle
+                                  cx="30"
+                                  cy="30"
+                                  r="25"
+                                  stroke="#e2e8f0"
+                                  strokeWidth="4"
+                                  fill="transparent"
+                                />
+                                <circle
+                                  cx="30"
+                                  cy="30"
+                                  r="25"
+                                  stroke={metric.progress >= 80 ? '#10B981' : metric.progress >= 50 ? '#3B82F6' : '#F59E0B'}
+                                  strokeWidth="4"
+                                  fill="transparent"
+                                  strokeDasharray={`${2 * Math.PI * 25}`}
+                                  strokeDashoffset={`${2 * Math.PI * 25 * (1 - metric.progress / 100)}`}
+                                  strokeLinecap="round"
+                                  transform="rotate(-90 30 30)"
+                                />
+                              </svg>
+                              <div className="progress-text">
+                                <span className="progress-percentage">{metric.progress}%</span>
                               </div>
-                            );
-                          })}
+                            </div>
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.85rem', color: '#888', marginTop: 4 }}>
-                          Last updated: {project.latestDate ? new Date(project.latestDate).toLocaleString() : 'N/A'}
+                        <div className="metric-footer">
+                          <div className="metric-stats">
+                            <span className="metric-stat">
+                              <FaUsers />
+                              {metric.totalPics} PICs
+                            </span>
+                            <span className="metric-stat">
+                              <FaCalendarAlt />
+                              {new Date(metric.latestDate).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -422,87 +691,131 @@ const AreaDash = () => {
                 )}
               </div>
             </div>
-          </div>
 
-          <div className="area-dash recent-activities-section">
-            <h2>Recent Activities</h2>
-            {activities.map((activity) => (
-              <div key={activity.id} className="area-dash activity-item">
-                <div className="area-dash user-initial">{activity.user.initial}</div>
-                <div className="area-dash activity-details">
-                  <div className="area-dash activity-header">
-                    <span className="area-dash user-name">{activity.user.name}</span>
-                    <span className="area-dash activity-date">{activity.date}</span>
-                  </div>
-                  <div className="area-dash activity-description">{activity.activity}</div>
-                  <div className="area-dash activity-extra-details">
-                    {activity.details.map((detail, index) => (
-                      <div key={index} className="area-dash detail-item">{detail}</div>
-                    ))}
-                  </div>
+            {/* Material Requests Overview - Compact with Tracking */}
+            <div className="dashboard-card requests-card">
+              <div className="card-header">
+                <h3 className="card-title">Material Requests</h3>
+                <div className="requests-summary">
+                  <span className="pending-count">{pendingRequests.length} Pending</span>
+                  <Link to="/am/matreq" className="view-all-link">
+                    View All <FaArrowRight />
+                  </Link>
                 </div>
               </div>
-            ))}
+              <div className="requests-content">
+                {requestsError ? (
+                  <div className="error-state">
+                    <FaExclamationTriangle />
+                    <span>{requestsError}</span>
+                  </div>
+                ) : materialRequests.length === 0 ? (
+                  <div className="empty-state">
+                    <FaBoxes />
+                    <span>No material requests found</span>
+                    <p>All requests have been processed or none are pending</p>
+                  </div>
+                ) : (
+                  <div className="requests-list">
+                    {materialRequests
+                      .sort((a, b) => {
+                        // Prioritize pending requests for current user
+                        const aIsPendingForUser = a.status === 'Pending AM' || a.status === 'PENDING AREA MANAGER';
+                        const bIsPendingForUser = b.status === 'Pending AM' || b.status === 'PENDING AREA MANAGER';
+                        
+                        if (aIsPendingForUser && !bIsPendingForUser) return -1;
+                        if (!aIsPendingForUser && bIsPendingForUser) return 1;
+                        
+                        // Then sort by date (newest first)
+                        return new Date(b.createdAt) - new Date(a.createdAt);
+                      })
+                      .slice(0, 3)
+                      .map(request => {
+                        console.log('Request status:', request.status); // Debug log
+                        return (
+                          <div key={request._id} className={`request-item-compact ${request.status === 'Pending AM' || request.status === 'PENDING AREA MANAGER' ? 'pending-for-user' : ''}`}>
+                            <div className="request-main-info">
+                              <div className="request-icon-small">
+                                <FaBoxes />
+                              </div>
+                              <div className="request-details-compact">
+                                <h4 className="request-title-compact">
+                                  {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
+                                </h4>
+                                <div className="request-meta-compact">
+                                  <span className="request-project-compact">{request.project?.projectName}</span>
+                                  <span className="request-date-compact">
+                                    {new Date(request.createdAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="request-status-compact">
+                                <span className={`status-text-compact ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
+                                  {request.status}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            {/* Compact Tracking Timeline */}
+                            <div className="tracking-timeline-compact">
+                              {/* Placed Stage */}
+                              <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'placed')}`}>
+                                <div className="timeline-icon-compact">
+                                  <FaCheckCircle />
+                                </div>
+                                <span className="timeline-label-compact">Placed</span>
+                              </div>
+                              
+                              <div className={`timeline-connector-compact ${['Pending PM', 'Pending AM', 'Pending CIO', 'Received', 'PENDING PROJECT MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
+                              
+                              {/* PM Stage */}
+                              <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'pm')}`}>
+                                <div className="timeline-icon-compact">
+                                  <FaUserTie />
+                                </div>
+                                <span className="timeline-label-compact">PM</span>
+                              </div>
+
+                              <div className={`timeline-connector-compact ${['Pending AM', 'Pending CIO', 'Received', 'PENDING AREA MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
+                              
+                              {/* AM Stage */}
+                              <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'am')}`}>
+                                <div className="timeline-icon-compact">
+                                  <FaBuilding />
+                                </div>
+                                <span className="timeline-label-compact">AM</span>
+                              </div>
+                              
+                              <div className={`timeline-connector-compact ${['Pending CIO', 'Received'].includes(request.status) ? 'completed' : ''}`}></div>
+                              
+                              {/* CIO Stage */}
+                              <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'cio')}`}>
+                                <div className="timeline-icon-compact">
+                                  <FaUserTie />
+                                </div>
+                                <span className="timeline-label-compact">CIO</span>
+                              </div>
+
+                              <div className={`timeline-connector-compact ${request.status === 'Received' ? 'completed' : ''}`}></div>
+                              
+                              {/* Done Stage */}
+                              <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'done')}`}>
+                                <div className="timeline-icon-compact">
+                                  <FaCheckCircle />
+                                </div>
+                                <span className="timeline-label-compact">Done</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Right Sidebar */}
-        <div className="area-dash right-sidebar">
-          <div className="area-dash pending-requests-section">
-            <div className="area-dash section-header">
-              <h2>Pending Material Requests</h2>
-              <Link to="/am/matreq" className="area-dash view-all-btn">View All</Link>
-            </div>
-            <div className="area-dash pending-requests-list">
-              {pendingRequests.length === 0 ? (
-                <div className="area-dash no-requests">No pending material requests</div>
-              ) : (
-                pendingRequests.slice(0, 3).map((request) => (
-                  <Link
-                    to={`/am/material-request/${request._id}`}
-                    key={request._id}
-                    className="area-dash pending-request-item"
-                  >
-                    <div className="area-dash request-icon">📦</div>
-                    <div className="area-dash request-details">
-                      <h3 className="area-dash request-title">
-                        {request.materials?.map((m) => `${m.materialName} (${m.quantity})`).join(', ')}
-                      </h3>
-                      <p className="area-dash request-description">{request.description}</p>
-                      <div className="area-dash request-meta">
-                        <span className="area-dash request-project">{request.project?.projectName}</span>
-                        <span className="area-dash request-date">
-                          Requested: {new Date(request.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="area-dash request-status">
-                      <span className="area-dash status-badge pending">Pending AM Approval</span>
-                    </div>
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="area-dash chats-section">
-            <h3>Chats</h3>
-            <div className="area-dash chats-list">
-              {chats.map((chat) => (
-                <div key={chat.id} className="area-dash chat-item">
-                  <div className="area-dash chat-avatar" style={{ backgroundColor: chat.color }}>
-                    {chat.initial}
-                  </div>
-                  <div className="area-dash chat-details">
-                    <div className="area-dash chat-name">{chat.name}</div>
-                    <div className="area-dash chat-message">{chat.message}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      </main>
     </div>
   );
 };

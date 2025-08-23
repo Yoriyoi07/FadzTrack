@@ -2,37 +2,73 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
-import '../style/ceo_style/Ceo_Proj.css';
 import NotificationBell from '../NotificationBell';
+import '../style/am_style/Area_Projects.css';
 
 // React Icons
-import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaProjectDiagram, FaClipboardList, FaChartBar } from 'react-icons/fa';
+import { 
+  FaTachometerAlt, 
+  FaComments, 
+  FaBoxes, 
+  FaUsers, 
+  FaProjectDiagram, 
+  FaClipboardList, 
+  FaChartBar,
+  FaMapMarkerAlt,
+  FaUserTie,
+  FaBuilding,
+  FaCalendarAlt,
+  FaUsers as FaUsersIcon,
+  FaMoneyBillWave,
+  FaCheckCircle,
+  FaClock,
+  FaFilter,
+  FaTh,
+  FaList,
+  FaSearch,
+  FaChevronDown,
+  FaChevronUp
+} from 'react-icons/fa';
 
 const AreaProj = () => {
-   const [filter, setFilter] = useState('all');
-  const stored = localStorage.getItem('user');
-  // FIX: Declare user BEFORE using in any state
-  const user = stored ? JSON.parse(stored) : null;
-  const [userName, setUserName] = useState(user?.name || 'ALECK');
-
+  const [filter, setFilter] = useState('all');
   const [viewMode, setViewMode] = useState('grid');
-  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // 1. Get area manager id from local storage/user context
+  const navigate = useNavigate();
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const userName = user?.name || 'Area Manager';
+  const userRole = user?.role || 'Area Manager';
   const areaManagerId = user?._id;
+
+  // Scroll handler for header collapse
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const shouldCollapse = scrollTop > 50;
+      setIsHeaderCollapsed(shouldCollapse);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
+      if (!event.target.closest('.profile-menu-container')) {
         setProfileMenuOpen(false);
       }
     };
-    document.addEventListener("click", handleClickOutside);
-    return () => {
-      document.removeEventListener("click", handleClickOutside);
-    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -41,201 +77,425 @@ const AreaProj = () => {
     navigate('/');
   };
 
-  // 2. Fetch all projects
+  // Fetch projects
   useEffect(() => {
     const fetchProjects = async () => {
       try {
+        setLoading(true);
         const response = await api.get('/projects');
         setProjects(response.data);
+        setError(null);
       } catch (error) {
         console.error('Failed to fetch projects:', error);
+        setError('Failed to load projects. Please try again.');
+      } finally {
+        setLoading(false);
       }
     };
     fetchProjects();
   }, []);
 
-  // 3. Filter projects for this area manager
-  const filteredProjects = projects.filter(
-    project => project.areamanager && project.areamanager._id === areaManagerId
+  // Filter projects for this area manager
+  const filteredProjects = projects.filter(project => 
+    project.areamanager && project.areamanager._id === areaManagerId
   );
 
-  // Optionally, keep the status filter as well
-  const displayedProjects = filteredProjects.filter(project => {
-    if (filter === 'completed') {
-      return project.status === 'Completed';
+  // Apply filters and search
+  const displayedProjects = filteredProjects
+    .filter(project => {
+      // Status filter
+      if (filter === 'completed') {
+        return project.status === 'Completed';
+      }
+      if (filter === 'ongoing') {
+        return project.status === 'Ongoing' || project.status === 'On Going';
+      }
+      if (filter === 'pending') {
+        return project.status === 'Pending' || project.status === 'Not Started';
+      }
+      
+      // Search filter
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          project.projectName?.toLowerCase().includes(searchLower) ||
+          project.location?.name?.toLowerCase().includes(searchLower) ||
+          project.projectmanager?.name?.toLowerCase().includes(searchLower) ||
+          project.contractor?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      return true;
+    })
+    .sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case 'name':
+          aValue = a.projectName || '';
+          bValue = b.projectName || '';
+          break;
+        case 'location':
+          aValue = a.location?.name || '';
+          bValue = b.location?.name || '';
+          break;
+        case 'manager':
+          aValue = a.projectmanager?.name || '';
+          bValue = b.projectmanager?.name || '';
+          break;
+        case 'status':
+          aValue = a.status || '';
+          bValue = b.status || '';
+          break;
+        case 'startDate':
+          aValue = new Date(a.startDate || 0);
+          bValue = new Date(b.startDate || 0);
+          break;
+        default:
+          aValue = a.projectName || '';
+          bValue = b.projectName || '';
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return '#10B981';
+      case 'ongoing':
+      case 'on going':
+        return '#3B82F6';
+      case 'pending':
+      case 'not started':
+        return '#F59E0B';
+      default:
+        return '#6B7280';
     }
-    if (filter === 'ongoing') {
-      return project.status === 'Ongoing' || project.status === 'On Going';
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return <FaCheckCircle />;
+      case 'ongoing':
+      case 'on going':
+        return <FaClock />;
+      case 'pending':
+      case 'not started':
+        return <FaClock />;
+      default:
+        return <FaClock />;
     }
-    return true;
-  });
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading projects...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-container">
-      {/* Header remains the same */}
-      <header className="header">
-  <div className="logo-container">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
-  </div>
-  <nav className="nav-menu">
-    <Link to="/am" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/am/chat" className="nav-link"><FaComments /> Chat</Link>
-    <Link to="/am/matreq" className="nav-link"><FaBoxes /> Material</Link>
-    <Link to="/am/manpower-requests" className="nav-link"><FaUsers /> Manpower</Link>
-    <Link to="/am/viewproj" className="nav-link"><FaProjectDiagram /> Projects</Link>
-    <Link to="/logs" className="nav-link"><FaClipboardList /> Logs</Link>
-    <Link to="/reports" className="nav-link"><FaChartBar /> Reports</Link>
-  </nav>
-  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-    <NotificationBell />
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-    </div>
-    {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-    )}
-  </div>
-</header>
+      {/* Modern Header - PM Style */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        {/* Top Row: Logo and Profile */}
+        <div className="header-top">
+          <div className="logo-section">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="header-logo"
+            />
+            <h1 className="header-brand">FadzTrack</h1>
+          </div>
 
-      <div className="ceo-proj-projects-container">
-        {/* Filter bar */}
-        <div className="ceo-proj-filter-bar">
-          {/* Area Filter */}
-          <div className="ceo-proj-area-filter">
-            <span className="ceo-proj-filter-icon">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-              </svg>
-              Area Filter
-            </span>
-            <div className="ceo-proj-filter-tabs">
-              <button
-                className={filter === 'all' ? 'ceo-proj-active' : ''}
-                onClick={() => setFilter('all')}
-              >
-                All
-              </button>
-              <span className="ceo-proj-divider">|</span>
-              <button
-                className={filter === 'completed' ? 'ceo-proj-active' : ''}
-                onClick={() => setFilter('completed')}
-              >
-                Completed
-              </button>
-              <span className="ceo-proj-divider">|</span>
-              <button
-                className={filter === 'ongoing' ? 'ceo-proj-active' : ''}
-                onClick={() => setFilter('ongoing')}
-              >
-                On Going
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">
+              {userName ? userName.charAt(0).toUpperCase() : 'A'}
+            </div>
+            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-dropdown">
+                <button onClick={handleLogout} className="logout-btn">
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Row: Navigation and Notifications */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/am" className="nav-item">
+              <FaTachometerAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
+            </Link>
+            <Link to="/am/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/am/matreq" className="nav-item">
+              <FaBoxes />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
+            </Link>
+            <Link to="/am/manpower-requests" className="nav-item">
+              <FaUsers />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
+            </Link>
+            <Link to="/am/viewproj" className="nav-item active">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
+            </Link>
+            <Link to="/logs" className="nav-item">
+              <FaClipboardList />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
+            </Link>
+            <Link to="/reports" className="nav-item">
+              <FaChartBar />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
+            </Link>
+          </nav>
+
+          <NotificationBell />
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="dashboard-main">
+        <div className="projects-container">
+          {/* Page Header */}
+          <div className="page-header">
+            <div className="page-title-section">
+              <h1 className="page-title">My Projects</h1>
+              <p className="page-subtitle">Manage and monitor all projects under your areas</p>
+            </div>
+            <div className="page-actions">
+              <button className="add-project-btn" onClick={() => navigate('/am/addproj')}>
+                <FaProjectDiagram />
+                Add Project
               </button>
             </div>
-            
           </div>
-          <div className="ceo-proj-view-mode">
-          <button
-            className={viewMode === 'grid' ? 'ceo-proj-active' : ''}
-            onClick={() => setViewMode('grid')}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="3" width="7" height="7"></rect>
-              <rect x="14" y="3" width="7" height="7"></rect>
-              <rect x="3" y="14" width="7" height="7"></rect>
-              <rect x="14" y="14" width="7" height="7"></rect>
-            </svg>
-          </button>
-          <button
-            className={viewMode === 'list' ? 'ceo-proj-active' : ''}
-            onClick={() => setViewMode('list')}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="8" y1="6" x2="21" y2="6"></line>
-              <line x1="8" y1="12" x2="21" y2="12"></line>
-              <line x1="8" y1="18" x2="21" y2="18"></line>
-              <line x1="3" y1="6" x2="3.01" y2="6"></line>
-              <line x1="3" y1="12" x2="3.01" y2="12"></line>
-              <line x1="3" y1="18" x2="3.01" y2="18"></line>
-            </svg>
-          </button>
-        </div>
-        </div> 
 
-        {/* Project cards */}
-        <div className={`ceo-proj-project-cards ${viewMode}`}>
-          {displayedProjects.map(project => (
-            <div
-              key={project._id}
-              className="ceo-proj-project-card"
-              onClick={() => navigate(`/am/projects/${project._id}`)}
-              style={{ cursor: 'pointer' }}
-            >
-              {/* Project Image */}
-              <div className="ceo-proj-project-image-container">
-                <img
-                  src={project.photos && project.photos.length > 0
-                    ? `${process.env.REACT_APP_API_URL || 'http://localhost:5000'}${project.photos[0]}`
-                    : 'https://placehold.co/400x250?text=No+Photo'}
-                  alt={project.projectName}
-                  className="ceo-proj-project-image"
-                  width={250}
-                  height={150}
-                  style={{ objectFit: "cover", borderRadius: 8 }}
+          {/* Filters and Controls */}
+          <div className="projects-controls">
+            <div className="controls-left">
+              {/* Search */}
+              <div className="search-container">
+                <FaSearch className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search projects..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input"
                 />
               </div>
-              {/* Project Details */}
-              <div className="ceo-proj-project-details">
-                <div className="ceo-proj-left-details">
-                  <h3 className="ceo-proj-project-name">{project.projectName}</h3>
-                  <p className="ceo-proj-project-location">
-                    {project.location?.name
-                      ? `${project.location.name} (${project.location.region})`
-                      : 'No Location'}
-                  </p>
-                  <div className="ceo-proj-project-info-grid">
-                    <div className="ceo-proj-info-column">
-                      <span className="ceo-proj-info-column-header">Project Manager:</span>
-                      <span className="ceo-proj-info-column-value">{project.projectmanager?.name}</span>
-                    </div>
-                    <div className="ceo-proj-info-column">
-                      <span className="ceo-proj-info-column-header">Contractor:</span>
-                      <span className="ceo-proj-info-column-value">{project.contractor}</span>
-                    </div>
-                    <div className="ceo-proj-info-column">
-                      <span className="ceo-proj-info-column-header">Target Date:</span>
-                      <span className="ceo-proj-info-column-value">
-                        {project.startDate && project.endDate
-                          ? `${new Date(project.startDate).toLocaleDateString()} to ${new Date(project.endDate).toLocaleDateString()}`
-                          : "N/A"}
-                      </span>
-                    </div>
-                    <div className="ceo-proj-manpower-section">
-                      <span className="ceo-proj-manpower-header">Manpower:</span>
-                      <span className="ceo-proj-manpower-value">
-                        {Array.isArray(project.manpower) && project.manpower.length > 0
-                          ? project.manpower.map(mp => `${mp.name} (${mp.position})`).join(', ')
-                          : 'No Manpower Assigned'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="ceo-proj-right-details">
-                  <div className="ceo-proj-budget">
-                    <p className="ceo-proj-budget-amount">{project.budget}</p>
-                    <p className="ceo-proj-budget-label">Estimated Budget</p>
-                  </div>
-                </div>
+
+              {/* Status Filter */}
+              <div className="filter-group">
+                <button
+                  className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+                  onClick={() => setFilter('all')}
+                >
+                  All ({filteredProjects.length})
+                </button>
+                <button
+                  className={`filter-btn ${filter === 'ongoing' ? 'active' : ''}`}
+                  onClick={() => setFilter('ongoing')}
+                >
+                  Ongoing ({filteredProjects.filter(p => p.status === 'Ongoing' || p.status === 'On Going').length})
+                </button>
+                <button
+                  className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
+                  onClick={() => setFilter('completed')}
+                >
+                  Completed ({filteredProjects.filter(p => p.status === 'Completed').length})
+                </button>
+                <button
+                  className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
+                  onClick={() => setFilter('pending')}
+                >
+                  Pending ({filteredProjects.filter(p => p.status === 'Pending' || p.status === 'Not Started').length})
+                </button>
               </div>
             </div>
-          ))}
+
+            <div className="controls-right">
+              {/* Sort */}
+              <div className="sort-container">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="sort-select"
+                >
+                  <option value="name">Sort by Name</option>
+                  <option value="location">Sort by Location</option>
+                  <option value="manager">Sort by Manager</option>
+                  <option value="status">Sort by Status</option>
+                  <option value="startDate">Sort by Start Date</option>
+                </select>
+                <button
+                  className="sort-order-btn"
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                >
+                  {sortOrder === 'asc' ? <FaChevronUp /> : <FaChevronDown />}
+                </button>
+              </div>
+
+              {/* View Mode */}
+              <div className="view-mode-container">
+                <button
+                  className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                  onClick={() => setViewMode('grid')}
+                >
+                  <FaTh />
+                </button>
+                <button
+                  className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
+                  onClick={() => setViewMode('list')}
+                >
+                  <FaList />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Error State */}
+          {error && (
+            <div className="error-state">
+              <FaClock />
+              <span>{error}</span>
+              <button onClick={() => window.location.reload()} className="retry-btn">
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {/* Projects Grid/List */}
+          {!error && (
+            <div className={`projects-display ${viewMode}`}>
+              {displayedProjects.length === 0 ? (
+                <div className="empty-state">
+                  <FaProjectDiagram />
+                  <h3>No projects found</h3>
+                  <p>
+                    {searchTerm || filter !== 'all' 
+                      ? 'Try adjusting your search or filters'
+                      : 'You don\'t have any projects assigned yet'
+                    }
+                  </p>
+                  {!searchTerm && filter === 'all' && (
+                    <button className="add-project-btn" onClick={() => navigate('/am/addproj')}>
+                      Add Your First Project
+                    </button>
+                  )}
+                </div>
+              ) : (
+                displayedProjects.map(project => (
+                  <div
+                    key={project._id}
+                    className="project-card"
+                    onClick={() => navigate(`/am/projects/${project._id}`)}
+                  >
+                    {/* Project Image */}
+                    <div className="project-image-container">
+                      <img
+                        src={project.photos && project.photos.length > 0
+                          ? project.photos[0]
+                          : 'https://placehold.co/400x250?text=No+Photo'}
+                        alt={project.name}
+                        className="project-image"
+                      />
+                      <div className="project-status-badge" style={{ backgroundColor: getStatusColor(project.status) }}>
+                        {getStatusIcon(project.status)}
+                        <span>{project.status || 'Unknown'}</span>
+                      </div>
+                    </div>
+
+                    {/* Project Content */}
+                    <div className="project-content">
+                      <div className="project-header">
+                        <h3 className="project-name">{project.name}</h3>
+                        <div className="project-location">
+                          <FaMapMarkerAlt />
+                          <span>{project.location?.name || 'No Location'}</span>
+                        </div>
+                      </div>
+
+                      <div className="project-details">
+                        <div className="detail-item">
+                          <FaUserTie className="detail-icon" />
+                          <div className="detail-content">
+                            <span className="detail-label">Project Manager</span>
+                            <span className="detail-value">{project.engineer?.name || 'Not Assigned'}</span>
+                          </div>
+                        </div>
+
+                        <div className="detail-item">
+                          <FaBuilding className="detail-icon" />
+                          <div className="detail-content">
+                            <span className="detail-label">Contractor</span>
+                            <span className="detail-value">{project.contractor || 'Not Assigned'}</span>
+                          </div>
+                        </div>
+
+                        <div className="detail-item">
+                          <FaCalendarAlt className="detail-icon" />
+                          <div className="detail-content">
+                            <span className="detail-label">Timeline</span>
+                            <span className="detail-value">
+                              {project.startDate && project.endDate
+                                ? `${new Date(project.startDate).toLocaleDateString()} - ${new Date(project.endDate).toLocaleDateString()}`
+                                : 'Not Set'
+                              }
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="detail-item">
+                          <FaUsersIcon className="detail-icon" />
+                          <div className="detail-content">
+                            <span className="detail-label">Manpower</span>
+                            <span className="detail-value">
+                              {Array.isArray(project.manpower) && project.manpower.length > 0
+                                ? `${project.manpower.length} assigned`
+                                : 'No manpower assigned'
+                              }
+                            </span>
+                          </div>
+                        </div>
+
+                        {project.budget && (
+                          <div className="detail-item">
+                            <FaMoneyBillWave className="detail-icon" />
+                            <div className="detail-content">
+                              <span className="detail-label">Budget</span>
+                              <span className="detail-value">{project.budget}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
-      </div>
+      </main>
     </div>
   );
 };

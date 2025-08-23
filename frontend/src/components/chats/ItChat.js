@@ -6,7 +6,7 @@ import EmojiPicker                            from 'emoji-picker-react';
 import api                                    from '../../api/axiosInstance';
 import attachIcon                             from '../../assets/images/attach.png';
 import { io }                                 from 'socket.io-client';
-import '../style/it_style/ItChat.css';
+import '../style/pm_style/PmChat.css';
 
 const SOCKET_SERVER_URL = process.env.REACT_APP_SOCKET_URL || '/';
 

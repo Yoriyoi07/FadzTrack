@@ -7,7 +7,7 @@ import { FaUsers, FaPaperPlane, FaCheck } from 'react-icons/fa';
 import api from '../../api/axiosInstance';
 import logo from '../../assets/images/FadzLogo1.png';
 import attachIcon from '../../assets/images/attach.png';
-import '../style/ceo_style/CeoChat.css';
+import '../style/pm_style/PmChat.css';
 
 const SOCKET_SERVER_URL = process.env.REACT_APP_SOCKET_URL || '/';
 

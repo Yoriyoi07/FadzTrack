@@ -437,6 +437,7 @@
   margin-bottom: 1rem;
   display: flex;
   flex-direction: column;
+  position: relative;
 }
 
 .modern-message-wrapper.own {
@@ -504,9 +505,10 @@
 .reactions-bar {
   display: flex;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 4px;
   flex-wrap: wrap;
   align-items: center;
+  padding: 2px 0;
 }
 
 .reaction-pill {
@@ -580,7 +582,7 @@
 /* Simple Hover Reaction Bar */
 .hover-reactions-bar {
   position: absolute;
-  top: -40px;
+  top: -45px;
   background: white;
   border-radius: 20px;
   padding: 6px 8px;
@@ -608,16 +610,16 @@
   margin-left: 8px; /* Prevent cut-off on small screens */
 }
 
-.modern-message:hover .hover-reactions-bar {
+.modern-message-wrapper:hover .hover-reactions-bar {
   opacity: 1;
   visibility: visible;
 }
 
-.modern-message-wrapper.own .modern-message:hover .hover-reactions-bar {
+.modern-message-wrapper.own:hover .hover-reactions-bar {
   transform: translateY(-5px);
 }
 
-.modern-message-wrapper.other .modern-message:hover .hover-reactions-bar {
+.modern-message-wrapper.other:hover .hover-reactions-bar {
   transform: translateY(-5px);
 }
 

@@ -5,7 +5,7 @@ import { FaPaperPlane, FaUsers, FaCheck } from 'react-icons/fa';
 import EmojiPicker from 'emoji-picker-react';
 import api from '../../api/axiosInstance';
 import attachIcon from '../../assets/images/attach.png';
-import '../style/hr_style/HrChat.css';
+import '../style/pm_style/PmChat.css';
 import { io } from 'socket.io-client';
 
 const SOCKET_SERVER_URL =
