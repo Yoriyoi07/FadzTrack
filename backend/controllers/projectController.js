@@ -7,13 +7,16 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const PDFDocument = require('pdfkit');
 const { Server } = require("socket.io");
+const { createAndEmitNotification } = require('../controllers/notificationController');
+
 
 
 // NEW: AI deps
 const axios = require('axios');
 const { extractPptText } = require('../utils/pptExtract');
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
+// use userSockets from app (Server.js sets this on app)
+// const userSockets = new Map();
 /* -------------------- mention helpers -------------------- */
 const slugUser = (s = '') => s.toString().trim().toLowerCase().replace(/\s+/g, '');
 const extractMentions = (text = '') => {
@@ -716,19 +719,6 @@ exports.getProjectDiscussions = async (req, res) => {
       .populate('discussions.replies.user', 'name');
     if (!project) return res.status(404).json({ error: 'Project not found' });
     
-    console.log('🔍 Fetching discussions for project:', req.params.id);
-    console.log('🔍 Number of discussions:', project.discussions?.length || 0);
-    console.log('🔍 First discussion sample:', project.discussions?.[0]);
-    console.log('🔍 All discussions with labels:');
-    project.discussions?.forEach((disc, index) => {
-      console.log(`🔍 Discussion ${index}:`, {
-        _id: disc._id,
-        text: disc.text?.substring(0, 50) + '...',
-        label: disc.label,
-        labelType: typeof disc.label,
-        hasLabel: !!disc.label
-      });
-    });
     
     res.json(project.discussions || []);
   } catch (err) {
@@ -761,18 +751,18 @@ exports.addProjectDiscussion = async (req, res) => {
   try {
     const text = (req.body?.text || '').trim();
     const label = req.body?.label || '';
-    console.log('🔍 Backend received label:', label);
-    console.log('🔍 Backend received body:', req.body);
     const projectId = req.params.id;
     const project = await Project.findById(projectId);
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
+    // Handle file uploads (if any)
     const incoming = Array.isArray(req.files) ? req.files : [];
     const uploadedAttachments = await uploadDiscussionFiles(projectId, incoming);
     if (!text && uploadedAttachments.length === 0) {
       return res.status(400).json({ error: 'Provide text or at least one attachment' });
     }
 
+    // Create a new discussion object
     const discussion = {
       user: req.user.id,
       userName: req.user.name,
@@ -780,63 +770,65 @@ exports.addProjectDiscussion = async (req, res) => {
       timestamp: new Date(),
       replies: [],
       attachments: uploadedAttachments,
-      label
+      label: req.body?.label || '',
     };
-    console.log('🔍 Discussion object being saved:', discussion);
 
-    // 1) Persist the message (this is the critical operation)
+    // Persist the message
     project.discussions.push(discussion);
-    console.log('💾 About to save project with discussion');
     await project.save();
-    console.log('✅ Project saved successfully');
 
-    // Get the added discussion for response
     const responseData = project.discussions[project.discussions.length - 1];
-    const io = req.app.get('io');  // <-- Get io from the app
-if (io) {
-  io.to(`project:${projectId}`).emit('project:newDiscussion', responseData);
-} 
-    console.log('📤 Backend sending response:', responseData);
-    console.log('📤 Response label:', responseData.label);
-    console.log('📤 Response label type:', typeof responseData.label);
-    
-    // 2) Send the HTTP response now (this is the success contract)
-    res.status(201).json(responseData);
 
-    // 3) Fire-and-forget side effects; don't let errors crash the route
-    process.nextTick(async () => {
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`project:${projectId}`).emit('project:newDiscussion', responseData);  // Notify everyone in the project
+    }
+
+    // Broadcast notification to project members (excluding the user who created the discussion)
+    const involvedUsers = collectProjectMembers(project); // Get users involved in the project
+    // Iterate and notify each involved user. Always save notification to DB.
+    const appUserSockets = req.app.get('userSockets'); // Map<userId, Set<socketId>>
+    for (const user of involvedUsers) {
       try {
-        console.log('🔄 Starting side effects...');
-        
-        // TEMPORARILY DISABLED: All side effects for debugging
-        console.log('📢 All side effects temporarily disabled for debugging');
-        console.log('📡 Socket.IO disabled');
-        console.log('📢 Notifications disabled');
-        
-      } catch (sideEffectError) {
-        console.error('❌ Error in side effects (non-critical):', sideEffectError);
+        if (String(user._id) === String(req.user.id)) continue; // skip creator
+
+        const notifPayload = {
+          type: 'discussion',
+          toUserId: user._id,
+          fromUserId: req.user.id,
+          message: `${req.user.name} added a new discussion: "${text.slice(0, 50)}..." ${label ? `[${label}]` : ''}`,
+          projectId: project._id,
+          referenceId: responseData._id,
+          meta: { discussionId: responseData._id },
+        };
+
+        // Save notification to DB
+        const createdNotif = await Notification.create(notifPayload);
+
+        // Emit to all active sockets for that user (if any)
+        if (appUserSockets && typeof appUserSockets.get === 'function') {
+          const socketSet = appUserSockets.get(String(user._id));
+          if (socketSet && socketSet.size) {
+            for (const sid of socketSet) {
+              try { io.to(sid).emit('notification', createdNotif); } catch (emitErr) { console.error('Emit error to', sid, emitErr); }
+            }
+          } else {
+            // no active sockets for this user
+          }
+        }
+      } catch (innerErr) {
+        console.error('Error creating/emitting discussion notification for user', user._id, innerErr);
       }
-    });
+    }
+
+    res.status(201).json(responseData);
   } catch (err) {
     console.error('❌ Error in addProjectDiscussion:', err);
-    console.error('❌ Error stack:', err.stack);
-    console.error('❌ Error name:', err.name);
-    console.error('❌ Error message:', err.message);
-    console.error('❌ Error code:', err.code);
-    
-    // Check if this is a validation error
-    if (err.name === 'ValidationError') {
-      console.error('❌ Validation error details:', err.errors);
-    }
-    
-    // Check if this is a MongoDB error
-    if (err.code) {
-      console.error('❌ MongoDB error code:', err.code);
-    }
-    
     res.status(500).json({ error: 'Failed to post discussion', details: err.message });
   }
 };
+
+
 
 // POST reply
 exports.replyToProjectDiscussion = async (req, res) => {
@@ -863,38 +855,50 @@ exports.replyToProjectDiscussion = async (req, res) => {
       attachments: uploadedAttachments
     };
 
-    // 1) Persist the reply (this is the critical operation)
+    // Persist the reply (this is the critical operation)
     discussion.replies.push(reply);
     await project.save();
 
-    // Get the added reply for response
-const responseReply = discussion.replies[discussion.replies.length - 1];
-const io = req.app.get('io');
-if (io) {
-  io.to(`project:${projectId}`).emit('project:newReply', responseReply);
-}
-// 2) Send the HTTP response now (this is the success contract)
-res.status(201).json(responseReply);
+    const responseReply = discussion.replies[discussion.replies.length - 1];
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`project:${projectId}`).emit('project:newReply', responseReply);
+    }
 
-    // 3) Fire-and-forget side effects; don't let errors crash the route
-    process.nextTick(async () => {
-      try {
-        console.log('🔄 Starting reply side effects...');
-        
-        // TEMPORARILY DISABLED: All side effects for debugging
-        console.log('📢 All reply side effects temporarily disabled for debugging');
-        console.log('📡 Socket.IO disabled');
-        console.log('📢 Reply notifications disabled');
-        
-      } catch (sideEffectError) {
-        console.error('❌ Error in reply side effects (non-critical):', sideEffectError);
+    // Create a notification for the users who are mentioned or involved in the discussion
+    const involvedUsers = collectProjectMembers(project);
+    involvedUsers.forEach(async (user) => {
+      if (user._id.toString() !== req.user.id.toString()) { // Don't notify the user who replied
+        const notif = {
+          message: `${req.user.name} replied to a discussion: "${text.slice(0, 50)}..."`,
+          type: 'reply',
+          toUserId: user._id,
+          fromUserId: req.user.id,
+          projectId: project._id,
+          referenceId: responseReply._id,
+          meta: { replyId: responseReply._id },
+        };
+
+        // Save the notification to MongoDB
+        const newNotification = new Notification(notif);
+        await newNotification.save();
+
+        // Emit the notification to the user's socket
+        const socketId = userSockets.get(user._id.toString());  // Get the socketId for the user
+        if (socketId) {
+          io.to(socketId).emit('notification', notif);  // Emit the notification
+        }
       }
     });
+
+    res.status(201).json(responseReply);
+
   } catch (err) {
-    console.error(err);
+    console.error('❌ Error in replyToProjectDiscussion:', err);
     res.status(500).json({ error: 'Failed to post reply' });
   }
 };
+
 
 /* ====================== UPLOAD PROJECT DOCUMENTS ====================== */
 exports.uploadProjectDocuments = async (req, res) => {
@@ -1389,26 +1393,15 @@ exports.getReportSignedUrl = async (req, res) => {
 
 /* --- GET PROJECT USERS FOR MENTIONS --- */
 exports.getProjectUsers = async (req, res) => {
-  console.log('🎯 getProjectUsers endpoint called!');
-  console.log('🎯 Request params:', req.params);
-  console.log('🎯 Request headers:', req.headers);
   
   try {
     const { id } = req.params;
-    console.log('🔍 getProjectUsers called for project ID:', id);
     
     const project = await Project.findById(id);
     if (!project) {
-      console.log('❌ Project not found:', id);
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    console.log('📋 Project found:', project.projectName);
-    console.log('👥 Project manager:', project.projectmanager);
-    console.log('👥 PIC:', project.pic);
-    console.log('👥 Staff:', project.staff);
-    console.log('👥 HR Site:', project.hrsite);
-    console.log('👥 Area Manager:', project.areamanager);
 
     // Get all users in the project (PM, PIC, Staff, HR Site, Area Manager)
     const projectUsers = await User.find({
@@ -1421,7 +1414,6 @@ exports.getProjectUsers = async (req, res) => {
       ]
     }).select('name _id');
 
-    console.log('✅ Found project users:', projectUsers);
     res.json(projectUsers);
   } catch (err) {
     console.error('❌ Error fetching project users:', err);

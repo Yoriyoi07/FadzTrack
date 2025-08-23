@@ -11,7 +11,7 @@ import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, 
 const PicDash = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
-  const stored = localStorage.getItem('user');
+  const stored = localStorage.getItem('user'); 
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
 

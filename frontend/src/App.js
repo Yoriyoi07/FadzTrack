@@ -12,19 +12,21 @@ const getUserId = () => {
 const App = () => {
   const [userId, setUserId] = useState(getUserId);
 
+  // Update the userId whenever the localStorage user changes
   useEffect(() => {
     const syncUserId = () => setUserId(getUserId());
     window.addEventListener('storage', syncUserId);
     return () => window.removeEventListener('storage', syncUserId);
   }, []);
 
+  // Force update of user ID
   const forceUserUpdate = useCallback(() => {
     setUserId(getUserId());
   }, []);
 
   return (
     <Router>
-      <NotificationProvider userId={userId} key={userId}>
+      <NotificationProvider userId={userId} key={userId}> {/* Pass the userId */}
         <AppRoutes forceUserUpdate={forceUserUpdate} />
         <ToastContainer />
       </NotificationProvider>
