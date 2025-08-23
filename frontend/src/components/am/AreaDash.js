@@ -471,21 +471,21 @@ const AreaDash = () => {
             <h1 className="header-brand">FadzTrack</h1>
           </div>
 
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+          <div className="user-profile profile-menu-container" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
             <div className="profile-avatar">
               {userName ? userName.charAt(0).toUpperCase() : 'A'}
-  </div>
+            </div>
             <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
               <span className="profile-name">{userName}</span>
               <span className="profile-role">{userRole}</span>
-    </div>
-    {profileMenuOpen && (
+            </div>
+            {profileMenuOpen && (
               <div className="profile-dropdown">
                 <button onClick={handleLogout} className="logout-btn">
                   <span>Logout</span>
                 </button>
-      </div>
-    )}
+              </div>
+            )}
           </div>
         </div>
 

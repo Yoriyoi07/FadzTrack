@@ -217,7 +217,7 @@ const AreaProj = () => {
             <h1 className="header-brand">FadzTrack</h1>
           </div>
 
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+          <div className="user-profile profile-menu-container" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
             <div className="profile-avatar">
               {userName ? userName.charAt(0).toUpperCase() : 'A'}
             </div>
