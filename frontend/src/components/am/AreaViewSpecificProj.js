@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
+import { useNotifications } from '../../context/NotificationContext';
 import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaDownload, FaCalendarAlt, FaMapMarkerAlt, FaUsers, FaUserTie, FaBuilding, FaMoneyBillWave, FaCheckCircle, FaClock, FaTrash, FaCamera } from 'react-icons/fa';
 import { exportProjectDetails } from '../../utils/projectPdf';
 // Nav icons
@@ -278,6 +279,8 @@ const AmViewSpecificProject = () => {
   const user = userRef.current;
   const userId = user?._id || null;
   const [userName] = useState(user?.name || 'Area Manager');
+  // shared socket from NotificationContext
+  const { socketRef } = useNotifications();
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
@@ -302,6 +305,8 @@ const AmViewSpecificProject = () => {
   const listScrollRef = useRef(null);
   const listBottomRef = useRef(null);
   const textareaRef = useRef(null);
+  // Track processed message/reply ids to avoid duplicate inserts when server echoes
+  const processedIdsRef = useRef(new Set());
 
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -459,60 +464,76 @@ const AmViewSpecificProject = () => {
 
   useEffect(() => {
     if (!project?._id || activeTab !== 'Discussions') return;
+  const processedMessageIds = processedIdsRef.current;
 
-    const processedMessageIds = new Set();
+    // Prefer shared socket from NotificationContext to ensure a single connection
+    let socket = socketRef?.current;
+    let createdLocal = false;
+    if (!socket) {
+      socket = io(SOCKET_ORIGIN, { path: SOCKET_PATH, transports: ['websocket'], auth: { userId } });
+      createdLocal = true;
+    }
 
-    const socket = io(SOCKET_ORIGIN, {
-      path: SOCKET_PATH,
-      transports: ['websocket'],
-      auth: { userId: userId }
-    });
+    // handler references for cleanup
+    let handleNewDiscussion = null;
+    let handleNewReply = null;
+    let onConnect = null;
 
-    socket.on('connect', () => {});
-    socket.on('connect_error', () => {});
-    socket.on('disconnect', () => {});
+    const attachHandlers = (sock) => {
+      try { sock.emit('joinProject', project._id); } catch (e) {}
 
-    socket.emit('joinProject', `project:${project._id}`);
-
-    const handleNewDiscussion = (data) => {
-      if (String(data.projectId) === String(project._id) && data.message) {
-        const messageId = String(data.message._id);
-        if (processedMessageIds.has(messageId)) return;
-        setMessages(prev => {
-          const newList = [...prev, data.message];
-          return newList.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-        });
+      handleNewDiscussion = (data) => {
+        console.log('[socket received] project:newDiscussion', data);
+        if (String(data.projectId) === String(project._id) && data.message) {
+          const messageId = String(data.message._id);
+          if (processedMessageIds.has(messageId)) return;
+          setMessages(prev => {
+            const newList = [...prev, data.message];
+            return newList.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+          });
         processedMessageIds.add(messageId);
-      }
-    };
+        }
+      };
 
-    const handleNewReply = (data) => {
-      if (String(data.projectId) === String(project._id) && data.msgId && data.reply) {
-        setMessages(prev => prev.map(msg => {
-          if (String(msg._id) === data.msgId) {
-            const replyExists = msg.replies?.some(reply => String(reply._id) === String(data.reply._id));
-            if (!replyExists) {
-              return { ...msg, replies: [...msg.replies, data.reply] };
+      handleNewReply = (data) => {
+        console.log('[socket received] project:newReply', data);
+        if (String(data.projectId) === String(project._id) && data.msgId && data.reply) {
+          const replyId = String(data.reply._id);
+          if (processedIdsRef.current.has(replyId)) return;
+          setMessages(prev => prev.map(msg => {
+            if (String(msg._id) === data.msgId) {
+              const replyExists = msg.replies?.some(reply => String(reply._id) === String(data.reply._id));
+              if (!replyExists) {
+                return { ...msg, replies: [...msg.replies, data.reply] };
+              }
             }
-          }
-          return msg;
-        }));
-      }
+            return msg;
+          }));
+          processedIdsRef.current.add(replyId);
+        }
+      };
+
+      sock.on('project:newDiscussion', handleNewDiscussion);
+      sock.on('project:newReply', handleNewReply);
     };
 
-    socket.on('project:newDiscussion', handleNewDiscussion);
-    socket.on('project:newReply', handleNewReply);
+    if (socket && socket.connected) {
+      attachHandlers(socket);
+    } else if (socket) {
+      onConnect = () => { attachHandlers(socket); socket.off('connect', onConnect); };
+      socket.on('connect', onConnect);
+    }
 
     return () => {
-      socket.off('project:newDiscussion', handleNewDiscussion);
-      socket.off('project:newReply', handleNewReply);
-      socket.off('connect');
-      socket.off('connect_error');
-      socket.off('disconnect');
-      socket.emit('leaveProject', `project:${project._id}`);
-      socket.disconnect();
+      try { if (socket && handleNewDiscussion) socket.off('project:newDiscussion', handleNewDiscussion); } catch (e) {}
+      try { if (socket && handleNewReply) socket.off('project:newReply', handleNewReply); } catch (e) {}
+      try { socket.emit('leaveProject', project._id); } catch (e) {}
+      if (onConnect && socket) try { socket.off('connect', onConnect); } catch (e) {}
+      if (createdLocal) {
+        try { socket.disconnect(); } catch (e) {}
+      }
     };
-  }, [project?._id, activeTab, userId]);
+  }, [project?._id, activeTab, userId, socketRef]);
 
   const handlePostMessage = async () => {
     if ((!newMessage.trim() && composerFiles.length === 0) || posting || !project?._id) return;
@@ -529,7 +550,10 @@ const AmViewSpecificProject = () => {
 
       setMessages(prev => {
         const newMessageObj = response.data;
-        return [...prev, newMessageObj].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        // mark as processed to avoid socket echo duplication
+        try { processedIdsRef.current.add(String(newMessageObj._id)); } catch (e) {}
+        const merged = [...prev, newMessageObj].filter((v, i, arr) => i === arr.findIndex(x => String(x._id) === String(v._id)));
+        return merged.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       });
 
       setNewMessage('');
@@ -561,6 +585,8 @@ const AmViewSpecificProject = () => {
         }
         return msg;
       }));
+      // mark reply as processed to avoid duplication from socket echo
+      try { processedIdsRef.current.add(String(response.data._id)); } catch (e) {}
 
       setReplyInputs(prev => ({ ...prev, [msgId]: '' }));
     } catch (error) {

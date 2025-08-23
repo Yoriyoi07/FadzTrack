@@ -833,7 +833,7 @@ const handlePostMessage = async () => {
     }
   };
 
-  const handleDeleteFile = async (doc, index) => {
+const handleDeleteFile = async (doc, index) => {
     if (!project?._id || !window.confirm('Are you sure you want to delete this file?')) return;
     
     try {
@@ -847,7 +847,6 @@ const handlePostMessage = async () => {
         data: { path: filePath }
       });
       
-      // Remove file from project state
       setProject(prev => ({
         ...prev,
         documents: prev.documents.filter((_, i) => i !== index)
@@ -858,7 +857,6 @@ const handlePostMessage = async () => {
       alert('Failed to delete file. Please try again.');
     }
   };
-
   if (loading) return (
     <div className="dashboard-container">
       <div className="professional-loading-screen">

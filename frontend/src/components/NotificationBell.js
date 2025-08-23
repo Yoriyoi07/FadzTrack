@@ -2,51 +2,29 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNotifications } from "../context/NotificationContext";
 import { FaBell } from "react-icons/fa";
 import './style/NotificationBell.css';
-import { io } from "socket.io-client";
-
-const socketUrl =
-  process.env.NODE_ENV === "production"
-    ? "wss://fadztrack.onrender.com"
-    : "ws://localhost:5000";
 
 const NotificationBell = () => {
   const {
     notifications,
     unread,
-    setNotifications,
-    setUnread,
     markAllRead,
   } = useNotifications();
 
   const [open, setOpen] = useState(false);
   const bellRef = useRef();
-  const userId = localStorage.getItem("userId");
+  // Prefer explicit 'userId' key, fallback to parsing stored 'user' JSON (keeps behavior consistent with App.js)
+  let userId = localStorage.getItem("userId");
+  if (!userId) {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || 'null');
+      if (u && (u._id || u.id)) userId = String(u._id || u.id);
+    } catch {
+      userId = null;
+    }
+  }
 
-  // Debugging forceUpdate to re-render (optional)
-  const [, forceUpdate] = useState(0);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    const socket = io(socketUrl);
-    console.log("Socket Connecting...");
-    socket.emit("register", userId);
-
-    socket.on("notification", (notif) => {
-      console.log("Received notification:", notif);
-      setNotifications((prev) => {
-        const updatedNotifications = [notif, ...prev];
-        console.log("Updated Notifications:", updatedNotifications);
-        return updatedNotifications;
-      });
-      setUnread((prev) => prev + 1);
-    });
-
-    return () => {
-      socket.disconnect();
-      console.log("Socket disconnected");
-    };
-  }, [userId, setNotifications, setUnread]);
+  // No local socket here — NotificationContext manages the socket and updates
+  // the shared notifications state. This component only renders the list.
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -105,10 +83,10 @@ const NotificationBell = () => {
             {notifications.length === 0 ? (
               <div className="notif-empty">No notifications</div>
             ) : (
-              notifications.slice(0, 8).map((n) => (
+              notifications.slice(0, 8).map((n, i) => (
                 <div
                   className={`notif-item${n.status === "unread" ? " unread" : ""}`}
-                  key={n._id}
+                  key={(n && n._id ? String(n._id) : `notif-${i}`) + `-${i}`}
                 >
                   <div className="notif-msg">
                     {getNotificationType(n.type)}: {n.message}

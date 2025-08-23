@@ -781,7 +781,11 @@ exports.addProjectDiscussion = async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
-      io.to(`project:${projectId}`).emit('project:newDiscussion', responseData);  // Notify everyone in the project
+      // Emit a structured payload so clients can verify projectId and access the message
+      try {
+        console.log(`[socket emit] project:newDiscussion -> project:${projectId}`, { projectId, messageId: responseData?._id });
+      } catch (e) { }
+      io.to(`project:${projectId}`).emit('project:newDiscussion', { projectId, message: responseData });
     }
 
     // Broadcast notification to project members (excluding the user who created the discussion)
@@ -862,7 +866,11 @@ exports.replyToProjectDiscussion = async (req, res) => {
     const responseReply = discussion.replies[discussion.replies.length - 1];
     const io = req.app.get('io');
     if (io) {
-      io.to(`project:${projectId}`).emit('project:newReply', responseReply);
+      try {
+        console.log(`[socket emit] project:newReply -> project:${projectId}`, { projectId, msgId, replyId: responseReply?._id });
+      } catch (e) { }
+      // Include the parent message id so clients can attach the reply to the correct discussion
+      io.to(`project:${projectId}`).emit('project:newReply', { projectId, msgId, reply: responseReply });
     }
 
     // Create a notification for the users who are mentioned or involved in the discussion
@@ -883,10 +891,19 @@ exports.replyToProjectDiscussion = async (req, res) => {
         const newNotification = new Notification(notif);
         await newNotification.save();
 
-        // Emit the notification to the user's socket
-        const socketId = userSockets.get(user._id.toString());  // Get the socketId for the user
-        if (socketId) {
-          io.to(socketId).emit('notification', notif);  // Emit the notification
+        // Emit the notification to the user's socket(s)
+        const userSockets = req.app.get('userSockets');
+        if (userSockets && typeof userSockets.get === 'function') {
+          const socketSet = userSockets.get(String(user._id));
+          if (socketSet && socketSet.size) {
+            for (const sid of socketSet) {
+              try {
+                io.to(sid).emit('notification', notif);
+              } catch (emitErr) {
+                console.error('Emit error to', sid, emitErr);
+              }
+            }
+          }
         }
       }
     });
@@ -1040,8 +1057,11 @@ exports.deleteProjectDocument = async (req, res) => {
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
-    if (!userCanUploadToProject(project, req.user)) {
-      return res.status(403).json({ message: 'Not allowed to delete documents for this project' });
+    // Permit CEO to delete any project document; otherwise require normal upload/delete permissions
+    if (!req.user || String(req.user.role || '').toLowerCase() !== 'ceo') {
+      if (!userCanUploadToProject(project, req.user)) {
+        return res.status(403).json({ message: 'Not allowed to delete documents for this project' });
+      }
     }
 
     const relative = path.replace(/^.*?project-documents\//, 'project-documents/');
@@ -1050,6 +1070,19 @@ exports.deleteProjectDocument = async (req, res) => {
 
     project.documents = (project.documents || []).filter(d => extractPathFromDoc(d) !== path);
     await project.save();
+
+    // Audit log the deletion
+    try {
+      await logAction({
+        action: (req.user && String(req.user.role || '').toLowerCase() === 'ceo') ? 'CEO_DELETE_PROJECT_DOCUMENT' : 'DELETE_PROJECT_DOCUMENT',
+        performedBy: req.user?.id,
+        performedByRole: req.user?.role,
+        description: `${req.user?.name || 'Unknown'} deleted document ${path} from project ${project.projectName}`,
+        meta: { projectId: project._id, path }
+      });
+    } catch (logErr) {
+      console.error('Audit log error (deleteProjectDocument):', logErr);
+    }
 
     const io = req.app.get('io');
     if (io) {
