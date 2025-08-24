@@ -1,185 +1,273 @@
-import React, { useState, useEffect } from 'react';
-import { PieChart, Pie, Cell } from 'recharts';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, Link } from 'react-router-dom';
+import '../style/am_style/Area_Dash.css';
+import '../style/ceo_style/Ceo_Dash.css';
 import '../style/ceo_style/Ceo_Dash.css';
 import api from '../../api/axiosInstance';
-import CeoAddArea from './CeoAddArea'; 
 import NotificationBell from '../NotificationBell';
+import CeoAddArea from './CeoAddArea';
 
-// Nav icons
-import { FaTachometerAlt, FaComments, FaBoxes, FaProjectDiagram, FaClipboardList, FaChartBar } from 'react-icons/fa';
-
+// Icons (same set used by AM for consistent look)
+import {
+  FaTachometerAlt,
+  FaComments,
+  FaUsers,
+  FaProjectDiagram,
+  FaClipboardList,
+  FaChartBar,
+  FaCalendarAlt,
+  FaArrowRight,
+  FaChevronDown,
+  FaChevronUp,
+  FaMapMarkerAlt,
+  FaChevronRight,
+  FaChevronLeft
+} from 'react-icons/fa';
 
 const CeoDash = () => {
   const navigate = useNavigate();
-  const [userName, setUserName] = useState('');
-  const [userRole, setUserRole] = useState('');
+
+  // Stable user
+  const userRef = useRef(null);
+  if (userRef.current === null) {
+    const raw = localStorage.getItem('user');
+    userRef.current = raw ? JSON.parse(raw) : null;
+  }
+  const user = userRef.current;
+  const [userName] = useState(user?.name || '');
+  const [userRole] = useState(user?.role || '');
+
+  // Header/UI state
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [projects, setProjects] = useState([]);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Data state
+  const [locations, setLocations] = useState([]);
   const [allProjects, setAllProjects] = useState([]);
   const [enrichedAllProjects, setEnrichedAllProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [pendingRequests, setPendingRequests] = useState([]);
   const [expandedLocations, setExpandedLocations] = useState({});
-  const [locations, setLocations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Requests
+  const [requestsError, setRequestsError] = useState(null);
+
+  // Metrics
+  const [projectMetrics, setProjectMetrics] = useState([]);
+  const [metricsLoading, setMetricsLoading] = useState(true);
+  // pagination removed; we keep horizontal scroll of all items
+
   const [showAddAreaModal, setShowAddAreaModal] = useState(false);
+  const [selectedArea, setSelectedArea] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
 
-  const [activities, setActivities] = useState([]);
-
-  const [chats, setChats] = useState([
-    {
-      id: 1,
-      name: 'Rychea Miralles',
-      initial: 'R',
-      message: 'Hello Good Morning po! As...',
-      color: '#4A6AA5'
-    },
-    {
-      id: 2,
-      name: 'Third Castellar',
-      initial: 'T',
-      message: 'Hello Good Morning po! As...',
-      color: '#2E7D32'
-    },
-    {
-      id: 3,
-      name: 'Zenarose Miranda',
-      initial: 'Z',
-      message: 'Hello Good Morning po! As...',
-      color: '#9C27B0'
-    }
-  ]);
-
+  // Initial load: locations, projects, requests
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const stored = localStorage.getItem('user');
-        const user = stored ? JSON.parse(stored) : null;
-        if (user) {
-          setUserName(user.name);
-          setUserRole(user.role);
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-      }
-    };
+    let isActive = true;
+    const controller = new AbortController();
 
-    const fetchLocations = async () => {
+    const loadAll = async () => {
       try {
-        const { data } = await api.get('/locations');
-        setLocations(data);
-      } catch (error) {
-        console.error('Error fetching locations:', error);
-      }
-    };
+        const [locRes, projRes] = await Promise.all([
+          api.get('/locations', { signal: controller.signal }),
+          api.get('/projects', { signal: controller.signal })
+        ]);
 
-    const fetchProjects = async () => {
-      try {
-        const { data: projectsData } = await api.get('/projects');
-        setAllProjects(projectsData);
-        // Fetch progress and latest update for each project
-        const projectsWithProgress = await Promise.all(
-          projectsData.map(async (project) => {
-            try {
-              const { data: progressData } = await api.get(`/daily-reports/project/${project._id}/progress`);
-              // Fetch latest daily report for sorting
-              const { data: reports } = await api.get(`/daily-reports/project/${project._id}`);
-              let latestDate = null;
-              if (Array.isArray(reports) && reports.length > 0) {
-                latestDate = reports[reports.length - 1].date || null;
-              }
-              return {
-                id: project._id,
-                name: project.projectName,
-                engineer: project.projectmanager?.name || 'Not Assigned',
-                progress: progressData.progress,
-                latestDate,
-                location: project.location
-              };
-            } catch (error) {
-              return null; // skip if error
-            }
-          })
-        );
-        // Filter out projects with no progress or no daily log
-        const filtered = projectsWithProgress.filter(
-          p => p && p.progress && Array.isArray(p.progress) && p.progress[0].name !== 'No Data' && p.latestDate
-        );
-        // Sort by latest update (descending)
-        filtered.sort((a, b) => new Date(b.latestDate) - new Date(a.latestDate));
-        setProjects(filtered);
-      } catch (error) {
-        console.error('Error fetching projects:', error);
+        if (!isActive) return;
+        const locs = Array.isArray(locRes.data) ? locRes.data : [];
+        const projs = Array.isArray(projRes.data) ? projRes.data : [];
+        setLocations(locs);
+        setAllProjects(projs);
+
+        // Enrich projects with location object + display fields
+        const enriched = projs.map((p) => {
+          const loc = typeof p.location === 'object' && p.location?.name
+            ? p.location
+            : locs.find(l => l._id === (p.location?._id || p.location));
+          return {
+            ...p,
+            location: loc ? { ...loc } : { name: 'Unknown Location', region: '' },
+            name: p.projectName,
+            engineer: p.projectmanager?.name || 'Not Assigned',
+          };
+        });
+        setEnrichedAllProjects(enriched);
+        setRequestsError(null);
+      } catch (err) {
+        if (!isActive) return;
+        setRequestsError('Error loading data');
       } finally {
-        setLoading(false);
+        if (isActive) setLoading(false);
       }
     };
 
-    const fetchPendingRequests = async () => {
-      try {
-        const { data } = await api.get('/requests');
-        const pending = data.filter(request => request.status === 'Pending CEO');
-        setPendingRequests(pending);
-      } catch (error) {
-        console.error('Error fetching pending requests:', error);
-      }
-    };
-
-    fetchUserData();
-    fetchLocations();
-    fetchProjects();
-    fetchPendingRequests();
+    loadAll();
+    return () => { isActive = false; controller.abort(); };
   }, []);
 
-  // Enrich projects with location info after both are loaded
+  // Compute per-project metrics using backend progress endpoint per project (system-wide)
   useEffect(() => {
-    // Enrich filtered projects (for progress tracking)
-    if (locations.length && projects.length > 0) {
-      setProjects(prevProjects => prevProjects.map(project => {
-        if (typeof project.location === 'object' && project.location !== null && project.location.name) {
-          return project;
-        }
-        const loc = locations.find(l => l._id === (project.location?._id || project.location));
-        return {
-          ...project,
-          location: loc ? { ...loc } : { name: 'Unknown Location', region: '' }
-        };
-      }));
-    }
-    // Enrich all projects (for sidebar)
-    if (locations.length && allProjects.length > 0) {
-      setEnrichedAllProjects(
-        allProjects.map(project => {
-          if (typeof project.location === 'object' && project.location !== null && project.location.name) {
-            return {
-              ...project,
-              name: project.projectName,
-              engineer: project.projectmanager?.name || 'Not Assigned',
-            };
-          }
-          const loc = locations.find(l => l._id === (project.location?._id || project.location));
-          return {
-            ...project,
-            location: loc ? { ...loc } : { name: 'Unknown Location', region: '' },
-            name: project.projectName,
-            engineer: project.projectmanager?.name || 'Not Assigned',
-          };
-        })
-      );
-    }
-  }, [locations, allProjects, projects.length]);
+    const fetchProjectMetrics = async () => {
+      if (!enrichedAllProjects.length) return;
+      setMetricsLoading(true);
+      const metrics = [];
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
-        setProfileMenuOpen(false);
+      const getPctFromAi = (ai) => {
+        const v = Number(ai?.pic_contribution_percent);
+        if (Number.isFinite(v) && v >= 0) return Math.max(0, Math.min(100, Math.round(v)));
+        // Fallback heuristic if contribution is missing: use completed_tasks count
+        const ct = Array.isArray(ai?.completed_tasks) ? ai.completed_tasks.length : 0;
+        return Math.max(0, Math.min(100, ct * 5));
+      };
+
+      for (const project of enrichedAllProjects) {
+        try {
+          // Fetch AI reports for this project
+          const { data } = await api.get(`/projects/${project._id}/reports`);
+          const all = Array.isArray(data?.reports) ? data.reports : [];
+          if (!all.length) {
+            metrics.push({
+              projectId: project._id,
+              projectName: project.name,
+              pm: project.engineer,
+              area: project.location?.name || 'Unknown Area',
+              progress: 0,
+              totalPics: 0,
+              latestDate: null,
+              status: 'stale',
+              waitingForAll: false,
+              picNames: []
+            });
+            continue;
+          }
+
+          // Latest report per PIC (by uploadedBy)
+          const byPic = {};
+          for (const rep of all) {
+            const picId = rep.uploadedBy || rep.uploadedByName || 'unknown';
+            const repDate = rep.uploadedAt || rep.createdAt || rep.date;
+            if (!byPic[picId] || new Date(repDate) > new Date(byPic[picId].uploadedAt)) {
+              byPic[picId] = { ...rep, uploadedAt: repDate };
+            }
+          }
+
+          const picIds = Object.keys(byPic);
+          const expectedPics = Array.isArray(project.pic) ? project.pic.length : picIds.length; // fall back to seen PICs
+          const latestDate = picIds.length
+            ? picIds.map((id) => byPic[id].uploadedAt).sort((a, b) => new Date(b) - new Date(a))[0]
+            : null;
+
+          // Consider only reports matching the latest shared date when multiple PICs
+          const sameDay = (d1, d2) => new Date(d1).toDateString() === new Date(d2).toDateString();
+          let valuesAtLatest = [];
+          const namesAtLatest = [];
+          if (picIds.length > 1) {
+            picIds.forEach((id) => {
+              const rep = byPic[id];
+              if (rep?.uploadedAt && sameDay(rep.uploadedAt, latestDate)) {
+                valuesAtLatest.push(getPctFromAi(rep.ai || {}));
+                namesAtLatest.push(rep.uploadedByName || 'Unknown');
+              }
+            });
+          } else {
+            valuesAtLatest = picIds.map((id) => getPctFromAi(byPic[id].ai || {}));
+            namesAtLatest.push(byPic[picIds[0]]?.uploadedByName || 'Unknown');
+          }
+
+          const haveAll = picIds.length > 1 ? valuesAtLatest.length === expectedPics : valuesAtLatest.length > 0;
+          const avg = valuesAtLatest.length
+            ? Math.round(valuesAtLatest.reduce((s, v) => s + v, 0) / valuesAtLatest.length)
+            : 0;
+
+          // Status using AI performance score when available
+          const scores = picIds
+            .map((id) => Number((byPic[id]?.ai?.pic_performance_evaluation || {}).score))
+            .filter((n) => Number.isFinite(n));
+          const avgScore = scores.length ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : null;
+
+          let status = 'ontrack';
+          if (!haveAll && picIds.length > 1) status = 'pending';
+          else if (latestDate && (Date.now() - new Date(latestDate).getTime()) > 3 * 24 * 60 * 60 * 1000) status = 'stale';
+          else if (avgScore != null) status = avgScore >= 70 ? 'ontrack' : avgScore < 50 ? 'regressing' : 'ontrack';
+          else if (avg < 50) status = 'regressing';
+
+          // Build PiC names display; include pending labels for those not on latest date
+          const pendingNames = picIds
+            .filter((id) => !(byPic[id]?.uploadedAt && sameDay(byPic[id].uploadedAt, latestDate)))
+            .map((id) => (byPic[id]?.uploadedByName || 'Unknown') + ' (pending)');
+          const allNames = [...namesAtLatest, ...pendingNames];
+
+          // Extract a risk string from any PIC's latest AI (prefer realistic CPA's risk)
+          let aiRisk = '';
+          for (const id of picIds) {
+            const ai = byPic[id]?.ai;
+            const cpa = Array.isArray(ai?.critical_path_analysis) ? ai.critical_path_analysis : [];
+            const realistic = cpa.find(c => (c?.path_type || '').toLowerCase() === 'realistic');
+            aiRisk = (realistic?.risk || ai?.risk || '').toString();
+            if (aiRisk) break;
+          }
+
+          metrics.push({
+            projectId: project._id,
+            projectName: project.name,
+            pm: project.engineer,
+            area: project.location?.name || 'Unknown Area',
+            progress: avg,
+            totalPics: picIds.length,
+            latestDate,
+            status,
+            waitingForAll: picIds.length > 1 && !haveAll,
+            picNames: allNames,
+            aiRisk
+          });
+        } catch (e) {
+          metrics.push({
+            projectId: project._id,
+            projectName: project.name,
+            pm: project.engineer,
+            area: project.location?.name || 'Unknown Area',
+            progress: 0,
+            totalPics: 0,
+            latestDate: null,
+            status: 'stale',
+            waitingForAll: false,
+            picNames: []
+          });
+        }
       }
+
+      metrics.sort((a, b) => {
+        if (!a.latestDate && !b.latestDate) return 0;
+        if (!a.latestDate) return 1;
+        if (!b.latestDate) return -1;
+        return new Date(b.latestDate) - new Date(a.latestDate);
+      });
+
+      setProjectMetrics(metrics);
+      setMetricsLoading(false);
     };
-    
-    document.addEventListener("click", handleClickOutside);
-    
+
+    fetchProjectMetrics();
+  }, [enrichedAllProjects]);
+
+  // (no pagination state)
+
+  // Header collapse on scroll and outside click for profile menu
+  useEffect(() => {
+    const onScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      setIsHeaderCollapsed(scrollTop > 50);
+    };
+    const onDocClick = (e) => {
+      if (!e.target.closest('.profile-menu-container')) setProfileMenuOpen(false);
+    };
+    window.addEventListener('scroll', onScroll);
+    document.addEventListener('click', onDocClick);
     return () => {
-      document.removeEventListener("click", handleClickOutside);
+      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('click', onDocClick);
     };
   }, []);
 
@@ -189,48 +277,78 @@ const CeoDash = () => {
     navigate('/');
   };
 
-  useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        const { data } = await api.get("/audit-logs");
-        const sliced = data.slice(0, 3).map((log, i) => ({
-          id: i,
-          user: {
-            name: log.performedBy?.name || "Unknown",
-            initial: (log.performedBy?.name || "U")[0]
-          },
-          date: new Date(log.timestamp).toLocaleString(),
-          activity: `${log.action} - ${log.description}`,
-          details: log.meta ? Object.entries(log.meta).map(([key, val]) => `${key}: ${val}`) : []
-        }));
-        setActivities(sliced);
-      } catch (err) {
-        console.error("Failed to fetch logs", err);
-      }
-    };
-    fetchLogs();
-  }, []);
+  const toggleSidebar = () => setSidebarOpen((v) => !v);
 
-  const toggleLocation = (locationId) => {
-    setExpandedLocations(prev => ({
-      ...prev,
-      [locationId]: !prev[locationId]
-    }));
-  };
-
-  // Group all projects by location for sidebar
+  // Group projects by location for sidebar
   const projectsByLocation = enrichedAllProjects.reduce((acc, project) => {
     const locationId = project.location?._id || 'unknown';
     if (!acc[locationId]) {
       acc[locationId] = {
         name: project.location?.name || 'Unknown Location',
         region: project.location?.region || '',
-        projects: []
+        projects: [],
       };
     }
     acc[locationId].projects.push(project);
     return acc;
   }, {});
+
+  // (Heatmap removed)
+
+  // Filter metrics by area when selected from heatmap
+  const visibleMetrics = (selectedArea
+    ? projectMetrics.filter(m => (m.area || 'Unknown Area') === selectedArea)
+    : projectMetrics)
+    .filter(m => !statusFilter || m.status === statusFilter)
+    .filter(m => !searchTerm || m.projectName.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  // Prepare widget datasets (use overall metrics so widgets always show data)
+  const widgetStuck = projectMetrics.filter(m => m.status === 'stale' || m.waitingForAll).slice(0, 5);
+  const widgetRecent = projectMetrics
+    .slice()
+    .sort((a,b) => new Date(b.latestDate||0) - new Date(a.latestDate||0))
+    .slice(0,5);
+  const widgetAging = projectMetrics
+    .map(m => ({ ...m, age: m.latestDate ? Math.floor((Date.now() - new Date(m.latestDate).getTime()) / (24*60*60*1000)) : null }))
+    .sort((a,b) => (b.age||0) - (a.age||0))
+    .slice(0,5);
+  const widgetPerf = projectMetrics
+    .slice()
+    .sort((a,b) => (b.progress||0) - (a.progress||0))
+    .slice(0,5);
+
+  // Request timeline status helper (same logic as AM)
+  const getTimelineStatus = (status, stage) => {
+    const statusLower = status?.toLowerCase() || '';
+    if (statusLower.includes('rejected')) return 'rejected';
+    switch (stage) {
+      case 'placed':
+        if (statusLower.includes('pending pm') || statusLower.includes('project manager')) return 'completed one-step-behind';
+        if (statusLower.includes('pending am') || statusLower.includes('area manager') || statusLower.includes('pending cio') || statusLower.includes('received')) return 'completed';
+        return 'completed';
+      case 'pm':
+        if (statusLower.includes('rejected pm') || statusLower.includes('pm rejected')) return 'rejected';
+        if (statusLower.includes('pending pm') || statusLower.includes('project manager')) return 'pending';
+        if (statusLower.includes('pending am') || statusLower.includes('area manager')) return 'completed one-step-behind';
+        if (statusLower.includes('pending cio') || statusLower.includes('received')) return 'completed';
+        break;
+      case 'am':
+        if (statusLower.includes('rejected am') || statusLower.includes('am rejected')) return 'rejected';
+        if (statusLower.includes('pending am') || statusLower.includes('area manager')) return 'pending';
+        if (statusLower.includes('pending cio')) return 'completed one-step-behind';
+        if (statusLower.includes('received')) return 'completed';
+        break;
+      case 'cio':
+        if (statusLower.includes('rejected cio') || statusLower.includes('cio rejected')) return 'rejected';
+        if (statusLower.includes('pending cio') || statusLower.includes('pending ceo')) return 'pending';
+        if (statusLower.includes('received')) return 'completed one-step-behind';
+        break;
+      case 'done':
+        if (statusLower.includes('received')) return 'completed';
+        break;
+    }
+    return '';
+  };
 
   if (loading) {
     return (
@@ -242,154 +360,286 @@ const CeoDash = () => {
   }
 
   return (
-    <div className="head">
-     <header className="header">
-  <div className="logo-container">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
-  </div>
-
-  <nav className="nav-menu">
-    <Link to="/ceo/dash" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/ceo/chat" className="nav-link"><FaComments /> Chat</Link>
-    <Link to="/ceo/material-list" className="nav-link"><FaBoxes /> Material</Link>
-    <Link to="/ceo/proj" className="nav-link"><FaProjectDiagram /> Projects</Link>
-    <Link to="/ceo/audit-logs" className="nav-link"><FaClipboardList /> Audit Logs</Link>
-    <Link to="/reports" className="nav-link"><FaChartBar /> Reports</Link>
-  </nav>
-
-  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-    <NotificationBell />
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-    </div>
-    {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-    )}
-  </div>
-</header>
-
-
-      <div className="dashboard-layout">
-        <div className="sidebar">
-          <h2>Dashboard</h2>
-          <button
-            className="add-project-btn"
-            onClick={() => setShowAddAreaModal(true)}
-          >
-            Add New Area
-          </button>
-          <div className="location-folders">
-            {Object.entries(projectsByLocation).map(([locationId, locationData]) => (
-              <div key={locationId} className="location-folder">
-                <div 
-                  className="location-header" 
-                  onClick={() => toggleLocation(locationId)}
-                >
-                  <div className="folder-icon">
-                    <span className={`folder-arrow ${expandedLocations[locationId] ? 'expanded' : ''}`}>▶</span>
-                    <span className="folder-icon-img">📁</span>
-                  </div>
-                  <div className="location-info">
-                    <div className="location-name">{locationData.name}</div>
-                    <div className="location-region">{locationData.region}</div>
-                  </div>
-                  <div className="project-count">{locationData.projects.length}</div>
-                </div>
-                {expandedLocations[locationId] && (
-                  <div className="projects-list">
-                    {locationData.projects.map(project => (
-                      <Link 
-                        to={`/ceo/proj/${project._id}`} 
-                        key={project._id} 
-                        className="project-item"
-                      >
-                        <div className="project-icon">
-                          <span className="icon">🏗️</span>
-                          <div className="icon-bg"></div>
-                        </div>
-                        <div className="project-info">
-                          <div className="project-name">{project.name}</div>
-                          <div className="project-engineer">{project.engineer}</div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
+    <div className="dashboard-container">
+      {/* Header (AM style) */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        <div className="header-top">
+          <div className="logo-section">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="header-logo"
+            />
+            <h1 className="header-brand">FadzTrack</h1>
+          </div>
+          <div className="user-profile profile-menu-container" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'U'}</div>
+            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-dropdown">
+                <button onClick={handleLogout} className="logout-btn">
+                  <span>Logout</span>
+                </button>
               </div>
-            ))}
+            )}
           </div>
         </div>
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/ceo/dash" className="nav-item active">
+              <FaTachometerAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
+            </Link>
+            <Link to="/ceo/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/ceo/proj" className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
+            </Link>
+            <Link to="/ceo/audit-logs" className="nav-item">
+              <FaClipboardList />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Audit Logs</span>
+            </Link>
+            <Link to="/reports" className="nav-item">
+              <FaChartBar />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
+            </Link>
+            <button type="button" className="nav-item" onClick={toggleSidebar} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+              <FaMapMarkerAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Areas & Projects</span>
+            </button>
+          </nav>
+          <NotificationBell />
+        </div>
+      </header>
 
-        <div className="main1">
-          <div className="greeting-section">
-            <div className="greeting-header">
-              <div className="greeting-left">
-                <h1>Hello, {userName}!</h1>
-                <p style={{ fontSize: '14px', color: '#666' }}>
-                  Currently logged in as <strong>{userRole}</strong>
-                </p>
-              </div>
-              <div className="total-projects">
-                <span className="total-projects-label">Total Projects:</span>
-                <span className="total-projects-count">{allProjects.length}</span>
-              </div>
+      {/* Main */}
+      <main className="dashboard-main">
+        {/* Sidebar toggle */}
+        <button className="sidebar-toggle-btn" onClick={toggleSidebar}>
+          <FaChevronRight />
+        </button>
+
+        {/* Areas & Projects Sidebar (portal) */}
+        {createPortal(
+          <div
+            className={`areas-projects-sidebar ${sidebarOpen ? 'open' : ''}`}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: sidebarOpen ? 0 : -400,
+              height: '100vh',
+              width: 400,
+              background: '#ffffff',
+              zIndex: 20010,
+              boxShadow: '4px 0 20px rgba(0,0,0,0.1)'
+            }}
+          >
+            <div className="sidebar-header">
+              <h3>Areas & Projects</h3>
+              <button className="close-sidebar-btn" onClick={toggleSidebar}>
+                <FaChevronLeft />
+              </button>
             </div>
-
-            <div className="progress-tracking-section">
-              <h2>Progress Tracking</h2>
-              <div className="latest-projects-progress">
-                <h3>Latest Projects Progress</h3>
-                {projects.length === 0 ? (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#888' }}>
-                    No updated projects with progress data yet.
+            <div className="areas-projects-card">
+              <div className="card-header">
+                <button className="add-project-btn" onClick={() => setShowAddAreaModal(true)}>
+                  Add Project
+                </button>
+              </div>
+              <div className="areas-list">
+                {Object.keys(projectsByLocation).length === 0 ? (
+                  <div className="empty-state" style={{ padding: '1rem' }}>
+                    <span>No areas or projects found</span>
+                    <p>Projects will appear here once available.</p>
                   </div>
                 ) : (
-                  <div className="project-charts scroll-x">
-                    {projects.map(project => (
-                      <div key={project.id} className="project-chart-container">
-                        <h4>{project.name}</h4>
-                        <div className="pie-chart-wrapper">
-                          <PieChart width={160} height={160}>
-                            <Pie
-                              data={project.progress}
-                              cx={80}
-                              cy={80}
-                              innerRadius={0}
-                              outerRadius={65}
-                              paddingAngle={0}
-                              dataKey="value"
-                            >
-                              {project.progress.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={entry.color} />
-                              ))}
-                            </Pie>
-                          </PieChart>
+                  Object.entries(projectsByLocation).map(([locationId, locationData]) => (
+                    <div key={locationId} className="area-item">
+                      <div className="area-header">
+                        <div className="area-info">
+                          <FaMapMarkerAlt className="area-icon" />
+                          <div>
+                            <h4>{locationData.name}</h4>
+                            <p>{locationData.region}</p>
+                          </div>
                         </div>
-                        <div className="chart-legend">
-                          {["Completed", "In Progress", "Not Started"].map((status, index) => {
-                            const item = project.progress.find(p => p.name === status);
-                            const color = item ? item.color : (status === 'Completed' ? '#4CAF50' : status === 'In Progress' ? '#5E4FDB' : '#FF6B6B');
-                            const value = item ? item.value : 0;
-                            return (
-                              <div key={status} className="legend-item">
-                                <span className="color-box" style={{ backgroundColor: color }}></span>
-                                <span className="legend-text">{status}</span>
-                                <span style={{ marginLeft: 6, color: '#555', fontWeight: 500 }}>
-                                  {value.toFixed(1)}%
-                                </span>
+                        <div className="area-stats">
+                          <span className="project-count">{locationData.projects.length} projects</span>
+                          <button
+                            className="expand-btn"
+                            onClick={() => setExpandedLocations((prev) => ({ ...prev, [locationId]: !prev[locationId] }))}
+                          >
+                            {expandedLocations[locationId] ? <FaChevronUp /> : <FaChevronDown />}
+                          </button>
+                        </div>
+                      </div>
+                      {expandedLocations[locationId] && (
+                        <div className="projects-list">
+                          {locationData.projects.map((project) => (
+                            <Link to={`/ceo/proj/${project._id}`} key={project._id} className="project-item">
+                              <FaProjectDiagram className="project-icon" />
+                              <div className="project-info">
+                                <h5>{project.name}</h5>
+                                <p>{project.engineer}</p>
                               </div>
-                            );
-                          })}
+                              <FaArrowRight className="arrow-icon" />
+                            </Link>
+                          ))}
                         </div>
-                        <div style={{ fontSize: '0.85rem', color: '#888', marginTop: 4 }}>
-                          Last updated: {project.latestDate ? new Date(project.latestDate).toLocaleString() : 'N/A'}
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+        {/* Overlay (portal) */}
+        {sidebarOpen && createPortal(
+          <div className="sidebar-overlay" onClick={toggleSidebar} style={{ zIndex: 20000 }}></div>,
+          document.body
+        )}
+
+        {/* Content grid (AM style) */}
+        <div className="dashboard-content ceo-content">
+          {/* Welcome (row 1) */}
+          <div className="dashboard-card ceo-welcome-card" style={{ paddingBottom: '0.5rem', marginBottom: '5rem' }}>
+            <div className="welcome-content">
+              <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>
+              <p className="welcome-subtitle">Here's the status of all company projects</p>
+            </div>
+            <div className="welcome-stats">
+              {(() => {
+                const total = allProjects.length;
+                const ongoing = allProjects.filter(p => {
+                  const s = String(p.status || '').toLowerCase();
+                  return s === 'ongoing' || s === 'active' || s === 'in progress';
+                }).length;
+                const completed = allProjects.filter(p => String(p.status || '').toLowerCase() === 'completed').length;
+                return (
+                  <>
+                    <div className="stat-item">
+                      <span className="stat-number">{total}</span>
+                      <span className="stat-label">Total Projects</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-number">{ongoing}</span>
+                      <span className="stat-label">Ongoing</span>
+                    </div>
+                    <div className="stat-item">
+                      <span className="stat-number">{completed}</span>
+                      <span className="stat-label">Completed</span>
+                    </div>
+                  </>
+                );
+              })()}
+            
+            </div>
+          </div>
+
+          {/* Project Metrics (row 2) */}
+          <div style={{ height: '24px' }} />
+          <div className="dashboard-grid" style={{ marginTop: '0rem' }}>
+            <div className="dashboard-card project-metrics-card" style={{ marginBottom: '0.5rem' }}>
+              <div className="card-header" style={{ alignItems: 'center' }}>
+                <h3>Project Progress</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <span className="metrics-subtitle">Based on latest PIC reports</span>
+                  <input
+                    type="text"
+                    placeholder="Search projects..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 10px' }}
+                  />
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 10px' }}>
+                    <option value="">All statuses</option>
+                    <option value="ontrack">On Track</option>
+                    <option value="regressing">Regressing</option>
+                    <option value="stale">Stale</option>
+                    <option value="pending">Pending</option>
+                  </select>
+                </div>
+              </div>
+              <div className="project-metrics-container">
+                {metricsLoading ? (
+                  <div className="metrics-loading">
+                    <div className="loading-spinner"></div>
+                    <span>Loading project metrics...</span>
+                  </div>
+                ) : visibleMetrics.length === 0 ? (
+                  <div className="metrics-empty">
+                    <FaChartBar />
+                    <span>No project metrics available</span>
+                    <p>Reports need to be submitted to see progress</p>
+                  </div>
+                ) : (
+                  <div className="project-metrics-scroll">
+                    {selectedArea && (
+                      <div style={{ alignSelf: 'center', marginRight: 12, color: '#64748b', fontSize: 12 }}>
+                        Filter: <b>{selectedArea}</b> <button onClick={() => setSelectedArea(null)} style={{ marginLeft: 6, background: '#e2e8f0', border: '1px solid #cbd5e1', borderRadius: 6, padding: '2px 6px', cursor: 'pointer' }}>Clear</button>
+                      </div>
+                    )}
+                    {visibleMetrics.map((metric) => (
+                      <div key={metric.projectId} className="project-metric-item" style={{ minWidth: 320 }}>
+                        <div className="metric-header">
+                          <div className="metric-project-info">
+                            <h4 className="metric-project-name">{metric.projectName}</h4>
+                            <p className="metric-project-details">
+                              <span className="metric-pm">{metric.pm}</span>
+                              <span className="metric-area">{metric.area}</span>
+                            </p>
+                          </div>
+                          <div className="metric-progress-circle">
+                            <div className="progress-ring">
+                              <svg width="60" height="60">
+                                <circle cx="30" cy="30" r="25" stroke="#e2e8f0" strokeWidth="4" fill="transparent" />
+                                <circle
+                                  cx="30"
+                                  cy="30"
+                                  r="25"
+                                  stroke={metric.progress >= 80 ? '#10B981' : metric.progress >= 50 ? '#3B82F6' : '#F59E0B'}
+                                  strokeWidth="4"
+                                  fill="transparent"
+                                  strokeDasharray={`${2 * Math.PI * 25}`}
+                                  strokeDashoffset={`${2 * Math.PI * 25 * (1 - metric.progress / 100)}`}
+                                  strokeLinecap="round"
+                                  transform="rotate(-90 30 30)"
+                                />
+                              </svg>
+                              <div className="progress-text">
+                                <span className="progress-percentage">{metric.progress}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="metric-footer">
+                          <div className="metric-stats">
+                            <span className="metric-stat">
+                              <FaUsers />
+                              {metric.totalPics} PICs
+                            </span>
+                            <span className="metric-stat">
+                              <FaCalendarAlt />
+                              {metric.latestDate ? new Date(metric.latestDate).toLocaleDateString() : 'No reports'}
+                            </span>
+                            <span className={`metric-status status-${metric.status}`}>
+                              {metric.waitingForAll ? 'Waiting for all PICs' : metric.status === 'ontrack' ? 'On Track' : metric.status === 'regressing' ? 'Regressing' : metric.status === 'stale' ? 'Stale' : 'Pending'}
+                            </span>
+                          </div>
+                          {metric.picNames?.length > 0 && (
+                            <div className="metric-pics" style={{ marginTop: 6, color: '#64748b', fontSize: 12 }}>
+                              <b>PICs:</b> {metric.picNames.join(', ')}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -399,100 +649,46 @@ const CeoDash = () => {
             </div>
           </div>
 
-          <div className="recent-activities-section">
-            <h2>Recent Activities</h2>
-            {activities.map(activity => (
-              <div key={activity.id} className="activity-item">
-                <div className="user-initial">{activity.user.initial}</div>
-                <div className="activity-details">
-                  <div className="activity-header">
-                    <span className="user-name">{activity.user.name}</span>
-                    <span className="activity-date">{activity.date}</span>
-                  </div>
-                  <div className="activity-description">{activity.activity}</div>
-                  <div className="activity-extra-details">
-                    {activity.details.map((detail, index) => (
-                      <div key={index} className="detail-item">{detail}</div>
-                    ))}
-                  </div>
-                </div>
+          {/* Top Risks from AI */}
+          <div className="dashboard-grid" style={{ marginTop: '0.5rem' }}>
+            <div className="dashboard-card" style={{ minHeight: 80 }}>
+              <div className="card-header">
+                <h3>Top Risks from AI</h3>
               </div>
-            ))}
+              {(() => {
+                const risks = projectMetrics
+                  .map(m => ({ projectId: m.projectId, projectName: m.projectName, risk: (m.aiRisk || '').toString() }))
+                  .filter(x => x.risk)
+                  .slice(0, 8);
+                if (risks.length === 0) {
+                  return (
+                    <div style={{ color: '#64748b', paddingLeft: 18 }}>No risks extracted from AI reports</div>
+                  );
+                }
+                return (
+                  <ul style={{ margin: 0, paddingLeft: 18 }}>
+                    {risks.map(x => (
+                      <li key={x.projectId}>
+                        <b>{x.projectName}</b> — {x.risk}
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
+            </div>
           </div>
+
+          {/* (heatmap removed) */}
         </div>
+        {/* Material Requests removed for CEO dashboard as requested */}
+      </main>
 
-        <div className="right-sidebar">
-          <div className="pending-requests-section">
-            <div className="section-header">
-              <h2>Pending Material Requests</h2>
-              <Link to="/ceo/material-list" className="view-all-btn">View All</Link>
-            </div>
-            <div className="pending-requests-list">
-              {pendingRequests.length === 0 ? (
-                <div className="no-requests">No pending material requests</div>
-              ) : (
-                pendingRequests.slice(0, 3).map(request => (
-                  <Link to={`/ceo/material-request/${request._id}`} key={request._id} className="pending-request-item">
-                    <div className="request-icon">📦</div>
-                    <div className="request-details">
-                      <h3 className="request-title">
-                        {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
-                      </h3>
-                      <p className="request-description">{request.description}</p>
-                      <div className="request-meta">
-                        <span className="request-project">{request.project?.projectName}</span>
-                        <span className="request-date">
-                          Requested: {new Date(request.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="request-status">
-                      <span className="status-badge pending">Pending CEO Approval</span>
-                    </div>
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="chats-section">
-            <h3>Chats</h3>
-            <div className="chats-list">
-              {chats.map(chat => (
-                <div key={chat.id} className="chat-item">
-                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
-                  <div className="chat-details">
-                    <div className="chat-name">{chat.name}</div>
-                    <div className="chat-message">{chat.message}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* --- MODAL --- */}
+      {/* Modal for Add Area */}
       {showAddAreaModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <button
-              className="modal-close-btn"
-              onClick={() => setShowAddAreaModal(false)}
-              style={{
-                position: "absolute", top: 12, right: 16, background: "none",
-                border: "none", fontSize: 24, cursor: "pointer"
-              }}
-            >
-              &times;
-            </button>
-            <CeoAddArea
-              onSuccess={() => {
-                setShowAddAreaModal(false);
-                // Optionally, reload project/area data here if needed!
-              }}
-              onCancel={() => setShowAddAreaModal(false)}
-            />
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
+          <div className="modal-content" style={{ background: '#fff', padding: 0, borderRadius: 16, minWidth: 380, maxWidth: '95vw', maxHeight: '95vh', overflowY: 'auto', position: 'relative', boxShadow: '0 2px 24px rgba(0,0,0,0.18)' }}>
+            <button className="modal-close-btn" onClick={() => setShowAddAreaModal(false)} style={{ position: 'absolute', right: 12, top: 8, fontSize: 24, background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}>&times;</button>
+            <CeoAddArea onSuccess={() => setShowAddAreaModal(false)} onCancel={() => setShowAddAreaModal(false)} />
           </div>
         </div>
       )}

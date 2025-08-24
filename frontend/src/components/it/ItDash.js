@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance'; // Use Axios instance!
+import { exportAccountsPdf } from '../../utils/accountsPdf';
 import '../style/it_style/It_Dash.css';
 // Nav icons
-import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaClipboardList } from 'react-icons/fa';
+import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaClipboardList, FaFilePdf } from 'react-icons/fa';
 
 const ItDash = () => {
   const [user, setUser] = useState(() => {
@@ -26,6 +27,7 @@ const ItDash = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
 
   const itemsPerPage = 10;
 
@@ -69,16 +71,25 @@ const ItDash = () => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container-IT")) {
+      if (!event.target.closest('.user-profile')) {
         setProfileMenuOpen(false);
       }
     };
 
-    document.addEventListener("click", handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
 
     return () => {
-      document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener('click', handleClickOutside);
     };
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      setIsHeaderCollapsed(scrollTop > 50);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
 const handleLogout = () => {
@@ -275,6 +286,25 @@ const handleLogout = () => {
     }
   };
 
+  const [exporting, setExporting] = useState(false);
+  const handleExportPdf = async () => {
+    try {
+      setExporting(true);
+      await exportAccountsPdf(sortedAccounts, {
+        companyName: 'FadzTrack',
+        logoPath: `${process.env.PUBLIC_URL || ''}/images/Fadz-logo.png`,
+        exporterName: userName || 'Unknown',
+        exporterRole: userRole || '',
+        filters: { searchTerm, sortOption },
+      });
+    } catch (e) {
+      console.error('Export failed', e);
+      alert('Failed to export PDF.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const renderSidebar = () => {
     if (!showCreateAccount) {
       return (
@@ -406,39 +436,61 @@ const handleLogout = () => {
   return (
     <div className="fadztrack-app-IT">
       <div className="head-IT">
-        {/* Header with Navigation */}
-        <header className="header">
-  <div className="logo-container">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
-  </div>
+        {/* Modern Header (PM-style) */}
+        <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+          <div className="header-top">
+            <div className="logo-section">
+              <img
+                src={require('../../assets/images/FadzLogo1.png')}
+                alt="FadzTrack Logo"
+                className="header-logo"
+              />
+              <h1 className="header-brand">FadzTrack</h1>
+            </div>
 
-  <nav className="nav-menu">
-    <Link to="/it" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/it/chat" className="nav-link"><FaComments /> Chat</Link>
-    <Link to="/it/material-list" className="nav-link"><FaBoxes /> Materials</Link>
-    <Link to="/it/manpower-list" className="nav-link"><FaUsers /> Manpower</Link>
-    <Link to="/it/auditlogs" className="nav-link"><FaClipboardList /> Audit Logs</Link>
-  </nav>
+            <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+              <div className="profile-avatar">
+                {userName ? userName.charAt(0).toUpperCase() : 'I'}
+              </div>
+              <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
+                <span className="profile-name">{userName}</span>
+                <span className="profile-role">{userRole}</span>
+              </div>
+              {profileMenuOpen && (
+                <div className="profile-dropdown">
+                  <button onClick={handleLogout} className="logout-btn">
+                    <span>Logout</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
 
-  <div className="profile-menu-container">
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {localStorage.getItem('user')
-        ? JSON.parse(localStorage.getItem('user')).name[0]
-        : 'U'}
-    </div>
-    {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-    )}
-  </div>
-</header>
-
+          <div className="header-bottom">
+            <nav className="header-nav">
+              <Link to="/it" className="nav-item active">
+                <FaTachometerAlt />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
+              </Link>
+              <Link to="/it/chat" className="nav-item">
+                <FaComments />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+              </Link>
+              <Link to="/it/material-list" className="nav-item">
+                <FaBoxes />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Materials</span>
+              </Link>
+              <Link to="/it/manpower-list" className="nav-item">
+                <FaUsers />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
+              </Link>
+              <Link to="/it/auditlogs" className="nav-item">
+                <FaClipboardList />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Audit Logs</span>
+              </Link>
+            </nav>
+          </div>
+        </header>
       </div>
       <div className="main-content-IT">
         <aside className="sidebar-IT">
@@ -493,6 +545,14 @@ const handleLogout = () => {
                       <option value="Z-A">Z-A</option>
                     </select>
                   </div>
+                  <button
+                    className="export-btn-IT"
+                    onClick={handleExportPdf}
+                    disabled={exporting}
+                    title="Export accounts to PDF"
+                  >
+                    <FaFilePdf style={{ marginRight: 8 }} /> {exporting ? 'Exporting…' : 'Export PDF'}
+                  </button>
                 </div>
               </div>
               <div className="accounts-table-IT">

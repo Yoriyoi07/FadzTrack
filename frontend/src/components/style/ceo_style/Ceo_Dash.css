@@ -1,3 +1,4 @@
+.ceo-content .project-metrics-container { min-height: 0 !important; }
 .dashboard-container {
   display: flex;
   flex-direction: column;
@@ -908,4 +909,181 @@ body {
 @media (max-width: 900px) {
   .nav-menu { gap: 1rem; }
   .nav-link { gap: 5px; padding: 6px 6px; }
+}
+
+/* CEO dashboard grid to keep two main cards side-by-side on wide screens */
+.ceo-grid {
+  display: grid;
+  grid-template-columns: 1fr; /* stack by default */
+  gap: 1.5rem;
+}
+
+/* On very wide screens you can split columns again if desired */
+@media (min-width: 1400px) {
+  .ceo-grid { grid-template-columns: 1fr; }
+}
+
+/* Override AM full-width cards to sit side-by-side for CEO */
+.ceo-grid .project-metrics-card { grid-column: 1 / -1; width: 100%; }
+
+/* CEO Welcome card – match AM visual without forcing full width */
+.ceo-welcome-card {
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  color: #ffffff;
+}
+
+/* Stronger selector to beat generic .dashboard-card background */
+.dashboard-card.ceo-welcome-card {
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 1rem 0.5rem; /* compact vertical padding */
+  margin-bottom: 3rem; /* clearer separation to progress card */
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
+  height: auto;
+}
+
+.ceo-welcome-card .card-header {
+  border-bottom-color: rgba(255, 255, 255, 0.2);
+}
+
+.ceo-welcome-card h3 {
+  color: #ffffff;
+}
+
+/* Ensure CEO welcome gradient wins over generic .dashboard-card background */
+/* Also apply when greetings card is placed outside ceo-grid (current layout) */
+.dashboard-content .dashboard-card.ceo-welcome-card {
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  color: #ffffff;
+  border: none;
+  padding: 0.75rem 1rem 0.5rem;
+  margin-bottom: 3rem;
+  min-height: 0;
+  height: auto;
+}
+
+.dashboard-content .dashboard-grid.ceo-grid .dashboard-card.ceo-welcome-card .stat-number {
+  color: #ffffff;
+}
+
+.dashboard-content .dashboard-grid.ceo-grid .dashboard-card.ceo-welcome-card .stat-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Tighten internal spacing of welcome content */
+.ceo-welcome-card .welcome-content { margin-bottom: 0.2rem; }
+
+.ceo-welcome-card .welcome-stats {
+  margin-top: 0.25rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.ceo-welcome-card .welcome-title {
+  font-size: 1.25rem;
+  margin: 0 0 0.25rem 0;
+}
+
+.ceo-welcome-card .welcome-subtitle {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.ceo-welcome-card .stat-item {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 0.4rem 0.6rem;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.ceo-welcome-card .stat-number {
+  font-size: 1.25rem;
+}
+
+.ceo-welcome-card .stat-label {
+  font-size: 0.8rem;
+}
+
+/* Pagination controls for metrics */
+.metrics-pagination {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+  cursor: pointer;
+}
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.pagination-info {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* ---- CEO metrics status pill ---- */
+.metric-status {
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  border: 1px solid transparent;
+}
+.status-ontrack { background: #d1fae5; color: #065f46; border-color: #34d399; }
+.status-regressing { background: #fee2e2; color: #991b1b; border-color: #f87171; }
+.status-stale { background: #fef9c3; color: #92400e; border-color: #fde68a; }
+.status-pending { background: #e0f2fe; color: #0369a1; border-color: #7dd3fc; }
+
+/* ---- CEO project metrics card consistency ---- */
+.project-metrics-scroll { align-items: stretch; }
+.project-metrics-scroll {
+  scroll-snap-type: x mandatory;
+  padding-bottom: 8px;
+}
+.ceo-content .project-metrics-container { padding-bottom: 0.25rem; min-height: 0 !important; }
+
+/* Tighten extra space below CEO main content */
+.ceo-content { padding-bottom: 0.5rem; }
+
+/* Reduce vertical gaps between widget rows */
+.ceo-content .dashboard-grid { row-gap: 1rem; }
+.ceo-content .dashboard-card { margin-bottom: 0; }
+.project-metric-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 320px;
+  max-width: 360px;
+  min-height: 150px;
+  scroll-snap-align: start;
+}
+.metric-header { align-items: center; }
+.metric-project-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.metric-pics { 
+  color: #64748b; 
+  font-size: 12px; 
+  line-height: 1.3; 
 }

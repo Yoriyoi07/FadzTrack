@@ -67,6 +67,22 @@ const HrDash = ({ forceUserUpdate }) => {
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [requestsError, setRequestsError] = useState(null);
 
+  const [viewedRequestIds, setViewedRequestIds] = useState(() => {
+    try {
+      const raw = localStorage.getItem('hrViewedRequests');
+      const arr = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch {
+      return new Set();
+    }
+  });
+
+  const persistViewedIds = useCallback((idsSet) => {
+    try {
+      localStorage.setItem('hrViewedRequests', JSON.stringify(Array.from(idsSet)));
+    } catch {}
+  }, []);
+
   const [stats, setStats] = useState({
     totalStaff: 0,
     assigned: 0,
@@ -205,6 +221,7 @@ const HrDash = ({ forceUserUpdate }) => {
         const processedRequests = data.map(request => {
           console.log('Processing individual request:', request); // Debug individual request
           
+          const idStr = String(request._id || request.id || '');
           // Extract project name from the actual API structure
           let projectName = 'Unknown Project';
           if (request.project?.projectName) {
@@ -228,16 +245,24 @@ const HrDash = ({ forceUserUpdate }) => {
             quantity = manpower.quantity || 1;
           }
 
+          const rawStatus = (request.status || 'Pending').toString();
+          let displayStatus = rawStatus;
+          try {
+            const acq = request.acquisitionDate ? new Date(request.acquisitionDate) : null;
+            const isOverdue = rawStatus.toLowerCase() === 'pending' && acq && acq < new Date();
+            if (isOverdue) displayStatus = 'Overdue';
+          } catch {}
+
           const processedRequest = {
-            _id: request._id,
+            _id: idStr,
             projectName: projectName,
             requestedBy: requestedBy,
             position: position,
             quantity: quantity,
-            status: request.status || 'Pending',
+            status: displayStatus,
             requestDate: new Date(request.createdAt || request.acquisitionDate || Date.now()),
             priority: request.priority || 'Normal',
-            isViewed: request.isViewed || false // Add viewed status
+            isViewed: Boolean(request.isViewed) || viewedRequestIds.has(idStr)
           };
           
           console.log('Processed request:', processedRequest); // Debug processed request
@@ -262,10 +287,26 @@ const HrDash = ({ forceUserUpdate }) => {
       setRequestsError(`Failed to load requests: ${error.message}`);
     }
     setLoadingRequests(false);
-  }, [token]);
+  }, [token, viewedRequestIds]);
 
   useEffect(() => {
     fetchManpowerRequests();
+  }, [fetchManpowerRequests]);
+
+  // Keep local list in sync with viewedRequestIds so highlight clears even without refetch
+  useEffect(() => {
+    setManpowerRequests(prev => prev.map(r => (
+      viewedRequestIds.has(r._id) ? { ...r, isViewed: true } : r
+    )));
+  }, [viewedRequestIds]);
+
+  // Refetch when window regains focus to reflect viewed status after navigating back
+  useEffect(() => {
+    const onFocus = () => {
+      fetchManpowerRequests();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, [fetchManpowerRequests]);
 
   // --- 10. Fetch recent activities ---
@@ -405,6 +446,41 @@ const HrDash = ({ forceUserUpdate }) => {
     if (diffDays <= 7) return `${diffDays - 1} days ago`;
     return d.toLocaleDateString();
   };
+
+  // Mark a request as viewed (optimistic update + API)
+  const markRequestAsViewed = useCallback(async (requestId) => {
+    try {
+      await api.put(`/manpower-requests/${requestId}`, { isViewed: true }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (error) {
+      console.error('Failed to mark as viewed:', error);
+    }
+  }, [token]);
+
+  const handleRequestClick = useCallback((event, requestId) => {
+    const idStr = String(requestId);
+    try {
+      if (event && event.currentTarget && event.currentTarget.classList) {
+        event.currentTarget.classList.remove('unviewed');
+        event.currentTarget.setAttribute('data-viewed', '1');
+      }
+    } catch {}
+    // Optimistically update local state so highlight disappears immediately
+    setManpowerRequests(prev => prev.map(r => (
+      String(r._id) === idStr ? { ...r, isViewed: true } : r
+    )));
+    // Persist locally as viewed to keep state on return even if backend lags
+    setViewedRequestIds(prev => {
+      const next = new Set(prev);
+      next.add(idStr);
+      persistViewedIds(next);
+      return next;
+    });
+    // Persist on server (detail page also does this; redundancy is safe)
+    markRequestAsViewed(idStr);
+    navigate(`/hr/manpower-request/${idStr}`);
+  }, [markRequestAsViewed, navigate, persistViewedIds]);
 
   return (
     <div className="dashboard-container">
@@ -651,10 +727,10 @@ const HrDash = ({ forceUserUpdate }) => {
                      <div 
                        key={request._id} 
                        className={`request-item ${!request.isViewed ? 'unviewed' : ''}`}
-                                               onClick={() => navigate(`/hr/manpower-request/${request._id}`)}
+                                               onClick={(e) => handleRequestClick(e, request._id)}
                        style={{ cursor: 'pointer' }}
                      >
-                       <div className="request-left">
+                      <div className="request-left">
                          <div className="request-project">{request.projectName}</div>
                          <div className={`request-status ${request.status.toLowerCase()}`}>
                            {request.status}
