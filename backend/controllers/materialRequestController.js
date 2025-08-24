@@ -32,12 +32,6 @@ exports.nudgePendingApprover = async (req, res) => {
       }
       pendingUserId = amId?.toString();
       pendingRole = 'Area Manager';
-    } else if (request.status === 'Pending CEO') {
-      const ceoUser = await User.findOne({ role: 'CEO' });
-      if (ceoUser) {
-        pendingUserId = ceoUser._id.toString();
-        pendingRole = 'CEO';
-      }
     }
 
     if (!pendingUserId) return res.status(400).json({ message: 'No pending approver to nudge.' });
@@ -278,7 +272,7 @@ exports.deleteMaterialRequest = async (req, res) => {
 
 // ========== APPROVE MATERIAL REQUEST ==========
 exports.approveMaterialRequest = async (req, res) => {
-  const { decision, reason, purchaseOrder, totalValue } = req.body;
+  const { decision, reason } = req.body;
   const userId = req.user.id.toString();
   const userRole = req.user.role;
   try {
@@ -306,7 +300,7 @@ exports.approveMaterialRequest = async (req, res) => {
 
     const isPM = idsEqual(pmId, userId);
     const isAM = idsEqual(amId, userId);
-    const isCEO = userRole === 'CEO';
+    const isCEO = false; // CEO step removed from workflow
 
     let nextStatus = '';
     let currentStatus = request.status;
@@ -315,20 +309,8 @@ exports.approveMaterialRequest = async (req, res) => {
     if (currentStatus === 'Pending Project Manager' && isPM) {
       nextStatus = decision === 'approved' ? 'Pending Area Manager' : 'Denied by Project Manager';
     } else if (currentStatus === 'Pending Area Manager' && isAM) {
-      nextStatus = decision === 'approved' ? 'Pending CEO' : 'Denied by Area Manager';
-    } else if (currentStatus === 'Pending CEO' && isCEO) {
-      nextStatus = decision === 'approved' ? 'Approved' : 'Denied by CEO';
-      if (decision === 'approved') {
-        // CEO must provide purchaseOrder and totalValue
-        if (!purchaseOrder || !totalValue) {
-          return res.status(400).json({ message: 'Purchase Order and Total Value are required for CEO approval.' });
-        }
-        request.purchaseOrder = purchaseOrder;
-        request.totalValue = totalValue;
-        if (req.file) {
-      request.ceoApprovalPDF = '/uploads/' + req.file.filename;
-    }
-  }     
+      // After AM approval, directly mark as Approved (CEO removed)
+      nextStatus = decision === 'approved' ? 'Approved' : 'Denied by Area Manager';
     } else {
       console.log('403: Unauthorized or invalid state', {currentStatus, isPM, isAM, isCEO});
       return res.status(403).json({ message: 'Unauthorized or invalid state' });
@@ -363,21 +345,7 @@ exports.approveMaterialRequest = async (req, res) => {
           });
         }
       }
-      if (nextStatus === 'Pending CEO') {
-        const ceoUser = await User.findOne({ role: 'CEO' });
-        if (ceoUser) {
-          await createAndEmitNotification({
-            type: 'pending_approval',
-            toUserId: ceoUser._id,
-            fromUserId: req.user.id,
-            message: `You have a material request pending approval for project "${project.projectName}".`,
-            projectId: project._id,
-            requestId: request._id,
-            meta: { pendingRole: 'CEO', fromRole: req.user.role, approvedBy: req.user.name },
-            req
-          });
-        }
-      }
+      // CEO step removed; no further approver after AM
       // Notify PIC/requestor on final approval
       if (nextStatus === 'Approved') {
         const requestorId = request.createdBy;
@@ -397,8 +365,7 @@ exports.approveMaterialRequest = async (req, res) => {
     // NOTIFY PIC/REQUESTOR ON DENIED (any stage)
     if (decision === 'denied' && (
       nextStatus === 'Denied by Project Manager' ||
-      nextStatus === 'Denied by Area Manager' ||
-      nextStatus === 'Denied by CEO'
+      nextStatus === 'Denied by Area Manager'
     )) {
       const requestorId = request.createdBy;
       await createAndEmitNotification({

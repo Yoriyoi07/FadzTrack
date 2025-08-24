@@ -1,181 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import '../style/ceo_style/Ceo_Dash.css';
+import '../style/ceo_style/Ceo_Material_List.css';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
-import CeoAddArea from './CeoAddArea'; 
-import ProgressTracker from '../ProgressTracker';
 
-// Nav icons
+// React Icons
 import { FaTachometerAlt, FaComments, FaBoxes, FaProjectDiagram, FaClipboardList, FaChartBar } from 'react-icons/fa';
 
-
 const ITEMS_PER_PAGE = 5;
-
-const Pagination = ({ currentPage, totalPages, totalEntries, onPageChange, showingRange }) => {
-  const visiblePages = [];
-
-  if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) visiblePages.push(i);
-  } else {
-    visiblePages.push(1);
-    if (currentPage > 3) visiblePages.push('...');
-    const start = Math.max(2, currentPage - 1);
-    const end = Math.min(totalPages - 1, currentPage + 1);
-    for (let i = start; i <= end; i++) visiblePages.push(i);
-    if (currentPage < totalPages - 2) visiblePages.push('...');
-    visiblePages.push(totalPages);
-  }
-
-  return (
-    <div className="pagination-wrapper" style={{ flexDirection: 'column', alignItems: 'center' }}>
-      <span className="pagination-info">
-        Showing {showingRange.start} to {showingRange.end} of {totalEntries} entries.
-      </span>
-      <div className="pagination">
-        <button className="pagination-btn" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}>
-          &lt;
-        </button>
-        {visiblePages.map((page, index) => (
-          <button
-            key={index}
-            className={`pagination-btn ${page === currentPage ? 'active' : ''} ${page === '...' ? 'dots' : ''}`}
-            disabled={page === '...'}
-            onClick={() => typeof page === 'number' && onPageChange(page)}
-          >
-            {page}
-          </button>
-        ))}
-        <button className="pagination-btn" onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages}>
-          &gt;
-        </button>
-      </div>
-    </div>
-  );
-};
 
 const CeoMaterialList = () => {
   const navigate = useNavigate();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-
-  // Sidebars shared state:
-  const [userName, setUserName] = useState('');
-  const [userRole, setUserRole] = useState('');
-  const [showAddAreaModal, setShowAddAreaModal] = useState(false);
-  const [locations, setLocations] = useState([]);
-  const [allProjects, setAllProjects] = useState([]);
-  const [enrichedAllProjects, setEnrichedAllProjects] = useState([]);
-  const [expandedLocations, setExpandedLocations] = useState({});
-  const [pendingRequestsSidebar, setPendingRequestsSidebar] = useState([]);
-  const [chats, setChats] = useState([
-    { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
-    { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
-    { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
-  ]);
-  const [activities, setActivities] = useState([]);
-
-  // Main list data:
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [userName, setUserName] = useState(user?.name || 'CEO');
+  const [userRole, setUserRole] = useState(user?.role || 'Chief Executive Officer');
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
 
-  // Sidebar: fetch user, locations, all projects, activities, pending requests, chats
+  // --- Main requests (for this page)
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const stored = localStorage.getItem('user');
-        const user = stored ? JSON.parse(stored) : null;
-        if (user) {
-          setUserName(user.name);
-          setUserRole(user.role);
-        }
-      } catch (error) {}
-    };
-
-    const fetchLocations = async () => {
-      try {
-        const { data } = await api.get('/locations');
-        setLocations(data);
-      } catch {}
-    };
-
-    const fetchAllProjects = async () => {
-      try {
-        const { data } = await api.get('/projects');
-        setAllProjects(data);
-      } catch {}
-    };
-
-    const fetchPendingRequestsSidebar = async () => {
-      try {
-        const { data } = await api.get('/requests');
-        const pending = data.filter(request => request.status === 'Pending CEO');
-        setPendingRequestsSidebar(pending);
-      } catch {}
-    };
-
-    const fetchLogs = async () => {
-      try {
-        const { data } = await api.get("/audit-logs");
-        const sliced = data.slice(0, 3).map((log, i) => ({
-          id: i,
-          user: {
-            name: log.performedBy?.name || "Unknown",
-            initial: (log.performedBy?.name || "U")[0]
-          },
-          date: new Date(log.timestamp).toLocaleString(),
-          activity: `${log.action} - ${log.description}`,
-          details: log.meta ? Object.entries(log.meta).map(([key, val]) => `${key}: ${val}`) : []
-        }));
-        setActivities(sliced);
-      } catch {}
-    };
-
-    fetchUserData();
-    fetchLocations();
-    fetchAllProjects();
-    fetchPendingRequestsSidebar();
-    fetchLogs();
-  }, []);
-
-  useEffect(() => {
-    if (locations.length && allProjects.length > 0) {
-      setEnrichedAllProjects(
-        allProjects.map(project => {
-          if (typeof project.location === 'object' && project.location !== null && project.location.name) {
-            return {
-              ...project,
-              name: project.projectName,
-              engineer: project.projectmanager?.name || 'Not Assigned',
-            };
-          }
-          const loc = locations.find(l => l._id === (project.location?._id || project.location));
-          return {
-            ...project,
-            location: loc ? { ...loc } : { name: 'Unknown Location', region: '' },
-            name: project.projectName,
-            engineer: project.projectmanager?.name || 'Not Assigned',
-          };
-        })
-      );
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Session expired. Please log in.');
+      setLoading(false);
+      return;
     }
-  }, [locations, allProjects]);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
-
-  // Main List fetch
-  useEffect(() => {
-    api.get('/requests/mine')
+    api.get('/requests')
       .then(res => {
         setRequests(Array.isArray(res.data) ? res.data : []);
         setLoading(false);
@@ -184,12 +42,32 @@ const CeoMaterialList = () => {
       .catch(err => {
         if (err.response && (err.response.status === 403 || err.response.status === 401)) {
           setError('Session expired or unauthorized. Please login.');
-          setRequests([]);
         } else {
           setError('Failed to load requests');
         }
+        setRequests([]);
         setLoading(false);
       });
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".user-profile")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const shouldCollapse = scrollTop > 50;
+      setIsHeaderCollapsed(shouldCollapse);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const handleLogout = () => {
@@ -198,142 +76,142 @@ const CeoMaterialList = () => {
     navigate('/');
   };
 
-  const toggleLocation = (locationId) => {
-    setExpandedLocations(prev => ({
-      ...prev,
-      [locationId]: !prev[locationId]
-    }));
+  // --- Helpers
+  const getStatusColor = (status, receivedByPIC) => {
+    const s = (status || '').toLowerCase();
+    if (receivedByPIC) return '#0ea5e9'; // Completed
+    if (s.includes('approved')) return '#10b981';
+    if (s.includes('pending')) return '#f59e0b';
+    if (s.includes('denied') || s.includes('cancel')) return '#ef4444';
+    return '#6b7280';
+  };
+  
+  const getStatusBadge = (status, receivedByPIC) => {
+    if (receivedByPIC) return 'Completed';
+    const s = (status || '').toLowerCase();
+    if (s.includes('approved')) return 'Approved';
+    if (s.includes('pending')) return 'Pending';
+    if (s.includes('denied') || s.includes('cancel')) return 'Rejected';
+    return 'Unknown';
   };
 
-  const getIconForType = (request) => {
-    if (!request.materials || request.materials.length === 0) return '📄';
-    const name = request.materials[0].materialName?.toLowerCase() || '';
-    if (name.includes('steel')) return '🔧';
-    if (name.includes('brick')) return '🧱';
-    if (name.includes('cement')) return '🪨';
-    if (name.includes('sand')) return '🏖️';
-    return '📦';
+  // Add edit and delete functionality
+  const openEdit = (request) => {
+    // Navigate to the comprehensive edit form
+    navigate(`/ceo/material-request/edit/${request._id}`);
   };
 
+  const deleteRequest = async (id, event) => {
+    event.preventDefault(); // Prevent navigation to detail page
+    event.stopPropagation(); // Prevent event bubbling
+    
+    if (!window.confirm('Delete this material request? This action cannot be undone.')) return;
+    
+    try {
+      await api.delete(`/requests/${id}`);
+      setRequests(prev => prev.filter(r => r._id !== id));
+    } catch (e) {
+      console.error('Failed to delete request:', e);
+      alert('Failed to delete request. Please try again.');
+    }
+  };
+
+  // --- Filtering/search/pagination
   const filteredRequests = requests.filter(request => {
     const status = (request.status || '').toLowerCase();
+    const isCompleted = !!request.receivedByPIC;
     const matchesFilter =
       filter === 'All' ||
       (filter === 'Pending' && status.includes('pending')) ||
       (filter === 'Approved' && status.includes('approved')) ||
-      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel')));
+      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel'))) ||
+      (filter === 'Completed' && isCompleted);
     const searchTarget = [
-      request.materials?.map(m => m.materialName).join(', '),
+      request.materials && request.materials.map(m => m.materialName).join(', '),
       request.description,
       request.createdBy?.name,
       request.project?.projectName,
     ].join(' ').toLowerCase();
-    return matchesFilter && searchTarget.includes(searchTerm.toLowerCase());
+    const matchesSearch = searchTarget.includes(searchTerm.toLowerCase());
+    return matchesFilter && matchesSearch;
   });
 
-  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const currentRequests = filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-  // Group all projects by location for sidebar
-  const projectsByLocation = enrichedAllProjects.reduce((acc, project) => {
-    const locationId = project.location?._id || 'unknown';
-    if (!acc[locationId]) {
-      acc[locationId] = {
-        name: project.location?.name || 'Unknown Location',
-        region: project.location?.region || '',
-        projects: []
-      };
+  // Sort: push Completed to end when viewing All; otherwise newest first
+  const sortedRequests = [...filteredRequests].sort((a, b) => {
+    if (filter === 'All') {
+      const aCompleted = a.receivedByPIC ? 1 : 0;
+      const bCompleted = b.receivedByPIC ? 1 : 0;
+      if (aCompleted !== bCompleted) return aCompleted - bCompleted;
     }
-    acc[locationId].projects.push(project);
-    return acc;
-  }, {});
+    const ad = new Date(a.createdAt || 0).getTime();
+    const bd = new Date(b.createdAt || 0).getTime();
+    return bd - ad;
+  });
+  
+  const totalPages = Math.ceil(sortedRequests.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedRequests = sortedRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   return (
-    <div className="head">
-      <header className="header">
-  <div className="logo-container">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
+    <div>
+      {/* IT/PM-style collapsible header */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        <div className="header-top">
+          <div className="logo-section">
+            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
+            <h1 className="header-brand">FadzTrack</h1>
   </div>
-
-  <nav className="nav-menu">
-    <Link to="/ceo/dash" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/ceo/chat" className="nav-link"><FaComments /> Chat</Link>
-    <Link to="/ceo/material-list" className="nav-link"><FaBoxes /> Material</Link>
-    <Link to="/ceo/proj" className="nav-link"><FaProjectDiagram /> Projects</Link>
-    <Link to="/ceo/audit-logs" className="nav-link"><FaClipboardList /> Audit Logs</Link>
-    <Link to="/reports" className="nav-link"><FaChartBar /> Reports</Link>
-  </nav>
-
-  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-    <NotificationBell />
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'C'}</div>
+            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
     </div>
     {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
+              <div className="profile-dropdown" onClick={(e) => e.stopPropagation()}>
+                <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="logout-btn"><span>Logout</span></button>
       </div>
     )}
+          </div>
+        </div>
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/ceo/dash" className="nav-item">
+              <FaTachometerAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
+            </Link>
+            <Link to="/ceo/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/ceo/material-list" className="nav-item active">
+              <FaBoxes />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
+            </Link>
+            <Link to="/ceo/proj" className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
+            </Link>
+            <Link to="/ceo/audit-logs" className="nav-item">
+              <FaClipboardList />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Audit Logs</span>
+            </Link>
+            <Link to="/reports" className="nav-item">
+              <FaChartBar />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
+            </Link>
+          </nav>
+          <NotificationBell />
   </div>
 </header>
 
-
+      {/* Main content */}
       <div className="dashboard-layout">
-        {/* LEFT SIDEBAR */}
-        <div className="sidebar">
-          <h2>Dashboard</h2>
-          <button className="add-project-btn" onClick={() => setShowAddAreaModal(true)}>
-            Add New Area
-          </button>
-          <div className="location-folders">
-            {Object.entries(projectsByLocation).map(([locationId, locationData]) => (
-              <div key={locationId} className="location-folder">
-                <div className="location-header" onClick={() => toggleLocation(locationId)}>
-                  <div className="folder-icon">
-                    <span className={`folder-arrow ${expandedLocations[locationId] ? 'expanded' : ''}`}>▶</span>
-                    <span className="folder-icon-img">📁</span>
-                  </div>
-                  <div className="location-info">
-                    <div className="location-name">{locationData.name}</div>
-                    <div className="location-region">{locationData.region}</div>
-                  </div>
-                  <div className="project-count">{locationData.projects.length}</div>
-                </div>
-                {expandedLocations[locationId] && (
-                  <div className="projects-list">
-                    {locationData.projects.map(project => (
-                      <Link to={`/ceo/proj/${project._id}`} key={project._id} className="project-item">
-                        <div className="project-icon">
-                          <span className="icon">🏗️</span>
-                          <div className="icon-bg"></div>
-                        </div>
-                        <div className="project-info">
-                          <div className="project-name">{project.name}</div>
-                          <div className="project-engineer">{project.engineer}</div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* MAIN CONTENT */}
-        <div className="main1">
-          <main className="main-content">
-            <div className="requests-container">
-              <div className="requests-header">
-                <h2 className="page-title">Requests</h2>
+        <main className="dashboard-main">
+          <div className="page-container">
+            <div className="controls-bar">
                 <div className="filter-tabs">
-                  {['All', 'Pending', 'Approved', 'Cancelled'].map(tab => (
+                {['All', 'Pending', 'Approved', 'Cancelled', 'Completed'].map(tab => (
                     <button
                       key={tab}
                       className={`filter-tab ${filter === tab ? 'active' : ''}`}
@@ -343,151 +221,386 @@ const CeoMaterialList = () => {
                     </button>
                   ))}
                 </div>
+              <div className="search-sort-section">
+                <div className="search-wrapper">
                 <input
+                    type="text"
+                    placeholder="Search requests..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                   className="search-input"
-                  style={{ marginLeft: 8, padding: '6px 12px' }}
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
                 />
+                </div>
+              </div>
               </div>
 
-              <div className="requests-list">
+            <div className="requests-grid">
                 {loading ? (
-                  <div className="loading-msg">Loading requests...</div>
+                <div className="loading-state"><div className="loading-spinner"></div><p>Loading material requests...</p></div>
                 ) : error ? (
-                  <div className="error-msg">{error}</div>
-                ) : currentRequests.length === 0 ? (
-                  <div className="no-requests">
-                    <p>No requests found matching your criteria.</p>
+                <div className="error-state"><p>{error}</p></div>
+              ) : paginatedRequests.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">📦</div>
+                  <h3>No material requests found</h3>
+                  <p>No requests match your current filters. Try adjusting your search criteria.</p>
                   </div>
                 ) : (
-                  currentRequests.map(request => (
-                    <Link to={`/ceo/material-request/${request._id}`} className="request-item" key={request._id}>
-                      <div className="request-icon">{getIconForType(request)}</div>
-                      <div className="request-details">
-                        <h3 className="request-title">
-                          {request.materials?.length > 0
-                            ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {paginatedRequests.map(request => (
+                    <div key={request._id} style={{ 
+                      background: '#f8fafc', 
+                      border: '1px solid #e2e8f0', 
+                      borderRadius: '6px', 
+                      padding: '12px',
+                      fontSize: '13px',
+                      position: 'relative'
+                    }}>
+                      {/* Request Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div style={{ flex: 1 }}>
+                          <h3 style={{ 
+                            margin: '0 0 4px 0', 
+                            fontSize: '15px', 
+                            fontWeight: '600', 
+                            color: '#1f2937' 
+                          }}>
+                            {request.materials?.length
+                              ? request.materials.map(m => `${m.materialName} (${m.quantity} ${m.unit || ''})`).join(', ')
                             : 'Material Request'}
                         </h3>
-                        <p className="request-description">{request.description}</p>
+                          <p style={{ 
+                            margin: '0 0 6px 0', 
+                            color: '#6b7280', 
+                            fontSize: '13px',
+                            lineHeight: '1.3'
+                          }}>
+                            {request.description || 'No description provided'}
+                          </p>
                       </div>
-                                         <div className="request-actions">
-                        <ProgressTracker request={request} />
+                        <span style={{ 
+                          background: getStatusColor(request.status, request.receivedByPIC),
+                          color: '#ffffff',
+                          padding: '3px 10px',
+                          borderRadius: '10px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          marginLeft: '10px'
+                        }}>
+                          {getStatusBadge(request.status, request.receivedByPIC)}
+                        </span>
                       </div>
-                      <div className="request-meta">
-                        <div className="request-author">{request.createdBy?.name || 'Unknown'}</div>
-                        <div className="request-project">{request.project?.projectName || '-'}</div>
-                        <div className="request-date">
-                          <div>Requested: {request.createdAt ? new Date(request.createdAt).toLocaleString() : ''}</div>
-                          {request.approvals?.find(a => a.role === 'PM' && a.decision === 'approved') && (
-                            <div>
-                              PM Approved: {new Date(request.approvals.find(a => a.role === 'PM' && a.decision === 'approved').timestamp).toLocaleString()}
+                      
+                      {/* Tracking Progress */}
+                      <div style={{ marginBottom: '8px' }}>
+                        <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px', fontWeight: '500' }}>
+                          Tracking Progress:
                             </div>
-                          )}
-                          {request.approvals?.find(a => a.role === 'AM' && a.decision === 'approved') && (
-                            <div>
-                              AM Approved: {new Date(request.approvals.find(a => a.role === 'AM' && a.decision === 'approved').timestamp).toLocaleString()}
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '0px',
+                          background: '#ffffff',
+                          padding: '8px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0'
+                        }}>
+                          {/* Placed Stage */}
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '3px',
+                            minWidth: '75px'
+                          }}>
+                            <div style={{ 
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}>
+                              ✓
                             </div>
-                          )}
+                            <span style={{ 
+                              fontSize: '10px', 
+                              fontWeight: '600',
+                              color: '#1f2937',
+                              textAlign: 'center'
+                            }}>
+                              Placed
+                            </span>
+                            <span style={{ 
+                              fontSize: '9px', 
+                              color: '#10b981',
+                              fontWeight: '500'
+                            }}>
+                              Done
+                            </span>
+                            <span style={{ 
+                              fontSize: '8px', 
+                              color: '#6b7280'
+                            }}>
+                              {new Date(request.createdAt).toLocaleDateString()}
+                            </span>
                         </div>
+                          
+                          {/* Connector 1 */}
+                          <div style={{ 
+                            width: '16px',
+                            height: '2px',
+                            background: 'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)',
+                            margin: '0 3px'
+                          }}></div>
+                          
+                          {/* PM Stage */}
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '3px',
+                            minWidth: '75px'
+                          }}>
+                            <div style={{ 
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: (request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                            (request.status?.includes('denied') ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)') : 
+                                            'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}>
+                              {(request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                (request.status?.includes('denied') ? '✗' : '✓') : '○'}
                       </div>
-                    </Link>
-                  ))
-                )}
+                            <span style={{ 
+                              fontSize: '10px', 
+                              fontWeight: '600',
+                              color: '#1f2937',
+                              textAlign: 'center'
+                            }}>
+                              Project Manager
+                            </span>
+                            <span style={{ 
+                              fontSize: '9px', 
+                              color: (request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                     (request.status?.includes('denied') ? '#ef4444' : '#10b981') : '#6b7280',
+                              fontWeight: '500'
+                            }}>
+                              {(request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                (request.status?.includes('denied') ? 'Rejected' : 'Approved') : 'Pending'}
+                            </span>
+                            <span style={{ 
+                              fontSize: '8px', 
+                              color: '#6b7280'
+                            }}>
+                              {request.pmApprovedAt ? new Date(request.pmApprovedAt).toLocaleDateString() : 'N/A'}
+                            </span>
               </div>
 
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                totalEntries={filteredRequests.length}
-                showingRange={{
-                  start: startIndex + 1,
-                  end: Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)
-                }}
-                onPageChange={setCurrentPage}
-              />
+                          {/* Connector 2 */}
+                          <div style={{ 
+                            width: '16px',
+                            height: '2px',
+                            background: (request.status?.includes('pm') || request.status?.includes('project manager')) && !request.status?.includes('denied') ? 
+                                          'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)' : 
+                                          'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 100%)',
+                            margin: '0 3px'
+                          }}></div>
+                          
+                          {/* AM Stage */}
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '3px',
+                            minWidth: '75px'
+                          }}>
+                            <div style={{ 
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: (request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                            (request.status?.includes('denied') ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)') : 
+                                            'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}>
+                              {(request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                (request.status?.includes('denied') ? '✗' : '✓') : '○'}
             </div>
-          </main>
+                            <span style={{ 
+                              fontSize: '10px', 
+                              fontWeight: '600',
+                              color: '#1f2937',
+                              textAlign: 'center'
+                            }}>
+                              Area Manager
+                            </span>
+                            <span style={{ 
+                              fontSize: '9px', 
+                              color: (request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                     (request.status?.includes('denied') ? '#ef4444' : '#10b981') : '#6b7280',
+                              fontWeight: '500'
+                            }}>
+                              {(request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                (request.status?.includes('denied') ? 'Rejected' : 'Approved') : 'Pending'}
+                            </span>
+                            <span style={{ 
+                              fontSize: '8px', 
+                              color: '#6b7280'
+                            }}>
+                              {request.amApprovedAt ? new Date(request.amApprovedAt).toLocaleDateString() : 'N/A'}
+                            </span>
         </div>
 
-        {/* RIGHT SIDEBAR */}
-        <div className="right-sidebar">
-          <div className="pending-requests-section">
-            <div className="section-header">
-              <h2>Pending Material Requests</h2>
-              <Link to="/ceo/material-list" className="view-all-btn">View All</Link>
+                          {/* Connector 3 */}
+                          <div style={{ 
+                            width: '16px',
+                            height: '2px',
+                            background: (request.status?.includes('am') || request.status?.includes('area manager')) && !request.status?.includes('denied') ? 
+                                          'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)' : 
+                                          'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 100%)',
+                            margin: '0 3px'
+                          }}></div>
+                          
+                          {/* Received Stage */}
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '3px',
+                            minWidth: '75px'
+                          }}>
+                            <div style={{ 
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: request.receivedByPIC ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}>
+                              {request.receivedByPIC ? '✓' : '○'}
             </div>
-            <div className="pending-requests-list">
-              {pendingRequestsSidebar.length === 0 ? (
-                <div className="no-requests">No pending material requests</div>
-              ) : (
-                pendingRequestsSidebar.slice(0, 3).map(request => (
-                  <Link to={`/ceo/material-request/${request._id}`} key={request._id} className="pending-request-item">
-                    <div className="request-icon">📦</div>
-                    <div className="request-details">
-                      <h3 className="request-title">
-                        {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
-                      </h3>
-                      <p className="request-description">{request.description}</p>
-                      <div className="request-meta">
-                        <span className="request-project">{request.project?.projectName}</span>
-                        <span className="request-date">
-                          Requested: {new Date(request.createdAt).toLocaleDateString()}
+                            <span style={{ 
+                              fontSize: '10px', 
+                              fontWeight: '600',
+                              color: '#1f2937',
+                              textAlign: 'center'
+                            }}>
+                              Received
+                            </span>
+                            <span style={{ 
+                              fontSize: '9px', 
+                              color: request.receivedByPIC ? '#10b981' : '#6b7280',
+                              fontWeight: '500'
+                            }}>
+                              {request.receivedByPIC ? 'Received' : 'Pending'}
+                            </span>
+                            <span style={{ 
+                              fontSize: '8px', 
+                              color: '#6b7280'
+                            }}>
+                              {request.receivedByPIC ? new Date(request.receivedByPIC).toLocaleDateString() : 'N/A'}
                         </span>
                       </div>
                     </div>
-                    <div className="request-status">
-                      <span className="status-badge pending">Pending CEO Approval</span>
                     </div>
-                  </Link>
-                ))
+                      
+                      {/* Request Details */}
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        marginBottom: '8px'
+                      }}>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          <span style={{ fontWeight: '500' }}>{request.createdBy?.name || 'Unknown'}</span> • {new Date(request.createdAt).toLocaleDateString()}
+                          {request.project?.projectName && (
+                            <span> • Project: {request.project.projectName}</span>
               )}
             </div>
           </div>
 
-          <div className="chats-section">
-            <h3>Chats</h3>
-            <div className="chats-list">
-              {chats.map(chat => (
-                <div key={chat.id} className="chat-item">
-                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
-                  <div className="chat-details">
-                    <div className="chat-name">{chat.name}</div>
-                    <div className="chat-message">{chat.message}</div>
+                      {/* Action Buttons */}
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <Link to={`/ceo/material-request/${request._id}`} className="view-details-btn">View Details</Link>
+                        <button 
+                          className="edit-btn" 
+                          onClick={() => openEdit(request)}
+                          title="Edit Request"
+                          style={{
+                            background: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            fontWeight: '500'
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button 
+                          className="delete-btn" 
+                          onClick={(e) => deleteRequest(request._id, e)}
+                          title="Delete Request"
+                          style={{
+                            background: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            cursor: 'pointer',
+                            fontWeight: '500'
+                          }}
+                        >
+                          🗑️ Delete
+                        </button>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        </div>
+              )}
       </div>
 
-      {/* MODAL - Add New Area */}
-      {showAddAreaModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <button
-              className="modal-close-btn"
-              onClick={() => setShowAddAreaModal(false)}
-              style={{
-                position: "absolute", top: 12, right: 16, background: "none",
-                border: "none", fontSize: 24, cursor: "pointer"
-              }}
-            >
-              &times;
-            </button>
-            <CeoAddArea
-              onSuccess={() => {
-                setShowAddAreaModal(false);
-                // Optionally, reload project/area data here if needed!
-              }}
-              onCancel={() => setShowAddAreaModal(false)}
-            />
+            {filteredRequests.length > 0 && (
+              <div className="pagination-section">
+                <div className="pagination-info">
+                  Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries
+                </div>
+                <div className="pagination-controls">
+                  <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="pagination-btn">Previous</button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button key={page} className={`pagination-btn ${page === currentPage ? 'active' : ''}`} onClick={() => setCurrentPage(page)}>{page}</button>
+                  ))}
+                  <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="pagination-btn">Next</button>
           </div>
         </div>
       )}
+          </div>
+        </main>
+      </div>
     </div>
   );
 };

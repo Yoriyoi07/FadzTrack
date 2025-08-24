@@ -16,13 +16,13 @@ const materialRequestSchema = new mongoose.Schema({
     type: String,
     enum: [
       'Pending Project Manager', 'Denied by Project Manager', 'Pending Area Manager',
-      'Denied by Area Manager', 'Pending CEO', 'Denied by CEO', 'Approved'
+      'Denied by Area Manager', 'Approved'
     ],
     default: 'Pending Project Manager'
   },
   approvals: [
     {
-      role: { type: String, enum: ['Project Manager', 'Area Manager', 'CEO'] },
+      role: { type: String, enum: ['Project Manager', 'Area Manager'] },
       user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
       decision: { type: String, enum: ['approved', 'denied'] },
       reason: String,
@@ -31,9 +31,9 @@ const materialRequestSchema = new mongoose.Schema({
   ],
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   receivedByPIC: { type: Boolean, default: false },
-  purchaseOrder: { type: String },      
-  totalValue: { type: Number }, 
-  ceoApprovalPDF: { type: String },
+  // CEO fields removed from workflow; keep optional legacy fields if existing docs have them
+  purchaseOrder: { type: String },
+  totalValue: { type: Number },
   receivedDate: { type: Date },
   receivedAt: { type: Date },
   receivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

@@ -5,7 +5,6 @@ const steps = [
   { label: "Placed", emoji: "📝", key: "placed" },
   { label: "Project Manager", emoji: "👤", key: "project manager" },
   { label: "Area Manager", emoji: "🏢", key: "area manager" },
-  { label: "CEO", emoji: "👨‍💼", key: "ceo" },
   { label: "Received", emoji: "✅", key: "received" }
 ];
 
@@ -90,32 +89,7 @@ function getStepInfo(request) {
     info.push({ status: "Pending", date: "—", decision: "pending" });
   }
 
-  // 4. CEO approval
-  const ceo = (request.approvals || []).find(a =>
-    (a.role || '').toLowerCase() === "ceo"
-  );
-  if (denied) {
-    info.push({ status: "—", date: "—", decision: "inactive" });
-  } else if (ceo) {
-    if (ceo.decision === "approved") {
-      info.push({
-        status: "Approved",
-        date: formatDateTime(ceo.timestamp),
-        decision: "approved"
-      });
-    } else if (ceo.decision === "denied") {
-      denied = true;
-      info.push({
-        status: "Denied",
-        date: formatDateTime(ceo.timestamp),
-        decision: "denied"
-      });
-    }
-  } else {
-    info.push({ status: "Pending", date: "—", decision: "pending" });
-  }
-
-  // 5. Received (only if not denied)
+  // 4. Received (only if not denied)
   if (denied) {
     info.push({ status: "—", date: "—", decision: "inactive" });
   } else if (request.receivedByPIC) {

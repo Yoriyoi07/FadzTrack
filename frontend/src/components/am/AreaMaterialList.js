@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Manpower_List.css';
+import '../style/pm_style/PmMatRequest.css';
+import '../style/pm_style/Pm_Dash.css';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell'; 
-import ProgressTracker from '../ProgressTracker';
 
 // React Icons
 import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaProjectDiagram, FaClipboardList, FaChartBar } from 'react-icons/fa';
@@ -21,6 +22,8 @@ const AreaMaterialList = () => {
   const [searchTerm, ] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
     const [userName, setUserName] = useState(user?.name || 'ALECK');
+    const [userRole, setUserRole] = useState(user?.role || 'Area Manager');
+    const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
 
   // --- Sidebar state
   const [assignedLocations, setAssignedLocations] = useState([]);
@@ -119,12 +122,22 @@ const AreaMaterialList = () => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
+      if (!event.target.closest(".user-profile")) {
         setProfileMenuOpen(false);
       }
     };
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const shouldCollapse = scrollTop > 50;
+      setIsHeaderCollapsed(shouldCollapse);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   const handleLogout = () => {
@@ -147,25 +160,47 @@ const AreaMaterialList = () => {
     return acc;
   }, {});
 
-  // --- Request icon helper
-  const getIconForType = (request) => {
-    if (!request.materials || request.materials.length === 0) return '📄';
-    const name = request.materials[0].materialName?.toLowerCase() || '';
-    if (name.includes('steel')) return '🔧';
-    if (name.includes('brick')) return '🧱';
-    if (name.includes('cement')) return '🪨';
-    if (name.includes('sand')) return '🏖️';
-    return '📦';
+  // --- Helpers
+  const truncateWords = (text = '', maxWords = 10) => {
+    if (!text || typeof text !== 'string') return '';
+    const words = text.trim().split(/\s+/);
+    if (words.length <= maxWords) return text;
+    return words.slice(0, maxWords).join(' ') + '...';
+  };
+  
+  const getStatusColor = (status, receivedByPIC) => {
+    const s = (status || '').toLowerCase();
+    if (receivedByPIC) return '#0ea5e9'; // Completed
+    if (s.includes('approved')) return '#10b981';
+    if (s.includes('pending')) return '#f59e0b';
+    if (s.includes('denied') || s.includes('cancel')) return '#ef4444';
+    return '#6b7280';
+  };
+  
+  const getStatusBadge = (status, receivedByPIC) => {
+    if (receivedByPIC) return 'Completed';
+    const s = (status || '').toLowerCase();
+    if (s.includes('approved')) return 'Approved';
+    if (s.includes('pending')) return 'Pending';
+    if (s.includes('denied') || s.includes('cancel')) return 'Rejected';
+    return 'Unknown';
+  };
+
+  const needsAmAttention = (request) => {
+    const s = (request?.status || '').toLowerCase();
+    return s.includes('pending am') || s.includes('pending area manager');
   };
 
   // --- Filtering/search/pagination
   const filteredRequests = requests.filter(request => {
     const status = (request.status || '').toLowerCase();
+    const isCompleted = !!request.receivedByPIC;
     const matchesFilter =
       filter === 'All' ||
       (filter === 'Pending' && status.includes('pending')) ||
       (filter === 'Approved' && status.includes('approved')) ||
-      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel')));
+      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel'))) ||
+      (filter === 'Completed' && isCompleted);
     const searchTarget = [
       request.materials && request.materials.map(m => m.materialName).join(', '),
       request.description,
@@ -176,123 +211,87 @@ const AreaMaterialList = () => {
     return matchesFilter && matchesSearch;
   });
 
-  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
+  // Sort: push Completed to end when viewing All; otherwise newest first
+  const sortedRequests = [...filteredRequests].sort((a, b) => {
+    if (filter === 'All') {
+      const aCompleted = a.receivedByPIC ? 1 : 0;
+      const bCompleted = b.receivedByPIC ? 1 : 0;
+      if (aCompleted !== bCompleted) return aCompleted - bCompleted;
+    }
+    const ad = new Date(a.createdAt || 0).getTime();
+    const bd = new Date(b.createdAt || 0).getTime();
+    return bd - ad;
+  });
+  
+  const totalPages = Math.ceil(sortedRequests.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedRequests = filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const paginatedRequests = sortedRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   return (
     <div>
-      {/* Header remains the same */}
-      <header className="header">
-  <div className="logo-container">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
-  </div>
-  <nav className="nav-menu">
-    <Link to="/am" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/am/chat" className="nav-link"><FaComments /> Chat</Link>
-    <Link to="/am/matreq" className="nav-link"><FaBoxes /> Material</Link>
-    <Link to="/am/manpower-requests" className="nav-link"><FaUsers /> Manpower</Link>
-    <Link to="/am/viewproj" className="nav-link"><FaProjectDiagram /> Projects</Link>
-    <Link to="/logs" className="nav-link"><FaClipboardList /> Logs</Link>
-    <Link to="/reports" className="nav-link"><FaChartBar /> Reports</Link>
-  </nav>
-  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-    <NotificationBell />
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-    </div>
-    {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-    )}
-  </div>
-</header>
+      {/* IT/PM-style collapsible header */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        <div className="header-top">
+          <div className="logo-section">
+            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
+            <h1 className="header-brand">FadzTrack</h1>
+          </div>
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'A'}</div>
+            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-dropdown" onClick={(e) => e.stopPropagation()}>
+                <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="logout-btn"><span>Logout</span></button>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/am" className="nav-item">
+              <FaTachometerAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
+            </Link>
+            <Link to="/am/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/am/matreq" className="nav-item active">
+              <FaBoxes />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
+            </Link>
+            <Link to="/am/manpower-requests" className="nav-item">
+              <FaUsers />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
+            </Link>
+            <Link to="/am/viewproj" className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
+            </Link>
+            <Link to="/logs" className="nav-item">
+              <FaClipboardList />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
+            </Link>
+            <Link to="/reports" className="nav-item">
+              <FaChartBar />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
+            </Link>
+          </nav>
+          <NotificationBell />
+        </div>
+      </header>
 
       {/* Three-column layout */}
       <div className="area-dash dashboard-layout">
-        {/* Left Sidebar */}
-        <div className="area-dash sidebar">
-          <h2>Dashboard</h2>
-          <button
-            className="area-dash add-project-btn"
-            onClick={() => navigate('/am/addproj')}
-          >
-            Add New Project
-          </button>
-          <div className="area-dash location-folders">
-            {Object.entries(projectsByLocation).map(([locationId, locationData]) => (
-              <div key={locationId} className="area-dash location-folder">
-                <div
-                  className="area-dash location-header"
-                  onClick={() =>
-                    setExpandedLocations(prev => ({
-                      ...prev,
-                      [locationId]: !prev[locationId]
-                    }))
-                  }
-                >
-                  <div className="area-dash folder-icon">
-                    <span
-                      className={`area-dash folder-arrow ${
-                        expandedLocations[locationId] ? 'expanded' : ''
-                      }`}
-                    >
-                      ▶
-                    </span>
-                    <span className="area-dash folder-icon-img">📁</span>
-                  </div>
-                  <div className="area-dash location-info">
-                    <div className="area-dash location-name">
-                      {locationData.name}
-                    </div>
-                    <div className="area-dash location-region">
-                      {locationData.region}
-                    </div>
-                  </div>
-                  <div className="area-dash project-count">
-                    {locationData.projects.length}
-                  </div>
-                </div>
-                {expandedLocations[locationId] && (
-                  <div className="area-dash projects-list">
-                    {locationData.projects.map(proj => (
-                      <Link
-                        to={`/am/projects/${proj._id}`}
-                        key={proj._id}
-                        className="area-dash project-item"
-                      >
-                        <div className="area-dash project-icon">
-                          <span className="area-dash icon">🏗️</span>
-                          <div className="area-dash icon-bg" />
-                        </div>
-                        <div className="area-dash project-info">
-                          <div className="area-dash project-name">{proj.name}</div>
-                          <div className="area-dash project-engineer">
-                            {proj.engineer}
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* Main */}
-        <main className="main-content" style={{ flex: 1, minHeight: "100vh" }}>
-          <div className="requests-container">
-            <div className="requests-header">
-              <h2 className="page-title">Material Requests</h2>
+        <main className="dashboard-main">
+          <div className="page-container">
+            <div className="controls-bar">
               <div className="filter-tabs">
-                {['All', 'Pending', 'Approved', 'Cancelled'].map(tab => (
+                {['All', 'Pending', 'Approved', 'Cancelled', 'Completed'].map(tab => (
                   <button
                     key={tab}
                     className={`filter-tab ${filter === tab ? 'active' : ''}`}
@@ -302,121 +301,369 @@ const AreaMaterialList = () => {
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div className="requests-list">
-              {loading ? (
-                <div>Loading requests...</div>
-              ) : error ? (
-                <div style={{ color: 'red', marginBottom: 20 }}>{error}</div>
-              ) : paginatedRequests.length === 0 ? (
-                <div className="no-requests">
-                  <p>No material requests found matching your criteria.</p>
+              <div className="search-sort-section">
+                <div className="search-wrapper">
+                  <input
+                    type="text"
+                    placeholder="Search requests..."
+                    value={searchTerm}
+                    onChange={() => {}}
+                    className="search-input"
+                  />
                 </div>
-              ) : (
-                paginatedRequests.map(request => (
-                  <Link
-                    to={`/am/material-request/${request._id}`}
-                    className="request-item"
-                    key={request._id}
-                    style={{ textDecoration: 'none', color: 'inherit' }}
-                  >
-                    <div className="request-icon">{getIconForType(request)}</div>
-                    <div className="request-details">
-                      <h3 className="request-title">
-                        {request.materials && request.materials.length > 0
-                          ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
-                          : 'Material Request'}
-                      </h3>
-                      <p className="request-description">{request.description}</p>
-                    </div>
-                      <div className="request-actions">
-                      <ProgressTracker request={request} />
-                    </div>
-                    <div className="request-meta">
-                      <div className="request-author">{request.createdBy?.name || 'Unknown'}</div>
-                      <div className="request-project">{request.project?.projectName || '-'}</div>
-                      <div className="request-date">
-                        {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
-                      </div>
-                    </div>
-                  </Link>
-                ))
-              )}
-            </div>
-
-            {/* Pagination Controls */}
-            <div className="pagination">
-              <span className="pagination-info">
-                Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries.
-              </span>
-              <div className="pagination-controls">
-                <button className="pagination-btn" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>{'<'}</button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(num => (
-                  <button
-                    key={num}
-                    className={`pagination-btn ${num === currentPage ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(num)}
-                  >
-                    {num}
-                  </button>
-                ))}
-                <button className="pagination-btn" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>{'>'}</button>
               </div>
             </div>
-          </div>
-        </main>
 
-        {/* Right Sidebar */}
-        <div className="area-dash right-sidebar">
-          <div className="area-dash pending-requests-section">
-            <div className="area-dash section-header">
-              <h2>Pending Material Requests</h2>
-              <Link to="/am/matreq" className="area-dash view-all-btn">View All</Link>
-            </div>
-            <div className="area-dash pending-requests-list">
-              {pendingRequests.length === 0 ? (
-                <div className="area-dash no-requests">No pending material requests</div>
+            <div className="requests-grid">
+              {loading ? (
+                <div className="loading-state"><div className="loading-spinner"></div><p>Loading material requests...</p></div>
+              ) : error ? (
+                <div className="error-state"><p>{error}</p></div>
+              ) : paginatedRequests.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">📦</div>
+                  <h3>No material requests found</h3>
+                  <p>No requests match your current filters. Try adjusting your search criteria.</p>
+                </div>
               ) : (
-                pendingRequests.slice(0, 3).map(request => (
-                  <Link to={`/am/material-request/${request._id}`} key={request._id} className="area-dash pending-request-item">
-                    <div className="area-dash request-icon">📦</div>
-                    <div className="area-dash request-details">
-                      <h3 className="area-dash request-title">
-                        {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
-                      </h3>
-                      <p className="area-dash request-description">{request.description}</p>
-                      <div className="area-dash request-meta">
-                        <span className="area-dash request-project">{request.project?.projectName}</span>
-                        <span className="area-dash request-date">
-                          Requested: {new Date(request.createdAt).toLocaleDateString()}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {paginatedRequests.map(request => (
+                    <div key={request._id} style={{ 
+                      background: '#f8fafc', 
+                      border: '1px solid #e2e8f0', 
+                      borderRadius: '6px', 
+                      padding: '12px',
+                      fontSize: '13px',
+                      position: 'relative'
+                    }}>
+                      {/* Attention Pill */}
+                      {needsAmAttention(request) && (
+                        <span style={{
+                          position: 'absolute',
+                          top: '8px',
+                          left: '8px',
+                          background: '#f59e0b',
+                          color: 'white',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          fontSize: '10px',
+                          fontWeight: '600',
+                          zIndex: 1
+                        }}>
+                          Needs Action
+                        </span>
+                      )}
+                      
+                      {/* Request Header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div style={{ flex: 1 }}>
+                          <h3 style={{ 
+                            margin: '0 0 4px 0', 
+                            fontSize: '15px', 
+                            fontWeight: '600', 
+                            color: '#1f2937' 
+                          }}>
+                            {request.materials?.length
+                              ? request.materials.map(m => `${m.materialName} (${m.quantity} ${m.unit || ''})`).join(', ')
+                              : 'Material Request'}
+                          </h3>
+                          <p style={{ 
+                            margin: '0 0 6px 0', 
+                            color: '#6b7280', 
+                            fontSize: '13px',
+                            lineHeight: '1.3'
+                          }}>
+                            {request.description || 'No description provided'}
+                          </p>
+                        </div>
+                        <span style={{ 
+                          background: getStatusColor(request.status, request.receivedByPIC),
+                          color: '#ffffff',
+                          padding: '3px 10px',
+                          borderRadius: '10px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          marginLeft: '10px'
+                        }}>
+                          {getStatusBadge(request.status, request.receivedByPIC)}
                         </span>
                       </div>
+                      
+                      {/* Tracking Progress */}
+                      <div style={{ marginBottom: '8px' }}>
+                        <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px', fontWeight: '500' }}>
+                          Tracking Progress:
+                        </div>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '0px',
+                          background: '#ffffff',
+                          padding: '8px',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0'
+                        }}>
+                          {/* Placed Stage */}
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '3px',
+                            minWidth: '75px'
+                          }}>
+                            <div style={{ 
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}>
+                              ✓
+                            </div>
+                            <span style={{ 
+                              fontSize: '10px', 
+                              fontWeight: '600',
+                              color: '#1f2937',
+                              textAlign: 'center'
+                            }}>
+                              Placed
+                            </span>
+                            <span style={{ 
+                              fontSize: '9px', 
+                              color: '#10b981',
+                              fontWeight: '500'
+                            }}>
+                              Done
+                            </span>
+                            <span style={{ 
+                              fontSize: '8px', 
+                              color: '#6b7280'
+                            }}>
+                              {new Date(request.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          
+                          {/* Connector 1 */}
+                          <div style={{ 
+                            width: '16px',
+                            height: '2px',
+                            background: 'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)',
+                            margin: '0 3px'
+                          }}></div>
+                          
+                          {/* PM Stage */}
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '3px',
+                            minWidth: '75px'
+                          }}>
+                            <div style={{ 
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: (request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                            (request.status?.includes('denied') ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)') : 
+                                            'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}>
+                              {(request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                (request.status?.includes('denied') ? '✗' : '✓') : '○'}
+                            </div>
+                            <span style={{ 
+                              fontSize: '10px', 
+                              fontWeight: '600',
+                              color: '#1f2937',
+                              textAlign: 'center'
+                            }}>
+                              Project Manager
+                            </span>
+                            <span style={{ 
+                              fontSize: '9px', 
+                              color: (request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                     (request.status?.includes('denied') ? '#ef4444' : '#10b981') : '#6b7280',
+                              fontWeight: '500'
+                            }}>
+                              {(request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                (request.status?.includes('denied') ? 'Rejected' : 'Approved') : 'Pending'}
+                            </span>
+                            <span style={{ 
+                              fontSize: '8px', 
+                              color: '#6b7280'
+                            }}>
+                              {request.pmApprovedAt ? new Date(request.pmApprovedAt).toLocaleDateString() : 'N/A'}
+                            </span>
+                          </div>
+                          
+                          {/* Connector 2 */}
+                          <div style={{ 
+                            width: '16px',
+                            height: '2px',
+                            background: (request.status?.includes('pm') || request.status?.includes('project manager')) && !request.status?.includes('denied') ? 
+                                          'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)' : 
+                                          'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 100%)',
+                            margin: '0 3px'
+                          }}></div>
+                          
+                          {/* AM Stage */}
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '3px',
+                            minWidth: '75px'
+                          }}>
+                            <div style={{ 
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: (request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                            (request.status?.includes('denied') ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)') : 
+                                            'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}>
+                              {(request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                (request.status?.includes('denied') ? '✗' : '✓') : '○'}
                     </div>
-                    <div className="area-dash request-status">
-                      <span className="area-dash status-badge pending">Pending AM Approval</span>
+                            <span style={{ 
+                              fontSize: '10px', 
+                              fontWeight: '600',
+                              color: '#1f2937',
+                              textAlign: 'center'
+                            }}>
+                              Area Manager
+                            </span>
+                            <span style={{ 
+                              fontSize: '9px', 
+                              color: (request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                     (request.status?.includes('denied') ? '#ef4444' : '#10b981') : '#6b7280',
+                              fontWeight: '500'
+                            }}>
+                              {(request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                (request.status?.includes('denied') ? 'Rejected' : 'Approved') : 'Pending'}
+                            </span>
+                            <span style={{ 
+                              fontSize: '8px', 
+                              color: '#6b7280'
+                            }}>
+                              {request.amApprovedAt ? new Date(request.amApprovedAt).toLocaleDateString() : 'N/A'}
+                            </span>
+                      </div>
+                          
+                          {/* Connector 3 */}
+                          <div style={{ 
+                            width: '16px',
+                            height: '2px',
+                            background: (request.status?.includes('am') || request.status?.includes('area manager')) && !request.status?.includes('denied') ? 
+                                          'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)' : 
+                                          'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 100%)',
+                            margin: '0 3px'
+                          }}></div>
+                          
+                          {/* Received Stage */}
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '3px',
+                            minWidth: '75px'
+                          }}>
+                            <div style={{ 
+                              width: '28px',
+                              height: '28px',
+                              borderRadius: '50%',
+                              background: request.receivedByPIC ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}>
+                              {request.receivedByPIC ? '✓' : '○'}
                     </div>
-                  </Link>
-                ))
+                            <span style={{ 
+                              fontSize: '10px', 
+                              fontWeight: '600',
+                              color: '#1f2937',
+                              textAlign: 'center'
+                            }}>
+                              Received
+                            </span>
+                            <span style={{ 
+                              fontSize: '9px', 
+                              color: request.receivedByPIC ? '#10b981' : '#6b7280',
+                              fontWeight: '500'
+                            }}>
+                              {request.receivedByPIC ? 'Received' : 'Pending'}
+                            </span>
+                            <span style={{ 
+                              fontSize: '8px', 
+                              color: '#6b7280'
+                            }}>
+                              {request.receivedByPIC ? new Date(request.receivedByPIC).toLocaleDateString() : 'N/A'}
+                            </span>
+                      </div>
+                    </div>
+                  </div>
+                      
+                      {/* Request Details */}
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        marginBottom: '8px'
+                      }}>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          <span style={{ fontWeight: '500' }}>{request.createdBy?.name || 'Unknown'}</span> • {new Date(request.createdAt).toLocaleDateString()}
+                          {request.project?.projectName && (
+                            <span> • Project: {request.project.projectName}</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <Link to={`/am/material-request/${request._id}`} className="view-details-btn">View Details</Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-          </div>
 
-          <div className="area-dash chats-section">
-            <h3>Chats</h3>
-            <div className="area-dash chats-list">
-              {chats.map(chat => (
-                <div key={chat.id} className="area-dash chat-item">
-                  <div className="area-dash chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
-                  <div className="area-dash chat-details">
-                    <div className="area-dash chat-name">{chat.name}</div>
-                    <div className="area-dash chat-message">{chat.message}</div>
-                  </div>
+            {filteredRequests.length > 0 && (
+              <div className="pagination-section">
+                <div className="pagination-info">
+                  Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries
                 </div>
-              ))}
-            </div>
+                <div className="pagination-controls">
+                  <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className="pagination-btn">Previous</button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button key={page} className={`pagination-btn ${page === currentPage ? 'active' : ''}`} onClick={() => setCurrentPage(page)}>{page}</button>
+                  ))}
+                  <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className="pagination-btn">Next</button>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

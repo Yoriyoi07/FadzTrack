@@ -150,11 +150,9 @@ const PicAllProjects = () => {
   <nav className="nav-menu">
     <Link to="/pic" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
     <Link to="/pic/chat" className="nav-link"><FaComments /> Chat</Link>
-    {project && (
-      <Link to={`/pic/projects/${project._id}/request`} className="nav-link">
-        <FaClipboardList /> Requests
-      </Link>
-    )}
+    <Link to="/pic/requests" className="nav-link">
+      <FaClipboardList /> Requests
+    </Link>
     {project && (
       <Link to={`/pic/${project._id}`} className="nav-link">
         <FaEye /> View Project

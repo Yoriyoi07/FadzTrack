@@ -3,7 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 import '../style/pic_style/Pic_MatReq.css';
-// Nav icons
+import '../style/pm_style/Pm_Dash.css';
+
+// React Icons
 import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram } from 'react-icons/fa';
 
 const chats = [
@@ -24,7 +26,9 @@ const PicMatReq = () => {
   const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     const user = storedUser ? JSON.parse(storedUser) : null;
-    const [userName, setUserName] = useState(user?.name || '');
+  const [userName, setUserName] = useState(user?.name || 'PIC');
+  const [userRole, setUserRole] = useState(user?.role || 'Person in Charge');
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
 
   useEffect(() => {
     if (!token || !user) navigate('/');
@@ -42,6 +46,26 @@ const PicMatReq = () => {
   useEffect(() => {
     return () => previewImages.forEach(url => URL.revokeObjectURL(url));
   }, [previewImages.length]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest(".user-profile")) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const shouldCollapse = scrollTop > 50;
+      setIsHeaderCollapsed(shouldCollapse);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -88,16 +112,6 @@ const PicMatReq = () => {
       return prev.filter((_, i) => i !== index);
     });
   };
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -151,82 +165,110 @@ const PicMatReq = () => {
 
   return (
     <div>
-      {/* Header with Navigation */}
-      <header className="header">
-  <div className="logo-container">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
+      {/* IT/PM-style collapsible header */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        <div className="header-top">
+          <div className="logo-section">
+            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
+            <h1 className="header-brand">FadzTrack</h1>
   </div>
-
-  <nav className="nav-menu">
-    <Link to="/pic" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/pic/chat" className="nav-link"><FaComments /> Chat</Link>
-    {project && (
-      <Link to={`/pic/projects/${project._id}/request`} className="nav-link">
-        <FaClipboardList /> Requests
-      </Link>
-    )}
-    {project && (
-      <Link to={`/pic/${project._id}`} className="nav-link">
-        <FaEye /> View Project
-      </Link>
-    )}
-    <Link to="/pic/projects" className="nav-link"><FaProjectDiagram /> My Projects</Link>
-  </nav>
-
-  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-    <NotificationBell />
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'P'}</div>
+            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
     </div>
     {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
+              <div className="profile-dropdown" onClick={(e) => e.stopPropagation()}>
+                <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="logout-btn"><span>Logout</span></button>
       </div>
     )}
+          </div>
+        </div>
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/pic" className="nav-item">
+              <FaTachometerAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
+            </Link>
+            <Link to="/pic/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/pic/requests" className="nav-item active">
+              <FaClipboardList />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span>
+            </Link>
+            {project && (
+              <Link to={`/pic/${project._id}`} className="nav-item">
+                <FaEye />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
+              </Link>
+            )}
+            <Link to="/pic/projects" className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
+            </Link>
+          </nav>
+          <NotificationBell />
   </div>
 </header>
 
-
-      {/* -- MAIN LAYOUT: Sidebar + Main Content -- */}
+      {/* Main content */}
       <div className="dashboard-layout">
-        {/* Left Sidebar: Chats */}
-        <div className="sidebar">
-          <div className="chats-section">
-            <h3 className="chats-title">Chats</h3>
-            <div className="chats-list">
-              {chats.map(chat => (
-                <div key={chat.id} className="chat-item">
-                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
-                    {chat.initial}
-                  </div>
-                  <div className="chat-info">
-                    <div className="chat-name">{chat.name}</div>
-                    <div className="chat-message">{chat.message}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        <main className="dashboard-main">
+          <div className="page-container">
+            <div className="request-materials-container-picmatreq">
+              {/* Back Button */}
+              <div className="back-button-container" style={{ marginBottom: '20px' }}>
+                <button 
+                  onClick={() => navigate('/pic/requests')} 
+                  className="back-button"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 16px',
+                    backgroundColor: '#f8f9fa',
+                    border: '1px solid #dee2e6',
+                    borderRadius: '6px',
+                    color: '#495057',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.backgroundColor = '#e9ecef';
+                    e.target.style.borderColor = '#adb5bd';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.backgroundColor = '#f8f9fa';
+                    e.target.style.borderColor = '#dee2e6';
+                  }}
+                >
+                  ← Back to Requests
+                </button>
         </div>
 
-        {/* Main Content */}
-        <main className="main-content-picmatreq">
-          <div className="request-materials-container-picmatreq">
             <h1 className="page-title-picmatreq">Request Materials</h1>
             {project && (
-              <div className="project-details-box" style={{ marginBottom: '20px' }}>
-                <h2 style={{ margin: 0 }}>{project.name}</h2>
-                <p style={{ margin: 0, fontStyle: 'italic' }}>
+                <div className="project-details-box" style={{ 
+                  marginBottom: '20px',
+                  background: '#ffffff',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+                }}>
+                  <h2 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#1f2937' }}>{project.name}</h2>
+                  <p style={{ margin: '0 0 4px 0', fontStyle: 'italic', color: '#6b7280' }}>
                   {project.location?.name} ({project.location?.region})
                 </p>
-                <p style={{ margin: 0, color: '#555' }}>{project.targetDate}</p>
+                  <p style={{ margin: 0, color: '#9ca3af', fontSize: '14px' }}>Target Date: {project.targetDate}</p>
               </div>
             )}
+              
             <div className="materials-form-picmatreq">
               <div className="form-group-picmatreq">
                 <label className="form-label-picmatreq">Material to be Requested</label>
@@ -310,6 +352,7 @@ const PicMatReq = () => {
                   </button>
                 </div>
               </div>
+                
               <div className="form-group-picmatreq">
                 <label className="form-label-picmatreq">Attachment Proof</label>
                 <div className="upload-section-picmatreq">
@@ -365,6 +408,7 @@ const PicMatReq = () => {
                   <p className="upload-hint-picmatreq">You can attach files such as documents or images</p>
                 </div>
               </div>
+                
               <div className="form-group-picmatreq">
                 <label className="form-label-picmatreq">Request Description</label>
                 <textarea
@@ -376,10 +420,12 @@ const PicMatReq = () => {
                   placeholder="Provide a detailed description of your request"
                 />
               </div>
+                
               <div className="form-actions-picmatreq">
                 <button onClick={handleSubmit} className="publish-button-picmatreq">
                   Publish Request
                 </button>
+                </div>
               </div>
             </div>
           </div>

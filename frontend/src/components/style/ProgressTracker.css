@@ -101,32 +101,42 @@
   gap: 6px;
 }
 .mini-step {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #eef2f7;
-  border: 2px solid #d8dee6;
-  color: #475569;
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
+  background: transparent;
+  border: none;
+  color: #475569; /* pending/neutral */
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0 2px;
 }
 .mini-step.completed {
-  background: #22c55e;
-  border-color: #22c55e;
-  color: #fff;
+  color: #22c55e;
+  text-shadow: 0 0 6px rgba(34,197,94,0.45);
 }
 .mini-step.denied {
-  background: #ef4444;
-  border-color: #ef4444;
-  color: #fff;
+  color: #ef4444;
+  text-shadow: 0 0 6px rgba(239,68,68,0.45);
 }
 .mini-sep {
   width: 10px;
   height: 2px;
   background: #d8dee6;
   border-radius: 1px;
+}
+
+.mini-arrow {
+  font-size: 22px;
+  color: #94a3b8;
+  font-weight: 800;
+  line-height: 1;
+}
+.mini-arrow.completed {
+  color: #22c55e;
+}
+.mini-arrow.denied {
+  color: #ef4444;
 }
 

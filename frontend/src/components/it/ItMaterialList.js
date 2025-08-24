@@ -3,10 +3,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import '../style/pm_style/PmMatRequest.css';
 import '../style/pm_style/Pm_Dash.css';
 import NotificationBell from '../NotificationBell';
-import MiniProgressTracker from '../MiniProgressTracker';
 import api from '../../api/axiosInstance';
 // Nav icons
 import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaClipboardList } from 'react-icons/fa';
+import { exportMaterialRequestsPdf } from '../../utils/materialRequestsPdf';
 
 const ITEMS_PER_PAGE = 5;
 
@@ -24,9 +24,8 @@ const ItMaterialList = () => {
   const [filter, setFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editingRequest, setEditingRequest] = useState(null);
-  const [editDescription, setEditDescription] = useState('');
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFilters, setExportFilters] = useState({ status: 'All', requester: 'All', project: 'All', dateFrom: '', dateTo: '' });
 
   // GET user role from localStorage
   const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -65,7 +64,7 @@ const ItMaterialList = () => {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
+      if (!event.target.closest(".user-profile")) {
         setProfileMenuOpen(false);
       }
     };
@@ -108,11 +107,13 @@ const ItMaterialList = () => {
 
   const filteredRequests = requests.filter(request => {
     const status = (request.status || '').toLowerCase();
+    const isCompleted = !!request.receivedByPIC;
     const matchesFilter =
       filter === 'All' ||
       (filter === 'Pending' && status.includes('pending')) ||
       (filter === 'Approved' && status.includes('approved')) ||
-      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel')));
+      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel'))) ||
+      (filter === 'Completed' && isCompleted);
     const searchTarget = [
       request.materials && request.materials.map(m => m.materialName).join(', '),
       request.description,
@@ -123,19 +124,32 @@ const ItMaterialList = () => {
     return matchesFilter && matchesSearch;
   });
 
-  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE);
+  // Sort: when viewing All, push Completed to the end; otherwise newest first
+  const sortedRequests = [...filteredRequests].sort((a, b) => {
+    if (filter === 'All') {
+      const aCompleted = a.receivedByPIC ? 1 : 0;
+      const bCompleted = b.receivedByPIC ? 1 : 0;
+      if (aCompleted !== bCompleted) return aCompleted - bCompleted; // non-completed first
+    }
+    const ad = new Date(a.createdAt || 0).getTime();
+    const bd = new Date(b.createdAt || 0).getTime();
+    return bd - ad; // newest first
+  });
+  const totalPages = Math.ceil(sortedRequests.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedRequests = filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const paginatedRequests = sortedRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status, receivedByPIC) => {
     const s = (status || '').toLowerCase();
+    if (receivedByPIC) return '#0ea5e9'; // Completed (cyan-ish)
     if (s.includes('approved')) return '#10b981';
     if (s.includes('pending')) return '#f59e0b';
     if (s.includes('denied') || s.includes('cancel')) return '#ef4444';
     return '#6b7280';
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (status, receivedByPIC) => {
+    if (receivedByPIC) return 'Completed';
     const s = (status || '').toLowerCase();
     if (s.includes('approved')) return 'Approved';
     if (s.includes('pending')) return 'Pending';
@@ -143,26 +157,9 @@ const ItMaterialList = () => {
     return 'Unknown';
   };
 
-  const openEdit = (req) => {
-    setEditingRequest(req);
-    setEditDescription(req.description || '');
-    setEditModalOpen(true);
-  };
-
-  const saveEdit = async () => {
-    if (!editingRequest) return;
-    try {
-      await api.put(`/requests/${editingRequest._id}`, {
-        materials: JSON.stringify(editingRequest.materials || []),
-        description: editDescription,
-        attachments: JSON.stringify(editingRequest.attachments || [])
-      });
-      setRequests(prev => prev.map(r => r._id === editingRequest._id ? { ...r, description: editDescription } : r));
-      setEditModalOpen(false);
-      setEditingRequest(null);
-    } catch (e) {
-      alert('Failed to save changes');
-    }
+  const openEdit = (request) => {
+    // Navigate to the comprehensive edit form
+    navigate(`/it/material-request/edit/${request._id}`);
   };
 
   const deleteRequest = async (id) => {
@@ -172,6 +169,62 @@ const ItMaterialList = () => {
       setRequests(prev => prev.filter(r => r._id !== id));
     } catch (e) {
       alert('Failed to delete request');
+    }
+  };
+
+  const uniqueRequesters = Array.from(new Set((requests || []).map(r => r.createdBy?.name).filter(Boolean)));
+  const uniqueProjects = Array.from(new Set((requests || []).map(r => r.project?.projectName).filter(Boolean)));
+
+  const handleExport = async () => {
+    try {
+      const userObj = JSON.parse(localStorage.getItem('user') || '{}');
+      const companyName = 'FadzTrack';
+      const logoPath = `${process.env.PUBLIC_URL || ''}/images/Fadz-logo.png`;
+
+      // Apply filters to current full dataset for export
+      const rows = requests.filter(r => {
+        const completed = !!r.receivedByPIC;
+        const statusLabel = completed ? 'Completed' : (r.status || '');
+        const statusOk = exportFilters.status === 'All' ||
+          (exportFilters.status === 'Completed' && completed) ||
+          (exportFilters.status !== 'Completed' && String(statusLabel).toLowerCase().includes(exportFilters.status.toLowerCase()))
+        ;
+        const requesterOk = exportFilters.requester === 'All' || (r.createdBy?.name === exportFilters.requester);
+        const projectOk = exportFilters.project === 'All' || (r.project?.projectName === exportFilters.project);
+        // Date checks (createdAt within range if provided)
+        let dateOk = true;
+        const createdTime = r.createdAt ? new Date(r.createdAt).getTime() : NaN;
+        if (exportFilters.dateFrom) {
+          const fromTime = new Date(exportFilters.dateFrom).setHours(0,0,0,0);
+          if (!isNaN(createdTime)) {
+            dateOk = dateOk && createdTime >= fromTime;
+          }
+        }
+        if (exportFilters.dateTo) {
+          const toTime = new Date(exportFilters.dateTo).setHours(23,59,59,999);
+          if (!isNaN(createdTime)) {
+            dateOk = dateOk && createdTime <= toTime;
+          }
+        }
+        return statusOk && requesterOk && projectOk && dateOk;
+      });
+
+      await exportMaterialRequestsPdf(rows, {
+        companyName,
+        logoPath,
+        exporterName: userObj?.name || 'Unknown',
+        exporterRole: userObj?.role || '',
+        filters: {
+          Status: exportFilters.status,
+          Requester: exportFilters.requester,
+          Project: exportFilters.project,
+          From: exportFilters.dateFrom || '—',
+          To: exportFilters.dateTo || '—',
+        },
+      });
+      setExportOpen(false);
+    } catch (e) {
+      alert('Failed to export PDF');
     }
   };
 
@@ -190,8 +243,8 @@ const ItMaterialList = () => {
               <span className="profile-role">{userRole}</span>
             </div>
             {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn"><span>Logout</span></button>
+              <div className="profile-dropdown" onClick={(e) => e.stopPropagation()}>
+                <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="logout-btn"><span>Logout</span></button>
               </div>
             )}
           </div>
@@ -228,7 +281,7 @@ const ItMaterialList = () => {
         <div className="page-container">
           <div className="controls-bar">
             <div className="filter-tabs">
-              {['All', 'Pending', 'Approved', 'Cancelled'].map(tab => (
+              {['All', 'Pending', 'Approved', 'Cancelled', 'Completed'].map(tab => (
                 <button
                   key={tab}
                   className={`filter-tab ${filter === tab ? 'active' : ''}`}
@@ -248,6 +301,7 @@ const ItMaterialList = () => {
                   className="search-input"
                 />
               </div>
+              <button className="view-details-btn" onClick={() => setExportOpen(true)} style={{ background:'#2563eb' }}>Export PDF</button>
             </div>
           </div>
 
@@ -263,39 +317,308 @@ const ItMaterialList = () => {
                 <p>No requests match your current filters. Try adjusting your search criteria.</p>
               </div>
             ) : (
-              paginatedRequests.map(request => (
-                <div className="request-card" key={request._id}>
-                  <div className="card-header">
-                    <div className="request-icon">{getIconForType(request)}</div>
-                    <div className="request-status">
-                      <span className="status-badge" style={{ backgroundColor: getStatusColor(request.status) }}>
-                        {getStatusBadge(request.status)}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {paginatedRequests.map(request => (
+                  <div key={request._id} style={{ 
+                    background: '#f8fafc', 
+                    border: '1px solid #e2e8f0', 
+                    borderRadius: '6px', 
+                    padding: '12px',
+                    fontSize: '13px'
+                  }}>
+                    {/* Request Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{ 
+                          margin: '0 0 4px 0', 
+                          fontSize: '15px', 
+                          fontWeight: '600', 
+                          color: '#1f2937' 
+                        }}>
+                          {request.materials?.length
+                            ? request.materials.map(m => `${m.materialName} (${m.quantity} ${m.unit || ''})`).join(', ')
+                            : 'Material Request'}
+                        </h3>
+                        <p style={{ 
+                          margin: '0 0 6px 0', 
+                          color: '#6b7280', 
+                          fontSize: '13px',
+                          lineHeight: '1.3'
+                        }}>
+                          {request.description || 'No description provided'}
+                        </p>
+                      </div>
+                      <span style={{ 
+                        background: getStatusColor(request.status, request.receivedByPIC),
+                        color: '#ffffff',
+                        padding: '3px 10px',
+                        borderRadius: '10px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        marginLeft: '10px'
+                      }}>
+                        {getStatusBadge(request.status, request.receivedByPIC)}
                       </span>
                     </div>
-                  </div>
-                  <div className="card-body">
-                    <h3 className="request-title">
-                      {request.materials?.length
-                        ? request.materials.map(m => `${m.materialName} (${m.quantity})`).join(', ')
-                        : 'Material Request'}
-                    </h3>
-                    <p className="request-description">{truncateWords(request.description, 10)}</p>
-                    <div className="request-meta">
-                      <div className="meta-item"><span className="meta-label">Requested by:</span><span className="meta-value">{request.createdBy?.name || 'Unknown'}</span></div>
-                      <div className="meta-item"><span className="meta-label">Project:</span><span className="meta-value">{request.project?.projectName || '-'}</span></div>
-                      <div className="meta-item"><span className="meta-label">Date:</span><span className="meta-value">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}</span></div>
+                    
+                    {/* Tracking Progress */}
+                    <div style={{ marginBottom: '8px' }}>
+                      <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px', fontWeight: '500' }}>
+                        Tracking Progress:
+                      </div>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '0px',
+                        background: '#ffffff',
+                        padding: '8px',
+                        borderRadius: '6px',
+                        border: '1px solid #e2e8f0'
+                      }}>
+                        {/* Placed Stage */}
+                        <div style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '3px',
+                          minWidth: '75px'
+                        }}>
+                          <div style={{ 
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                          }}>
+                            ✓
+                          </div>
+                          <span style={{ 
+                            fontSize: '10px', 
+                            fontWeight: '600',
+                            color: '#1f2937',
+                            textAlign: 'center'
+                          }}>
+                            Placed
+                          </span>
+                          <span style={{ 
+                            fontSize: '9px', 
+                            color: '#10b981',
+                            fontWeight: '500'
+                          }}>
+                            Done
+                          </span>
+                          <span style={{ 
+                            fontSize: '8px', 
+                            color: '#6b7280'
+                          }}>
+                            {new Date(request.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        
+                        {/* Connector 1 */}
+                        <div style={{ 
+                          width: '16px',
+                          height: '2px',
+                          background: 'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)',
+                          margin: '0 3px'
+                        }}></div>
+                        
+                        {/* PM Stage */}
+                        <div style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '3px',
+                          minWidth: '75px'
+                        }}>
+                          <div style={{ 
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: (request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                          (request.status?.includes('denied') ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)') : 
+                                          'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                          }}>
+                            {(request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                              (request.status?.includes('denied') ? '✗' : '✓') : '○'}
+                          </div>
+                          <span style={{ 
+                            fontSize: '10px', 
+                            fontWeight: '600',
+                            color: '#1f2937',
+                            textAlign: 'center'
+                          }}>
+                            Project Manager
+                          </span>
+                          <span style={{ 
+                            fontSize: '9px', 
+                            color: (request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                   (request.status?.includes('denied') ? '#ef4444' : '#10b981') : '#6b7280',
+                            fontWeight: '500'
+                          }}>
+                            {(request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                              (request.status?.includes('denied') ? 'Rejected' : 'Approved') : 'Pending'}
+                          </span>
+                          <span style={{ 
+                            fontSize: '8px', 
+                            color: '#6b7280'
+                          }}>
+                            {request.pmApprovedAt ? new Date(request.pmApprovedAt).toLocaleDateString() : 'N/A'}
+                          </span>
+                        </div>
+                        
+                        {/* Connector 2 */}
+                        <div style={{ 
+                          width: '16px',
+                          height: '2px',
+                          background: (request.status?.includes('pm') || request.status?.includes('project manager')) && !request.status?.includes('denied') ? 
+                                        'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)' : 
+                                        'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 100%)',
+                          margin: '0 3px'
+                        }}></div>
+                        
+                        {/* AM Stage */}
+                        <div style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '3px',
+                          minWidth: '75px'
+                        }}>
+                          <div style={{ 
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: (request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                          (request.status?.includes('denied') ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)') : 
+                                          'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                          }}>
+                            {(request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                              (request.status?.includes('denied') ? '✗' : '✓') : '○'}
+                          </div>
+                          <span style={{ 
+                            fontSize: '10px', 
+                            fontWeight: '600',
+                            color: '#1f2937',
+                            textAlign: 'center'
+                          }}>
+                            Area Manager
+                          </span>
+                          <span style={{ 
+                            fontSize: '9px', 
+                            color: (request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                   (request.status?.includes('denied') ? '#ef4444' : '#10b981') : '#6b7280',
+                            fontWeight: '500'
+                          }}>
+                            {(request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                              (request.status?.includes('denied') ? 'Rejected' : 'Approved') : 'Pending'}
+                          </span>
+                          <span style={{ 
+                            fontSize: '8px', 
+                            color: '#6b7280'
+                          }}>
+                            {request.amApprovedAt ? new Date(request.amApprovedAt).toLocaleDateString() : 'N/A'}
+                          </span>
+                        </div>
+                        
+                        {/* Connector 3 */}
+                        <div style={{ 
+                          width: '16px',
+                          height: '2px',
+                          background: (request.status?.includes('am') || request.status?.includes('area manager')) && !request.status?.includes('denied') ? 
+                                        'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)' : 
+                                        'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 100%)',
+                          margin: '0 3px'
+                        }}></div>
+                        
+                        {/* Received Stage */}
+                        <div style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '3px',
+                          minWidth: '75px'
+                        }}>
+                          <div style={{ 
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            background: request.receivedByPIC ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                          }}>
+                            {request.receivedByPIC ? '✓' : '○'}
+                          </div>
+                          <span style={{ 
+                            fontSize: '10px', 
+                            fontWeight: '600',
+                            color: '#1f2937',
+                            textAlign: 'center'
+                          }}>
+                            Received
+                          </span>
+                          <span style={{ 
+                            fontSize: '9px', 
+                            color: request.receivedByPIC ? '#10b981' : '#6b7280',
+                            fontWeight: '500'
+                          }}>
+                            {request.receivedByPIC ? 'Received' : 'Pending'}
+                          </span>
+                          <span style={{ 
+                            fontSize: '8px', 
+                            color: '#6b7280'
+                          }}>
+                            {request.receivedByPIC ? new Date(request.receivedByPIC).toLocaleDateString() : 'N/A'}
+                          </span>
+                        </div>
                     </div>
                   </div>
-                  <div className="card-footer" style={{ display:'flex', gap:8, justifyContent:'space-between', alignItems:'center' }}>
-                    <MiniProgressTracker request={request} />
-                    <div style={{ display:'flex', gap:8 }}>
-                      <Link to={`/it/material-request/${request._id}`} className="view-details-btn">View</Link>
+                    
+                    {/* Request Details */}
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      marginBottom: '8px'
+                    }}>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>
+                        <span style={{ fontWeight: '500' }}>{request.createdBy?.name || 'Unknown'}</span> • {new Date(request.createdAt).toLocaleDateString()}
+                        {request.project?.projectName && (
+                          <span> • Project: {request.project.projectName}</span>
+                        )}
+                    </div>
+                  </div>
+                    
+                    {/* Action Buttons */}
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <Link to={`/it/material-request/${request._id}`} className="view-details-btn">View Details</Link>
                       <button className="view-details-btn" onClick={() => openEdit(request)} style={{ background:'#eab308' }}>Edit</button>
                       <button className="view-details-btn" onClick={() => deleteRequest(request._id)} style={{ background:'#ef4444' }}>Delete</button>
                     </div>
                   </div>
+                ))}
                 </div>
-              ))
             )}
           </div>
 
@@ -315,15 +638,49 @@ const ItMaterialList = () => {
           )}
         </div>
       </main>
-      {editModalOpen && (
-        <div className="modal-overlay" style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
-          <div className="modal" style={{ background:'#fff', borderRadius:12, padding:20, width:420, maxWidth:'90%' }}>
-            <h3 style={{ marginTop:0 }}>Edit Request</h3>
-            <label style={{ display:'block', fontWeight:600, marginBottom:6 }}>Description</label>
-            <textarea value={editDescription} onChange={(e)=>setEditDescription(e.target.value)} style={{ width:'100%', minHeight:100, padding:8, border:'1px solid #e5e7eb', borderRadius:8 }} />
-            <div style={{ display:'flex', gap:10, justifyContent:'flex-end', marginTop:12 }}>
-              <button className="btn-cancel" onClick={() => { setEditModalOpen(false); setEditingRequest(null); }}>Cancel</button>
-              <button className="btn-create" onClick={saveEdit}>Save</button>
+      {exportOpen && (
+        <div className="modal-overlay" style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+          <div className="modal" style={{ background:'#fff', borderRadius:12, padding:20, width:520, maxWidth:'94%' }}>
+            <h3 style={{ marginTop:0, marginBottom:10 }}>Export Material Requests</h3>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+              <div>
+                <label style={{ display:'block', fontWeight:600, marginBottom:6 }}>Status</label>
+                <select value={exportFilters.status} onChange={(e)=>setExportFilters(s=>({ ...s, status:e.target.value }))} style={{ width:'100%', padding:8, border:'1px solid #e5e7eb', borderRadius:8 }}>
+                  {['All','Pending','Approved','Cancelled','Completed'].map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ display:'block', fontWeight:600, marginBottom:6 }}>Requester</label>
+                <select value={exportFilters.requester} onChange={(e)=>setExportFilters(s=>({ ...s, requester:e.target.value }))} style={{ width:'100%', padding:8, border:'1px solid #e5e7eb', borderRadius:8 }}>
+                  <option value="All">All</option>
+                  {uniqueRequesters.map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ display:'block', fontWeight:600, marginBottom:6 }}>Project</label>
+                <select value={exportFilters.project} onChange={(e)=>setExportFilters(s=>({ ...s, project:e.target.value }))} style={{ width:'100%', padding:8, border:'1px solid #e5e7eb', borderRadius:8 }}>
+                  <option value="All">All</option>
+                  {uniqueProjects.map(n => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ display:'block', fontWeight:600, marginBottom:6 }}>From (Date)</label>
+                <input type="date" value={exportFilters.dateFrom} onChange={(e)=>setExportFilters(s=>({ ...s, dateFrom:e.target.value }))} style={{ width:'100%', padding:8, border:'1px solid #e5e7eb', borderRadius:8 }} />
+              </div>
+              <div>
+                <label style={{ display:'block', fontWeight:600, marginBottom:6 }}>To (Date)</label>
+                <input type="date" value={exportFilters.dateTo} onChange={(e)=>setExportFilters(s=>({ ...s, dateTo:e.target.value }))} style={{ width:'100%', padding:8, border:'1px solid #e5e7eb', borderRadius:8 }} />
+              </div>
+            </div>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:16 }}>
+              <button className="btn-cancel" onClick={() => setExportOpen(false)}>Cancel</button>
+              <button className="btn-create" onClick={handleExport} style={{ background:'#2563eb' }}>Export PDF</button>
             </div>
           </div>
         </div>

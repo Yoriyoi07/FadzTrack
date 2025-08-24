@@ -32,7 +32,9 @@ import PicChat from './chats/PicChat';
 import PicReq from './pic/PicReq';
 import PicProject from './pic/PicProject';
 import PicMatReq from './pic/PicMatReq';
+import PicRequestList from './pic/PicRequestList';
 import PicAllProjects from './pic/PicAllProjects';
+import PicMaterialRequestEdit from './pic/PicMaterialRequestEdit';
 
 // AREA MANAGER
 import AreaManagerDashboard from './am/AreaDash';
@@ -52,6 +54,7 @@ import ItChat from './chats/ItChat';
 import ItAuditLog from './it/ItAuditLogs';
 import ItMaterialList from './it/ItMaterialList';
 import ItMaterialRequestDetail from './it/ItMaterialRequestDetail';
+import ItMaterialRequestEdit from './it/ItMaterialRequestEdit';
 import ItManpowerList from './it/ItManpowerList';
 import ItManpowerRequestDetail from './it/ItManpowerRequestDetail';
 
@@ -64,6 +67,7 @@ import CeoMaterialList from './ceo/CeoMaterialList';
 import CeoMaterialRequestDetail from './ceo/CeoMaterialRequestDetail';
 import CeoAuditLogs from './ceo/CeoAuditLogs';
 import CeoChat from './chats/CeoChat';
+import CeoMaterialRequestEdit from './ceo/CeoMaterialRequestEdit';
 
 // HR
 import HrDash from './hr/HrDash';
@@ -73,6 +77,7 @@ import HrProj from './hr/HrProj';
 import HrViewSpecific from './hr/HrViewSpeficic';
 import HrManpowerRequestDetail from './hr/HrManpowerRequestDetail';
 import HrChat from './chats/HrChat';
+import HrManpowerRequestList from './hr/HrManpowerRequestList';
 
 // STAFF
 import StaffCurrentProject from './staff/StaffCurrentProject';
@@ -121,9 +126,11 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/pic/chat" element={<PicChat />} />
         <Route path="/pic/chat/:chatId" element={<PicChat />} />
         <Route path="/pic/request/:id" element={<PicReq />} />
+        <Route path="/pic/requests" element={<PicRequestList />} />
         <Route path="/pic/:id" element={<PicProject />} />
         <Route path="/pic/projects/:projectId/request" element={<PicMatReq />} />
         <Route path="/pic/projects" element={<PicAllProjects />} />
+        <Route path="/pic/material-request/edit/:id" element={<PicMaterialRequestEdit />} />
       </Route>
 
       {/* Area Manager-only */}
@@ -150,6 +157,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/it/auditlogs" element={<ItAuditLog />} />
         <Route path="/it/material-list" element={<ItMaterialList />} />
         <Route path="/it/material-request/:id" element={<ItMaterialRequestDetail />} />
+        <Route path="/it/material-request/edit/:id" element={<ItMaterialRequestEdit />} />
         <Route path="/it/manpower-list" element={<ItManpowerList />} />
         <Route path="/it/manpower-list/:id" element={<ItManpowerRequestDetail />} />
         <Route path="/it/chat" element={<ItChat />} />
@@ -164,6 +172,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/ceo/proj/:id" element={<CeoViewSpecific />} />
         <Route path="/ceo/material-list" element={<CeoMaterialList />} />
         <Route path="/ceo/material-request/:id" element={<CeoMaterialRequestDetail />} />
+        <Route path="/ceo/material-request/edit/:id" element={<CeoMaterialRequestEdit />} />
         <Route path="/ceo/audit-logs" element={<CeoAuditLogs />} />
         <Route path="/ceo/chat" element={<CeoChat />} />
         <Route path="/ceo/chat/:chatId" element={<CeoChat />} />
@@ -179,6 +188,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/hr/manpower-request/:id" element={<HrManpowerRequestDetail />} />
         <Route path="/hr/chat" element={<HrChat />} />
         <Route path="/hr/chat/:chatId" element={<HrChat />} />
+        <Route path="/hr/manpower-requests" element={<HrManpowerRequestList />} />
       </Route>
 
       {/* Staff-only */}

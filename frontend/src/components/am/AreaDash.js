@@ -300,65 +300,129 @@ const AreaDash = () => {
     return acc;
   }, {});
 
-  // Project metrics data
+  // Project metrics data (CEO logic, scoped to AM's projects)
   const [projectMetrics, setProjectMetrics] = useState([]);
   const [metricsLoading, setMetricsLoading] = useState(true);
 
-  // Fetch project metrics from reports
   useEffect(() => {
     const fetchProjectMetrics = async () => {
       if (!enrichedAllProjects.length) return;
-      
       setMetricsLoading(true);
       const metrics = [];
 
+      const getPctFromAi = (ai) => {
+        const v = Number(ai?.pic_contribution_percent);
+        if (Number.isFinite(v) && v >= 0) return Math.max(0, Math.min(100, Math.round(v)));
+        const ct = Array.isArray(ai?.completed_tasks) ? ai.completed_tasks.length : 0;
+        return Math.max(0, Math.min(100, ct * 5));
+      };
+
       for (const project of enrichedAllProjects) {
         try {
-          // Get all reports for this project
-          const { data: reports } = await api.get(`/daily-reports/project/${project._id}`);
-          
-          if (reports && reports.length > 0) {
-            // Get the latest report from each PIC
-            const latestReports = [];
-            const picReports = {};
-            
-            reports.forEach(report => {
-              const picId = report.pic?._id || report.pic;
-              if (!picReports[picId] || new Date(report.date) > new Date(picReports[picId].date)) {
-                picReports[picId] = report;
-              }
-            });
-
-            // Calculate average progress from latest reports
-            const progressValues = Object.values(picReports).map(report => {
-              if (report.progress && Array.isArray(report.progress)) {
-                const completed = report.progress.find(p => p.name === 'Completed');
-                return completed ? completed.value : 0;
-              }
-              return 0;
-            });
-
-            const averageProgress = progressValues.length > 0 
-              ? Math.round(progressValues.reduce((sum, val) => sum + val, 0) / progressValues.length)
-              : 0;
-
+          const { data } = await api.get(`/projects/${project._id}/reports`);
+          const all = Array.isArray(data?.reports) ? data.reports : [];
+          if (!all.length) {
             metrics.push({
               projectId: project._id,
               projectName: project.name,
               pm: project.engineer,
               area: project.location?.name || 'Unknown Area',
-              progress: averageProgress,
-              totalPics: Object.keys(picReports).length,
-              latestDate: Object.values(picReports).reduce((latest, report) => 
-                new Date(report.date) > new Date(latest) ? report.date : latest, 
-                Object.values(picReports)[0]?.date || new Date()
-              )
+              progress: 0,
+              totalPics: 0,
+              latestDate: null,
+              status: 'stale',
+              waitingForAll: false,
+              picNames: []
             });
+            continue;
           }
-        } catch (error) {
-          console.error(`Error fetching metrics for project ${project.name}:`, error);
+
+          const byPic = {};
+          for (const rep of all) {
+            const picId = rep.uploadedBy || rep.uploadedByName || 'unknown';
+            const repDate = rep.uploadedAt || rep.createdAt || rep.date;
+            if (!byPic[picId] || new Date(repDate) > new Date(byPic[picId].uploadedAt)) {
+              byPic[picId] = { ...rep, uploadedAt: repDate };
+            }
+          }
+
+          const picIds = Object.keys(byPic);
+          const expectedPics = Array.isArray(project.pic) ? project.pic.length : picIds.length;
+          const latestDate = picIds.length
+            ? picIds.map((id) => byPic[id].uploadedAt).sort((a, b) => new Date(b) - new Date(a))[0]
+            : null;
+
+          const sameDay = (d1, d2) => new Date(d1).toDateString() === new Date(d2).toDateString();
+          let valuesAtLatest = [];
+          const namesAtLatest = [];
+          if (picIds.length > 1) {
+            picIds.forEach((id) => {
+              const rep = byPic[id];
+              if (rep?.uploadedAt && sameDay(rep.uploadedAt, latestDate)) {
+                valuesAtLatest.push(getPctFromAi(rep.ai || {}));
+                namesAtLatest.push(rep.uploadedByName || 'Unknown');
+              }
+            });
+          } else {
+            valuesAtLatest = picIds.map((id) => getPctFromAi(byPic[id].ai || {}));
+            namesAtLatest.push(byPic[picIds[0]]?.uploadedByName || 'Unknown');
+          }
+
+          const haveAll = picIds.length > 1 ? valuesAtLatest.length === expectedPics : valuesAtLatest.length > 0;
+          const avg = valuesAtLatest.length
+            ? Math.round(valuesAtLatest.reduce((s, v) => s + v, 0) / valuesAtLatest.length)
+            : 0;
+
+          const scores = picIds
+            .map((id) => Number((byPic[id]?.ai?.pic_performance_evaluation || {}).score))
+            .filter((n) => Number.isFinite(n));
+          const avgScore = scores.length ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : null;
+
+          let status = 'ontrack';
+          if (!haveAll && picIds.length > 1) status = 'pending';
+          else if (latestDate && (Date.now() - new Date(latestDate).getTime()) > 3 * 24 * 60 * 60 * 1000) status = 'stale';
+          else if (avgScore != null) status = avgScore >= 70 ? 'ontrack' : avgScore < 50 ? 'regressing' : 'ontrack';
+          else if (avg < 50) status = 'regressing';
+
+          const pendingNames = picIds
+            .filter((id) => !(byPic[id]?.uploadedAt && sameDay(byPic[id].uploadedAt, latestDate)))
+            .map((id) => (byPic[id]?.uploadedByName || 'Unknown') + ' (pending)');
+          const allNames = [...namesAtLatest, ...pendingNames];
+
+          metrics.push({
+            projectId: project._id,
+            projectName: project.name,
+            pm: project.engineer,
+            area: project.location?.name || 'Unknown Area',
+            progress: avg,
+            totalPics: picIds.length,
+            latestDate,
+            status,
+            waitingForAll: picIds.length > 1 && !haveAll,
+            picNames: allNames
+          });
+        } catch (e) {
+          metrics.push({
+            projectId: project._id,
+            projectName: project.name,
+            pm: project.engineer,
+            area: project.location?.name || 'Unknown Area',
+            progress: 0,
+            totalPics: 0,
+            latestDate: null,
+            status: 'stale',
+            waitingForAll: false,
+            picNames: []
+          });
         }
       }
+
+      metrics.sort((a, b) => {
+        if (!a.latestDate && !b.latestDate) return 0;
+        if (!a.latestDate) return 1;
+        if (!b.latestDate) return -1;
+        return new Date(b.latestDate) - new Date(a.latestDate);
+      });
 
       setProjectMetrics(metrics);
       setMetricsLoading(false);
@@ -398,7 +462,7 @@ const AreaDash = () => {
         if (statusLower.includes('pending pm') || statusLower.includes('project manager')) {
           return 'completed one-step-behind'; // Green - one step behind pending
         } else if (statusLower.includes('pending am') || statusLower.includes('area manager') || 
-                   statusLower.includes('pending cio') || statusLower.includes('received')) {
+                   statusLower.includes('approved') || statusLower.includes('received')) {
           return 'completed'; // Blue - two or more steps behind pending
         }
         return 'completed'; // Default to blue for placed
@@ -410,7 +474,7 @@ const AreaDash = () => {
           return 'pending'; // Yellow/Orange - pending
         } else if (statusLower.includes('pending am') || statusLower.includes('area manager')) {
           return 'completed one-step-behind'; // Green - one step behind pending
-        } else if (statusLower.includes('pending cio') || statusLower.includes('received')) {
+        } else if (statusLower.includes('approved') || statusLower.includes('received')) {
           return 'completed'; // Blue - two or more steps behind pending
         }
         break;
@@ -420,22 +484,13 @@ const AreaDash = () => {
           return 'rejected';
         } else if (statusLower.includes('pending am') || statusLower.includes('area manager')) {
           return 'pending'; // Yellow/Orange - pending
-        } else if (statusLower.includes('pending cio')) {
-          return 'completed one-step-behind'; // Green - one step behind pending
+        } else if (statusLower.includes('approved')) {
+          return 'completed one-step-behind'; // Green - one step behind final
         } else if (statusLower.includes('received')) {
-          return 'completed'; // Blue - two or more steps behind pending
+          return 'completed'; // Blue - final reached
         }
         break;
-        
-      case 'cio':
-        if (statusLower.includes('rejected cio') || statusLower.includes('cio rejected')) {
-          return 'rejected';
-        } else if (statusLower.includes('pending cio')) {
-          return 'pending'; // Yellow/Orange - pending
-        } else if (statusLower.includes('received')) {
-          return 'completed one-step-behind'; // Green - one step behind pending
-        }
-        break;
+      
         
       case 'done':
         if (statusLower.includes('received')) {
@@ -766,7 +821,7 @@ const AreaDash = () => {
                                 <span className="timeline-label-compact">Placed</span>
                               </div>
                               
-                              <div className={`timeline-connector-compact ${['Pending PM', 'Pending AM', 'Pending CIO', 'Received', 'PENDING PROJECT MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
+                              <div className={`timeline-connector-compact ${['Pending PM', 'Pending AM', 'Approved', 'Received', 'PENDING PROJECT MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
                               
                               {/* PM Stage */}
                               <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'pm')}`}>
@@ -776,7 +831,7 @@ const AreaDash = () => {
                                 <span className="timeline-label-compact">PM</span>
                               </div>
 
-                              <div className={`timeline-connector-compact ${['Pending AM', 'Pending CIO', 'Received', 'PENDING AREA MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
+                              <div className={`timeline-connector-compact ${['Pending AM', 'Approved', 'Received', 'PENDING AREA MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
                               
                               {/* AM Stage */}
                               <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'am')}`}>
@@ -786,15 +841,9 @@ const AreaDash = () => {
                                 <span className="timeline-label-compact">AM</span>
                               </div>
                               
-                              <div className={`timeline-connector-compact ${['Pending CIO', 'Received'].includes(request.status) ? 'completed' : ''}`}></div>
+                              <div className={`timeline-connector-compact ${['Approved', 'Received'].includes(request.status) ? 'completed' : ''}`}></div>
                               
-                              {/* CIO Stage */}
-                              <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'cio')}`}>
-                                <div className="timeline-icon-compact">
-                                  <FaUserTie />
-                                </div>
-                                <span className="timeline-label-compact">CIO</span>
-                              </div>
+                              {/* Removed CEO/CIO stage */}
 
                               <div className={`timeline-connector-compact ${request.status === 'Received' ? 'completed' : ''}`}></div>
                               

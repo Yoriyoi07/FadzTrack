@@ -1,43 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import api from '../../api/axiosInstance'; 
+import axiosInstance from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
-import '../style/pic_style/Pic_Req.css';
-// Nav icons
-import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram } from 'react-icons/fa';
-
-const chats = [
-  { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
-  { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
-  { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
-];
+import '../../components/style/it_style/ItMaterialRequestDetail.css';
+import '../style/pm_style/Pm_Dash.css';
 
 const MaterialRequestDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user'));
   const userId = user?._id;
 
-  const [requests, setRequests] = useState([]);
-  const [requestData, setRequestData] = useState(null);
+  const [materialRequest, setMaterialRequest] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState(user?.name || '');
+  const [error, setError] = useState('');
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [project, setProject] = useState(null);
   const [materials, setMaterials] = useState([]);
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [newFiles, setNewFiles] = useState([]);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileDropdownRef = useRef(null);
 
-  const isPIC = user?._id === requestData?.createdBy?._id;
+  const isPIC = user?._id === materialRequest?.createdBy?._id;
 
   useEffect(() => {
-    api.get(`/requests/${id}`)
+    axiosInstance.get(`/requests/${id}`)
       .then(res => {
         const data = res.data;
-        setRequestData(data);
+        setMaterialRequest(data);
         const materialsWithIds = (data.materials || []).map((mat, idx) => ({
           ...mat,
           id: mat.id || Date.now() + idx
@@ -45,10 +38,32 @@ const MaterialRequestDetail = () => {
         setMaterials(materialsWithIds);
         setDescription(data.description || '');
         setAttachments(data.attachments || []);
-        setLoading(false);
+        setError('');
       })
-      .catch(() => setLoading(false));
+      .catch(() => setError('Failed to load request details.'))
+      .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setIsProfileOpen(false);
+      }
+    };
+
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      setIsHeaderCollapsed(scrollTop > 50);
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    window.addEventListener('scroll', handleScroll);
+    
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -98,7 +113,7 @@ const MaterialRequestDetail = () => {
     newFiles.forEach(file => formData.append('newAttachments', file));
 
     try {
-      const res = await api.put(`/requests/${id}`, formData, {
+      const res = await axiosInstance.put(`/requests/${id}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       const updated = res.data;
@@ -107,7 +122,7 @@ const MaterialRequestDetail = () => {
         ...mat,
         id: mat.id || Date.now() + idx
       }));
-      setRequestData(updated);
+      setMaterialRequest(updated);
       setMaterials(updatedMaterialsWithIds);
       setDescription(updated.description || '');
       setAttachments(updated.attachments || []);
@@ -122,7 +137,7 @@ const MaterialRequestDetail = () => {
 
   const handleCancelRequest = () => {
     if (!window.confirm('Are you sure you want to cancel this request?')) return;
-    api.delete(`/requests/${id}`)
+    axiosInstance.delete(`/requests/${id}`)
       .then(() => {
         alert('Request cancelled');
         navigate('/pic');
@@ -135,7 +150,7 @@ const MaterialRequestDetail = () => {
 
   const handleMarkReceived = async () => {
     try {
-      await api.patch(`/requests/${id}/received`);
+      await axiosInstance.patch(`/requests/${id}/received`);
       alert('Request marked as received!');
       window.location.reload();
     } catch (err) {
@@ -146,39 +161,40 @@ const MaterialRequestDetail = () => {
 
   const isEditable = [
     'Pending PM',
-    'Pending AM',
-    'Pending CEO'
-  ].includes(requestData?.status);
+    'Pending AM'
+  ].includes(materialRequest?.status);
+
+  // --- Status helpers for uniform UI ---
+  const getStatusColor = (status, receivedByPIC) => {
+    const s = (status || '').toLowerCase();
+    if (receivedByPIC) return '#0ea5e9';
+    if (s.includes('approved')) return '#10b981';
+    if (s.includes('pending')) return '#f59e0b';
+    if (s.includes('denied') || s.includes('cancel')) return '#ef4444';
+    return '#6b7280';
+  };
+  const getStatusBadge = (status, receivedByPIC) => {
+    if (receivedByPIC) return 'Completed';
+    const s = (status || '').toLowerCase();
+    if (s.includes('approved')) return 'Approved';
+    if (s.includes('pending')) return 'Pending';
+    if (s.includes('denied') || s.includes('cancel')) return 'Rejected';
+    return 'Unknown';
+  };
 
   // Only fetch user's active/ongoing project
   useEffect(() => {
-    if (!token || !userId) return;
+    if (!userId) return;
     const fetchActiveProject = async () => {
       try {
-        const { data } = await api.get(`/projects/by-user-status?userId=${userId}&role=pic&status=Ongoing`);
+        const { data } = await axiosInstance.get(`/projects/by-user-status?userId=${userId}&role=pic&status=Ongoing`);
         setProject(data[0] || null);
       } catch (err) {
         setProject(null);
       }
     };
     fetchActiveProject();
-  }, [token, userId]);
-
-  // Fetch requests for this PIC's current project **only**
-  useEffect(() => {
-    if (!token || !project) return;
-
-    api.get('/requests/mine', {
-      headers: { Authorization: `Bearer ${token}` }
-    })
-      .then(({ data }) => {
-        const projectRequests = Array.isArray(data)
-          ? data.filter(r => r.project && r.project._id === project._id)
-          : [];
-        setRequests(projectRequests);
-      })
-      .catch(() => setRequests([]));
-  }, [token, project]);
+  }, [userId]);
 
   if (loading) {
     return (
@@ -189,7 +205,16 @@ const MaterialRequestDetail = () => {
     );
   }
 
-  if (!requestData) {
+  if (error) {
+    return (
+      <div className="error-container">
+        <p>{error}</p>
+        <button onClick={handleBack} className="back-button">Go Back</button>
+      </div>
+    );
+  }
+
+  if (!materialRequest) {
     return (
       <div className="error-container">
         <p>Request not found</p>
@@ -199,187 +224,357 @@ const MaterialRequestDetail = () => {
   }
 
   return (
-    <>
-      {/* Header */}
-      <header className="header">
-  <div className="logo-container">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
-  </div>
-
-  <nav className="nav-menu">
-    <Link to="/pic" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/pic/chat" className="nav-link"><FaComments /> Chat</Link>
-    {project && (
-      <Link to={`/pic/projects/${project._id}/request`} className="nav-link">
-        <FaClipboardList /> Requests
-      </Link>
-    )}
-    {project && (
-      <Link to={`/pic/${project._id}`} className="nav-link">
-        <FaEye /> View Project
-      </Link>
-    )}
-    <Link to="/pic/projects" className="nav-link"><FaProjectDiagram /> My Projects</Link>
-  </nav>
-
-  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-    <NotificationBell />
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-    </div>
-    {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-    )}
-  </div>
-</header>
-
-      
-      {/* Main Dashboard Layout with Sidebar */}
-      <div className="dashboard-layout">
-        {/* Sidebar */}
-        <div className="sidebar">
-          <div className="chats-section">
-            <h3 className="chats-title">Chats</h3>
-            <div className="chats-list">
-              {chats.map(chat => (
-                <div key={chat.id} className="chat-item">
-                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
-                    {chat.initial}
-                  </div>
-                  <div className="chat-info">
-                    <div className="chat-name">{chat.name}</div>
-                    <div className="chat-message">{chat.message}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+    <div className="dashboard-container">
+      {/* Modern Header */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        <div className="header-content">
+          <div className="header-left">
+            <h1 className="header-title">Material Request Details</h1>
+            <p className="header-subtitle">View and manage material request information</p>
           </div>
-        </div>
-
-        {/* Scrollable Main Content */}
-        <div className="main-content-picmatreq">
-          <div className="request-materials-container-picmatreq">
-            <h1 className="page-title-picmatreq">Material Request #{requestData.requestNumber}</h1>
-            <div className="project-details-box" style={{ marginBottom: '20px' }}>
-              <h2 style={{ margin: 0 }}>{requestData.project?.projectName || '-'}</h2>
-              <p style={{ margin: 0, fontStyle: 'italic' }}>{requestData.project?.location || '-'}</p>
-              <p style={{ margin: 0, color: '#555' }}>{requestData.project?.targetDate || ''}</p>
-            </div>
-
-            {editMode && isEditable ? (
-              <form className="materials-form-picmatreq" onSubmit={e => { e.preventDefault(); handleSaveEdit(); }}>
-                {/* ... (unchanged) ... */}
-              </form>
-            ) : (
-              <>
-                <div className="materials-section">
-                  <h2 className="section-title">Material to be Requested</h2>
-                  <div className="materials-list">
-                    {requestData.materials?.map((mat, idx) => (
-                      <div key={idx} className="material-item">
-                        <span className="material-name">
-                          <strong>Material:</strong> {mat.materialName}
-                        </span>
-                        <span className="material-quantity">
-                          <strong>Quantity:</strong> {mat.quantity}
-                        </span>
+          <div className="header-right">
+            <div className="header-actions">
+              <button 
+                onClick={handleBack}
+                className="btn-secondary"
+              >
+                <i className="fas fa-arrow-left"></i>
+                Back to List
+              </button>
+              <div className="profile-dropdown" ref={profileDropdownRef}>
+                <button 
+                  className="profile-button"
+                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                >
+                  <div className="profile-avatar">
+                    <i className="fas fa-user"></i>
+                  </div>
+                  <span className="profile-name">{user?.name || 'User'}</span>
+                  <i className={`fas fa-chevron-down ${isProfileOpen ? 'rotated' : ''}`}></i>
+                </button>
+                {isProfileOpen && (
+                  <div className="profile-menu">
+                    <div className="profile-info">
+                      <div className="profile-avatar-large">
+                        <i className="fas fa-user"></i>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="attachments-section">
-                  <h2 className="section-title">Attachment Proof</h2>
-                  <div className="attachments-grid">
-                    {requestData.attachments?.length
-                      ? requestData.attachments.map((file, idx) => (
-                          <div key={idx} className="attachment-item">
-                            <img src={getAttachmentUrl(file)} alt={`Attachment ${idx + 1}`} className="attachment-image" style={{ width: '200px', height: '200px'}} />
-                          </div>
-                      )) : <div>No attachments</div>}
-                  </div>
-                </div>
-
-                <div className="description-section">
-                  <h2 className="section-title">Request Description</h2>
-                  <div className="description-content">
-                    <p>{requestData.description}</p>
-                  </div>
-                </div>
-
-                {/* CEO FINAL APPROVAL SECTION (always show PDF link if exists) */}
-                {requestData.status === 'Approved' && (requestData.purchaseOrder || requestData.totalValue) && (
-                  <div className="ceo-approval-section" style={{
-                    margin: '30px 0 20px 0', padding: '18px', border: '1px solid #ebebeb', borderRadius: 8, background: '#f8fafc'
-                  }}>
-                    <h2 style={{ margin: 0, marginBottom: 8, color: '#1955a4' }}>CEO Final Approval</h2>
-                    <div style={{ fontSize: 16 }}>
-                      {requestData.purchaseOrder && (
-                        <div style={{ marginBottom: 4 }}>
-                          <strong>Purchase Order #:</strong> {requestData.purchaseOrder}
-                        </div>
-                      )}
-                      {requestData.totalValue && (
-                        <div>
-                          <strong>Total Value (₱):</strong> {Number(requestData.totalValue).toLocaleString()}
-                        </div>
-                      )}
-                      {requestData.ceoApprovalPDF && (
-                        <div style={{ marginTop: 8 }}>
-                          <a
-                            href={`http://localhost:5000${requestData.ceoApprovalPDF}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              color: '#1857a5',
-                              textDecoration: 'underline',
-                              fontWeight: 500,
-                              fontSize: 15,
-                              marginLeft: 10
-                            }}
-                          >
-                            View CEO Approval PDF
-                          </a>
-                        </div>
-                      )}
+                      <div className="profile-details">
+                        <span className="profile-name-large">{user?.name || 'User'}</span>
+                        <span className="profile-role">Person in Charge</span>
+                      </div>
+                    </div>
+                    <div className="profile-actions">
+                      <button className="profile-action">
+                        <i className="fas fa-user-cog"></i>
+                        Profile Settings
+                      </button>
+                      <button className="profile-action">
+                        <i className="fas fa-cog"></i>
+                        System Settings
+                      </button>
+                      <button onClick={handleLogout} className="profile-action logout">
+                        <i className="fas fa-sign-out-alt"></i>
+                        Logout
+                      </button>
                     </div>
                   </div>
                 )}
-
-                <div className="action-buttons">
-                  <button onClick={handleBack} className="back-btn">Back</button>
-                  {isEditable && (
-                    <>
-                      <button onClick={() => setEditMode(true)} className="edit-btn">Edit</button>
-                      <button onClick={handleCancelRequest} className="cancel-btn">Cancel Request</button>
-                    </>
-                  )}
-                  {requestData.status === 'Approved' && isPIC && (
-                    requestData.receivedByPIC ? (
-                      <span className="received-badge">
-                        <span>✔</span> Received by PIC&nbsp;
-                        {requestData.receivedDate && (
-                          <span>({new Date(requestData.receivedDate).toLocaleString()})</span>
-                        )}
-                      </span>
-                    ) : (
-                      <button onClick={handleMarkReceived} className="received-btn">Mark as Received</button>
-                    )
-                  )}
-                </div>
-              </>
-            )}
+              </div>
+            </div>
           </div>
         </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="dashboard-main">
+        <div className="page-container">
+          {materialRequest && (
+            <div className="material-request-detail">
+              {/* Status Badge */}
+              <div className="status-section">
+                <div 
+                  className="status-badge"
+                  style={{ 
+                    backgroundColor: getStatusColor(materialRequest.status, materialRequest.receivedByPIC),
+                    color: 'white'
+                  }}
+                >
+                  <i className="fas fa-circle"></i>
+                  {getStatusBadge(materialRequest.status, materialRequest.receivedByPIC)}
+                </div>
+              </div>
+
+              {/* Main Content Grid */}
+              <div className="detail-grid">
+                {/* Left Column - Request Info */}
+                <div className="detail-column">
+                  <div className="detail-card">
+                    <div className="card-header">
+                      <h3><i className="fas fa-info-circle"></i> Request Information</h3>
+                    </div>
+                    <div className="card-content">
+                      <div className="info-row">
+                        <span className="info-label">Request ID:</span>
+                        <span className="info-value">{materialRequest._id}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Request Number:</span>
+                        <span className="info-value">{materialRequest.requestNumber}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Description:</span>
+                        <span className="info-value description-text">{materialRequest.description}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Priority:</span>
+                        <span className="info-value">
+                          <span className={`priority-badge priority-${materialRequest.priority?.toLowerCase()}`}>
+                            {materialRequest.priority}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Requested Date:</span>
+                        <span className="info-value">
+                          {new Date(materialRequest.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="detail-card">
+                    <div className="card-header">
+                      <h3><i className="fas fa-user"></i> Requester Details</h3>
+                    </div>
+                    <div className="card-content">
+                      <div className="info-row">
+                        <span className="info-label">Name:</span>
+                        <span className="info-value">{materialRequest.createdBy?.name}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Email:</span>
+                        <span className="info-value">{materialRequest.createdBy?.email}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Role:</span>
+                        <span className="info-value">{materialRequest.createdBy?.role}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Project:</span>
+                        <span className="info-value">{materialRequest.project?.projectName}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Location:</span>
+                        <span className="info-value">{materialRequest.project?.location}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column - Materials & Attachments */}
+                <div className="detail-column">
+                  <div className="detail-card">
+                    <div className="card-header">
+                      <h3><i className="fas fa-boxes"></i> Requested Materials</h3>
+                    </div>
+                    <div className="card-content">
+                      {materialRequest.materials && materialRequest.materials.length > 0 ? (
+                        <div className="materials-list">
+                          {materialRequest.materials.map((material, index) => (
+                            <div key={index} className="material-item">
+                              <div className="material-info">
+                                <span className="material-name">{material.materialName}</span>
+                                <span className="material-quantity">Qty: {material.quantity}</span>
+                              </div>
+                              {material.specifications && (
+                                <div className="material-specs">
+                                  <span className="specs-label">Specifications:</span>
+                                  <span className="specs-value">{material.specifications}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="no-data">No materials specified</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="detail-card">
+                    <div className="card-header">
+                      <h3><i className="fas fa-paperclip"></i> Attachments</h3>
+                    </div>
+                    <div className="card-content">
+                      {materialRequest.attachments && materialRequest.attachments.length > 0 ? (
+                        <div className="attachments-list">
+                          {materialRequest.attachments.map((attachment, index) => (
+                            <div key={index} className="attachment-item">
+                              <div className="attachment-icon">
+                                <i className="fas fa-file"></i>
+                              </div>
+                              <div className="attachment-info">
+                                <span className="attachment-name">{attachment}</span>
+                                <a 
+                                  href={getAttachmentUrl(attachment)} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="attachment-link"
+                                >
+                                  <i className="fas fa-download"></i>
+                                  Download
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="no-data">No attachments</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Approval Status */}
+              <div className="detail-card full-width">
+                <div className="card-header">
+                  <h3><i className="fas fa-tasks"></i> Approval Status</h3>
+                </div>
+                <div className="card-content">
+                  <div className="approval-timeline">
+                    <div className="timeline-item">
+                      <div className="timeline-marker completed">
+                        <i className="fas fa-check"></i>
+                      </div>
+                      <div className="timeline-content">
+                        <h4>Request Submitted</h4>
+                        <p>Request was submitted by {materialRequest.createdBy?.name}</p>
+                        <span className="timeline-date">
+                          {new Date(materialRequest.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    {materialRequest.approvals?.projectManager && (
+                      <div className="timeline-item">
+                        <div className={`timeline-marker ${materialRequest.approvals.projectManager.approved ? 'completed' : 'pending'}`}>
+                          <i className={materialRequest.approvals.projectManager.approved ? 'fas fa-check' : 'fas fa-clock'}></i>
+                        </div>
+                        <div className="timeline-content">
+                          <h4>Project Manager Review</h4>
+                          <p>
+                            {materialRequest.approvals.projectManager.approved 
+                              ? `Approved by ${materialRequest.approvals.projectManager.reviewer?.name || 'Project Manager'}`
+                              : 'Pending Project Manager approval'
+                            }
+                          </p>
+                          {materialRequest.approvals.projectManager.reviewedAt && (
+                            <span className="timeline-date">
+                              {new Date(materialRequest.approvals.projectManager.reviewedAt).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {materialRequest.approvals?.areaManager && (
+                      <div className="timeline-item">
+                        <div className={`timeline-marker ${materialRequest.approvals.areaManager.approved ? 'completed' : 'pending'}`}>
+                          <i className={materialRequest.approvals.areaManager.approved ? 'fas fa-check' : 'fas fa-clock'}></i>
+                        </div>
+                        <div className="timeline-content">
+                          <h4>Area Manager Review</h4>
+                          <p>
+                            {materialRequest.approvals.areaManager.approved 
+                              ? `Approved by ${materialRequest.approvals.areaManager.reviewer?.name || 'Area Manager'}`
+                              : 'Pending Area Manager approval'
+                            }
+                          </p>
+                          {materialRequest.approvals.areaManager.reviewedAt && (
+                            <span className="timeline-date">
+                              {new Date(materialRequest.approvals.areaManager.reviewedAt).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="timeline-item">
+                      <div className={`timeline-marker ${materialRequest.receivedByPIC ? 'completed' : 'pending'}`}>
+                        <i className={materialRequest.receivedByPIC ? 'fas fa-check' : 'fas fa-clock'}></i>
+                      </div>
+                      <div className="timeline-content">
+                        <h4>Materials Received</h4>
+                        <p>
+                          {materialRequest.receivedByPIC 
+                            ? `Materials received by ${materialRequest.createdBy?.name}`
+                            : 'Pending materials receipt'
+                          }
+                        </p>
+                        {materialRequest.receivedAt && (
+                          <span className="timeline-date">
+                            {new Date(materialRequest.receivedAt).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="detail-card full-width">
+                <div className="card-header">
+                  <h3><i className="fas fa-tools"></i> Actions</h3>
+                </div>
+                <div className="card-content">
+                  <div className="action-buttons" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {isEditable && (
+                      <>
+                        <button onClick={() => setEditMode(true)} className="btn-primary">
+                          <i className="fas fa-edit"></i>
+                          Edit Request
+                        </button>
+                        <button onClick={handleCancelRequest} className="btn-danger">
+                          <i className="fas fa-times"></i>
+                          Cancel Request
+                        </button>
+                      </>
+                    )}
+                    {materialRequest.status === 'Approved' && isPIC && (
+                      materialRequest.receivedByPIC ? (
+                        <div className="received-badge" style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px 16px',
+                          backgroundColor: '#10b981',
+                          color: 'white',
+                          borderRadius: '6px',
+                          fontWeight: '600'
+                        }}>
+                          <i className="fas fa-check"></i>
+                          Received by PIC
+                          {materialRequest.receivedDate && (
+                            <span>({new Date(materialRequest.receivedDate).toLocaleString()})</span>
+                          )}
+                        </div>
+                      ) : (
+                        <button onClick={handleMarkReceived} className="btn-success">
+                          <i className="fas fa-check"></i>
+                          Mark as Received
+                        </button>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
-    </>
+    </div>
   );
 };
 

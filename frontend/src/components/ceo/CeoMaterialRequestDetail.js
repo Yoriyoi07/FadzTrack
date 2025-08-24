@@ -1,159 +1,101 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import api from '../../api/axiosInstance';
+import axiosInstance from '../../api/axiosInstance';
 import ApproveDenyActions from '../ApproveDenyActions';
 import NotificationBell from '../NotificationBell';
-import CeoAddArea from './CeoAddArea';
-import '../style/pm_style/Pm_MatRequest.css';
-
-// Nav icons
-import { FaTachometerAlt, FaComments, FaBoxes, FaProjectDiagram, FaClipboardList, FaChartBar } from 'react-icons/fa';
-
+import '../../components/style/it_style/ItMaterialRequestDetail.css';
+import '../style/pm_style/Pm_Dash.css';
 
 const CeoMaterialReq = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [requestData, setRequestData] = useState(null);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [materialRequest, setMaterialRequest] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // --- Sidebar state
-  const [userName, setUserName] = useState('');
-  const [userRole, setUserRole] = useState('');
-  const [showAddAreaModal, setShowAddAreaModal] = useState(false);
-  const [locations, setLocations] = useState([]);
-  const [allProjects, setAllProjects] = useState([]);
-  const [enrichedAllProjects, setEnrichedAllProjects] = useState([]);
-  const [expandedLocations, setExpandedLocations] = useState({});
-  const [pendingRequestsSidebar, setPendingRequestsSidebar] = useState([]);
-  const [chats, setChats] = useState([
-    { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
-    { id: 2, name: 'Third Castellar', initial: 'T', message: 'Hello Good Morning po! As...', color: '#2E7D32' },
-    { id: 3, name: 'Zenarose Miranda', initial: 'Z', message: 'Hello Good Morning po! As...', color: '#9C27B0' }
-  ]);
-  const [activities, setActivities] = useState([]);
-
+  const [error, setError] = useState('');
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileDropdownRef = useRef(null);
   const user = JSON.parse(localStorage.getItem('user'));
   const userId = user?._id;
-  const userRoleLocal = user?.role;
+  const userRole = user?.role;
 
   // ---- Fetch request
   useEffect(() => {
-    api.get(`/requests/${id}`)
+    axiosInstance.get(`/requests/${id}`)
       .then(res => {
-        setRequestData(res.data);
-        setLoading(false);
+        setMaterialRequest(res.data);
+        setError('');
       })
-      .catch(() => setLoading(false));
+      .catch(() => setError('Failed to load request details.'))
+      .finally(() => setLoading(false));
   }, [id]);
-
-  // --- Sidebar fetch logic ---
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        const stored = localStorage.getItem('user');
-        const user = stored ? JSON.parse(stored) : null;
-        if (user) {
-          setUserName(user.name);
-          setUserRole(user.role);
-        }
-      } catch (error) {}
-    };
-
-    const fetchLocations = async () => {
-      try {
-        const { data } = await api.get('/locations');
-        setLocations(data);
-      } catch {}
-    };
-
-    const fetchAllProjects = async () => {
-      try {
-        const { data } = await api.get('/projects');
-        setAllProjects(data);
-      } catch {}
-    };
-
-    const fetchPendingRequestsSidebar = async () => {
-      try {
-        const { data } = await api.get('/requests');
-        const pending = data.filter(request => request.status === 'Pending CEO');
-        setPendingRequestsSidebar(pending);
-      } catch {}
-    };
-
-    const fetchLogs = async () => {
-      try {
-        const { data } = await api.get("/audit-logs");
-        const sliced = data.slice(0, 3).map((log, i) => ({
-          id: i,
-          user: {
-            name: log.performedBy?.name || "Unknown",
-            initial: (log.performedBy?.name || "U")[0]
-          },
-          date: new Date(log.timestamp).toLocaleString(),
-          activity: `${log.action} - ${log.description}`,
-          details: log.meta ? Object.entries(log.meta).map(([key, val]) => `${key}: ${val}`) : []
-        }));
-        setActivities(sliced);
-      } catch {}
-    };
-
-    fetchUserData();
-    fetchLocations();
-    fetchAllProjects();
-    fetchPendingRequestsSidebar();
-    fetchLogs();
-  }, []);
-
-  useEffect(() => {
-    if (locations.length && allProjects.length > 0) {
-      setEnrichedAllProjects(
-        allProjects.map(project => {
-          if (typeof project.location === 'object' && project.location !== null && project.location.name) {
-            return {
-              ...project,
-              name: project.projectName,
-              engineer: project.projectmanager?.name || 'Not Assigned',
-            };
-          }
-          const loc = locations.find(l => l._id === (project.location?._id || project.location));
-          return {
-            ...project,
-            location: loc ? { ...loc } : { name: 'Unknown Location', region: '' },
-            name: project.projectName,
-            engineer: project.projectmanager?.name || 'Not Assigned',
-          };
-        })
-      );
-    }
-  }, [locations, allProjects]);
-
-  const toggleLocation = (locationId) => {
-    setExpandedLocations(prev => ({
-      ...prev,
-      [locationId]: !prev[locationId]
-    }));
-  };
-
-  // --- Attachments helpers ---
-  const getAttachmentUrl = (file) =>
-    file.startsWith('http') ? file : `http://localhost:5000/uploads/${file}`;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
-        setProfileMenuOpen(false);
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target)) {
+        setIsProfileOpen(false);
       }
     };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      setIsHeaderCollapsed(scrollTop > 50);
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    window.addEventListener('scroll', handleScroll);
+    
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/');
+  };
+
+  const handleBack = () => navigate(-1);
+
+  // Add edit and delete functionality
+  const handleEdit = () => {
+    navigate(`/ceo/material-request/edit/${id}`);
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm('Delete this material request? This action cannot be undone.')) return;
+    
+    try {
+      await axiosInstance.delete(`/requests/${id}`);
+      alert('Material request deleted successfully!');
+      navigate('/ceo/material-list');
+    } catch (err) {
+      alert('Failed to delete request');
+    }
+  };
+
+  // --- Attachments helpers ---
+  const getAttachmentUrl = (file) =>
+    file.startsWith('http') ? file : `http://localhost:5000/uploads/${file}`;
+
+  // --- Status helpers for uniform UI ---
+  const getStatusColor = (status, receivedByPIC) => {
+    const s = (status || '').toLowerCase();
+    if (receivedByPIC) return '#0ea5e9';
+    if (s.includes('approved')) return '#10b981';
+    if (s.includes('pending')) return '#f59e0b';
+    if (s.includes('denied') || s.includes('cancel')) return '#ef4444';
+    return '#6b7280';
+  };
+  const getStatusBadge = (status, receivedByPIC) => {
+    if (receivedByPIC) return 'Completed';
+    const s = (status || '').toLowerCase();
+    if (s.includes('approved')) return 'Approved';
+    if (s.includes('pending')) return 'Pending';
+    if (s.includes('denied') || s.includes('cancel')) return 'Rejected';
+    return 'Unknown';
   };
 
   if (loading) {
@@ -164,267 +106,383 @@ const CeoMaterialReq = () => {
       </div>
     );
   }
-  if (!requestData) {
+
+  if (error) {
     return (
       <div className="error-container">
-        <p>Request not found</p>
-        <button onClick={() => navigate(-1)} className="back-button">Go Back</button>
+        <p>{error}</p>
+        <button onClick={handleBack} className="back-button">Go Back</button>
       </div>
     );
   }
 
-  // Group all projects by location for sidebar
-  const projectsByLocation = enrichedAllProjects.reduce((acc, project) => {
-    const locationId = project.location?._id || 'unknown';
-    if (!acc[locationId]) {
-      acc[locationId] = {
-        name: project.location?.name || 'Unknown Location',
-        region: project.location?.region || '',
-        projects: []
-      };
-    }
-    acc[locationId].projects.push(project);
-    return acc;
-  }, {});
+  if (!materialRequest) {
+    return (
+      <div className="error-container">
+        <p>Request not found</p>
+        <button onClick={handleBack} className="back-button">Go Back</button>
+      </div>
+    );
+  }
 
   return (
-    <div className="head">
-      <header className="header">
-  <div className="logo-container">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
-  </div>
-
-  <nav className="nav-menu">
-    <Link to="/ceo/dash" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/ceo/chat" className="nav-link"><FaComments /> Chat</Link>
-    <Link to="/ceo/material-list" className="nav-link"><FaBoxes /> Material</Link>
-    <Link to="/ceo/proj" className="nav-link"><FaProjectDiagram /> Projects</Link>
-    <Link to="/ceo/audit-logs" className="nav-link"><FaClipboardList /> Audit Logs</Link>
-    <Link to="/reports" className="nav-link"><FaChartBar /> Reports</Link>
-  </nav>
-
-  <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-    <NotificationBell />
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
-    </div>
-    {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
-      </div>
-    )}
-  </div>
-</header>
-
-
-      <div className="dashboard-layout">
-        {/* LEFT SIDEBAR */}
-        <div className="sidebar">
-          <h2>Dashboard</h2>
-          <button className="add-project-btn" onClick={() => setShowAddAreaModal(true)}>
-            Add New Area
-          </button>
-          <div className="location-folders">
-            {Object.entries(projectsByLocation).map(([locationId, locationData]) => (
-              <div key={locationId} className="location-folder">
-                <div className="location-header" onClick={() => toggleLocation(locationId)}>
-                  <div className="folder-icon">
-                    <span className={`folder-arrow ${expandedLocations[locationId] ? 'expanded' : ''}`}>▶</span>
-                    <span className="folder-icon-img">📁</span>
+    <div className="dashboard-container">
+      {/* Modern Header */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        <div className="header-content">
+          <div className="header-left">
+            <h1 className="header-title">Material Request Details</h1>
+            <p className="header-subtitle">View and manage material request information</p>
+          </div>
+          <div className="header-right">
+            <div className="header-actions">
+              <button 
+                onClick={handleBack}
+                className="btn-secondary"
+              >
+                <i className="fas fa-arrow-left"></i>
+                Back to List
+              </button>
+              <button 
+                onClick={handleEdit}
+                className="btn-primary"
+              >
+                <i className="fas fa-edit"></i>
+                Edit Request
+              </button>
+              <button 
+                onClick={handleDelete}
+                className="btn-danger"
+              >
+                <i className="fas fa-trash-alt"></i>
+                Delete Request
+              </button>
+              <div className="profile-dropdown" ref={profileDropdownRef}>
+                <button 
+                  className="profile-button"
+                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                >
+                  <div className="profile-avatar">
+                    <i className="fas fa-user"></i>
                   </div>
-                  <div className="location-info">
-                    <div className="location-name">{locationData.name}</div>
-                    <div className="location-region">{locationData.region}</div>
-                  </div>
-                  <div className="project-count">{locationData.projects.length}</div>
-                </div>
-                {expandedLocations[locationId] && (
-                  <div className="projects-list">
-                    {locationData.projects.map(project => (
-                      <Link to={`/ceo/proj/${project._id}`} key={project._id} className="project-item">
-                        <div className="project-icon">
-                          <span className="icon">🏗️</span>
-                          <div className="icon-bg"></div>
-                        </div>
-                        <div className="project-info">
-                          <div className="project-name">{project.name}</div>
-                          <div className="project-engineer">{project.engineer}</div>
-                        </div>
-                      </Link>
-                    ))}
+                  <span className="profile-name">{user?.name || 'User'}</span>
+                  <i className={`fas fa-chevron-down ${isProfileOpen ? 'rotated' : ''}`}></i>
+                </button>
+                {isProfileOpen && (
+                  <div className="profile-menu">
+                    <div className="profile-info">
+                      <div className="profile-avatar-large">
+                        <i className="fas fa-user"></i>
+                      </div>
+                      <div className="profile-details">
+                        <span className="profile-name-large">{user?.name || 'User'}</span>
+                        <span className="profile-role">Chief Executive Officer</span>
+                      </div>
+                    </div>
+                    <div className="profile-actions">
+                      <button className="profile-action">
+                        <i className="fas fa-user-cog"></i>
+                        Profile Settings
+                      </button>
+                      <button className="profile-action">
+                        <i className="fas fa-cog"></i>
+                        System Settings
+                      </button>
+                      <button onClick={handleLogout} className="profile-action logout">
+                        <i className="fas fa-sign-out-alt"></i>
+                        Logout
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
-            ))}
+            </div>
           </div>
         </div>
+        </header>
 
-        {/* MAIN CONTENT */}
-        <div className="main1">
-          <main className="main-content-picmatreq">
-            <div className="request-materials-container-picmatreq">
-              <h1 className="page-title-picmatreq">
-                Material Request #{requestData.requestNumber}
-              </h1>
-              <div className="project-details-box" style={{ marginBottom: '20px' }}>
-                <h2 style={{ margin: 0 }}>{requestData.project?.projectName || '-'}</h2>
-                <p style={{ margin: 0, fontStyle: 'italic' }}>{requestData.project?.location || '-'}</p>
-                <p style={{ margin: 0, color: '#555' }}>{requestData.project?.targetDate || ''}</p>
-              </div>
-
-              {/* Materials */}
-              <div className="materials-section">
-                <h2 className="section-title">Material to be Requested</h2>
-                <div className="materials-list">
-                  {requestData.materials.map((mat, idx) => (
-                    <div key={idx} className="material-item">
-                      <span className="material-name">
-                        <strong>Material:</strong> {mat.materialName}
-                      </span>
-                      <span className="material-quantity">
-                        <strong>Quantity:</strong> {mat.quantity}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              {/* Attachments */}
-              <div className="attachments-section">
-                <h2 className="section-title">Attachment Proof</h2>
-                <div className="attachments-grid">
-                  {requestData.attachments?.length
-                    ? requestData.attachments.map((file, idx) => (
-                      <div key={idx} className="attachment-item">
-                        <img src={getAttachmentUrl(file)} alt={`Attachment ${idx + 1}`} className="attachment-image" />
-                      </div>
-                    ))
-                    : <div>No attachments</div>
-                  }
-                </div>
-              </div>
-              {/* Description */}
-              <div className="description-section">
-                <h2 className="section-title">Request Description</h2>
-                <div className="description-content">
-                  <p>{requestData.description}</p>
-                </div>
-              </div>
-
-              {/* Action Buttons and CEO approval fields (Handled inside ApproveDenyActions) */}
-              <ApproveDenyActions
-                requestData={requestData}
-                userId={userId}
-                userRole={userRoleLocal}
-                onBack={() => navigate(-1)}
-              />
-            </div>
-          </main>
+        {/* Navigation Bar */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/ceo/dash" className="nav-item">
+              <i className="fas fa-tachometer-alt"></i>
+              <span>Dashboard</span>
+            </Link>
+            <Link to="/ceo/chat" className="nav-item">
+              <i className="fas fa-comments"></i>
+              <span>Chat</span>
+            </Link>
+            <Link to="/ceo/material-list" className="nav-item active">
+              <i className="fas fa-boxes"></i>
+              <span>Materials</span>
+            </Link>
+            <Link to="/ceo/proj" className="nav-item">
+              <i className="fas fa-users"></i>
+              <span>Projects</span>
+            </Link>
+            <Link to="/ceo/audit-logs" className="nav-item">
+              <i className="fas fa-clipboard-list"></i>
+              <span>Audit Logs</span>
+            </Link>
+          </nav>
         </div>
 
-        {/* RIGHT SIDEBAR */}
-        <div className="right-sidebar">
-          <div className="pending-requests-section">
-            <div className="section-header">
-              <h2>Pending Material Requests</h2>
-              <Link to="/ceo/material-list" className="view-all-btn">View All</Link>
-            </div>
-            <div className="pending-requests-list">
-              {pendingRequestsSidebar.length === 0 ? (
-                <div className="no-requests">No pending material requests</div>
-              ) : (
-                pendingRequestsSidebar.slice(0, 3).map(request => (
-                  <Link to={`/ceo/material-request/${request._id}`} key={request._id} className="pending-request-item">
-                    <div className="request-icon">📦</div>
-                    <div className="request-details">
-                      <h3 className="request-title">
-                        {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
-                      </h3>
-                      <p className="request-description">{request.description}</p>
-                      <div className="request-meta">
-                        <span className="request-project">{request.project?.projectName}</span>
-                        <span className="request-date">
-                          Requested: {new Date(request.createdAt).toLocaleDateString()}
+        {/* Main Content */}
+      <div className="dashboard-main">
+        <div className="page-container">
+          {materialRequest && (
+            <div className="material-request-detail">
+              {/* Status Badge */}
+              <div className="status-section">
+                <div 
+                  className="status-badge"
+                  style={{ 
+                    backgroundColor: getStatusColor(materialRequest.status, materialRequest.receivedByPIC),
+                    color: 'white'
+                  }}
+                >
+                  <i className="fas fa-circle"></i>
+                  {getStatusBadge(materialRequest.status, materialRequest.receivedByPIC)}
+                </div>
+              </div>
+
+              {/* Main Content Grid */}
+              <div className="detail-grid">
+                {/* Left Column - Request Info */}
+                <div className="detail-column">
+                  <div className="detail-card">
+                    <div className="card-header">
+                      <h3><i className="fas fa-info-circle"></i> Request Information</h3>
+                    </div>
+                    <div className="card-content">
+                      <div className="info-row">
+                        <span className="info-label">Request ID:</span>
+                        <span className="info-value">{materialRequest._id}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Request Number:</span>
+                        <span className="info-value">{materialRequest.requestNumber}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Description:</span>
+                        <span className="info-value description-text">{materialRequest.description}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Priority:</span>
+                        <span className="info-value">
+                          <span className={`priority-badge priority-${materialRequest.priority?.toLowerCase()}`}>
+                            {materialRequest.priority}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Requested Date:</span>
+                        <span className="info-value">
+                          {new Date(materialRequest.createdAt).toLocaleDateString()}
                         </span>
                       </div>
                     </div>
-                    <div className="request-status">
-                      <span className="status-badge pending">Pending CEO Approval</span>
-                    </div>
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
+                  </div>
 
-          <div className="chats-section">
-            <h3>Chats</h3>
-            <div className="chats-list">
-              {chats.map(chat => (
-                <div key={chat.id} className="chat-item">
-                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>{chat.initial}</div>
-                  <div className="chat-details">
-                    <div className="chat-name">{chat.name}</div>
-                    <div className="chat-message">{chat.message}</div>
+                  <div className="detail-card">
+                    <div className="card-header">
+                      <h3><i className="fas fa-user"></i> Requester Details</h3>
+                    </div>
+                    <div className="card-content">
+                      <div className="info-row">
+                        <span className="info-label">Name:</span>
+                        <span className="info-value">{materialRequest.createdBy?.name}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Email:</span>
+                        <span className="info-value">{materialRequest.createdBy?.email}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Role:</span>
+                        <span className="info-value">{materialRequest.createdBy?.role}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Project:</span>
+                        <span className="info-value">{materialRequest.project?.projectName}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="info-label">Location:</span>
+                        <span className="info-value">{materialRequest.project?.location}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              ))}
+
+                {/* Right Column - Materials & Attachments */}
+                <div className="detail-column">
+                  <div className="detail-card">
+                    <div className="card-header">
+                      <h3><i className="fas fa-boxes"></i> Requested Materials</h3>
+                    </div>
+                    <div className="card-content">
+                      {materialRequest.materials && materialRequest.materials.length > 0 ? (
+                        <div className="materials-list">
+                          {materialRequest.materials.map((material, index) => (
+                            <div key={index} className="material-item">
+                              <div className="material-info">
+                                <span className="material-name">{material.materialName}</span>
+                                <span className="material-quantity">Qty: {material.quantity}</span>
+                              </div>
+                              {material.specifications && (
+                                <div className="material-specs">
+                                  <span className="specs-label">Specifications:</span>
+                                  <span className="specs-value">{material.specifications}</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="no-data">No materials specified</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="detail-card">
+                    <div className="card-header">
+                      <h3><i className="fas fa-paperclip"></i> Attachments</h3>
+                    </div>
+                    <div className="card-content">
+                      {materialRequest.attachments && materialRequest.attachments.length > 0 ? (
+                        <div className="attachments-list">
+                          {materialRequest.attachments.map((attachment, index) => (
+                            <div key={index} className="attachment-item">
+                              <div className="attachment-icon">
+                                <i className="fas fa-file"></i>
+                              </div>
+                              <div className="attachment-info">
+                                <span className="attachment-name">{attachment}</span>
+                                <a 
+                                  href={getAttachmentUrl(attachment)} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="attachment-link"
+                                >
+                                  <i className="fas fa-download"></i>
+                                  Download
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="no-data">No attachments</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Approval Status */}
+              <div className="detail-card full-width">
+                <div className="card-header">
+                  <h3><i className="fas fa-tasks"></i> Approval Status</h3>
+                </div>
+                <div className="card-content">
+                  <div className="approval-timeline">
+                    <div className="timeline-item">
+                      <div className="timeline-marker completed">
+                        <i className="fas fa-check"></i>
+                      </div>
+                      <div className="timeline-content">
+                        <h4>Request Submitted</h4>
+                        <p>Request was submitted by {materialRequest.createdBy?.name}</p>
+                        <span className="timeline-date">
+                          {new Date(materialRequest.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    {materialRequest.approvals?.projectManager && (
+                      <div className="timeline-item">
+                        <div className={`timeline-marker ${materialRequest.approvals.projectManager.approved ? 'completed' : 'pending'}`}>
+                          <i className={materialRequest.approvals.projectManager.approved ? 'fas fa-check' : 'fas fa-clock'}></i>
+                        </div>
+                        <div className="timeline-content">
+                          <h4>Project Manager Review</h4>
+                          <p>
+                            {materialRequest.approvals.projectManager.approved 
+                              ? `Approved by ${materialRequest.approvals.projectManager.reviewer?.name || 'Project Manager'}`
+                              : 'Pending Project Manager approval'
+                            }
+                          </p>
+                          {materialRequest.approvals.projectManager.reviewedAt && (
+                            <span className="timeline-date">
+                              {new Date(materialRequest.approvals.projectManager.reviewedAt).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {materialRequest.approvals?.areaManager && (
+                      <div className="timeline-item">
+                        <div className={`timeline-marker ${materialRequest.approvals.areaManager.approved ? 'completed' : 'pending'}`}>
+                          <i className={materialRequest.approvals.areaManager.approved ? 'fas fa-check' : 'fas fa-clock'}></i>
+                        </div>
+                        <div className="timeline-content">
+                          <h4>Area Manager Review</h4>
+                          <p>
+                            {materialRequest.approvals.areaManager.approved 
+                              ? `Approved by ${materialRequest.approvals.areaManager.reviewer?.name || 'Area Manager'}`
+                              : 'Pending Area Manager approval'
+                            }
+                          </p>
+                          {materialRequest.approvals.areaManager.reviewedAt && (
+                            <span className="timeline-date">
+                              {new Date(materialRequest.approvals.areaManager.reviewedAt).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="timeline-item">
+                      <div className={`timeline-marker ${materialRequest.receivedByPIC ? 'completed' : 'pending'}`}>
+                        <i className={materialRequest.receivedByPIC ? 'fas fa-check' : 'fas fa-clock'}></i>
+                      </div>
+                      <div className="timeline-content">
+                        <h4>Materials Received</h4>
+                        <p>
+                          {materialRequest.receivedByPIC 
+                            ? `Materials received by ${materialRequest.createdBy?.name}`
+                            : 'Pending materials receipt'
+                          }
+                        </p>
+                        {materialRequest.receivedAt && (
+                          <span className="timeline-date">
+                            {new Date(materialRequest.receivedAt).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Approval Actions */}
+              <div className="detail-card full-width">
+                <div className="card-header">
+                  <h3><i className="fas fa-gavel"></i> Approval Actions</h3>
+                </div>
+                <div className="card-content">
+                  <ApproveDenyActions
+                    requestData={materialRequest}
+                    userId={userId}
+                    userRole={userRole}
+                    onBack={handleBack}
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
-
-      {/* MODAL - Add New Area */}
-      {showAddAreaModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <button
-              className="modal-close-btn"
-              onClick={() => setShowAddAreaModal(false)}
-              style={{
-                position: "absolute", top: 12, right: 16, background: "none",
-                border: "none", fontSize: 24, cursor: "pointer"
-              }}
-            >
-              &times;
-            </button>
-            <CeoAddArea
-              onSuccess={() => {
-                setShowAddAreaModal(false);
-              }}
-              onCancel={() => setShowAddAreaModal(false)}
-            />
-          </div>
-        </div>
-      )}
-      {/* Simple Modal Styling for ApproveDenyActions */}
-      <style>{`
-        .modal-overlay {
-          position: fixed;
-          z-index: 20;
-          top: 0; left: 0; right: 0; bottom: 0;
-          display: flex;
-          align-items: center; justify-content: center;
-        }
-        .modal-content {
-          background: #fff;
-          border-radius: 10px;
-          box-shadow: 0 4px 24px rgba(0,0,0,0.14);
-          padding: 2rem;
-          min-width: 320px;
-          z-index: 22;
-        }
-        .modal-backdrop {
-          position: fixed;
-          z-index: 21;
-          top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.15);
-        }
-      `}</style>
     </div>
   );
 };

@@ -19,14 +19,29 @@ export default function MiniProgressTracker({ request }) {
     return base;
   };
 
+  const arrowCls = (decision) => {
+    if (decision === 'approved' || decision === 'placed' || decision === 'received') return 'mini-arrow completed';
+    if (decision === 'denied') return 'mini-arrow denied';
+    return 'mini-arrow';
+  };
+
+  // Determine completed chain for highlighting arrows up to the last completed stage
+  const picState = 'placed';
+  const pmState = pm;
+  const amState = am;
+  const lastState = received ? 'received' : (anyDenied ? 'denied' : 'pending');
+  const picCompleted = true; // placed is always completed
+  const pmCompleted = pmState === 'approved';
+  const amCompleted = amState === 'approved';
+
   return (
     <div className="mini-progress">
-      <div className={cls('placed')} title="Placed by PIC">PiC</div>
-      <div className="mini-sep" />
-      <div className={cls(pm)} title="Project Manager">PM</div>
-      <div className="mini-sep" />
-      <div className={cls(am)} title="Area Manager">AM</div>
-      <div className="mini-sep" />
+      <div className={cls(picState)} title="Placed by PIC">PIC</div>
+      <div className={arrowCls(picCompleted ? 'approved' : 'pending')} aria-hidden>→</div>
+      <div className={cls(pmState)} title="Project Manager">PM</div>
+      <div className={arrowCls(pmCompleted ? 'approved' : pmState)} aria-hidden>→</div>
+      <div className={cls(amState)} title="Area Manager">AM</div>
+      <div className={arrowCls(amCompleted ? 'approved' : amState)} aria-hidden>→</div>
       <div className={cls(received ? 'received' : anyDenied ? 'denied' : 'pending')} title="Received">✓</div>
     </div>
   );

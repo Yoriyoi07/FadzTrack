@@ -60,7 +60,6 @@ useEffect(() => {
         return <FaCheckCircle className="status-icon completed" />;
       case 'Pending Project Manager':
       case 'Pending Area Manager':
-      case 'Pending CEO':
         return <FaClock className="status-icon pending" />;
       case 'Rejected':
         return <FaExclamationTriangle className="status-icon rejected" />;
@@ -234,12 +233,10 @@ const handleLogout = () => {
               <FaComments />
               <span>Chat</span>
             </Link>
-            {project && (
-              <Link to={`/pic/projects/${project._id}/request`} className="nav-item">
-                <FaClipboardList />
-                <span>Requests</span>
-              </Link>
-            )}
+            <Link to="/pic/requests" className="nav-item">
+              <FaClipboardList />
+              <span>Requests</span>
+            </Link>
             {project && (
               <Link to={`/pic/${project._id}`} className="nav-item">
                 <FaEye />

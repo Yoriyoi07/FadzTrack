@@ -1,154 +1,74 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 import '../style/pm_style/PmMatRequest.css';
-// Nav icons
-import { 
-  FaTachometerAlt, 
-  FaComments, 
-  FaBoxes, 
-  FaUsers, 
-  FaProjectDiagram, 
-  FaClipboardList, 
-  FaChartBar, 
-  FaCalendarAlt,
-  FaSearch,
-  FaFilter,
-  FaEllipsisV
-} from 'react-icons/fa';
+import '../style/pm_style/Pm_Dash.css';
+import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram } from 'react-icons/fa';
 
-const PmMatRequestList = () => {
+const ITEMS_PER_PAGE = 8;
+
+export default function PicRequestList() {
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
-  const stored = localStorage.getItem('user');
-  const user = stored ? JSON.parse(stored) : null;
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
   const userId = user?._id;
 
-  const [userName, setUserName] = useState(user?.name || 'ALECK');
-  const [userRole, setUserRole] = useState(user?.role || '');
-  const [project, setProject] = useState(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
-
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('date');
-
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 8;
-
-  // Filter and search logic (includes Completed via receivedByPIC)
-  const filteredRequests = requests.filter(request => {
-    const status = (request.status || '').toLowerCase();
-    const isCompleted = !!request.receivedByPIC;
-    const matchesFilter =
-      filter === 'All' ||
-      (filter === 'Pending' && status.includes('pending')) ||
-      (filter === 'Approved' && status.includes('approved')) ||
-      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel'))) ||
-      (filter === 'Completed' && isCompleted);
-    const searchTarget = [
-      request.materials?.map(m => m.materialName).join(', ') || '',
-      request.description || '',
-      request.createdBy?.name || '',
-      request.project?.projectName || '',
-    ].join(' ').toLowerCase();
-    return matchesFilter && searchTarget.includes(searchTerm.toLowerCase());
-  });
-
-  // Sorting logic (when All, push Completed to end; then apply chosen sort)
-  const sortedRequests = [...filteredRequests]
-    .sort((a, b) => {
-      if (filter === 'All') {
-        const aCompleted = a.receivedByPIC ? 1 : 0;
-        const bCompleted = b.receivedByPIC ? 1 : 0;
-        if (aCompleted !== bCompleted) return aCompleted - bCompleted;
-      }
-      switch (sortBy) {
-        case 'date':
-          return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
-        case 'priority':
-          return (b.priority || 0) - (a.priority || 0);
-        case 'status':
-          return (a.status || '').localeCompare(b.status || '');
-        default:
-          return 0;
-      }
-    });
-
-  const totalPages = Math.ceil(sortedRequests.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedRequests = sortedRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const [activeProject, setActiveProject] = useState(null);
+  const [userRole] = useState(user?.role || 'Person in Charge');
 
   useEffect(() => {
-    api.get('/requests/mine')
-      .then(res => {
-        setRequests(Array.isArray(res.data) ? res.data : []);
-        setLoading(false);
+    if (!token) {
+      setError('Session expired. Please log in.');
+      setLoading(false);
+      return;
+    }
+    api.get('/requests/mine', { headers: { Authorization: `Bearer ${token}` } })
+      .then(({ data }) => {
+        const mine = Array.isArray(data) ? data.filter(r => String(r.createdBy?._id || r.createdBy) === String(userId)) : [];
+        setRequests(mine);
         setError('');
       })
-      .catch(err => {
-        if (err.response && (err.response.status === 403 || err.response.status === 401)) {
-          setError('Session expired or unauthorized. Please login.');
-        } else {
-          setError('Failed to load requests');
-        }
-        setRequests([]);
-        setLoading(false);
-        console.error(err);
-      });
-  }, []);
-
-  // Scroll handler for header collapse
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const shouldCollapse = scrollTop > 50;
-      setIsHeaderCollapsed(shouldCollapse);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".user-profile")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    api.post('/auth/logout', {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).finally(() => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
-    });
-  };
+      .catch(() => { setRequests([]); setError('Failed to load requests'); })
+      .finally(() => setLoading(false));
+  }, [token, userId]);
 
   useEffect(() => {
     if (!token || !userId) return;
-    const fetchAssignedPMProject = async () => {
-      try {
-        const { data } = await api.get(`/projects/assigned/projectmanager/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setProject(data);
-      } catch (err) {
-        setProject(null);
-      }
-    };
-    fetchAssignedPMProject();
+    api.get(`/projects/by-user-status?userId=${userId}&role=pic&status=Ongoing`)
+      .then(({ data }) => setActiveProject(data?.[0] || null))
+      .catch(() => setActiveProject(null));
   }, [token, userId]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.user-profile')) setProfileMenuOpen(false);
+    };
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      setIsHeaderCollapsed(scrollTop > 50);
+    };
+    document.addEventListener('click', handleClickOutside);
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
+  };
 
   const truncateWords = (text = '', maxWords = 10) => {
     if (!text || typeof text !== 'string') return '';
@@ -158,174 +78,132 @@ const PmMatRequestList = () => {
   };
 
   const getStatusColor = (status, receivedByPIC) => {
-    const statusLower = status?.toLowerCase() || '';
+    const s = (status || '').toLowerCase();
     if (receivedByPIC) return '#0ea5e9';
-    if (statusLower.includes('approved')) return '#10b981';
-    if (statusLower.includes('pending')) return '#f59e0b';
-    if (statusLower.includes('denied') || statusLower.includes('cancel')) return '#ef4444';
+    if (s.includes('approved')) return '#10b981';
+    if (s.includes('pending')) return '#f59e0b';
+    if (s.includes('denied') || s.includes('cancel')) return '#ef4444';
     return '#6b7280';
   };
-
   const getStatusBadge = (status, receivedByPIC) => {
     if (receivedByPIC) return 'Completed';
-    const statusLower = status?.toLowerCase() || '';
-    if (statusLower.includes('approved')) return 'Approved';
-    if (statusLower.includes('pending')) return 'Pending';
-    if (statusLower.includes('denied') || statusLower.includes('cancel')) return 'Rejected';
+    const s = (status || '').toLowerCase();
+    if (s.includes('approved')) return 'Approved';
+    if (s.includes('pending')) return 'Pending';
+    if (s.includes('denied') || s.includes('cancel')) return 'Rejected';
     return 'Unknown';
   };
 
+  const filtered = requests.filter(r => {
+    const s = (r.status || '').toLowerCase();
+    const isCompleted = !!r.receivedByPIC;
+    const matchesFilter =
+      filter === 'All' ||
+      (filter === 'Pending' && s.includes('pending')) ||
+      (filter === 'Approved' && s.includes('approved')) ||
+      (filter === 'Cancelled' && (s.includes('denied') || s.includes('cancel'))) ||
+      (filter === 'Completed' && isCompleted);
+    const searchTarget = [
+      r.materials?.map(m => m.materialName).join(', ') || '',
+      r.description || '',
+      r.project?.projectName || ''
+    ].join(' ').toLowerCase();
+    return matchesFilter && searchTarget.includes(searchTerm.toLowerCase());
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    const aCompleted = a.receivedByPIC ? 1 : 0;
+    const bCompleted = b.receivedByPIC ? 1 : 0;
+    if (aCompleted !== bCompleted) return aCompleted - bCompleted;
+    return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+  });
+
+  const totalPages = Math.ceil(sorted.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const page = sorted.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   return (
-    <div className="dashboard-container">
-      {/* Modern Header */}
+    <div>
       <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo and Profile */}
         <div className="header-top">
           <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
+            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
             <h1 className="header-brand">FadzTrack</h1>
           </div>
-          
           <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'P'}
-            </div>
+            <div className="profile-avatar">{user?.name ? user.name.charAt(0).toUpperCase() : 'P'}</div>
             <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
+              <span className="profile-name">{user?.name || 'PIC'}</span>
               <span className="profile-role">{userRole}</span>
             </div>
             {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
+              <div className="profile-dropdown" onClick={(e) => e.stopPropagation()}>
+                <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="logout-btn"><span>Logout</span></button>
               </div>
             )}
           </div>
         </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
         <div className="header-bottom">
           <nav className="header-nav">
-            <Link to="/pm" className="nav-item">
+            <Link to="/pic" className="nav-item">
               <FaTachometerAlt />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
             </Link>
-            <Link to="/pm/chat" className="nav-item">
+            <Link to="/pic/chat" className="nav-item">
               <FaComments />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
             </Link>
-            <Link to="/pm/request/:id" className="nav-item active">
-              <FaBoxes />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
-            </Link>
-            <Link to="/pm/manpower-list" className="nav-item">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
-            {project && (
-                          <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
-            </Link>
-            )}
-            <Link to="/pm/daily-logs" className="nav-item">
+            <Link to="/pic/requests" className="nav-item active">
               <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span>
             </Link>
-            {project && (
-              <Link to={`/pm/progress-report/${project._id}`} className="nav-item">
-                <FaChartBar />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
+            {activeProject && (
+              <Link to={`/pic/${activeProject._id}`} className="nav-item">
+                <FaEye />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
               </Link>
             )}
-            <Link to="/pm/daily-logs-list" className="nav-item">
-              <FaCalendarAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Daily Logs</span>
+            <Link to="/pic/projects" className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
             </Link>
           </nav>
-          
           <NotificationBell />
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="dashboard-main">
         <div className="page-container">
-          {/* Page Header */}
-          <div className="page-header">
-            <div className="page-title-section">
-              <p className="page-subtitle">Manage and track material requests for your project</p>
-            </div>
-          </div>
-
-          {/* Controls Bar */}
           <div className="controls-bar">
-            {/* Filter Tabs */}
             <div className="filter-tabs">
               {['All', 'Pending', 'Approved', 'Cancelled', 'Completed'].map(tab => (
-                <button
-                  key={tab}
-                  className={`filter-tab ${filter === tab ? 'active' : ''}`}
-                  onClick={() => setFilter(tab)}
-                >
-                  {tab}
-                </button>
+                <button key={tab} className={`filter-tab ${filter === tab ? 'active' : ''}`} onClick={() => setFilter(tab)}>{tab}</button>
               ))}
             </div>
-
-            {/* Search and Sort */}
             <div className="search-sort-section">
               <div className="search-wrapper">
-                <FaSearch className="search-icon" />
-                <input
-                  type="text"
-                  placeholder="Search requests..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input"
-                />
+                <input className="search-input" placeholder="Search requests..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} />
               </div>
-              
-              <div className="sort-wrapper">
-                <FaFilter className="sort-icon" />
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="sort-select"
-                >
-                  <option value="date">Sort by Date</option>
-                  <option value="priority">Sort by Priority</option>
-                  <option value="status">Sort by Status</option>
-                </select>
-              </div>
+              {activeProject && (
+                <Link to={`/pic/projects/${activeProject._id}/request`} className="view-details-btn" style={{ background:'#2563eb', color:'#fff' }}>+ New Request</Link>
+              )}
             </div>
           </div>
 
-          {/* Requests Grid */}
           <div className="requests-grid">
             {loading ? (
-              <div className="loading-state">
-                <div className="loading-spinner"></div>
-                <p>Loading material requests...</p>
-              </div>
+              <div className="loading-state"><div className="loading-spinner"></div><p>Loading material requests...</p></div>
             ) : error ? (
-              <div className="error-state">
-                <p>{error}</p>
-              </div>
-            ) : paginatedRequests.length === 0 ? (
+              <div className="error-state"><p>{error}</p></div>
+            ) : page.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-icon">📦</div>
-                <h3>No material requests found</h3>
-                <p>No requests match your current filters. Try adjusting your search criteria.</p>
+                <h3>No material requests</h3>
+                <p>You have not submitted any requests yet.</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {paginatedRequests.map(request => (
+                {page.map(request => (
                   <div key={request._id} style={{ 
                     background: '#f8fafc', 
                     border: '1px solid #e2e8f0', 
@@ -342,7 +220,7 @@ const PmMatRequestList = () => {
                           fontWeight: '600', 
                           color: '#1f2937' 
                         }}>
-                          {request.materials && request.materials.length > 0
+                          {request.materials?.length
                             ? request.materials.map(m => `${m.materialName} (${m.quantity} ${m.unit || ''})`).join(', ')
                             : 'Material Request'}
                         </h3>
@@ -483,8 +361,8 @@ const PmMatRequestList = () => {
                           }}>
                             {request.pmApprovedAt ? new Date(request.pmApprovedAt).toLocaleDateString() : 'N/A'}
                           </span>
-                  </div>
-                  
+                        </div>
+                        
                         {/* Connector 2 */}
                         <div style={{ 
                           width: '16px',
@@ -543,7 +421,7 @@ const PmMatRequestList = () => {
                           }}>
                             {request.amApprovedAt ? new Date(request.amApprovedAt).toLocaleDateString() : 'N/A'}
                           </span>
-                      </div>
+                        </div>
                         
                         {/* Connector 3 */}
                         <div style={{ 
@@ -576,7 +454,7 @@ const PmMatRequestList = () => {
                             fontWeight: 'bold'
                           }}>
                             {request.receivedByPIC ? '✓' : '○'}
-                      </div>
+                          </div>
                           <span style={{ 
                             fontSize: '10px', 
                             fontWeight: '600',
@@ -597,11 +475,11 @@ const PmMatRequestList = () => {
                             color: '#6b7280'
                           }}>
                             {request.receivedByPIC ? new Date(request.receivedByPIC).toLocaleDateString() : 'N/A'}
-                        </span>
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
+                    
                     {/* Request Details */}
                     <div style={{ 
                       display: 'flex', 
@@ -610,60 +488,49 @@ const PmMatRequestList = () => {
                       marginBottom: '8px'
                     }}>
                       <div style={{ fontSize: '11px', color: '#64748b' }}>
-                        <span style={{ fontWeight: '500' }}>{request.createdBy?.name || 'Unknown'}</span> • {new Date(request.createdAt).toLocaleDateString()}
-                        {request.project?.projectName && (
-                          <span> • Project: {request.project.projectName}</span>
-                        )}
+                        <span style={{ fontWeight: '500' }}>Project: {request.project?.projectName || '-'}</span> • {new Date(request.createdAt).toLocaleDateString()}
                       </div>
                     </div>
                     
                     {/* Action Buttons */}
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                    <Link
-                      to={`/pm/material-request/${request._id}`}
-                      className="view-details-btn"
-                    >
-                      View Details
-                    </Link>
+                      <Link to={`/pic/request/${request._id}`} className="view-details-btn">View Details</Link>
+                      <Link to={`/pic/material-request/edit/${request._id}`} className="edit-btn" style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        textDecoration: 'none',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: '500',
+                        transition: 'all 0.2s ease',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = '#2563eb';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = '#3b82f6';
+                      }}>
+                        Edit
+                      </Link>
+                    </div>
                   </div>
-                </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* Pagination */}
-          {sortedRequests.length > 0 && (
+          {sorted.length > 0 && (
             <div className="pagination-section">
-              <div className="pagination-info">
-                Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, sortedRequests.length)} of {sortedRequests.length} entries
-              </div>
+              <div className="pagination-info">Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, sorted.length)} of {sorted.length} entries</div>
               <div className="pagination-controls">
-                <button 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                  disabled={currentPage === 1}
-                  className="pagination-btn"
-                >
-                  Previous
-                </button>
-                
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    className={`pagination-btn ${page === currentPage ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
+                <button className="pagination-btn" disabled={currentPage===1} onClick={()=>setCurrentPage(p=>Math.max(1,p-1))}>Previous</button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                  <button key={n} className={`pagination-btn ${currentPage===n?'active':''}`} onClick={()=>setCurrentPage(n)}>{n}</button>
                 ))}
-                
-                <button 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                  disabled={currentPage === totalPages}
-                  className="pagination-btn"
-                >
-                  Next
-                </button>
+                <button className="pagination-btn" disabled={currentPage===totalPages} onClick={()=>setCurrentPage(p=>Math.min(totalPages,p+1))}>Next</button>
               </div>
             </div>
           )}
@@ -671,6 +538,6 @@ const PmMatRequestList = () => {
       </main>
     </div>
   );
-};
+}
 
-export default PmMatRequestList;
+

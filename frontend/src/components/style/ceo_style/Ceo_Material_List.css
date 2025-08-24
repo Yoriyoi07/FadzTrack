@@ -339,3 +339,86 @@
   .nav-menu { gap: 1rem; }
   .nav-link { gap: 5px; padding: 6px 6px; }
 }
+
+/* Request Controls - Edit and Delete Buttons */
+.request-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  justify-content: flex-end;
+}
+
+.edit-btn {
+  background-color: #eab308;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.edit-btn:hover {
+  background-color: #ca8a04;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.3);
+}
+
+.delete-btn {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.delete-btn:hover {
+  background-color: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+/* Request Link - Make the main content clickable */
+.request-link {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex: 1;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.request-link:hover {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Ensure request item has proper layout */
+.request-item {
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  border: 1px solid #e5e7eb;
+}
+
+.request-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}

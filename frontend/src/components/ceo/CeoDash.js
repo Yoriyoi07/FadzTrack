@@ -22,7 +22,8 @@ import {
   FaChevronUp,
   FaMapMarkerAlt,
   FaChevronRight,
-  FaChevronLeft
+  FaChevronLeft,
+  FaBoxes
 } from 'react-icons/fa';
 
 const CeoDash = () => {
@@ -50,6 +51,10 @@ const CeoDash = () => {
   const [expandedLocations, setExpandedLocations] = useState({});
   const [loading, setLoading] = useState(true);
 
+  // Material Requests
+  const [materialRequests, setMaterialRequests] = useState([]);
+  const [materialRequestsLoading, setMaterialRequestsLoading] = useState(true);
+
   // Requests
   const [requestsError, setRequestsError] = useState(null);
 
@@ -70,16 +75,21 @@ const CeoDash = () => {
 
     const loadAll = async () => {
       try {
-        const [locRes, projRes] = await Promise.all([
+        const [locRes, projRes, matRes] = await Promise.all([
           api.get('/locations', { signal: controller.signal }),
-          api.get('/projects', { signal: controller.signal })
+          api.get('/projects', { signal: controller.signal }),
+          api.get('/requests', { signal: controller.signal })
         ]);
 
         if (!isActive) return;
         const locs = Array.isArray(locRes.data) ? locRes.data : [];
         const projs = Array.isArray(projRes.data) ? projRes.data : [];
+        const mats = Array.isArray(matRes.data) ? matRes.data : [];
         setLocations(locs);
         setAllProjects(projs);
+        setMaterialRequests(mats);
+        setMaterialRequestsLoading(false);
+        setRequestsError(null);
 
         // Enrich projects with location object + display fields
         const enriched = projs.map((p) => {
@@ -94,7 +104,6 @@ const CeoDash = () => {
           };
         });
         setEnrichedAllProjects(enriched);
-        setRequestsError(null);
       } catch (err) {
         if (!isActive) return;
         setRequestsError('Error loading data');
@@ -401,6 +410,10 @@ const CeoDash = () => {
               <FaProjectDiagram />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
             </Link>
+            <Link to="/ceo/material-list" className="nav-item">
+              <FaBoxes />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Materials</span>
+            </Link>
             <Link to="/ceo/audit-logs" className="nav-item">
               <FaClipboardList />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Audit Logs</span>
@@ -538,6 +551,12 @@ const CeoDash = () => {
                       <span className="stat-number">{completed}</span>
                       <span className="stat-label">Completed</span>
                     </div>
+                    <div className="stat-item">
+                      <Link to="/ceo/material-list" style={{ textDecoration: 'none', color: 'inherit' }}>
+                        <span className="stat-number" style={{ color: '#3b82f6', cursor: 'pointer' }}>{materialRequests.length}</span>
+                        <span className="stat-label">Material Requests</span>
+                      </Link>
+                    </div>
                   </>
                 );
               })()}
@@ -645,6 +664,322 @@ const CeoDash = () => {
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* Material Requests Section */}
+          <div className="dashboard-grid" style={{ marginTop: '0.5rem' }}>
+            <div className="dashboard-card" style={{ minHeight: 60 }}>
+              <div className="card-header">
+                <h3>Material Request Tracking</h3>
+                <Link to="/ceo/material-list" style={{ fontSize: '14px', color: '#3b82f6', textDecoration: 'none' }}>
+                  View All →
+                </Link>
+              </div>
+              <div style={{ padding: '0 18px 12px 18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '13px', color: '#64748b' }}>
+                    📋 Quick access to material request management
+                  </span>
+                </div>
+                {materialRequestsLoading ? (
+                  <div style={{ color: '#64748b', fontSize: '13px' }}>Loading material requests...</div>
+                ) : materialRequests.length === 0 ? (
+                  <div style={{ color: '#64748b', fontSize: '13px' }}>No material requests found</div>
+                ) : (
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: '500' }}>
+                      Recent Requests with Tracking:
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {materialRequests.slice(0, 3).map((request) => (
+                        <div key={request._id} style={{ 
+                          background: '#f8fafc', 
+                          border: '1px solid #e2e8f0', 
+                          borderRadius: '6px', 
+                          padding: '8px',
+                          fontSize: '12px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                            <span style={{ fontWeight: '500', color: '#1f2937', flex: 1 }}>
+                              {request.description?.substring(0, 40) || 'No description'}...
+                            </span>
+                            <span style={{ 
+                              background: request.status?.includes('approved') ? '#dcfce7' : 
+                                        request.status?.includes('denied') ? '#fef2f2' : '#fef3c7',
+                              color: request.status?.includes('approved') ? '#16a34a' : 
+                                     request.status?.includes('denied') ? '#dc2626' : '#d97706',
+                              padding: '1px 6px',
+                              borderRadius: '10px',
+                              fontSize: '10px',
+                              fontWeight: '500',
+                              marginLeft: '6px'
+                            }}>
+                              {request.status || 'Pending'}
+                            </span>
+                          </div>
+                          
+                          {/* Tracking Progress */}
+                          <div style={{ marginBottom: '6px' }}>
+                            <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '6px', fontWeight: '500' }}>
+                              Tracking Progress:
+                            </div>
+                            <div style={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '0px',
+                              background: '#f8fafc',
+                              padding: '6px',
+                              borderRadius: '6px',
+                              border: '1px solid #e2e8f0'
+                            }}>
+                              {/* Placed Stage */}
+                              <div style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '3px',
+                                minWidth: '70px'
+                              }}>
+                                <div style={{ 
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '50%',
+                                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  ✓
+                                </div>
+                                <span style={{ 
+                                  fontSize: '10px', 
+                                  fontWeight: '600',
+                                  color: '#1f2937',
+                                  textAlign: 'center'
+                                }}>
+                                  Placed
+                                </span>
+                                <span style={{ 
+                                  fontSize: '9px', 
+                                  color: '#10b981',
+                                  fontWeight: '500'
+                                }}>
+                                  Completed
+                                </span>
+                                <span style={{ 
+                                  fontSize: '8px', 
+                                  color: '#6b7280'
+                                }}>
+                                  {new Date(request.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                              
+                              {/* Connector 1 */}
+                              <div style={{ 
+                                width: '16px',
+                                height: '2px',
+                                background: 'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)',
+                                margin: '0 3px'
+                              }}></div>
+                              
+                              {/* PM Stage */}
+                              <div style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '3px',
+                                minWidth: '70px'
+                              }}>
+                                <div style={{ 
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '50%',
+                                  background: (request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                            (request.status?.includes('denied') ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)') : 
+                                            'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {(request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                    (request.status?.includes('denied') ? '✗' : '✓') : '○'}
+                                </div>
+                                <span style={{ 
+                                  fontSize: '10px', 
+                                  fontWeight: '600',
+                                  color: '#1f2937',
+                                  textAlign: 'center'
+                                }}>
+                                  Project Manager
+                                </span>
+                                <span style={{ 
+                                  fontSize: '9px', 
+                                  color: (request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                         (request.status?.includes('denied') ? '#ef4444' : '#10b981') : '#6b7280',
+                                  fontWeight: '500'
+                                }}>
+                                  {(request.status?.includes('pm') || request.status?.includes('project manager')) ? 
+                                    (request.status?.includes('denied') ? 'Rejected' : 'Approved') : 'Pending'}
+                                </span>
+                                <span style={{ 
+                                  fontSize: '8px', 
+                                  color: '#6b7280'
+                                }}>
+                                  {request.pmApprovedAt ? new Date(request.pmApprovedAt).toLocaleDateString() : 'N/A'}
+                                </span>
+                              </div>
+                              
+                              {/* Connector 2 */}
+                              <div style={{ 
+                                width: '16px',
+                                height: '2px',
+                                background: (request.status?.includes('pm') || request.status?.includes('project manager')) && !request.status?.includes('denied') ? 
+                                          'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)' : 
+                                          'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 100%)',
+                                margin: '0 3px'
+                              }}></div>
+                              
+                              {/* AM Stage */}
+                              <div style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '3px',
+                                minWidth: '70px'
+                              }}>
+                                <div style={{ 
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '50%',
+                                  background: (request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                            (request.status?.includes('denied') ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)') : 
+                                            'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {(request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                    (request.status?.includes('denied') ? '✗' : '✓') : '○'}
+                                </div>
+                                <span style={{ 
+                                  fontSize: '10px', 
+                                  fontWeight: '600',
+                                  color: '#1f2937',
+                                  textAlign: 'center'
+                                }}>
+                                  Area Manager
+                                </span>
+                                <span style={{ 
+                                  fontSize: '9px', 
+                                  color: (request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                         (request.status?.includes('denied') ? '#ef4444' : '#10b981') : '#6b7280',
+                                  fontWeight: '500'
+                                }}>
+                                  {(request.status?.includes('am') || request.status?.includes('area manager')) ? 
+                                    (request.status?.includes('denied') ? 'Rejected' : 'Approved') : 'Pending'}
+                                </span>
+                                <span style={{ 
+                                  fontSize: '8px', 
+                                  color: '#6b7280'
+                                }}>
+                                  {request.amApprovedAt ? new Date(request.amApprovedAt).toLocaleDateString() : 'N/A'}
+                                </span>
+                              </div>
+                              
+                              {/* Connector 3 */}
+                              <div style={{ 
+                                width: '16px',
+                                height: '2px',
+                                background: (request.status?.includes('am') || request.status?.includes('area manager')) && !request.status?.includes('denied') ? 
+                                          'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)' : 
+                                          'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 100%)',
+                                margin: '0 3px'
+                              }}></div>
+                              
+                              {/* Received Stage */}
+                              <div style={{ 
+                                display: 'flex', 
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '3px',
+                                minWidth: '70px'
+                              }}>
+                                <div style={{ 
+                                  width: '28px',
+                                  height: '28px',
+                                  borderRadius: '50%',
+                                  background: request.receivedByPIC ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: 'white',
+                                  fontSize: '12px',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {request.receivedByPIC ? '✓' : '○'}
+                                </div>
+                                <span style={{ 
+                                  fontSize: '10px', 
+                                  fontWeight: '600',
+                                  color: '#1f2937',
+                                  textAlign: 'center'
+                                }}>
+                                  Received
+                                </span>
+                                <span style={{ 
+                                  fontSize: '9px', 
+                                  color: request.receivedByPIC ? '#10b981' : '#6b7280',
+                                  fontWeight: '500'
+                                }}>
+                                  {request.receivedByPIC ? 'Received' : 'Pending'}
+                                </span>
+                                <span style={{ 
+                                  fontSize: '8px', 
+                                  color: '#6b7280'
+                                }}>
+                                  {request.receivedByPIC ? new Date(request.receivedByPIC).toLocaleDateString() : 'N/A'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>
+                            <span style={{ fontWeight: '500' }}>{request.createdBy?.name || 'Unknown'}</span> • {new Date(request.createdAt).toLocaleDateString()}
+                            {request.project?.projectName && (
+                              <span> • Project: {request.project.projectName}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <Link to="/ceo/material-list" style={{ 
+                    background: '#f0f9ff', 
+                    border: '1px solid #0ea5e9', 
+                    borderRadius: '8px', 
+                    padding: '8px 16px', 
+                    textDecoration: 'none', 
+                    color: '#0ea5e9',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease'
+                  }}>
+                    📋 View All Requests
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

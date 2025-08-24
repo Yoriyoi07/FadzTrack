@@ -12,16 +12,21 @@ import {
   FaClipboardList, 
   FaChartBar, 
   FaCalendarAlt,
+  FaUserCircle,
   FaSearch,
   FaFilter,
-  FaPlus,
-  FaList,
-  FaComments
+  FaSortAmountDown,
+  FaSortAmountUp,
+  FaCheck,
+  FaTimes,
+  FaEllipsisV,
+  FaComments,
+  FaPlus
 } from 'react-icons/fa';
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 8;
 
-export default function PmManpowerList() {
+export default function HrManpowerRequestList() {
   const navigate = useNavigate();
 
   // Read the user before any state depends on it (avoid TDZ)
@@ -30,9 +35,8 @@ export default function PmManpowerList() {
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id || user?.id || null;
 
-  const [userName, setUserName] = useState(user?.name || 'ALECK');
+  const [userName, setUserName] = useState(user?.name || 'HR');
   const [userRole, setUserRole] = useState(user?.role || '');
-  const [project, setProject] = useState(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
 
@@ -57,14 +61,14 @@ export default function PmManpowerList() {
           const { data } = await api.get('/manpower-requests/mine');
           setRequests(Array.isArray(data) ? data : []);
         } else {
-          const { data } = await api.get('/manpower-requests/pm');
+          const { data } = await api.get('/manpower-requests/hr');
           const arr = Array.isArray(data) ? data : [];
-          // For PM users, filter out completed requests from "Others' Requests"
+          // For HR users, filter out completed requests from "Others' Requests"
           const othersOnly = arr.filter(r => {
             const creatorId = r.createdBy?._id || r.createdBy?.id || r.createdBy;
             const isCompleted = r.status?.toLowerCase() === 'completed';
             const isOverdue = r.status?.toLowerCase() === 'pending' && r.acquisitionDate && new Date(r.acquisitionDate) < new Date();
-            // Show overdue requests to other PMs, but hide completed ones
+            // Show overdue requests to other HR users, but hide completed ones
             return !userId || (creatorId && creatorId !== userId && !isCompleted);
           });
           setRequests(othersOnly);
@@ -103,8 +107,7 @@ export default function PmManpowerList() {
         setProfileMenuOpen(false);
       }
     };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
   }, []);
 
   const handleLogout = () => {
@@ -116,22 +119,6 @@ export default function PmManpowerList() {
       navigate('/');
     });
   };
-
-  // Fetch assigned project
-  useEffect(() => {
-    if (!token || !userId) return;
-    const fetchAssignedPMProject = async () => {
-      try {
-        const { data } = await api.get(`/projects/assigned/projectmanager/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setProject(data);
-      } catch (err) {
-        setProject(null);
-      }
-    };
-    fetchAssignedPMProject();
-  }, [token, userId]);
 
   // Filter and search logic
   const filteredRequests = useMemo(() => {
@@ -187,28 +174,28 @@ export default function PmManpowerList() {
   const getRequestBackgroundColor = (request) => {
     const statusLower = request.status?.toLowerCase() || '';
     if (statusLower.includes('pending') && request.acquisitionDate && new Date(request.acquisitionDate) < new Date()) {
-      return '#f59e0b'; // Overdue pending requests
+      return '#fef3c7'; // Light yellow for overdue pending requests
     }
     if (statusLower.includes('pending')) {
-      return '#f59e0b'; // Pending requests
+      return '#ffffff'; // White for pending requests
     }
     if (statusLower.includes('approved')) {
-      return '#10b981'; // Approved requests
+      return '#fef3c7'; // Light yellow for approved requests
     }
     if (statusLower.includes('rejected')) {
-      return '#ef4444'; // Rejected requests
+      return '#fef2f2'; // Light red for rejected requests
     }
     if (statusLower.includes('completed')) {
-      return '#059669'; // Completed requests
+      return '#ecfdf5'; // Light green for completed requests
     }
-    return '#e0e0e0'; // Default background
+    return '#f9fafb'; // Default light gray background
   };
 
-  if (!user || user.role !== 'Project Manager') {
+  if (!user || user.role !== 'HR') {
     return (
       <div style={{ padding: 24 }}>
         <h2>Forbidden</h2>
-        <p>You must be a Project Manager to view this page.</p>
+        <p>You must be an HR user to view this page.</p>
       </div>
     );
   }
@@ -230,7 +217,7 @@ export default function PmManpowerList() {
           
           <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
             <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'P'}
+              {userName ? userName.charAt(0).toUpperCase() : 'H'}
             </div>
             <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
               <span className="profile-name">{userName}</span>
@@ -249,127 +236,93 @@ export default function PmManpowerList() {
         {/* Bottom Row: Navigation and Notifications */}
         <div className="header-bottom">
           <nav className="header-nav">
-                         <Link to="/pm" className="nav-item">
-               <FaTachometerAlt />
-               <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-             </Link>
-             <Link to="/pm/chat" className="nav-item">
-               <FaComments />
-               <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-             </Link>
-             <Link to="/pm/request/:id" className="nav-item">
-               <FaBoxes />
-               <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
-             </Link>
-            <Link to="/pm/manpower-list" className="nav-item active">
+            <Link to="/hr" className="nav-item">
+              <FaTachometerAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
+            </Link>
+            <Link to="/hr/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/hr/manpower-list" className="nav-item">
               <FaUsers />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
             </Link>
-            {project && (
-                          <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
-            </Link>
-            )}
-            <Link to="/pm/daily-logs" className="nav-item">
+            <Link to="/hr/manpower-requests" className="nav-item active">
               <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span>
             </Link>
-            {project && (
-              <Link to={`/pm/progress-report/${project._id}`} className="nav-item">
-                <FaChartBar />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
-              </Link>
-            )}
-            <Link to="/pm/daily-logs-list" className="nav-item">
-              <FaCalendarAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Daily Logs</span>
+            <Link to="/hr/projects" className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
             </Link>
           </nav>
-          
           <NotificationBell />
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="dashboard-main">
         <div className="page-container">
-                     {/* Page Header */}
-           <div className="page-header">
-             <div className="page-title-section">
-               <p className="page-subtitle">Manage and track manpower requests for your project</p>
-             </div>
-             <div className="layout-toggle">
-               <button
-                 className={`layout-btn ${layoutView === 'cards' ? 'active' : ''}`}
-                 onClick={() => setLayoutView('cards')}
-                 title="Cards View"
-               >
-                 <FaBoxes />
-               </button>
-               <button
-                 className={`layout-btn ${layoutView === 'table' ? 'active' : ''}`}
-                 onClick={() => setLayoutView('table')}
-                 title="Table View"
-               >
-                 <FaList />
-               </button>
-             </div>
-           </div>
+          <div className="page-header">
+            <div className="page-title-section">
+              <h1 className="page-title">Manpower Requests</h1>
+              <p className="page-subtitle">Manage and track manpower requests across all projects</p>
+            </div>
+          </div>
 
-                     {/* Controls Bar */}
-           <div className="controls-bar">
-             {/* Filter Tabs */}
-             <div className="filter-tabs">
-               {['All', 'Pending', 'Approved', 'Rejected', 'Complete'].map(tab => (
-                 <button
-                   key={tab}
-                   className={`filter-tab ${status === tab ? 'active' : ''}`}
-                   onClick={() => setStatus(tab)}
-                 >
-                   {tab}
-                 </button>
-               ))}
-             </div>
+          {/* Controls Bar */}
+          <div className="controls-bar">
+            {/* Filter Tabs - Now includes 'Complete' status */}
+            <div className="filter-tabs">
+              {['All', 'Pending', 'Approved', 'Rejected', 'Complete'].map(tab => (
+                <button
+                  key={tab}
+                  className={`filter-tab ${status === tab ? 'active' : ''}`}
+                  onClick={() => setStatus(tab)}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
 
-             {/* Request Type Filter */}
-             <div className="request-type-filter">
-               <button
-                 className={`type-filter-btn ${viewMode === 'mine' ? 'active' : ''}`}
-                 onClick={() => setViewMode('mine')}
-               >
-                 My Requests
-               </button>
-               <button
-                 className={`type-filter-btn ${viewMode === 'others' ? 'active' : ''}`}
-                 onClick={() => setViewMode('others')}
-               >
-                 Others' Requests
-               </button>
-             </div>
+            {/* Request Type Filter */}
+            <div className="request-type-filter">
+              <button
+                className={`type-filter-btn ${viewMode === 'mine' ? 'active' : ''}`}
+                onClick={() => setViewMode('mine')}
+              >
+                My Requests
+              </button>
+              <button
+                className={`type-filter-btn ${viewMode === 'others' ? 'active' : ''}`}
+                onClick={() => setViewMode('others')}
+              >
+                Others' Requests
+              </button>
+            </div>
 
-             {/* Search and Actions */}
-             <div className="search-sort-section">
-               <div className="search-wrapper">
-                 <FaSearch className="search-icon" />
-                 <input
-                   type="text"
-                   placeholder="Search requests..."
-                   value={searchTerm}
-                   onChange={(e) => setSearchTerm(e.target.value)}
-                   className="search-input"
-                 />
-               </div>
-               
-               <button
-                 onClick={() => navigate('/pm/request-manpower')}
-                 className="btn-primary"
-               >
-                 <FaPlus />
-                 <span>Request Manpower</span>
-               </button>
-             </div>
-           </div>
+            {/* Search and Actions */}
+            <div className="search-sort-section">
+              <div className="search-wrapper">
+                <FaSearch className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search requests..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+              
+              <button
+                onClick={() => navigate('/hr/request-manpower')}
+                className="btn-primary"
+              >
+                <FaPlus />
+                <span>Request Manpower</span>
+              </button>
+            </div>
+          </div>
 
           {/* Requests Grid */}
           <div className={`requests-grid ${layoutView === 'table' ? 'table-view' : ''}`}>
@@ -390,8 +343,6 @@ export default function PmManpowerList() {
               </div>
             ) : (
               <>
-                {/* Table Header - REMOVED */}
-                
                 {pageRows.map(request => {
                   const summary = (request.manpowers || [])
                     .map((m) => `${m.quantity} ${m.type}`)
@@ -449,7 +400,7 @@ export default function PmManpowerList() {
                         
                         <div className="card-footer">
                           <Link
-                            to={`/pm/manpower-request/${request._id}`}
+                            to={`/hr/manpower-request/${request._id}`}
                             className="view-details-btn"
                           >
                             View Request
@@ -499,7 +450,7 @@ export default function PmManpowerList() {
                         
                         <div className="card-footer">
                           <Link
-                            to={`/pm/manpower-request/${request._id}`}
+                            to={`/hr/manpower-request/${request._id}`}
                             className="view-details-btn"
                           >
                             View Details
