@@ -779,6 +779,27 @@ exports.addProjectDiscussion = async (req, res) => {
 
     const responseData = project.discussions[project.discussions.length - 1];
 
+    // Log the action
+    try {
+      await logAction({
+        action: 'UPLOAD_PROJECT_DISCUSSION',
+        performedBy: req.user.id,
+        performedByRole: req.user.role,
+        description: `Added discussion to project ${project.projectName}`,
+        meta: { 
+          projectId: project._id, 
+          projectName: project.projectName,
+          discussionId: responseData._id,
+          hasText: !!text,
+          hasAttachments: uploadedAttachments.length > 0,
+          attachmentCount: uploadedAttachments.length,
+          label: label || 'none'
+        }
+      });
+    } catch (logErr) {
+      console.error('Audit log error (addProjectDiscussion):', logErr);
+    }
+
     const io = req.app.get('io');
     if (io) {
       // Emit a structured payload so clients can verify projectId and access the message
@@ -864,6 +885,27 @@ exports.replyToProjectDiscussion = async (req, res) => {
     await project.save();
 
     const responseReply = discussion.replies[discussion.replies.length - 1];
+
+    // Log the action
+    try {
+      await logAction({
+        action: 'UPLOAD_PROJECT_DISCUSSION',
+        performedBy: req.user.id,
+        performedByRole: req.user.role,
+        description: `Replied to discussion in project ${project.projectName}`,
+        meta: { 
+          projectId: project._id, 
+          projectName: project.projectName,
+          discussionId: msgId,
+          replyId: responseReply._id,
+          hasText: !!text,
+          hasAttachments: uploadedAttachments.length > 0,
+          attachmentCount: uploadedAttachments.length
+        }
+      });
+    } catch (logErr) {
+      console.error('Audit log error (replyToProjectDiscussion):', logErr);
+    }
     const io = req.app.get('io');
     if (io) {
       try {

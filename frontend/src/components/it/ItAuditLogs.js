@@ -4,6 +4,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import '../style/it_style/It_Dash.css';
 // Nav icons
 import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaClipboardList, FaFileExport, FaDownload } from 'react-icons/fa';
+// PDF export
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const ItAuditLog = () => {
   const navigate = useNavigate();
@@ -123,30 +126,45 @@ const ItAuditLog = () => {
     const actionLower = action?.toLowerCase();
     switch (actionLower) {
       case 'login':
+      case 'login_trusted':
         return '#10b981'; // Green
       case 'logout':
         return '#ef4444'; // Red
-      case 'upload file':
-        return '#8b5cf6'; // Purple
-      case 'submit report':
-        return '#06b6d4'; // Cyan
-      case 'submit material request':
-      case 'submit manpower request':
+      case 'create_material_request':
+      case 'create_manpower_request':
+      case 'add_project':
         return '#3b82f6'; // Blue
-      case 'edit material request':
-      case 'edit manpower request':
+      case 'update_material_request':
+      case 'update_manpower_request':
+      case 'update_project':
+      case 'update_project_tasks':
         return '#f59e0b'; // Yellow
-      case 'delete material request':
-      case 'delete manpower request':
-      case 'delete project':
+      case 'delete_material_request':
+      case 'delete_manpower_request':
+      case 'delete_project':
+      case 'delete_project_document':
         return '#dc2626'; // Red
-      case 'create new project':
-      case 'add new project':
+      case 'approve_material_request':
+      case 'approve_manpower_request':
         return '#059669'; // Green
-      case 'approve':
-        return '#059669'; // Green
-      case 'reject':
-        return '#dc2626'; // Red
+      case 'complete_manpower_request':
+        return '#10b981'; // Green
+      case 'add_project_documents':
+        return '#8b5cf6'; // Purple
+      case 'submit_daily_report':
+        return '#06b6d4'; // Cyan
+      case 'generate_attendance_report':
+        return '#8b5cf6'; // Purple
+      case 'submit_attendance_report':
+        return '#06b6d4'; // Cyan
+      case 'upload_project_discussion':
+        return '#8b5cf6'; // Purple
+      case 'upload_project_files':
+        return '#8b5cf6'; // Purple
+      case 'generate_dss_report':
+        return '#06b6d4'; // Cyan
+      case 'upload_chat_files':
+        return '#8b5cf6'; // Purple
       default:
         return '#6b7280'; // Gray
     }
@@ -156,48 +174,149 @@ const ItAuditLog = () => {
   const handleExport = async () => {
     setExportLoading(true);
     try {
-      await exportToCSV(filteredLogs);
+      await exportToPDF(filteredLogs);
       setExportModalOpen(false);
     } catch (error) {
       console.error('Export error:', error);
-      alert('Failed to export data. Please try again.');
+      alert('Failed to export PDF. Please try again.');
     } finally {
       setExportLoading(false);
     }
   };
 
-  const exportToCSV = async (data) => {
-    const headers = [
-      'Date/Time',
-      'Action', 
-      'Performed By',
-      'Role',
-      'Description',
-      'Details'
-    ];
-    
-    const rows = data.map(log => [
-      new Date(log.timestamp).toLocaleString(),
-      log.action || '',
-      log.performedBy?.name || 'Unknown',
-      log.performedByRole || '',
-      log.description || '',
-      JSON.stringify(log.meta || {})
-    ]);
-    
-    const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `audit-logs-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const exportToPDF = async (data) => {
+    try {
+      // Create new PDF document
+      const doc = new jsPDF();
+      
+      // Add company logo
+      const logoImg = new Image();
+      logoImg.src = '/images/Fadz-logo.png';
+      
+      await new Promise((resolve, reject) => {
+        logoImg.onload = () => {
+          try {
+            // Add logo to top left (scaled down)
+            doc.addImage(logoImg, 'PNG', 20, 20, 30, 30);
+            resolve();
+          } catch (error) {
+            console.warn('Could not add logo to PDF:', error);
+            resolve();
+          }
+        };
+        logoImg.onerror = () => {
+          console.warn('Could not load logo for PDF');
+          resolve();
+        };
+      });
+
+      // Add company name and title
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.text('FadzTrack', 60, 35);
+      
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('IT Audit Logs Report', 60, 50);
+      
+      // Add export details
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Exported by: ${userName} (${userRole})`, 20, 70);
+      doc.text(`Export Date: ${new Date().toLocaleString()}`, 20, 80);
+      
+      // Add active filters
+      let filterY = 95;
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Active Filters:', 20, filterY);
+      
+      filterY += 10;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      
+      if (search) {
+        doc.text(`Search: "${search}"`, 20, filterY);
+        filterY += 8;
+      }
+      if (roleFilter) {
+        doc.text(`Role: ${roleFilter}`, 20, filterY);
+        filterY += 8;
+      }
+      if (actionFilter) {
+        doc.text(`Action: ${actionFilter}`, 20, filterY);
+        filterY += 8;
+      }
+      if (startDate) {
+        doc.text(`Start Date: ${startDate}`, 20, filterY);
+        filterY += 8;
+      }
+      if (endDate) {
+        doc.text(`End Date: ${endDate}`, 20, filterY);
+        filterY += 8;
+      }
+      
+      // Add summary
+      filterY += 5;
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Total Records: ${data.length}`, 20, filterY);
+      
+      // Add table
+      const tableY = filterY + 20;
+      
+      const headers = [
+        'Date/Time',
+        'Action', 
+        'Performed By',
+        'Role',
+        'Description'
+      ];
+      
+      const rows = data.map(log => [
+        new Date(log.timestamp).toLocaleString(),
+        log.action || '',
+        log.performedBy?.name || 'Unknown',
+        log.performedByRole || '',
+        log.description || ''
+      ]);
+      
+      // Use autoTable for better table formatting
+      autoTable(doc, {
+        head: [headers],
+        body: rows,
+        startY: tableY,
+        margin: { top: 20, right: 20, bottom: 20, left: 20 },
+        styles: {
+          fontSize: 8,
+          cellPadding: 2,
+          overflow: 'linebreak'
+        },
+        headStyles: {
+          fillColor: [59, 130, 246],
+          textColor: 255,
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        columnStyles: {
+          0: { cellWidth: 35 }, // Date/Time
+          1: { cellWidth: 30 }, // Action
+          2: { cellWidth: 35 }, // Performed By
+          3: { cellWidth: 25 }, // Role
+          4: { cellWidth: 50 }  // Description
+        }
+      });
+      
+      // Save the PDF
+      const fileName = `audit-logs-${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      throw new Error('Failed to generate PDF');
+    }
   };
 
   // Clear all filters
@@ -332,7 +451,7 @@ const ItAuditLog = () => {
               }}
             >
               <FaFileExport />
-              Export Logs
+              Export PDF
             </button>
           </div>
 
@@ -526,19 +645,43 @@ const ItAuditLog = () => {
                    e.target.style.boxShadow = 'none';
                  }}
                >
-                 <option value="">All Actions</option>
+                                  <option value="">All Actions</option>
                  <option value="login">Login</option>
-                 <option value="upload file">Upload File</option>
-                 <option value="submit report">Submit Report</option>
-                 <option value="delete material request">Delete Material Request</option>
-                 <option value="submit material request">Submit Material Request</option>
-                 <option value="edit material request">Edit Material Request</option>
-                 <option value="delete manpower request">Delete Manpower Request</option>
-                 <option value="submit manpower request">Submit Manpower Request</option>
-                 <option value="edit manpower request">Edit Manpower Request</option>
-                 <option value="create new project">Create New Project</option>
-                 <option value="delete project">Delete Project</option>
-                                  <option value="add new project">Add New Project</option>
+                 <option value="login_trusted">Login (Trusted Device)</option>
+                 <option value="logout">Logout</option>
+                 <option value="CREATE_MATERIAL_REQUEST">Create Material Request</option>
+                 <option value="CEO_CREATE_MATERIAL_REQUEST">CEO Create Material Request</option>
+                 <option value="UPDATE_MATERIAL_REQUEST">Update Material Request</option>
+                 <option value="CEO_UPDATE_MATERIAL_REQUEST">CEO Update Material Request</option>
+                 <option value="DELETE_MATERIAL_REQUEST">Delete Material Request</option>
+                 <option value="CEO_DELETE_MATERIAL_REQUEST">CEO Delete Material Request</option>
+                 <option value="APPROVE_MATERIAL_REQUEST">Approve Material Request</option>
+                 <option value="CEO_APPROVE_MATERIAL_REQUEST">CEO Approve Material Request</option>
+                 <option value="CREATED_MANPOWER_REQUEST">Create Manpower Request</option>
+                 <option value="CEO_CREATED_MANPOWER_REQUEST">CEO Create Manpower Request</option>
+                 <option value="UPDATE_MANPOWER_REQUEST">Update Manpower Request</option>
+                 <option value="CEO_UPDATED_MANPOWER_REQUEST">CEO Update Manpower Request</option>
+                 <option value="DELETE_MANPOWER_REQUEST">Delete Manpower Request</option>
+                 <option value="CEO_DELETED_MANPOWER_REQUEST">CEO Delete Manpower Request</option>
+                 <option value="APPROVE_MANPOWER_REQUEST">Approve Manpower Request</option>
+                 <option value="COMPLETE_MANPOWER_REQUEST">Complete Manpower Request</option>
+                 <option value="ADD_PROJECT">Add Project</option>
+                 <option value="CEO_ADD_PROJECT">CEO Add Project</option>
+                 <option value="UPDATE_PROJECT">Update Project</option>
+                 <option value="CEO_UPDATE_PROJECT">CEO Update Project</option>
+                 <option value="DELETE_PROJECT">Delete Project</option>
+                 <option value="CEO_DELETE_PROJECT">CEO Delete Project</option>
+                 <option value="UPDATE_PROJECT_TASKS">Update Project Tasks</option>
+                 <option value="ADD_PROJECT_DOCUMENTS">Add Project Documents</option>
+                 <option value="DELETE_PROJECT_DOCUMENT">Delete Project Document</option>
+                 <option value="CEO_DELETE_PROJECT_DOCUMENT">CEO Delete Project Document</option>
+                 <option value="SUBMIT_DAILY_REPORT">Submit Daily Report</option>
+                 <option value="GENERATE_ATTENDANCE_REPORT">Generate Attendance Report</option>
+                 <option value="SUBMIT_ATTENDANCE_REPORT">Submit Attendance Report</option>
+                 <option value="UPLOAD_PROJECT_DISCUSSION">Upload Project Discussion</option>
+                 <option value="UPLOAD_PROJECT_FILES">Upload Project Files</option>
+                 <option value="GENERATE_DSS_REPORT">Generate DSS Report</option>
+                 <option value="UPLOAD_CHAT_FILES">Upload Chat Files</option>
                </select>
              </div>
              <div style={{ flex: 1, minWidth: 150, display: 'flex', alignItems: 'end' }}>
@@ -914,7 +1057,7 @@ const ItAuditLog = () => {
                 marginBottom: '20px'
               }}>
                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#1f2937' }}>
-                  Export Audit Logs
+                  Export to PDF
                 </h3>
                 <button
                   onClick={() => setExportModalOpen(false)}
@@ -933,7 +1076,7 @@ const ItAuditLog = () => {
               
               <div style={{ marginBottom: '24px' }}>
                 <p style={{ margin: '0 0 16px 0', color: '#6b7280', fontSize: '14px' }}>
-                  Export the filtered audit logs to CSV format.
+                  Export the filtered audit logs to PDF format with company branding.
                 </p>
                 <div style={{
                   padding: '16px',
@@ -949,7 +1092,7 @@ const ItAuditLog = () => {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: '14px', color: '#374151' }}>Format:</span>
-                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>CSV</span>
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>PDF</span>
                   </div>
                 </div>
               </div>
@@ -1024,7 +1167,7 @@ const ItAuditLog = () => {
                   ) : (
                     <>
                       <FaDownload />
-                      Export {filteredLogs.length} Records
+                      Export {filteredLogs.length} Records to PDF
                     </>
                   )}
                 </button>

@@ -22,6 +22,7 @@ const notificationRoutes = require('./route/notification');
 const messageRoutes = require('./route/messageRoutes');
 const dssReportRoutes = require('./route/dssReport');
 const photoSignedUrlRoute = require('./route/photoSignedUrl');
+const hrSiteAttendanceRoutes = require('./route/hrSiteAttendance');
 
 // Models
 const Message = require('./models/Messages');
@@ -241,6 +242,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/daily-reports', dailyReportRoutes);
 app.use('/api/dss-report', dssReportRoutes);
 app.use('/api/photo-signed-url', photoSignedUrlRoute);
+app.use('/api/hr-site-attendance', hrSiteAttendanceRoutes);
 app.use('/api/gemini', geminiRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/messages', messageRoutes);

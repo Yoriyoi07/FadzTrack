@@ -1,6 +1,7 @@
 const express = require('express');
 const axios = require('axios');
 const router = express.Router();
+const { logAction } = require('../utils/auditLogger');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
@@ -31,6 +32,27 @@ router.post('/generate-dss-report', async (req, res) => {
       }
     );
     const aiReply = geminiResponse.data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No response';
+    
+    // Log the action
+    try {
+      await logAction({
+        action: 'GENERATE_DSS_REPORT',
+        performedBy: req.user?.id || 'unknown',
+        performedByRole: req.user?.role || 'unknown',
+        description: `Generated DSS report using ${logs.length} daily logs`,
+        meta: { 
+          logsCount: logs.length,
+          logsDateRange: {
+            start: logs[logs.length - 1]?.date,
+            end: logs[0]?.date
+          },
+          aiResponseLength: aiReply.length
+        }
+      });
+    } catch (logErr) {
+      console.error('Audit log error (generateDssReport):', logErr);
+    }
+    
     res.json({ result: aiReply });
   } catch (error) {
     console.error("Gemini AI request failed:", error.response?.data || error.message || error);

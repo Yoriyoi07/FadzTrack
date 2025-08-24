@@ -2,12 +2,42 @@ const DailyReport = require('../models/DailyReport');
 const Project = require('../models/Project');
 const MaterialRequest = require('../models/MaterialRequest');
 const User = require('../models/User');
+const { logAction } = require('../utils/auditLogger');
 
 // Create a new daily report
 exports.createDailyReport = async (req, res) => {
   try {
     const dailyReport = new DailyReport(req.body);
     await dailyReport.save();
+    
+    // Get project name for logging
+    let projectName = 'Unknown Project';
+    try {
+      const project = await Project.findById(dailyReport.project).select('projectName');
+      if (project) {
+        projectName = project.projectName;
+      }
+    } catch (err) {
+      console.error('Error fetching project for logging:', err);
+    }
+    
+    // Log the action
+    await logAction({
+      action: 'SUBMIT_DAILY_REPORT',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `Submitted daily report for project ${projectName}`,
+      meta: { 
+        reportId: dailyReport._id, 
+        projectId: dailyReport.project,
+        projectName,
+        date: dailyReport.date,
+        weatherCondition: dailyReport.weatherCondition,
+        workTasksCount: dailyReport.workPerformed?.length || 0,
+        attendanceCount: dailyReport.siteAttendance?.length || 0
+      }
+    });
+    
     res.status(201).json(dailyReport);
   } catch (error) {
     res.status(400).json({ message: error.message });

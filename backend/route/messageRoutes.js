@@ -5,6 +5,8 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { verifyToken } = require('../middleware/authMiddleware');
+const upload = require('../middleware/upload');
+const { logAction } = require('../utils/auditLogger');
 
 const Message = require('../models/Messages');
 const Chat    = require('../models/Chats');
@@ -24,7 +26,7 @@ const fileFilter = (_req, file, cb) => {
   cb(ok ? null : new Error('Unsupported file type'), ok);
 };
 
-const upload = multer({
+const uploadMulter = multer({
   storage,
   fileFilter,
   limits: { fileSize: 25 * 1024 * 1024, files: 10 } // 25MB each, up to 10 files
@@ -74,7 +76,7 @@ router.get('/:chatId', async (req, res) => {
 });
 
 // POST /api/messages  -> create text and/or file message (multipart supported)
-router.post('/', upload.any(), async (req, res) => {
+router.post('/', uploadMulter.any(), async (req, res) => {
     try {
       const userId = req.user.id;
   // content can come from multipart/form-data or JSON body
@@ -126,6 +128,28 @@ router.post('/', upload.any(), async (req, res) => {
         message: (content || '').trim(),
         attachments: files,
       });
+
+      // Log file uploads if any
+      if (files.length > 0) {
+        try {
+          await logAction({
+            action: 'UPLOAD_CHAT_FILES',
+            performedBy: userId,
+            performedByRole: req.user.role,
+            description: `Uploaded ${files.length} file(s) to chat conversation`,
+            meta: { 
+              conversationId: conversation,
+              messageId: msg._id,
+              filesCount: files.length,
+              fileNames: files.map(f => f.name),
+              fileTypes: files.map(f => f.mime),
+              totalSize: files.reduce((sum, f) => sum + (f.size || 0), 0)
+            }
+          });
+        } catch (logErr) {
+          console.error('Audit log error (uploadChatFiles):', logErr);
+        }
+      }
 
       // Update lastMessage for chat (text preview or label)
       const preview =
