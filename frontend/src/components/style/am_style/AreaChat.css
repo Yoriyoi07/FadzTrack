@@ -705,6 +705,8 @@
   padding: 0.5rem;
   border: 2px solid transparent;
   transition: all 0.3s ease;
+  /* Added so the absolutely positioned .modern-emoji-picker anchors to this wrapper */
+  position: relative;
 }
 
 .modern-input-wrapper:focus-within {
@@ -794,15 +796,20 @@
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
 }
 
+
 /* Info Sidebar - Messenger Style */
 .modern-contact-info {
   width: 360px;
   background: #ffffff;
   border-left: 1px solid #e4e6ea;
   padding: 0;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%; /* fill available chat wrapper height */
+  max-height: 100%;
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
   position: relative;
+  overflow: hidden;
 }
 
 /* Messenger Header */
@@ -852,8 +859,9 @@
 /* Messenger Content */
 .messenger-content {
   padding: 0;
+  flex: 1 1 auto;
   overflow-y: auto;
-  max-height: calc(100vh - 180px);
+  max-height: calc(100% - 56px); /* subtract header height */
 }
 
 /* Profile Section */
@@ -978,55 +986,54 @@
   background: #ffffff;
 }
 
-.action-btn {
+ .modern-contact-info .actions-section .action-btn {
   width: 100%;
-  padding: 10px 16px;
-  background: none;
-  border: none;
+  padding: 14px 20px; /* larger click target */
+  background: #f7f9fb;
+  border: 1px solid #dbe1e6;
   text-align: left;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 12px;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  color: #050505;
-  font-size: 0.9rem;
-  margin-bottom: 4px;
-}
+  gap: 14px;
+  border-radius: 10px;
+  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
+  color: #1f2933;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: .2px;
+  margin-bottom: 10px;
+  line-height: 1.25;
+ }
 
-.action-btn:hover {
-  background: #f0f2f5;
-}
+ .modern-contact-info .actions-section .action-btn span { flex:1; }
+
+ .modern-contact-info .actions-section .action-btn:hover {
+  background: #eef3f8;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  transform: translateY(-1px);
+ }
+
+ .modern-contact-info .actions-section .action-btn:active { transform: translateY(0); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
 
 .action-btn:last-child {
   margin-bottom: 0;
 }
 
-.action-btn svg {
-  font-size: 1rem;
-  color: #65676b;
-}
+ .modern-contact-info .actions-section .action-btn svg {
+  font-size: 1.05rem;
+  color: #4b5563;
+  flex-shrink: 0;
+ }
 
-.add-members-btn {
-  color: #0084ff;
-}
-
-.add-members-btn svg {
-  color: #0084ff;
-}
-
-.share-link-btn {
-  color: #0084ff;
-}
-
-.block-btn {
-  color: #e41e3f;
-}
-
-.report-btn {
-  color: #e41e3f;
-}
+ .modern-contact-info .actions-section .add-members-btn,
+ .modern-contact-info .actions-section .share-link-btn { color:#036ad7; background: linear-gradient(135deg,#e3f2ff,#f5faff); }
+ .modern-contact-info .actions-section .add-members-btn svg,
+ .modern-contact-info .actions-section .share-link-btn svg { color:#036ad7; }
+ .modern-contact-info .actions-section .block-btn,
+ .modern-contact-info .actions-section .report-btn { color:#b91c1c; background: linear-gradient(135deg,#ffe5e8,#fff); }
+ .modern-contact-info .actions-section .block-btn:hover,
+ .modern-contact-info .actions-section .report-btn:hover { background:#ffe9ec; }
 
 /* Details Section */
 .details-section {
@@ -1145,6 +1152,10 @@
   padding: 2px 5px;
   border-radius: 10px;
   font-weight: 500;
+}
+.member-badge.admin {
+  background: #f59e0b;
+  color: #fff;
 }
 
 .remove-member-btn {
@@ -1450,545 +1461,73 @@
   transform: translateY(-2px);
 }
 
-/* Responsive Design */
-@media (max-width: 1200px) {
-  .modern-sidebar {
-    width: 300px;
-  }
-  
-  .modern-contact-info {
-    width: 300px;
-  }
-  
-  .modern-contact-info .details-content {
-    padding: 1.5rem;
-  }
-  
-  .modern-contact-info .detail-section {
-    padding: 1.25rem;
-  }
+/* Media & Files sidebar enhancements */
+.info-tab-buttons { display:flex; gap:6px; margin-bottom:10px; }
+.info-tab-buttons button { flex:1; padding:6px 10px; font-size:12px; background:#eef1f5; border:1px solid #d5dae0; border-radius:6px; cursor:pointer; transition:.2s; font-weight:500; }
+.info-tab-buttons button.active { background:#2563eb; color:#fff; border-color:#2563eb; box-shadow:0 2px 6px rgba(37,99,235,.35); }
+.info-tab-buttons button:not(.active):hover { background:#e2e8f0; }
+
+.info-media-grid { max-height:240px; overflow-y:auto; padding:4px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; }
+.info-media-grid::-webkit-scrollbar { width:6px; }
+.info-media-grid::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+.info-media-grid::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+.info-media-grid .info-media-item { position:relative; aspect-ratio:1/1; overflow:hidden; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,.08); cursor:pointer; }
+.info-media-grid .info-media-item img { width:100%; height:100%; object-fit:cover; transition:transform .3s; }
+.info-media-grid .info-media-item:hover img { transform:scale(1.05); }
+
+.info-files-list { max-height:240px; overflow-y:auto; padding:6px 4px; display:flex; flex-direction:column; gap:6px; border:1px solid #e2e8f0; border-radius:10px; background:#fff; }
+.info-files-list a { display:flex; align-items:center; gap:6px; padding:6px 10px; background:#f1f5f9; border-radius:6px; font-size:12px; color:#0f172a; text-decoration:none; position:relative; }
+.info-files-list a:hover { background:#e2e8f0; }
+.info-files-list a:active { background:#cbd5e1; }
+
+.info-files-list a:before { content:'📎'; }
+
+/* Empty states */
+.info-media-grid:empty::after { content:'No media yet'; color:#64748b; font-size:12px; display:block; text-align:center; padding:12px 0; }
+.info-files-list:empty::after { content:'No files yet'; color:#64748b; font-size:12px; display:block; text-align:center; padding:12px 0; }
+
+/* Scrollbar general fallback */
+.info-files-list::-webkit-scrollbar { width:6px; }
+.info-files-list::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+.info-files-list::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+
+/* Force consistent attachment image sizing (override any global img rules) */
+.area-chat-wrapper .msg-attachments .att-link.img,
+.area-chat-wrapper .msg-attachments img.att-image {
+  max-width:220px !important;
+  max-height:220px !important;
+  width:auto;
+  height:auto;
+}
+.area-chat-wrapper .att-image { max-width:220px !important; max-height:220px !important; object-fit:cover; border-radius:12px; }
+@media (max-width:600px){
+  .area-chat-wrapper .msg-attachments .att-link.img,
+  .area-chat-wrapper .msg-attachments img.att-image,
+  .area-chat-wrapper .att-image { max-width:160px !important; max-height:160px !important; }
+}
+@media (max-width:900px) {
+  .info-media-grid { grid-template-columns:repeat(auto-fill,minmax(70px,1fr)); }
+  .info-media-grid .info-media-item { border-radius:6px; }
 }
 
-@media (max-width: 992px) {
-  .header-nav {
-    gap: 0.25rem;
-  }
-  
-  .nav-item {
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-  }
-  
-  .nav-item span {
-    display: none;
-  }
-  
-  .modern-sidebar {
-    width: 280px;
-  }
-  
-  .modern-contact-info {
-    width: 280px;
-  }
-  
-  .modern-contact-info h3 {
-    font-size: 1.3rem;
-    padding: 1.25rem 1.5rem;
-  }
-  
-  .modern-contact-info .details-content {
-    padding: 1.25rem;
-  }
-  
-  .modern-contact-info .detail-section {
-    padding: 1rem;
-  }
+/* Pending (pre-send) attachment preview sizing */
+.area-chat-wrapper .pending-previews { display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 4px; max-height:180px; overflow-y:auto; }
+.area-chat-wrapper .pending-item { position:relative; width:110px; height:110px; border:1px solid #e2e8f0; border-radius:12px; background:#ffffff; display:flex; align-items:center; justify-content:center; padding:4px; box-shadow:0 2px 4px rgba(0,0,0,.06); }
+.area-chat-wrapper .pending-item img.pending-thumb,
+.area-chat-wrapper .pending-item video.pending-thumb { width:100%; height:100%; object-fit:cover; border-radius:8px; }
+.area-chat-wrapper .pending-item video.pending-thumb { background:#000; }
+.area-chat-wrapper .pending-item .pending-chip { display:inline-block; font-size:11px; line-height:1.2; text-align:center; padding:6px 8px; background:#f1f5f9; color:#0f172a; border-radius:8px; max-width:100%; word-break:break-word; }
+.area-chat-wrapper .pending-item .remove-pending { position:absolute; top:2px; right:2px; width:20px; height:20px; border:none; border-radius:50%; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; font-size:13px; line-height:18px; display:flex; align-items:center; justify-content:center; transition:.2s; }
+.area-chat-wrapper .pending-item .remove-pending:hover { background:rgba(0,0,0,.75); }
+/* Scrollbar styling for preview tray */
+.area-chat-wrapper .pending-previews::-webkit-scrollbar { height:8px; width:8px; }
+.area-chat-wrapper .pending-previews::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+.area-chat-wrapper .pending-previews::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+@media (max-width:600px){
+  .area-chat-wrapper .pending-item { width:90px; height:90px; }
 }
-
-@media (max-width: 768px) {
-  .header-top,
-  .header-bottom {
-    padding: 1rem;
-  }
-  
-  .header-brand {
-    font-size: 1.5rem;
-  }
-  
-  .header-logo {
-    height: 40px;
-  }
-  
-  .profile-info {
-    display: none;
-  }
-  
-  .modern-sidebar {
-    width: 100%;
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    z-index: 100;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-  }
-  
-  .modern-sidebar.show {
-    transform: translateX(0);
-  }
-  
-  .modern-chat-wrapper {
-    margin: 0.5rem;
-  }
-  
-  .modern-chat-header {
-    padding: 1rem;
-  }
-  
-  .modern-chat-messages {
-    padding: 1rem;
-  }
-  
-  .modern-message-input-container {
-    padding: 1rem;
-  }
-  
-  .modal {
-    margin: 1rem;
-    padding: 1.5rem;
-  }
-  
-  .modern-contact-info {
-    width: 100%;
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 100%;
-    z-index: 200;
-    transform: translateX(100%);
-    transition: transform 0.3s ease;
-  }
-  
-  .modern-contact-info.show {
-    transform: translateX(0);
-  }
-  
-  .modern-contact-info h3 {
-    font-size: 1.2rem;
-    padding: 1rem 1.5rem;
-  }
-  
-  .modern-contact-info .details-content {
-    padding: 1rem;
-  }
-  
-  .modern-contact-info .detail-section {
-    padding: 0.75rem;
-  }
-}
-
-@media (max-width: 576px) {
-  .header-top {
-    flex-direction: row !important;
-    gap: 1rem;
-    align-items: center;
-  }
-  
-  .header-logo {
-    height: 35px;
-  }
-  
-  .header-brand {
-    font-size: 1.3rem;
-  }
-  
-  .header-bottom {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: flex-start;
-  }
-  
-  .header-nav {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  
-  .nav-item {
-    padding: 0.5rem 0.75rem;
-  }
-  
-  .modern-chat-header-info h3 {
-    font-size: 1.1rem;
-  }
-  
-  .modern-message {
-    max-width: 85%;
-  }
-}
-
-@media (max-width: 1200px) {
-  .modern-contact-info {
-    width: 340px;
-  }
-}
-
-@media (max-width: 992px) {
-  .modern-contact-info {
-    width: 320px;
-  }
-  
-  .profile-avatar-large {
-    width: 60px;
-    height: 60px;
-    font-size: 1.4rem;
-  }
-  
-  .name-container h4 {
-    font-size: 1rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .modern-contact-info {
-    width: 100%;
-    position: absolute;
-    top: 0;
-    right: 0;
-    height: 100%;
-    z-index: 200;
-    transform: translateX(100%);
-    transition: transform 0.3s ease;
-  }
-  
-  .modern-contact-info.show {
-    transform: translateX(0);
-  }
-  
-  .profile-avatar-large {
-    width: 56px;
-    height: 56px;
-    font-size: 1.3rem;
-  }
-  
-  .name-container h4 {
-    font-size: 0.95rem;
-  }
-  
-  .action-btn {
-    padding: 8px 12px;
-    font-size: 0.85rem;
-  }
-  
-  .messenger-header {
-    padding: 10px 16px;
-  }
-  
-  .profile-section,
-  .actions-section,
-  .details-section,
-  .members-section {
-    padding: 10px 16px;
-  }
-}
-
-/* Message Seen Feature */
-.message-seen-info {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 8px;
-  position: relative;
-}
-
-.seen-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.75rem;
-  cursor: pointer;
-  padding: 2px 6px;
-  border-radius: 12px;
-  transition: all 0.2s ease;
-  user-select: none;
-}
-
-/* DM Seen Indicator - Simple "Seen" text */
-.seen-indicator.dm-seen {
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.1);
-  cursor: default;
-}
-
-.modern-message.other .seen-indicator.dm-seen {
-  color: rgba(0, 0, 0, 0.6);
-  background: rgba(0, 0, 0, 0.05);
-}
-
-/* Group Seen Indicator - Clickable with names */
-.seen-indicator.group-seen {
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.15);
-  cursor: pointer;
-  font-weight: 500;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.seen-indicator.group-seen:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: scale(1.05);
-}
-
-.modern-message.other .seen-indicator.group-seen {
-  color: rgba(0, 0, 0, 0.7);
-  background: rgba(0, 0, 0, 0.08);
-}
-
-.modern-message.other .seen-indicator.group-seen:hover {
-  background: rgba(0, 0, 0, 0.12);
-}
-
-.seen-details-tooltip {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 8px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  padding: 16px;
-  min-width: 200px;
-  z-index: 1000;
-  border: 1px solid #e4e6ea;
-}
-
-.seen-details-tooltip::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-top: 8px solid white;
-}
-
-.tooltip-header {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #050505;
-  margin-bottom: 12px;
-  text-align: center;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #f0f2f5;
-}
-
-.seen-users-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.seen-user {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-}
-
-.seen-user-name {
-  font-size: 0.8rem;
-  color: #050505;
-  font-weight: 500;
-}
-
-.seen-time {
-  font-size: 0.75rem;
-  color: #65676b;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-}
-
-/* Enhanced message time layout for seen feature */
-.modern-message-time {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  font-size: 0.75rem;
-  opacity: 0.7;
-}
-
-.modern-message.other .modern-message-time {
-  justify-content: flex-start;
-}
-
-/* Responsive adjustments for seen feature */
-@media (max-width: 768px) {
-  .seen-details-tooltip {
-    min-width: 180px;
-    padding: 12px;
-    margin-bottom: 6px;
-  }
-  
-  .tooltip-header {
-    font-size: 0.8rem;
-    margin-bottom: 10px;
-  }
-  
-  .seen-user-name {
-    font-size: 0.75rem;
-  }
-  
-  .seen-time {
-    font-size: 0.7rem;
-  }
-  
-  .seen-indicator {
-    font-size: 0.7rem;
-    padding: 1px 4px;
-  }
-  
-  .seen-indicator.group-seen {
-    max-width: 100px;
-  }
-}
-
-@media (max-width: 480px) {
-  .seen-details-tooltip {
-    min-width: 160px;
-    padding: 10px;
-    margin-bottom: 5px;
-  }
-  
-  .tooltip-header {
-    font-size: 0.75rem;
-    margin-bottom: 8px;
-  }
-  
-  .seen-user-name {
-    font-size: 0.7rem;
-  }
-  
-  .seen-time {
-    font-size: 0.65rem;
-  }
-  
-  .seen-indicator {
-    font-size: 0.65rem;
-    padding: 1px 3px;
-  }
-  
-  .seen-indicator.group-seen {
-    max-width: 80px;
-  }
-}
-
-/* Responsive design for reactions */
-@media (max-width: 768px) {
-  .hover-reactions-bar {
-    top: -30px;
-    padding: 4px 6px;
-    border-radius: 15px;
-  }
-  
-  .hover-reaction-btn {
-    font-size: 1rem;
-  }
-  
-  .reaction-pill {
-    padding: 3px 6px;
-    font-size: 0.75rem;
-    min-height: 20px;
-  }
-  
-  .reaction-emoji {
-    font-size: 0.8rem;
-  }
-  
-  .reaction-count {
-    font-size: 0.65rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .hover-reactions-bar {
-    top: -25px;
-    padding: 3px 5px;
-    border-radius: 12px;
-  }
-  
-  .hover-reaction-btn {
-    font-size: 0.9rem;
-  }
-  
-  /* Ensure reaction bar is visible on very small screens */
-  .modern-message-wrapper.other .hover-reactions-bar {
-    margin-left: 4px;
-  }
-  
-  .modern-message-wrapper.own .hover-reactions-bar {
-    margin-right: 4px;
-  }
-  
-  .reaction-pill {
-    padding: 2px 4px;
-    font-size: 0.7rem;
-    min-height: 18px;
-  }
-  
-  .reaction-emoji {
-    font-size: 0.7rem;
-  }
-  
-  .reaction-count {
-    font-size: 0.6rem;
-  }
-}
-
-/* Scroll to bottom button */
-.scroll-to-bottom-btn {
-  position: absolute;
-  bottom: 120px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #4b5563;
-  color: white;
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: normal;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  transition: all 0.3s ease;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.scroll-to-bottom-btn:hover {
-  transform: translateX(-50%) translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  background: #6b7280;
-}
-
-.scroll-to-bottom-btn:active {
-  transform: translateX(-50%) translateY(0);
-}
-
-/* Responsive adjustments for scroll button */
-@media (max-width: 768px) {
-  .scroll-to-bottom-btn {
-    bottom: 15px;
-    width: 28px;
-    height: 28px;
-    font-size: 12px;
-  }
-}
+/* Also apply to other role chat wrappers that reuse components */
+.ceo-chat-wrapper .pending-previews, .hr-chat-wrapper .pending-previews, .it-chat-wrapper .pending-previews, .pm-chat-wrapper .pending-previews, .pic-chat-wrapper .pending-previews, .picchat-wrapper .pending-previews { display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 4px; max-height:180px; overflow-y:auto; }
+.ceo-chat-wrapper .pending-item, .hr-chat-wrapper .pending-item, .it-chat-wrapper .pending-item, .pm-chat-wrapper .pending-item, .pic-chat-wrapper .pending-item, .picchat-wrapper .pending-item { position:relative; width:110px; height:110px; border:1px solid #e2e8f0; border-radius:12px; background:#ffffff; display:flex; align-items:center; justify-content:center; padding:4px; box-shadow:0 2px 4px rgba(0,0,0,.06); }
+.ceo-chat-wrapper .pending-item img.pending-thumb, .hr-chat-wrapper .pending-item img.pending-thumb, .it-chat-wrapper .pending-item img.pending-thumb, .pm-chat-wrapper .pending-item img.pending-thumb, .pic-chat-wrapper .pending-item img.pending-thumb, .picchat-wrapper .pending-item img.pending-thumb,
+.ceo-chat-wrapper .pending-item video.pending-thumb, .hr-chat-wrapper .pending-item video.pending-thumb, .it-chat-wrapper .pending-item video.pending-thumb, .pm-chat-wrapper .pending-item video.pending-thumb, .pic-chat-wrapper .pending-item video.pending-thumb, .picchat-wrapper .pending-item video.pending-thumb { width:100%; height:100%; object-fit:cover; border-radius:8px; }

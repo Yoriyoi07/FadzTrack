@@ -1,243 +1,206 @@
-// routes/messageRoutes.js
-const express         = require('express');
-const multer          = require('multer');
-const path            = require('path');
-const mongoose        = require('mongoose');
-const { verifyToken } = require('../middleware/authMiddleware');
-const Message         = require('../models/Messages');
-const Chat            = require('../models/Chats');
-
+// route/messageRoutes.js
+const path = require('path');
+const fs = require('fs');
+const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const { verifyToken } = require('../middleware/authMiddleware');
+
+const Message = require('../models/Messages');
+const Chat    = require('../models/Chats');
+const supabase = require('../utils/supabaseClient');
+
+// use memory storage and upload to Supabase private bucket 'message'
+const storage = multer.memoryStorage();
+
+// accept common images/videos/audio/docs
+const fileFilter = (_req, file, cb) => {
+  const ok = [
+    /^image\//, /^video\//, /^audio\//,
+    /pdf$/, /msword$/, /vnd.openxmlformats-officedocument/,
+    /excel$/, /spreadsheetml/, /text\/plain$/,
+    /csv$/, /powerpoint$/, /presentation/
+  ].some(rx => rx.test(file.mimetype));
+  cb(ok ? null : new Error('Unsupported file type'), ok);
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 25 * 1024 * 1024, files: 10 } // 25MB each, up to 10 files
+});
+
+// ---------- auth ----------
 router.use(verifyToken);
 
-/* ----------------------------- Multer (files) ----------------------------- */
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads/'),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname || '');
-    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2, 9)}${ext}`);
-  }
-});
-const upload = multer({ storage });
-
-/* ------------------------- GET /api/messages/:chatId ---------------------- */
+// GET /api/messages/:chatId  -> list messages
 router.get('/:chatId', async (req, res) => {
   try {
     const { chatId } = req.params;
-    if (!mongoose.isValidObjectId(chatId)) {
-      return res.status(400).json({ error: 'Invalid chatId' });
+    const chat = await Chat.findById(chatId);
+    if (!chat) return res.status(404).json({ error: 'Chat not found' });
+    if (!chat.users.map(String).includes(String(req.user.id)))
+      return res.status(403).json({ error: 'Access denied' });
+
+    const msgs = await Message.find({ conversation: chatId }).sort({ createdAt: 1 }).lean();
+    // convert any attachment.path to a fresh signed URL (short-lived)
+    const bucket = 'message';
+    for (const m of msgs) {
+      if (Array.isArray(m.attachments) && m.attachments.length) {
+        const conv = m;
+        const items = [];
+        for (const a of (conv.attachments || [])) {
+          if (a.path) {
+            try {
+              const { data: urlData, error } = await supabase.storage.from(bucket).createSignedUrl(a.path, 60 * 60);
+              items.push({ ...a, url: urlData?.signedUrl || a.url });
+            } catch (e) {
+              console.error('Error creating signed url for attachment:', e);
+              items.push(a);
+            }
+          } else {
+            items.push(a);
+          }
+        }
+        m.attachments = items;
+      }
     }
 
-    const msgs = await Message.find({ conversation: chatId })
-      .populate('sender', 'firstname lastname _id') // preserve your populate
-      .sort({ createdAt: 1 });
-
-    const out = msgs.map(m => ({
-      _id:          m._id,
-      conversation: m.conversation,
-      senderId:     m.sender?._id,                     // alias used by client
-      message:      m.type === 'text' ? m.content : null,
-      fileUrl:      m.fileUrl || null,
-      type:         m.type,
-      reactions:    m.reactions || [],
-      seen:         m.seen || [],
-      createdAt:    m.createdAt,
-      updatedAt:    m.updatedAt
-    }));
-
-    return res.json(out);
+    return res.json(msgs);
   } catch (err) {
-    console.error('❌ GET /api/messages/:chatId error:', err);
+    console.error('❌ GET /messages/:chatId', err);
     return res.status(500).json({ error: 'Failed to fetch messages' });
   }
 });
 
-/* ---------------------------- POST /api/messages -------------------------- */
-/**
- * Accepts either:
- * - Text: JSON { sender, conversation, content, type: 'text', clientId? }
- * - File: multipart/form-data with field "file", plus { sender, conversation, type?, clientId? }
- *   (If "type" omitted and file provided, we set type='file')
- */
-router.post('/', upload.single('file'), async (req, res) => {
-  try {
-    const io = req.app.get('io');
-
-    const { sender, conversation, clientId } = req.body;
-    let { type, content } = req.body;
-
-    if (!sender || !conversation) {
-      return res.status(400).json({ error: 'sender and conversation are required' });
-    }
-    if (!mongoose.isValidObjectId(sender) || !mongoose.isValidObjectId(conversation)) {
-      return res.status(400).json({ error: 'Invalid sender or conversation id' });
-    }
-
-    const chat = await Chat.findById(conversation);
-    if (!chat) return res.status(404).json({ error: 'Chat not found' });
-
-    const payload = {
-      sender,
-      conversation,
-      type: 'text',
-      reactions: [],
-      seen: [],
-    };
-
-    if (req.file) {
-      // file upload case
-      payload.type    = type && type !== 'text' ? type : 'file';
-      payload.fileUrl = `/uploads/${req.file.filename}`;
-    } else {
-      // text case
-      payload.type = type || 'text';
-      payload.content = content || '';
-      if (!payload.content && !payload.fileUrl) {
-        return res.status(400).json({ error: 'Message content or file is required' });
-      }
-    }
-
-    // 1) Save
-    const msg = await Message.create(payload);
-
-    // 2) Update chat preview
+// POST /api/messages  -> create text and/or file message (multipart supported)
+router.post('/', upload.any(), async (req, res) => {
     try {
-      await Chat.findByIdAndUpdate(conversation, {
-        lastMessage: {
-          content: payload.type === 'text' ? payload.content : payload.fileUrl,
-          timestamp: msg.createdAt
+      const userId = req.user.id;
+  // content can come from multipart/form-data or JSON body
+  const { conversation, content } = req.body; // content is text
+
+      const chat = await Chat.findById(conversation);
+      if (!chat) return res.status(404).json({ error: 'Chat not found' });
+      if (!chat.users.map(String).includes(String(userId)))
+        return res.status(403).json({ error: 'Access denied' });
+
+      // build attachments by uploading to Supabase private bucket 'message'
+      const bucket = 'message';
+      const files = [];
+  for (const f of (req.files || [])) {
+        try {
+          const ts = Date.now();
+          const safe = (f.originalname || 'file').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+          const key = `messages/${conversation}/${ts}-${safe}`;
+          const { data, error } = await supabase.storage.from(bucket).upload(key, f.buffer, { contentType: f.mimetype, upsert: false });
+          if (error) {
+            console.error('Supabase upload error (message):', error);
+            // fallback to skipping this file
+            continue;
+          }
+
+          // create short signed url for immediate client consumption (e.g., 1 hour)
+          const { data: urlData, error: urlErr } = await supabase.storage.from(bucket).createSignedUrl(key, 60 * 60);
+          const publicUrl = urlData?.signedUrl || null;
+
+          files.push({
+            url: publicUrl || `supabase:${key}`,
+            path: key,
+            name: f.originalname || safe,
+            size: f.size || (f.buffer ? f.buffer.length : 0),
+            mime: f.mimetype,
+          });
+        } catch (e) {
+          console.error('Error uploading attachment to supabase:', e);
         }
+      }
+
+      if (!content && files.length === 0) {
+        return res.status(400).json({ error: 'Nothing to send' });
+      }
+
+      const msg = await Message.create({
+        conversation,
+        senderId: userId,
+        message: (content || '').trim(),
+        attachments: files,
       });
-    } catch (e) {
-      console.warn('⚠️ Failed to update chat preview:', e?.message);
+
+      // Update lastMessage for chat (text preview or label)
+      const preview =
+        (msg.message && msg.message.trim()) ||
+        (files.length === 1
+          ? (files[0].mime?.startsWith('image/') ? '📷 Photo' :
+             files[0].mime?.startsWith('video/') ? '🎥 Video' :
+             files[0].mime?.startsWith('audio/') ? '🎵 Audio' :
+             `📎 ${files[0].name}`)
+          : `📎 ${files.length} attachments`);
+
+      chat.lastMessage = { content: preview, timestamp: msg.createdAt };
+      await chat.save();
+
+      // Socket broadcast
+      const io = req.app.get('io');
+      if (io) {
+        // emit within room
+        io.to(String(conversation)).emit('receiveMessage', {
+          _id: String(msg._id),
+          conversation: String(conversation),
+          sender: String(userId),
+          content: msg.message || (files[0]?.url ?? ''),
+          timestamp: msg.createdAt,
+          attachments: msg.attachments,
+        });
+
+        // also refresh left sidebar previews
+        io.emit('chatUpdated', {
+          chatId: String(conversation),
+          lastMessage: chat.lastMessage
+        });
+      }
+
+      return res.status(201).json(msg);
+    } catch (err) {
+      console.error('❌ POST /messages', err);
+      return res.status(500).json({ error: 'Failed to send message' });
     }
-
-    // 3) Re-fetch populated for consistent response
-    const populated = await Message.findById(msg._id)
-      .populate('sender', 'firstname lastname _id');
-
-    const out = {
-      _id:          populated._id,
-      conversation: populated.conversation,
-      senderId:     populated.sender?._id,
-      message:      populated.type === 'text' ? populated.content : null,
-      fileUrl:      populated.fileUrl || null,
-      type:         populated.type,
-      reactions:    populated.reactions || [],
-      seen:         populated.seen || [],
-      createdAt:    populated.createdAt,
-      updatedAt:    populated.updatedAt
-    };
-
-    // 4) 🔊 Real-time emits (echo clientId; also include senderId)
-    const room = String(conversation);
-
-    io.to(room).emit('receiveMessage', {
-      _id:          String(out._id),
-      conversation: room,
-      sender:       String(out.senderId),           // some clients use 'sender'
-      senderId:     String(out.senderId),           // your client uses senderId
-      content:      out.message ?? out.fileUrl ?? '',// normalized content
-      type:         out.type,
-      fileUrl:      out.fileUrl,
-      timestamp:    out.createdAt,
-      reactions:    out.reactions,
-      seen:         out.seen,
-      clientId:     req.body.clientId || null,      // <-- important for de-dupe on client
-    });
-
-    io.emit('chatUpdated', {
-      chatId: room,
-      lastMessage: { content: out.message ?? out.fileUrl, timestamp: out.createdAt }
-    });
-
-    return res.status(201).json(out);
-  } catch (err) {
-    console.error('❌ POST /api/messages error:', err);
-    return res.status(500).json({ error: 'Failed to send message' });
   }
-});
+);
 
-/* ------------------- POST /api/messages/:id/reactions --------------------- */
+// --- reactions endpoints (keep your existing semantics) ---
 router.post('/:messageId/reactions', async (req, res) => {
   try {
-    const io = req.app.get('io');
-    const { userId, emoji } = req.body;
     const { messageId } = req.params;
-
+    const { userId, emoji } = req.body;
+    await Message.updateOne(
+      { _id: messageId, 'reactions.userId': { $ne: userId } },
+      { $push: { reactions: { userId, emoji } } }
+    );
     const msg = await Message.findById(messageId);
-    if (!msg) return res.status(404).json({ error: 'Message not found' });
 
-    // Replace previous reaction from same user
-    msg.reactions = msg.reactions.filter(r => r.userId.toString() !== String(userId));
-    msg.reactions.push({ userId, emoji });
-    await msg.save();
-
-    io.to(msg.conversation.toString()).emit('messageReaction', {
-      messageId: String(messageId),
-      reactions: msg.reactions
-    });
-
-    return res.json(msg);
-  } catch (err) {
-    console.error('❌ POST reactions error:', err);
-    return res.status(500).json({ error: 'Failed to add/replace reaction' });
+    const io = req.app.get('io');
+    if (io) io.to(String(msg.conversation)).emit('messageReaction', { messageId, reactions: msg.reactions });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error(e); return res.status(500).json({ error: 'Failed to react' });
   }
 });
 
-/* ------------------ DELETE /api/messages/:id/reactions -------------------- */
 router.delete('/:messageId/reactions', async (req, res) => {
   try {
-    const io = req.app.get('io');
+    const { messageId } = req.params;
     const { userId, emoji } = req.body;
-    const { messageId } = req.params;
-
-    const msg = await Message.findById(messageId);
-    if (!msg) return res.status(404).json({ error: 'Message not found' });
-
-    msg.reactions = msg.reactions.filter(
-      r => !(r.userId.toString() === String(userId) && r.emoji === emoji)
+    await Message.updateOne(
+      { _id: messageId },
+      { $pull: { reactions: { userId, emoji } } }
     );
-    await msg.save();
-
-    io.to(msg.conversation.toString()).emit('messageReaction', {
-      messageId: String(messageId),
-      reactions: msg.reactions
-    });
-
-    return res.json(msg);
-  } catch (err) {
-    console.error('❌ DELETE reactions error:', err);
-    return res.status(500).json({ error: 'Failed to remove reaction' });
-  }
-});
-
-/* ---------------------- POST /api/messages/:id/seen ----------------------- */
-router.post('/:messageId/seen', async (req, res) => {
-  try {
-    const io = req.app.get('io');
-    const { userId } = req.body;
-    const { messageId } = req.params;
-
     const msg = await Message.findById(messageId);
-    if (!msg) return res.status(404).json({ error: 'Message not found' });
-
-    if (!msg.seen.some(s => s.userId.toString() === String(userId))) {
-      const seenEntry = { userId, timestamp: Date.now() };
-      msg.seen.push(seenEntry);
-      await msg.save();
-
-      io.to(msg.conversation.toString()).emit('messageSeen', {
-        messageId: String(messageId),
-        userId:    String(seenEntry.userId),
-        timestamp: seenEntry.timestamp
-      });
-    }
-
-    return res.json(msg);
-  } catch (err) {
-    console.error('❌ POST seen error:', err);
-    return res.status(500).json({ error: 'Failed to mark seen' });
+    const io = req.app.get('io');
+    if (io) io.to(String(msg.conversation)).emit('messageReaction', { messageId, reactions: msg.reactions });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error(e); return res.status(500).json({ error: 'Failed to unreact' });
   }
 });
 

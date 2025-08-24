@@ -87,7 +87,8 @@
 }
 
 /* Modern Chat Layout */
-.pic-chat-wrapper {
+.pic-chat-wrapper,
+.picchat-wrapper {
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -482,6 +483,20 @@
   font-size: 16px;
 }
 
+/* Unified attachment sizing */
+.hr-chat-wrapper .msg-attachments .att-link.img,
+.hr-chat-wrapper .msg-attachments img.att-image,
+.pic-chat-wrapper .msg-attachments .att-link.img,
+.pic-chat-wrapper .msg-attachments img.att-image,
+.picchat-wrapper .msg-attachments .att-link.img,
+.picchat-wrapper .msg-attachments img.att-image {
+  max-width:220px !important; max-height:220px !important; width:auto; height:auto; border-radius:12px; object-fit:cover;
+}
+@media (max-width:600px){
+  .hr-chat-wrapper .msg-attachments .att-link.img,
+  .hr-chat-wrapper .msg-attachments img.att-image { max-width:160px !important; max-height:160px !important; }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .modern-sidebar {
@@ -585,3 +600,16 @@
   .nav-menu { gap: 1rem; }
   .nav-link { gap: 5px; padding: 6px 6px; }
 }
+
+/* Member badges */
+.member-badge {
+  background: #0084ff;
+  color: #fff;
+  font-size: 0.6rem;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-weight: 600;
+  display: inline-block;
+  margin-top: 4px;
+}
+.member-badge.admin { background:#f59e0b; }

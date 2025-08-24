@@ -118,6 +118,16 @@ io.on('connection', (socket) => {
   const rawUserId =
     socket.handshake?.auth?.userId || socket.handshake?.query?.userId;
   const userId = rawUserId ? String(rawUserId) : null;
+// inside io.on('connection', (socket) => { ... })
+socket.on('joinChat', (chatId) => {
+  const room = String(chatId);
+  socket.join(room);
+});
+
+socket.on('leaveChat', (chatId) => {
+  const room = String(chatId);
+  socket.leave(room);
+});
 
   if (userId) {
     addUserSocket(userId, socket.id);
@@ -156,34 +166,36 @@ io.on('connection', (socket) => {
 
   socket.on('messageSeen', async ({ messageId, userId: seenBy }) => {
     try {
-      const msg = await Message.findById(messageId);
+      const msg = await Message.findById(messageId).lean();
       if (!msg) return;
 
-      const already = (msg.seen || []).some(
-        (s) => String(s.userId) === String(seenBy)
+      const already = (msg.seen || []).some(s => String(s.userId) === String(seenBy));
+      if (already) return;
+
+      const ts = Date.now();
+
+      // Update without triggering validation on the whole doc
+      await Message.updateOne(
+        { _id: messageId },
+        { $push: { seen: { userId: seenBy, timestamp: ts } } },
+        { runValidators: false }
       );
-      if (!already) {
-        const ts = Date.now();
-        msg.seen = msg.seen || [];
-        msg.seen.push({ userId: seenBy, timestamp: ts });
-        await msg.save();
 
-        io.to(String(msg.conversation)).emit('messageSeen', {
-          messageId: String(msg._id),
-          userId: String(seenBy),
-          timestamp: ts,
-        });
+      io.to(String(msg.conversation)).emit('messageSeen', {
+        messageId: String(messageId),
+        userId: String(seenBy),
+        timestamp: ts,
+      });
 
-        io.emit('chatUpdated', {
-          chatId: String(msg.conversation),
-          lastMessage: {
-            content: msg.content || msg.fileUrl || '',
-            timestamp: msg.createdAt,
-          },
-        });
-      }
+      io.emit('chatUpdated', {
+        chatId: String(msg.conversation),
+        lastMessage: {
+          content: msg.message || (msg.fileUrl || '') || '',
+          timestamp: msg.createdAt,
+        },
+      });
     } catch (err) {
-      console.error('socket messageSeen error:', err);
+      console.error('socket messageSeen error (updateOne path):', err);
     }
   });
 
@@ -196,6 +208,8 @@ io.on('connection', (socket) => {
         return;
       }
 
+
+      
       // If no userId from handshake, attempt to remove this socket from any user sets
       for (const [uid, set] of userSockets.entries()) {
         if (set && set.has(socket.id)) {

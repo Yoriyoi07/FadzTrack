@@ -1,7 +1,8 @@
 /* PIC Chat Styles - Professional and Responsive */
 
 /* Import PM Dash header styles */
-.pic-chat-wrapper {
+.pic-chat-wrapper,
+.picchat-wrapper {
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -1098,6 +1099,7 @@
   border-radius: 10px;
   font-weight: 500;
 }
+.member-badge.admin { background:#f59e0b; color:#fff; }
 
 .remove-member-btn {
   background: none;
@@ -1413,6 +1415,20 @@
   background: #f1f5f9;
   color: #3b82f6;
   transform: translateX(-50%) scale(1.1);
+}
+
+/* Unified attachment sizing */
+.pic-chat-wrapper .msg-attachments .att-link.img,
+.pic-chat-wrapper .msg-attachments img.att-image,
+.picchat-wrapper .msg-attachments .att-link.img,
+.picchat-wrapper .msg-attachments img.att-image {
+  max-width:220px !important; max-height:220px !important; width:auto; height:auto; border-radius:12px; object-fit:cover;
+}
+@media (max-width:600px){
+  .pic-chat-wrapper .msg-attachments .att-link.img,
+  .pic-chat-wrapper .msg-attachments img.att-image,
+  .picchat-wrapper .msg-attachments .att-link.img,
+  .picchat-wrapper .msg-attachments img.att-image { max-width:160px !important; max-height:160px !important; }
 }
 
 /* Responsive adjustments for seen feature */
