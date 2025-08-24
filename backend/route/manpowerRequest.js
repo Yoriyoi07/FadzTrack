@@ -9,12 +9,13 @@ const {
   updateManpowerRequest,
   deleteManpowerRequest,
   getManpowerRequestsForAreaManager,
-  getManpowerRequestsForProjectManagers, // NEW
+  getManpowerRequestsForProjectManagers,
   approveManpowerRequest,
   getMyManpowerRequests,
   getSingleManpowerRequest,
   markManpowerRequestReceived,
-  scheduleManpowerReturn
+  scheduleManpowerReturn,
+  markRequestCompleted
 } = require('../controllers/manpowerRequestController');
 const { verifyToken } = require('../middleware/authMiddleware');
 
@@ -84,5 +85,8 @@ router.put('/:id/approve', (req, res, next) => {
 }, verifyToken, approveManpowerRequest);
 
 router.put('/:id/received', verifyToken, markManpowerRequestReceived);
+
+// Mark request as completed (when manpower returns)
+router.put('/:id/complete', verifyToken, markRequestCompleted);
 
 module.exports = router;

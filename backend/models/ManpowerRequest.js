@@ -10,7 +10,11 @@ const manpowerRequestSchema = new mongoose.Schema({
   }],
   description: { type: String, required: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  status: { type: String, default: 'Pending' },
+  status: { 
+    type: String, 
+    enum: ['Pending', 'Approved', 'Overdue', 'Completed'], 
+    default: 'Pending' 
+  },
   approvedBy: { type: String, default: '' }, 
   received: { type: Boolean, default: false },
   returnDate: { type: Date },

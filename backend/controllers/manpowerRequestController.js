@@ -92,6 +92,9 @@ const createManpowerRequest = async (req, res) => {
 // READ - Get all manpower requests
 const getAllManpowerRequests = async (req, res) => {
   try {
+    // First, update statuses automatically
+    await updateRequestStatuses();
+    
     const requests = await ManpowerRequest.find()
       .populate({
         path: 'project',
@@ -349,6 +352,93 @@ const scheduleManpowerReturn = async (req, res) => {
   }
 };
 
+// Function to automatically update request statuses based on time
+const updateRequestStatuses = async () => {
+  try {
+    const now = new Date();
+    
+    // Update Pending requests to Overdue if acquisition date has passed
+    await ManpowerRequest.updateMany(
+      {
+        status: 'Pending',
+        acquisitionDate: { $lt: now }
+      },
+      {
+        status: 'Overdue'
+      }
+    );
+
+    // Update Approved requests to Completed if return date has passed
+    await ManpowerRequest.updateMany(
+      {
+        status: 'Approved',
+        returnDate: { $lt: now }
+      },
+      {
+        status: 'Completed'
+      }
+    );
+
+    console.log('✅ Manpower request statuses updated automatically');
+  } catch (error) {
+    console.error('❌ Error updating request statuses:', error);
+  }
+};
+
+// Function to mark a request as completed (when manpower returns)
+const markRequestCompleted = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Only the requesting project manager or HR can mark as completed
+    if (req.user?.role !== 'Project Manager' && req.user?.role !== 'HR') {
+      return res.status(403).json({ message: 'Only Project Managers or HR can mark requests as completed.' });
+    }
+
+    const request = await ManpowerRequest.findById(id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Only Approved requests can be marked as completed
+    if (request.status !== 'Approved') {
+      return res.status(400).json({ message: 'Only approved requests can be marked as completed.' });
+    }
+
+    // Update manpower assignments back to their original projects
+    if (request.manpowerProvided && request.manpowerProvided.length > 0) {
+      await Promise.all(request.manpowerProvided.map(async (manpowerId) => {
+        await Manpower.findByIdAndUpdate(manpowerId, {
+          assignedProject: null // Return to unassigned status
+        });
+      }));
+    }
+
+    // Update request status
+    const updated = await ManpowerRequest.findByIdAndUpdate(
+      id,
+      { 
+        status: 'Completed',
+        returnDate: new Date() // Set actual return date
+      },
+      { new: true }
+    );
+
+    await logAction({
+      action: 'COMPLETE_MANPOWER_REQUEST',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `Marked manpower request as completed for project ${updated.project}`,
+      meta: { requestId: updated._id }
+    });
+
+    res.json({ message: '✅ Request marked as completed', data: updated });
+  } catch (error) {
+    console.error('❌ Error marking request as completed:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   createManpowerRequest,
   getAllManpowerRequests,
@@ -356,9 +446,11 @@ module.exports = {
   deleteManpowerRequest,
   approveManpowerRequest,
   getManpowerRequestsForAreaManager,
-  getManpowerRequestsForProjectManagers, // export
+  getManpowerRequestsForProjectManagers,
   getSingleManpowerRequest,
   getMyManpowerRequests,
   markManpowerRequestReceived,
   scheduleManpowerReturn,
+  updateRequestStatuses,
+  markRequestCompleted,
 };

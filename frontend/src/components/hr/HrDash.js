@@ -1,12 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import api from '../../api/axiosInstance';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import '../style/hr_style/Hr_Dash.css';
+import api from '../../api/axiosInstance';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import NotificationBell from '../NotificationBell';
 // Nav icons
-import { FaTachometerAlt, FaComments, FaUsers, FaExchangeAlt, FaProjectDiagram } from 'react-icons/fa';
+import {
+  FaTachometerAlt,
+  FaComments,
+  FaUsers,
+  FaExchangeAlt,
+  FaProjectDiagram,
+  FaUserPlus,
+  FaUserCheck,
+  FaUserClock,
+  FaClipboardList,
+  FaChartBar,
+  FaCalendarAlt,
+  FaArrowRight,
+  FaExclamationTriangle,
+  FaCheckCircle,
+  FaClock
+} from 'react-icons/fa';
 
-const HrDash = () => {
+const HrDash = ({ forceUserUpdate }) => {
+  const navigate = useNavigate();
 
+  // --- 1. User, token, userId state ---
   const [user, setUser] = useState(() => {
     const stored = localStorage.getItem('user');
     return stored ? JSON.parse(stored) : null;
@@ -14,431 +34,648 @@ const HrDash = () => {
   const [token, setToken] = useState(() => localStorage.getItem('token') || "");
   const [userId, setUserId] = useState(() => user?._id);
 
-  const [userName, setUserName] = useState('');
-  const [userRole, setUserRole] = useState('');
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [auditActivities, setAuditActivities] = useState([]);
-  const [stats, setStats] = useState({
-    totalStaff: 21,
-    assigned: 18,
-    available: 3,
-    requests: 5
-  });
-  const navigate = useNavigate();
+  // --- 2. Listen for storage changes for live update on login/logout/user switch ---
+  useEffect(() => {
+    const handleUserChange = () => {
+      const stored = localStorage.getItem('user');
+      setUser(stored ? JSON.parse(stored) : null);
+      setUserId(stored ? JSON.parse(stored)._id : undefined);
+      setToken(localStorage.getItem('token') || "");
+    };
+    window.addEventListener("storage", handleUserChange);
+    return () => window.removeEventListener("storage", handleUserChange);
+  }, []);
+
+  // --- 3. Update username/role from state ---
+  const [userName, setUserName] = useState(user?.name || 'HR Manager');
+  const [userRole, setUserRole] = useState(user?.role || '');
   
   useEffect(() => {
-      setUserName(user?.name || '');
+    setUserName(user?.name || 'HR Manager');
       setUserRole(user?.role || '');
     }, [user]);
 
+  // --- 4. Page data state ---
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+
+  const [chats, setChats] = useState([]);
+  const [loadingChats, setLoadingChats] = useState(true);
+  const [chatsError, setChatsError] = useState(null);
+
+  const [manpowerRequests, setManpowerRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [requestsError, setRequestsError] = useState(null);
+
+  const [stats, setStats] = useState({
+    totalStaff: 0,
+    assigned: 0,
+    available: 0,
+    requests: 0,
+    pendingRequests: 0,
+    approvedRequests: 0
+  });
+
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+
+  // --- 5. Redirect to login if not logged in ---
   useEffect(() => {
-    const fetchData = async () => {
+    if (!token || !userId) {
+      navigate('/');
+      return;
+    }
+  }, [token, userId, navigate]);
+
+  // --- 6. Scroll handler for header collapse ---
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const shouldCollapse = scrollTop > 50;
+      setIsHeaderCollapsed(shouldCollapse);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isHeaderCollapsed]);
+
+  // --- 7. Fetch HR statistics ---
+  const fetchHRStats = useCallback(async () => {
+    if (!token) return;
+    
       try {
        const [manpowerRes, movementRes] = await Promise.all([
-            api.get('/manpower'),
-            api.get('/manpower-requests')
+        api.get('/manpower', { headers: { Authorization: `Bearer ${token}` } }),
+        api.get('/manpower-requests', { headers: { Authorization: `Bearer ${token}` } })
           ]);
 
           const manpower = manpowerRes.data;
           const movements = movementRes.data;
 
-
         const totalStaff = manpower.length;
         const assigned = manpower.filter(mp => mp.status === 'Active').length;
         const available = manpower.filter(mp => mp.status === 'Inactive').length;
-        const requests = movements.filter(mv => mv.status === 'Approved').length;
+      const requests = movements.length;
+      const pendingRequests = movements.filter(mv => mv.status === 'Pending').length;
+      const approvedRequests = movements.filter(mv => mv.status === 'Approved').length;
 
-        setStats({ totalStaff, assigned, available, requests });
+      setStats({ totalStaff, assigned, available, requests, pendingRequests, approvedRequests });
       } catch (error) {
         console.error('Failed to fetch HR stats:', error);
       }
-    };
-
-    fetchData();
-  }, []);
+  }, [token]);
 
   useEffect(() => {
-  const fetchAuditLogs = async () => {
+    fetchHRStats();
+  }, [fetchHRStats]);
+
+  // --- 8. Fetch recent conversations ---
+  const fetchChats = useCallback(async () => {
+    if (!token || !userId) return;
+
     try {
+      const { data } = await api.get(`/chats/user/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-      const { data } = await api.get('/audit-logs'); 
-      const mapped = data.slice(0, 6).map((log, i) => ({
-        id: `audit-${i}`,
-        icon: '📝', // Or use something from log.action if you want
-        iconClass: 'hr-dash-icon-audit',
-        title: `${log.action} - ${log.description || ''}`,
-        time: new Date(log.timestamp).toLocaleString(),
-      }));
-      setAuditActivities(mapped);
-    } catch (err) {
-      console.error('Failed to fetch audit logs:', err);
+      if (data && Array.isArray(data)) {
+        const processedChats = data.slice(0, 5).map((conversation, index) => {
+          // Get the other user's name (not the current user)
+          const otherUser = conversation.users?.find(u => u._id !== userId);
+          let otherUserName = 'Unknown User';
+          
+          if (otherUser) {
+            otherUserName = otherUser.name || `${otherUser.firstname || ''} ${otherUser.lastname || ''}`.trim() || 'Unknown User';
+          } else if (conversation.users?.length > 0) {
+            const allUserNames = conversation.users.map(user =>
+              user.name || `${user.firstname || ''} ${user.lastname || ''}`.trim() || 'Unknown'
+            ).filter(name => name !== 'Unknown');
+            otherUserName = allUserNames.length > 0 ? allUserNames.join(', ') : 'Unknown User';
+          }
+
+          let lastMessageContent = 'No messages yet';
+          let lastMessageTime = new Date();
+
+          if (conversation.lastMessage) {
+            lastMessageContent = conversation.lastMessage.content || 'No messages yet';
+            lastMessageTime = conversation.lastMessage.timestamp || new Date();
+          }
+
+          return {
+            _id: conversation._id,
+            name: conversation.isGroup ? conversation.name : otherUserName,
+            isGroup: conversation.isGroup || false,
+            lastMessage: lastMessageContent,
+            lastMessageTime: lastMessageTime,
+            users: conversation.users || [],
+            color: '#4A6AA5'
+          };
+        });
+
+        setChats(processedChats);
+      } else {
+        setChats([]);
+      }
+
+      setChatsError(null);
+    } catch (error) {
+      console.log('Chat fetch error:', error);
+      setChats([]);
+      setChatsError(`Failed to load conversations: ${error.message}`);
     }
+    setLoadingChats(false);
+  }, [token, userId]);
+
+  useEffect(() => {
+    fetchChats();
+  }, [fetchChats]);
+
+  // --- 9. Fetch manpower requests ---
+  const fetchManpowerRequests = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const { data } = await api.get('/manpower-requests', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      console.log('Raw manpower requests data:', data); // Debug log
+
+      if (data && Array.isArray(data)) {
+        const processedRequests = data.map(request => {
+          console.log('Processing individual request:', request); // Debug individual request
+          
+          // Extract project name from the actual API structure
+          let projectName = 'Unknown Project';
+          if (request.project?.projectName) {
+            projectName = request.project.projectName;
+          }
+
+          // Extract requested by from the actual API structure
+          let requestedBy = 'Unknown';
+          if (request.createdBy?.name) {
+            requestedBy = request.createdBy.name;
+          }
+
+          // Extract position and quantity from manpowers array
+          let position = 'Unknown Position';
+          let quantity = 1;
+          
+          if (request.manpowers && Array.isArray(request.manpowers) && request.manpowers.length > 0) {
+            // Get the first manpower entry (assuming one type per request for display)
+            const manpower = request.manpowers[0];
+            position = manpower.type || 'Unknown Position';
+            quantity = manpower.quantity || 1;
+          }
+
+          const processedRequest = {
+            _id: request._id,
+            projectName: projectName,
+            requestedBy: requestedBy,
+            position: position,
+            quantity: quantity,
+            status: request.status || 'Pending',
+            requestDate: new Date(request.createdAt || request.acquisitionDate || Date.now()),
+            priority: request.priority || 'Normal',
+            isViewed: request.isViewed || false // Add viewed status
+          };
+          
+          console.log('Processed request:', processedRequest); // Debug processed request
+          
+          return processedRequest;
+        });
+
+        // Sort by date (most recent first) and take only the first 5
+        const sortedRequests = processedRequests
+          .sort((a, b) => b.requestDate - a.requestDate)
+          .slice(0, 5);
+
+        setManpowerRequests(sortedRequests);
+      } else {
+        setManpowerRequests([]);
+      }
+
+      setRequestsError(null);
+    } catch (error) {
+      console.log('Manpower requests fetch error:', error);
+      setManpowerRequests([]);
+      setRequestsError(`Failed to load requests: ${error.message}`);
+    }
+    setLoadingRequests(false);
+  }, [token]);
+
+  useEffect(() => {
+    fetchManpowerRequests();
+  }, [fetchManpowerRequests]);
+
+  // --- 10. Fetch recent activities ---
+  const fetchRecentActivities = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const { data } = await api.get('/audit-logs', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (data && Array.isArray(data)) {
+        const processedActivities = data.slice(0, 6).map((log, index) => ({
+          id: log._id || `activity-${index}`,
+          icon: getActivityIcon(log.action),
+          iconClass: 'activity-icon',
+          title: `${log.action} - ${log.description || ''}`,
+          time: new Date(log.timestamp).toLocaleString(),
+          type: log.action?.toLowerCase() || 'general'
+        }));
+
+        setRecentActivities(processedActivities);
+      } else {
+        setRecentActivities([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch recent activities:', error);
+      setRecentActivities([]);
+    }
+    setLoadingActivities(false);
+  }, [token]);
+
+  useEffect(() => {
+    fetchRecentActivities();
+  }, [fetchRecentActivities]);
+
+  // --- 11. Helper function for activity icons ---
+  const getActivityIcon = (action) => {
+    const actionLower = action?.toLowerCase() || '';
+    if (actionLower.includes('login') || actionLower.includes('logout')) return '🔐';
+    if (actionLower.includes('create') || actionLower.includes('add')) return '➕';
+    if (actionLower.includes('update') || actionLower.includes('edit')) return '✏️';
+    if (actionLower.includes('delete') || actionLower.includes('remove')) return '🗑️';
+    if (actionLower.includes('approve') || actionLower.includes('approval')) return '✅';
+    if (actionLower.includes('reject') || actionLower.includes('deny')) return '❌';
+    if (actionLower.includes('assign') || actionLower.includes('assignment')) return '👥';
+    if (actionLower.includes('request') || actionLower.includes('requisition')) return '📋';
+    return '📝';
   };
-  fetchAuditLogs();
-}, []);
 
-
-  const handleAction = (action) => {
-    if (action.includes('Assign') || action.includes('Review')) {
-      alert(`${action} action triggered - Opening assignment interface...`);
-    } else if (action.includes('Chat') || action.includes('message')) {
-      alert('Opening communication center...');
-    } else if (action.includes('Report')) {
-      alert('Opening reports dashboard...');
-    } else {
-      alert(`${action} clicked - Feature coming soon!`);
-    }
-  };
-
-  const handleProjectClick = (projectName) => {
-    alert(`Opening detailed view for ${projectName}...`);
-  };
-
-  const projects = [
-    {
-      name: 'BDC Hotel',
-      status: 'In Progress',
-      statusClass: 'hr-dash-status-progress',
-      staffAssigned: 8,
-      dueDate: 'Dec 15',
-      capacity: 85
-    },
-    {
-      name: 'Stonehouse Gateway',
-      status: 'Planning',
-      statusClass: 'hr-dash-status-planning',
-      staffAssigned: 6,
-      dueDate: 'Jan 30',
-      capacity: 60
-    },
-    {
-      name: 'Freemont Place',
-      status: 'Active',
-      statusClass: 'hr-dash-status-active',
-      staffAssigned: 4,
-      dueDate: 'Feb 20',
-      capacity: 40
-    }
-  ];
-
-  const requests = [
-    {
-      title: '3x Electricians for BDC Hotel',
-      requester: 'Jane Cooper',
-      time: '2 hours ago',
-      status: 'Urgent',
-      statusClass: 'hr-dash-status-urgent'
-    },
-    {
-      title: '2x Laborers for Stonehouse',
-      requester: 'Ronald Richards',
-      time: '5 hours ago',
-      status: 'Pending',
-      statusClass: 'hr-dash-status-pending'
-    },
-    {
-      title: '1x Foreman for Freemont',
-      requester: 'Floyd Miles',
-      time: '1 day ago',
-      status: 'Approved',
-      statusClass: 'hr-dash-status-approved'
-    },
-    {
-      title: '2x Plumbers for BDC Hotel',
-      requester: 'Jerome Bell',
-      time: '2 days ago',
-      status: 'Pending',
-      statusClass: 'hr-dash-status-pending'
-    }
-  ];
-
-
-
-  const communications = [
-    {
-      icon: '💬',
-      title: '5 unread messages from Jane Cooper',
-      subtitle: 'BDC Hotel updates'
-    },
-    {
-      icon: '📁',
-      title: 'New files shared by Ronald Richards',
-      subtitle: 'Stonehouse blueprints'
-    },
-    {
-      icon: '✅',
-      title: 'Daily report approved for Freemont',
-      subtitle: 'Floyd Miles'
-    }
-  ];
-
+  // --- 12. Close profile menu on outside click ---
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest('.profile-menu-container')) setProfileMenuOpen(false);
+      if (!event.target.closest(".user-profile")) {
+        setProfileMenuOpen(false);
+      }
     };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, []);
 
+  // --- 13. Logout handler ---
   const handleLogout = () => {
+    api.post('/auth/logout', {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).finally(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+      setUser(null);
+      setUserId(undefined);
+      setToken("");
+      if (forceUserUpdate) forceUserUpdate();
+      window.dispatchEvent(new Event('storage'));
     navigate('/');
+    });
+  };
+
+  // --- 14. KPI data for charts ---
+  const workforceData = React.useMemo(() => {
+    const total = stats.totalStaff;
+    if (total === 0) return { data: [], assigned: 0, available: 0, total: 0 };
+    
+    const assigned = stats.assigned;
+    const available = stats.available;
+    
+    const data = [
+      { name: 'Assigned', value: assigned, color: '#22c55e' },
+      { name: 'Available', value: available, color: '#3b82f6' }
+    ];
+    
+    return {
+      data: data.filter(item => item.value > 0),
+      assigned,
+      available,
+      total
+    };
+  }, [stats]);
+
+  const requestStatusData = React.useMemo(() => {
+    const pending = stats.pendingRequests;
+    const approved = stats.approvedRequests;
+    const total = stats.requests;
+    
+    if (total === 0) return { data: [], pending: 0, approved: 0, total: 0 };
+    
+    const data = [
+      { name: 'Pending', value: pending, color: '#f59e0b' },
+      { name: 'Approved', value: approved, color: '#22c55e' }
+    ];
+    
+    return {
+      data: data.filter(item => item.value > 0),
+      pending,
+      approved,
+      total
+    };
+  }, [stats]);
+
+  // Function to truncate text
+  const truncateMessage = (text, maxWords = 10) => {
+    if (!text || typeof text !== 'string') return 'No messages yet';
+    const words = text.trim().split(/\s+/);
+    if (words.length <= maxWords) return text;
+    return words.slice(0, maxWords).join(' ') + '...';
+  };
+
+  // Function to format date
+  const formatDate = (date) => {
+    if (!date) return 'Unknown';
+    const d = new Date(date);
+    const now = new Date();
+    const diffTime = Math.abs(now - d);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return 'Today';
+    if (diffDays === 2) return 'Yesterday';
+    if (diffDays <= 7) return `${diffDays - 1} days ago`;
+    return d.toLocaleDateString();
   };
 
   return (
-    <div className="hr-dash-container">
-     <header className="header">
+    <div className="dashboard-container">
+      {/* Header */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        {/* Top Row: Logo, User Info, and Profile */}
+        <div className="header-top">
+          <div className="header-left">
   <div className="logo-container">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-      className="logo-img"
-    />
-    <h1 className="brand-name">FadzTrack</h1>
+              <img src="/images/Fadz-logo.png" alt="FadzTrack Logo" className="logo-img" />
+              <span className="brand-name">FadzTrack</span>
+            </div>
   </div>
 
-  <nav className="nav-menu">
-    <Link to="/hr/dash" className="nav-link"><FaTachometerAlt /> Dashboard</Link>
-    <Link to="/hr/chat" className="nav-link"><FaComments /> Chat</Link>
-    <Link to="/hr/mlist" className="nav-link"><FaUsers /> Manpower</Link>
-    <Link to="/hr/movement" className="nav-link"><FaExchangeAlt /> Movement</Link>
-    <Link to="/hr/project-records" className="nav-link"><FaProjectDiagram /> Projects</Link>
-  </nav>
-
-  <div className="profile-menu-container">
-    <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-      {userName ? userName.charAt(0).toUpperCase() : 'Z'}
+          <div className="header-right">
+            <div className="user-profile">
+              <div className="profile-info">
+                <span className="user-name">{userName}</span>
+                <span className="user-role">{userRole}</span>
+              </div>
+              <div className="profile-avatar" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+                {userName ? userName.charAt(0).toUpperCase() : 'H'}
     </div>
     {profileMenuOpen && (
-      <div className="profile-menu">
-        <button onClick={handleLogout}>Logout</button>
+                <div className="profile-dropdown">
+                  <button onClick={handleLogout} className="dropdown-item">
+                    <span>Logout</span>
+                  </button>
       </div>
     )}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Row: Navigation and Notifications */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/hr" className="nav-item active">
+              <FaTachometerAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
+            </Link>
+            <Link to="/hr/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/hr/mlist" className="nav-item">
+              <FaUsers />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
+            </Link>
+            <Link to="/hr/movement" className="nav-item">
+              <FaExchangeAlt />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Movement</span>
+            </Link>
+            <Link to="/hr/project-records" className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
+            </Link>
+            <Link to="/hr/requests" className="nav-item">
+              <FaClipboardList />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span>
+            </Link>
+            <Link to="/hr/reports" className="nav-item">
+              <FaChartBar />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
+            </Link>
+          </nav>
+
+          <NotificationBell />
   </div>
 </header>
 
-
-      <div className="hr-dash-dashboard-container">
-        {/* Welcome Header */}
-        <div className="hr-dash-welcome-header">
-          <div className="hr-dash-welcome-text">
-            <h1>Hello, {userName}</h1>
-              <p style={{ fontSize: '14px', color: '#666' }}>
-                Currently logged in as <strong>{userRole}</strong>
-              </p>
+      {/* Main Dashboard Content */}
+      <main className="dashboard-main">
+        <div className="dashboard-grid">
+          {/* Welcome & Overview Card */}
+          <div className="dashboard-card welcome-card">
+            <div className="welcome-header">
+              <div className="welcome-content">
+                <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>
+                <p className="welcome-subtitle">Manage your workforce and track manpower activities</p>
+              </div>
+              
+              {/* Quick Actions - Compact buttons in top right */}
+              <div className="quick-actions-compact">
+                <Link to="/hr/mlist" className="hr-action-btn" data-tooltip="Manage Staff & Personnel">
+                  <div className="hr-action-icon">
+                    <FaUsers size={16} color="white" style={{ color: 'white', fill: 'white', stroke: 'white', opacity: 1, visibility: 'visible' }} />
           </div>
-          <div className="hr-dash-quick-stats">
-            <div className="hr-dash-stat-card">
-              <span className="hr-dash-stat-number">{stats.totalStaff}</span>
-              <span className="hr-dash-stat-label">Total Staff</span>
+                  <span>Staff</span>
+                </Link>
+                <Link to="/hr/requests" className="hr-action-btn" data-tooltip="Review & Process Requests">
+                  <div className="hr-action-icon">
+                    <FaClipboardList size={16} color="white" style={{ color: 'white', fill: 'white', stroke: 'white', opacity: 1, visibility: 'visible' }} />
             </div>
-            <div className="hr-dash-stat-card">
-              <span className="hr-dash-stat-number">{stats.assigned}</span>
-              <span className="hr-dash-stat-label">Assigned</span>
+                  <span>Requests</span>
+                </Link>
+                <Link to="/hr/movement" className="hr-action-btn" data-tooltip="Track Staff Movements">
+                  <div className="hr-action-icon">
+                    <FaExchangeAlt size={16} color="white" style={{ color: 'white', fill: 'white', stroke: 'white', opacity: 1, visibility: 'visible' }} />
             </div>
-            <div className="hr-dash-stat-card">
-              <span className="hr-dash-stat-number">{stats.available}</span>
-              <span className="hr-dash-stat-label">Unassigned</span>
+                  <span>Movement</span>
+                </Link>
+                <Link to="/hr/reports" className="hr-action-btn" data-tooltip="Generate HR Reports">
+                  <div className="hr-action-icon">
+                    <FaChartBar size={16} color="white" style={{ color: 'white', fill: 'white', stroke: 'white', opacity: 1, visibility: 'visible' }} />
             </div>
-            <div className="hr-dash-stat-card">
-              <span className="hr-dash-stat-number">{stats.requests}</span>
-              <span className="hr-dash-stat-label">Requests</span>
-            </div>
+                  <span>Reports</span>
+                </Link>
           </div>
         </div>
 
-        {/* Key Metrics
-        <div className="hr-dash-metrics-grid">
-          <div className="hr-dash-metric-card">
-            <div className="hr-dash-metric-value">85%</div>
-            <div className="hr-dash-metric-label">Workforce Utilization</div>
-            <div className="hr-dash-metric-change hr-dash-change-positive">+5% from last week</div>
+            <div className="overview-stats">
+              <div className="stat-item">
+                <div className="stat-icon">
+                  <FaUsers />
           </div>
-          <div className="hr-dash-metric-card">
-            <div className="hr-dash-metric-value">3</div>
-            <div className="hr-dash-metric-label">Active Projects</div>
-            <div className="hr-dash-metric-change hr-dash-change-positive">+1 new project</div>
-          </div>
-          <div className="hr-dash-metric-card">
-            <div className="hr-dash-metric-value">12</div>
-            <div className="hr-dash-metric-label">Pending Requests</div>
-            <div className="hr-dash-metric-change hr-dash-change-positive">-3 from yesterday</div>
-          </div>
-          <div className="hr-dash-metric-card">
-            <div className="hr-dash-metric-value">92%</div>
-            <div className="hr-dash-metric-label">Request Approval Rate</div>
-            <div className="hr-dash-metric-change hr-dash-change-positive">+8% improvement</div>
-          </div>
-        </div> */}
-
-        {/* Critical Alerts */}
-        {/* 
-        <div className="hr-dash-card hr-dash-alerts-section">
-          <div className="hr-dash-card-header">
-            <h3 className="hr-dash-card-title hr-dash-alert-title">⚠️ Critical Alerts</h3>
-            <button className="hr-dash-card-action hr-dash-alert-action-btn" onClick={() => handleAction('View All')}>
-              View All
-            </button>
-          </div>
-          <div className="hr-dash-card-content">
-            <div className="hr-dash-alert-item">
-              <span className="hr-dash-alert-icon">⏰</span>
-              <span className="hr-dash-alert-text">
-                <strong>Urgent Request:</strong> 3 electricians needed for BDC Hotel by tomorrow
-              </span>
-              <button className="hr-dash-alert-action" onClick={() => handleAction('Review')}>
-                Review
-              </button>
-            </div>
-            <div className="hr-dash-alert-item">
-              <span className="hr-dash-alert-icon">🚨</span>
-              <span className="hr-dash-alert-text">
-                <strong>High Priority:</strong> 2 foremen requested for Stonehouse Gateway - immediate assignment needed
-              </span>
-              <button className="hr-dash-alert-action" onClick={() => handleAction('Assign Now')}>
-                Assign Now
-              </button>
+                <div className="stat-content">
+                  <span className="stat-value">{stats.totalStaff}</span>
+                  <span className="stat-label">Total Staff</span>
             </div>
           </div>
+              <div className="stat-item">
+                <div className="stat-icon assigned">
+                  <FaUserCheck />
         </div>
-        */}
-        {/* Main Dashboard Grid */}
-        <div className="hr-dash-dashboard-grid">
-          {/* Project Assignment Overview */}
-          {/* <div className="hr-dash-card hr-dash-project-overview">
-            <div className="hr-dash-card-header">
-              <h3 className="hr-dash-card-title">Project Assignment Overview</h3>
-              <button className="hr-dash-card-action" onClick={() => handleAction('Manage All')}>
-                Manage All
-              </button>
-            </div>
-            <div className="hr-dash-card-content">
-              <div className="hr-dash-project-mini-cards">
-                {projects.map((project, index) => (
-                  <div 
-                    key={index}
-                    className="hr-dash-mini-project-card"
-                    onClick={() => handleProjectClick(project.name)}
-                  >
-                    <div className="hr-dash-project-header">
-                      <span className="hr-dash-project-name">{project.name}</span>
-                      <span className={`hr-dash-project-status ${project.statusClass}`}>
-                        {project.status}
-                      </span>
-                    </div>
-                    <div className="hr-dash-project-metrics">
-                      <span>{project.staffAssigned} Staff Assigned</span>
-                      <span>Due: {project.dueDate}</span>
-                    </div>
-                    <div className="hr-dash-capacity-bar">
-                      <div 
-                        className="hr-dash-capacity-fill" 
-                        style={{ width: `${project.capacity}%` }}
-                      ></div>
+                <div className="stat-content">
+                  <span className="stat-value">{stats.assigned}</span>
+                  <span className="stat-label">Assigned</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div> */}
-
-          {/* Manpower Requests */}
-          <div className="hr-dash-card">
-            <div className="hr-dash-card-header">
-              <h3 className="hr-dash-card-title">Manpower Requests</h3>
-              <button className="hr-dash-card-action" onClick={() => handleAction('View All')}>
-                View All
-              </button>
-            </div>
-            <div className="hr-dash-card-content">
-              <div className="hr-dash-manpower-requests">
-                {requests.map((request, index) => (
-                  <div key={index} className="hr-dash-request-item">
-                    <div className="hr-dash-request-info">
-                      <h4>{request.title}</h4>
-                      <p>Requested by {request.requester} • {request.time}</p>
-                    </div>
-                    <span className={`hr-dash-request-status ${request.statusClass}`}>
-                      {request.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-
-        <div className="hr-dash-card">
-  <div className="hr-dash-card-header">
-    <h3 className="hr-dash-card-title">Recent Activity</h3>
-    <button className="hr-dash-card-action" onClick={() => handleAction('View Timeline')}>
-      View Timeline
-    </button>
-  </div>
-  <div className="hr-dash-card-content">
-    <div className="hr-dash-activity-feed">
-      {auditActivities.length === 0 ? (
-        <div style={{ padding: "2rem", color: "#aaa", textAlign: "center" }}>
-          No recent activities.
-        </div>
-      ) : (
-        auditActivities.map((activity, index) => (
-          <div key={activity.id || index} className="hr-dash-activity-item">
-            <div className={`hr-dash-activity-icon ${activity.iconClass || ''}`}>
-              {activity.user?.initial || activity.icon || '📝'}
-            </div>
-            <div className="hr-dash-activity-content">
-              <div className="hr-dash-activity-title">
-                {activity.user?.name
-                  ? <><strong>{activity.user.name}</strong>: {activity.title}</>
-                  : activity.title}
-              </div>
-              <div className="hr-dash-activity-time">{activity.time}</div>
-              {/* Optional: if your API provides details */}
-              {activity.details && Array.isArray(activity.details) && (
-                <div className="hr-dash-activity-extra-details">
-                  {activity.details.map((detail, i) => (
-                    <div key={i} className="detail-item">{detail}</div>
-                  ))}
+              <div className="stat-item">
+                <div className="stat-icon available">
+                  <FaUserClock />
                 </div>
-              )}
+                <div className="stat-content">
+                  <span className="stat-value">{stats.available}</span>
+                  <span className="stat-label">Available</span>
+              </div>
+            </div>
+              <div className="stat-item">
+                <div className="stat-icon requests">
+                  <FaClipboardList />
+            </div>
+                <div className="stat-content">
+                  <span className="stat-value">{stats.requests}</span>
+                  <span className="stat-label">Requests</span>
+                  </div>
+              </div>
             </div>
           </div>
-        ))
-      )}
+
+          {/* Enhanced Workforce Distribution Chart */}
+          {workforceData.data.length > 0 && (
+            <div className="dashboard-card chart-card">
+              <div className="card-header">
+                <h3 className="card-title">Workforce Analytics</h3>
+  </div>
+              <div className="chart-content">
+                <div className="chart-container">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={workforceData.data}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        paddingAngle={2}
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                      >
+                        {workforceData.data.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+        </div>
+                <div className="chart-metrics">
+                  <div className="metric-item">
+                    <div className="metric-label">Total Workforce</div>
+                    <div className="metric-value">{workforceData.total}</div>
+            </div>
+                  <div className="metric-item">
+                    <div className="metric-label">Assigned</div>
+                    <div className="metric-value assigned">{workforceData.assigned}</div>
+              </div>
+                  <div className="metric-item">
+                    <div className="metric-label">Available</div>
+                    <div className="metric-value available">{workforceData.available}</div>
+                </div>
+                  <div className="metric-item">
+                    <div className="metric-label">Utilization Rate</div>
+                    <div className="metric-value">
+                      {workforceData.total > 0 ? Math.round((workforceData.assigned / workforceData.total) * 100) : 0}%
+            </div>
+          </div>
     </div>
   </div>
 </div>
+          )}
 
-
-
-          {/* Communication Center */}
-          <div className="hr-dash-card">
-            <div className="hr-dash-card-header">
-              <h3 className="hr-dash-card-title">Communication Center</h3>
-              <button className="hr-dash-card-action" onClick={() => handleAction('Open Chat')}>
-                Open Chat
+          {/* Recent Manpower Requests */}
+          <div className="dashboard-card requests-card">
+            <div className="card-header">
+              <h3 className="card-title">Recent Manpower Requests</h3>
+              <div className="card-actions">
+                <button
+                  className="refresh-btn"
+                  onClick={fetchManpowerRequests}
+                  title="Refresh requests"
+                  disabled={loadingRequests}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1 4v6h6M23 20v-6h-6" />
+                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+                  </svg>
               </button>
+                                 <Link to="/hr/movement" className="view-all-btn">
+                  View All
+                  <FaArrowRight />
+                </Link>
+              </div>
             </div>
-            <div className="hr-dash-card-content">
-              <div className="hr-dash-activity-feed">
-                {communications.map((comm, index) => (
-                  <div key={index} className="hr-dash-activity-item">
-                    <div className="hr-dash-activity-icon hr-dash-comm-icon">
-                      {comm.icon}
+            <div className="card-content">
+              {loadingRequests ? (
+                <div className="loading-state">
+                  <div className="loading-spinner"></div>
+                  <span>Loading requests...</span>
+                </div>
+              ) : requestsError ? (
+                <div className="error-state">
+                  <span>⚠️ {requestsError}</span>
+                </div>
+              ) : manpowerRequests.length === 0 ? (
+                <div className="empty-state">
+                  <span>No recent requests</span>
+                </div>
+              ) : (
+                                 <div className="requests-list">
+                   {manpowerRequests.map((request) => (
+                     <div 
+                       key={request._id} 
+                       className={`request-item ${!request.isViewed ? 'unviewed' : ''}`}
+                                               onClick={() => navigate(`/hr/manpower-request/${request._id}`)}
+                       style={{ cursor: 'pointer' }}
+                     >
+                       <div className="request-left">
+                         <div className="request-project">{request.projectName}</div>
+                         <div className={`request-status ${request.status.toLowerCase()}`}>
+                           {request.status}
+                         </div>
+            </div>
+                       <div className="request-middle">
+                         <div className="request-position">{request.position}</div>
+                         <div className="request-quantity">{request.quantity} needed</div>
                     </div>
-                    <div className="hr-dash-activity-content">
-                      <div className="hr-dash-activity-title">{comm.title}</div>
-                      <div className="hr-dash-activity-time">{comm.subtitle}</div>
+                       <div className="request-right">
+                         <div className="request-by">By: {request.requestedBy}</div>
+                         <div className="request-date">{formatDate(request.requestDate)}</div>
                     </div>
                   </div>
                 ))}
               </div>
+              )}
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

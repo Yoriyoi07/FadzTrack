@@ -71,6 +71,7 @@ import HrManpowerList from './hr/HrManpowerList';
 import HrMovementList from './hr/HrMovementList';
 import HrProj from './hr/HrProj';
 import HrViewSpecific from './hr/HrViewSpeficic';
+import HrManpowerRequestDetail from './hr/HrManpowerRequestDetail';
 import HrChat from './chats/HrChat';
 
 // STAFF
@@ -175,6 +176,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/hr/movement" element={<HrMovementList />} />
         <Route path="/hr/project-records" element={<HrProj />} />
         <Route path="/hr/project-records/:id" element={<HrViewSpecific />} />
+        <Route path="/hr/manpower-request/:id" element={<HrManpowerRequestDetail />} />
         <Route path="/hr/chat" element={<HrChat />} />
         <Route path="/hr/chat/:chatId" element={<HrChat />} />
       </Route>
