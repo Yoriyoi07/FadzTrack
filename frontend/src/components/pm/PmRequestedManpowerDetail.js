@@ -123,23 +123,16 @@ export default function PmRequestedManpowerDetail() {
 
     const fetchManpowerFromPmProject = async () => {
       try {
-        // preferred: server filters by project
-        const { data } = await api.get('/manpower', { params: { project: pmProject._id } });
-        setAvailableManpowers(Array.isArray(data) ? data : []);
-      } catch {
-        // fallback: try inactive list, then filter if any project association exists
-        try {
-          const { data } = await api.get('/manpower-requests/inactive');
-          const filtered = Array.isArray(data)
-            ? data.filter(m => {
-                const ap = m.assignedProject?._id || m.assignedProject || m.project || m.homeProject;
-                return ap ? String(ap) === String(pmProject._id) : false;
-              })
-            : [];
-          setAvailableManpowers(filtered);
-        } catch {
-          setAvailableManpowers([]);
-        }
+        const { data } = await api.get('/manpower'); // backend does NOT filter by project yet
+        const arr = Array.isArray(data) ? data : [];
+        const filtered = arr.filter(m => {
+          const ap = m.assignedProject?._id || m.assignedProject || m.project || m.homeProject;
+            return ap && String(ap) === String(pmProject._id);
+        });
+        setAvailableManpowers(filtered);
+      } catch (e) {
+        console.error('Manpower fetch failed', e);
+        setAvailableManpowers([]);
       }
     };
 

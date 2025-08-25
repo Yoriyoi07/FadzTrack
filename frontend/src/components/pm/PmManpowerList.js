@@ -57,17 +57,14 @@ export default function PmManpowerList() {
           const { data } = await api.get('/manpower-requests/mine');
           setRequests(Array.isArray(data) ? data : []);
         } else {
-          const { data } = await api.get('/manpower-requests/pm');
-          const arr = Array.isArray(data) ? data : [];
-          // For PM users, filter out completed requests from "Others' Requests"
-          const othersOnly = arr.filter(r => {
-            const creatorId = r.createdBy?._id || r.createdBy?.id || r.createdBy;
-            const isCompleted = r.status?.toLowerCase() === 'completed';
-            const isOverdue = r.status?.toLowerCase() === 'pending' && r.acquisitionDate && new Date(r.acquisitionDate) < new Date();
-            // Show overdue requests to other PMs, but hide completed ones
-            return !userId || (creatorId && creatorId !== userId && !isCompleted);
-          });
-          setRequests(othersOnly);
+          // Fetch ALL requests then filter out those created by this user so we also see Approved/Completed/Overdue
+            const { data } = await api.get('/manpower-requests');
+            const arr = Array.isArray(data) ? data : [];
+            const othersOnly = arr.filter(r => {
+              const creatorId = r.createdBy?._id || r.createdBy?.id || r.createdBy;
+              return creatorId && creatorId !== userId; // exclude my own only
+            });
+            setRequests(othersOnly);
         }
       } catch (err) {
         console.error('Load error:', err);
@@ -83,7 +80,7 @@ export default function PmManpowerList() {
       }
     };
     fetchData();
-  }, [viewMode]);
+  }, [viewMode, userId]);
 
   // Scroll handler for header collapse
   useEffect(() => {
@@ -138,9 +135,10 @@ export default function PmManpowerList() {
     let items = requests;
 
     if (status && status !== 'All') {
-      items = items.filter((r) => (r.status || 'Pending') === status);
+      const target = status === 'Complete' ? 'Completed' : status; // map UI label to stored status
+      items = items.filter((r) => (r.status || 'Pending') === target);
     }
-    
+
     if (searchTerm) {
       const text = searchTerm.toLowerCase();
       items = items.filter((r) => {
@@ -155,7 +153,7 @@ export default function PmManpowerList() {
         );
       });
     }
-    
+
     return items;
   }, [requests, status, searchTerm]);
 
