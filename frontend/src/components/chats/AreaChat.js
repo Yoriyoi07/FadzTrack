@@ -3,7 +3,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   FaUsers, FaPaperPlane, FaCheck, FaTachometerAlt, FaComments, FaBoxes,
-  FaClipboardList, FaChartBar, FaProjectDiagram
+  FaClipboardList, FaChartBar, FaProjectDiagram, FaReply, FaShare, FaTrash,
+  FaSearch, FaTimes, FaArrowUp, FaArrowDown, FaEllipsisH, FaCalendarAlt, FaEye, FaExchangeAlt, FaMapMarkerAlt
 } from 'react-icons/fa';
 import { io } from 'socket.io-client';
 import EmojiPicker from 'emoji-picker-react';
@@ -11,10 +12,67 @@ import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
 import '../style/am_style/AreaChat.css';
 
+// Map role/baseSegment to its navigation links so reused chat shows correct menu.
+const NAV_CONFIG = {
+  am: [
+    { to: '/am', icon: FaTachometerAlt, label: 'Dashboard' },
+    { to: '/am/chat', icon: FaComments, label: 'Chat', activeMatch: /^\/am\/chat/ },
+    { to: '/am/matreq', icon: FaBoxes, label: 'Material' },
+    { to: '/am/manpower-requests', icon: FaUsers, label: 'Manpower' },
+    { to: '/am/viewproj', icon: FaProjectDiagram, label: 'Projects' },
+    { to: '/logs', icon: FaClipboardList, label: 'Logs' },
+    { to: '/reports', icon: FaChartBar, label: 'Reports' },
+  ],
+  pm: [
+    { to: '/pm', icon: FaTachometerAlt, label: 'Dashboard', activeMatch: /^\/pm(?!\/)/ },
+    { to: '/pm/chat', icon: FaComments, label: 'Chat', activeMatch: /^\/pm\/chat/ },
+    { to: '/pm/request/placeholder', icon: FaBoxes, label: 'Material', activeMatch: /^\/pm\/request/ },
+    { to: '/pm/manpower-list', icon: FaUsers, label: 'Manpower', activeMatch: /^\/pm\/manpower/ },
+    { toDynamic: (pid)=> pid ? `/pm/viewprojects/${pid}` : null, icon: FaProjectDiagram, label: 'View Project', activeMatch: /^\/pm\/viewprojects/ },
+    { to: '/pm/daily-logs', icon: FaClipboardList, label: 'Logs', activeMatch: /^\/pm\/daily-logs(?!-list)/ },
+    { toDynamic: (pid)=> pid ? `/pm/progress-report/${pid}` : null, icon: FaChartBar, label: 'Reports', activeMatch: /^\/pm\/progress-report/ },
+    { to: '/pm/daily-logs-list', icon: FaCalendarAlt, label: 'Daily Logs', activeMatch: /^\/pm\/daily-logs-list/ },
+  ],
+  pic: [
+    { to: '/pic', icon: FaTachometerAlt, label: 'Dashboard', activeMatch: /^\/pic(?!\/)/ },
+    { to: '/pic/chat', icon: FaComments, label: 'Chat', activeMatch: /^\/pic\/chat/ },
+    { to: '/pic/requests', icon: FaClipboardList, label: 'Requests', activeMatch: /^\/pic\/requests/ },
+    { toDynamic: (pid) => pid ? `/pic/${pid}` : null, icon: FaEye, label: 'View Project', activeMatch: /^\/pic\/(?!chat|projects|requests)([a-f0-9]{24})$/ },
+    { to: '/pic/projects', icon: FaProjectDiagram, label: 'My Projects', activeMatch: /^\/pic\/projects/ },
+  ],
+  it: [
+  { to: '/it', icon: FaTachometerAlt, label: 'Dashboard', activeMatch: /^\/it(?!\/.+)/ },
+  { to: '/it/chat', icon: FaComments, label: 'Chat', activeMatch: /^\/it\/chat/ },
+  { to: '/it/material-list', icon: FaBoxes, label: 'Materials', activeMatch: /^\/it\/material-list/ },
+  { to: '/it/manpower-list', icon: FaUsers, label: 'Manpower', activeMatch: /^\/it\/manpower-list/ },
+  { to: '/it/auditlogs', icon: FaClipboardList, label: 'Audit Logs', activeMatch: /^\/it\/auditlogs/ },
+  ],
+  ceo: [
+    { to: '/ceo/dash', icon: FaTachometerAlt, label: 'Dashboard', activeMatch: /^\/ceo\/dash/ },
+    { to: '/ceo/chat', icon: FaComments, label: 'Chat', activeMatch: /^\/ceo\/chat/ },
+    { to: '/ceo/manpower-requests', icon: FaUsers, label: 'Manpower', activeMatch: /^\/ceo\/manpower-requests/ },
+    { to: '/ceo/proj', icon: FaProjectDiagram, label: 'Projects', activeMatch: /^\/ceo\/proj/ },
+    { to: '/ceo/material-list', icon: FaBoxes, label: 'Materials', activeMatch: /^\/ceo\/material-list/ },
+    { to: '/ceo/audit-logs', icon: FaClipboardList, label: 'Audit Logs', activeMatch: /^\/ceo\/audit-logs/ },
+    { to: '/reports', icon: FaChartBar, label: 'Reports', activeMatch: /^\/reports/ },
+    // Areas & Projects toggle button omitted here (requires dashboard-only sidebar logic)
+  ],
+  hr: [
+    { to: '/hr', icon: FaTachometerAlt, label: 'Dashboard', activeMatch: /^\/hr(?!\/.+)/ },
+    { to: '/hr/chat', icon: FaComments, label: 'Chat', activeMatch: /^\/hr\/chat/ },
+    { to: '/hr/mlist', icon: FaUsers, label: 'Manpower', activeMatch: /^\/hr\/mlist/ },
+    { to: '/hr/movement', icon: FaExchangeAlt, label: 'Movement', activeMatch: /^\/hr\/movement/ },
+    { to: '/hr/project-records', icon: FaProjectDiagram, label: 'Projects', activeMatch: /^\/hr\/project-records/ },
+    { to: '/hr/requests', icon: FaClipboardList, label: 'Requests', activeMatch: /^\/hr\/requests/ },
+    { to: '/hr/reports', icon: FaChartBar, label: 'Reports', activeMatch: /^\/hr\/reports/ },
+  ],
+};
+
 const SOCKET_URL  = process.env.REACT_APP_SOCKET_URL  || '/';
 const SOCKET_PATH = process.env.REACT_APP_SOCKET_PATH || '/socket.io';
 
-const AreaChat = () => {
+// Generic chat component now parameterized by baseSegment so other roles reuse it safely.
+const AreaChat = ({ baseSegment = 'am' }) => {
   const navigate   = useNavigate();
   const { chatId } = useParams();
 
@@ -54,6 +112,15 @@ const AreaChat = () => {
   const [showSeenDetails, setShowSeenDetails] = useState(null);
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  // Message-level features (search, reply, forward, delete)
+  const [messageSearch, setMessageSearch] = useState('');
+  const [searchMatches, setSearchMatches] = useState([]); // indices of matching messages
+  const [searchIndex, setSearchIndex] = useState(0);
+  const [replyTo, setReplyTo] = useState(null); // message object being replied to
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [forwardMessage, setForwardMessage] = useState(null);
+  const [forwardTargets, setForwardTargets] = useState([]); // chat IDs to forward to
+  const [actionMenu, setActionMenu] = useState({ open: false, msgId: null, x: 0, y: 0 });
 
   // Group modal
   const [showGroupModal, setShowGroupModal] = useState(false);
@@ -77,6 +144,9 @@ const AreaChat = () => {
   // media viewer (lightbox)
   const [showMediaViewer, setShowMediaViewer] = useState(false);
   const [mediaViewerIndex, setMediaViewerIndex] = useState(0);
+  // For Project Manager & PIC conditional nav items (project-dependent)
+  const [pmProjectId, setPmProjectId] = useState(null);
+  const [picProjectId, setPicProjectId] = useState(null);
   const mediaImages = useMemo(() => (
     messages
       .flatMap(m => m.attachments || [])
@@ -100,6 +170,29 @@ const AreaChat = () => {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [showMediaViewer, mediaImages.length]);
+
+  // Load minimal project info for PM & PIC to show conditional nav links similar to their dashboards
+  useEffect(() => {
+    if (baseSegment !== 'pm' && baseSegment !== 'pic') return;
+    (async () => {
+      try {
+        if (baseSegment === 'pm') {
+          const { data } = await api.get('/projects?limit=1', { headers });
+          if (Array.isArray(data) && data.length) {
+            const first = data[0];
+            setPmProjectId(first._id || first.id || null);
+          }
+        } else if (baseSegment === 'pic' && userId) {
+          // Mirror PicDash: /projects/by-user-status?userId=...&role=pic&status=Ongoing
+          const { data } = await api.get(`/projects/by-user-status?userId=${userId}&role=pic&status=Ongoing`, { headers });
+            if (Array.isArray(data) && data.length) {
+              const first = data[0];
+              setPicProjectId(first._id || first.id || null);
+            }
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [baseSegment, headers, userId]);
 
   // Consistent ordering helper: newest lastMessage (with fallbacks) first, plus pin logic
   const sortChatList = (list) => {
@@ -159,6 +252,14 @@ const AreaChat = () => {
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, []);
+  // Close message action menu on outside/Escape
+  useEffect(() => {
+    const onDocClick = (e) => { if (!e.target.closest('.msg-action-trigger') && !e.target.closest('.msg-action-popover')) setActionMenu(m => m.open ? { ...m, open:false } : m); };
+    const onKey = (e) => { if (e.key === 'Escape') setActionMenu(m => m.open ? { ...m, open:false } : m); };
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); };
+  }, []);
 
   // helpers
   const getDisplayName = (u) => u?.name || `${u?.firstname || ''} ${u?.lastname || ''}`.trim() || u?.email || '';
@@ -196,6 +297,43 @@ const AreaChat = () => {
       return true;
     });
   }, [messages]);
+  // --- In-chat search helpers ---
+  const escapeRegExp = (s='') => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const highlightMessage = (text='') => {
+    if (!messageSearch.trim()) return text;
+    try {
+      const re = new RegExp(`(${escapeRegExp(messageSearch.trim())})`, 'gi');
+      return text.replace(re, '<mark class="msg-hit">$1</mark>');
+    } catch { return text; }
+  };
+  useEffect(() => {
+    if (!messageSearch.trim()) { setSearchMatches([]); setSearchIndex(0); return; }
+    const q = messageSearch.trim().toLowerCase();
+    const matches = dedupedMessages
+      .map((m,i) => ({ i, content: (m.content||'').toLowerCase() }))
+      .filter(x => x.content.includes(q))
+      .map(x => x.i);
+    setSearchMatches(matches);
+    setSearchIndex(0);
+    if (matches.length) {
+      setTimeout(() => {
+        const el = document.querySelector(`[data-msg-index="${matches[0]}"]`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
+    }
+  }, [messageSearch, dedupedMessages]);
+  const gotoMatch = (dir) => {
+    if (!searchMatches.length) return;
+    setSearchIndex(i => {
+      const next = (i + dir + searchMatches.length) % searchMatches.length;
+      const idx = searchMatches[next];
+      setTimeout(() => {
+        const el = document.querySelector(`[data-msg-index="${idx}"]`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 30);
+      return next;
+    });
+  };
   const getGroupSeenDisplay = (names) => {
     const first = names.map(n => n.split(' ')[0]);
     if (first.length <= 1) return first[0] || '';
@@ -247,10 +385,6 @@ const AreaChat = () => {
       // show in open chat
       if (selectedChatIdRef.current === msg.conversation) {
         setMessages(ms => {
-          if (ms.some(m => m._id === msg._id)) return ms;
-          const { text, attachments } = normalizeIncoming(msg);
-
-          // Remove any optimistic temp messages from self once real server message arrives
           const filtered = ms.filter(m => {
             if (!String(m._id).startsWith('tmp-')) return true;
             if (!m.isOwn) return true;
@@ -271,6 +405,8 @@ const AreaChat = () => {
             reactions: [],
             seen: [],
             attachments,
+            replyTo: msg.replyTo || null,
+            forwardOf: msg.forwardOf || null,
           }];
         });
 
@@ -392,6 +528,8 @@ const AreaChat = () => {
           reactions: m.reactions || [],
           seen: m.seen || [],
           attachments: m.attachments || [],
+          replyTo: m.replyTo || null,
+          forwardOf: m.forwardOf || null,
         }));
         setMessages(() => norm);
         norm.filter(m => !m.isOwn).forEach(m => {
@@ -462,7 +600,7 @@ const AreaChat = () => {
     setSelectedChat(chatToOpen);
     setNewMessage(drafts[chatToOpen._id] || '');
     setSearchQuery(''); setSearchResults([]); setPendingFiles([]);
-    navigate(`/am/chat/${chatToOpen._id}`);
+  navigate(`/${baseSegment}/chat/${chatToOpen._id}`);
   };
 
   // SEND — text + files (multipart) with optimistic temp message
@@ -489,6 +627,7 @@ const AreaChat = () => {
       reactions: [],
       seen: [],
       attachments: [], // real attachments come via socket
+      replyTo: replyTo ? replyTo._id : null,
     }]));
 
     // Optimistic sidebar preview + reorder
@@ -501,7 +640,8 @@ const AreaChat = () => {
     try {
       const fd = new FormData();
       fd.append('conversation', selectedChat._id);
-      if (content) fd.append('content', content);
+  if (content) fd.append('content', content);
+  if (replyTo) fd.append('replyTo', replyTo._id);
       filesNow.forEach(f => fd.append('files', f));
       await api.post('/messages', fd, { headers: { ...headers, 'Content-Type': 'multipart/form-data' } });
       // fetch fresh messages to ensure attachments (signed URLs) are present immediately
@@ -515,10 +655,13 @@ const AreaChat = () => {
             reactions: m.reactions || [],
             seen: m.seen || [],
             attachments: m.attachments || [],
+    replyTo: m.replyTo || null,
+    forwardOf: m.forwardOf || null,
           }));
           // After sending we want the server's canonical set (with attachment URLs).
           // Replace the current messages for this chat with the normalized server result.
-          setMessages(() => norm);
+      setMessages(() => norm);
+      setReplyTo(null);
         } catch (e) {
         // ignore fetch error; socket will deliver the message
       }
@@ -555,7 +698,7 @@ const AreaChat = () => {
     const { data: newChat } = await api.post('/chats', { name: groupName, users: members, isGroup: true }, { headers });
     await reloadChats();
     setShowGroupModal(false); setGroupName(''); setUserSearch(''); setSelectedUsers([]);
-    setSelectedChat(newChat); navigate(`/am/chat/${newChat._id}`);
+  setSelectedChat(newChat); navigate(`/${baseSegment}/chat/${newChat._id}`);
   };
 
   const startEditGroupName = () => { setNewGroupName(selectedChat.name); setEditingGroupName(true); };
@@ -671,6 +814,64 @@ const AreaChat = () => {
           </div>
         </div>
       )}
+      {/* FORWARD MODAL */}
+      {showForwardModal && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth:420 }}>
+            <h3>Forward Message</h3>
+            <div style={{ fontSize:12, marginBottom:8, opacity:.7 }}>Select chats to forward to</div>
+            <div className="user-list" style={{ maxHeight:220 }}>
+              {chatList.filter(c => c._id !== selectedChat?._id).map(c => {
+                const name = c.isGroup ? c.name : getDisplayName(c.users.find(u => u._id !== userId));
+                return (
+                  <label key={c._id} className="user-item">
+                    <input type="checkbox" checked={forwardTargets.includes(c._id)} onChange={()=>setForwardTargets(t => t.includes(c._id) ? t.filter(id=>id!==c._id) : [...t, c._id])} />
+                    {name}
+                  </label>
+                );
+              })}
+            </div>
+            <div className="modal-buttons">
+              <button className="btn-create" disabled={!forwardTargets.length} onClick={() => {
+                if (!forwardMessage) return; 
+                Promise.all(forwardTargets.map(cid => api.post('/messages', { conversation: cid, content: forwardMessage.content, forwardOf: forwardMessage._id }, { headers })))
+                  .then(()=> { setShowForwardModal(false); setForwardMessage(null); setForwardTargets([]); if (!forwardTargets.includes(selectedChat?._id)) reloadChats(); })
+                  .catch(()=>alert('Forward failed'));
+              }}>Forward</button>
+              <button className="btn-cancel" onClick={() => { setShowForwardModal(false); setForwardMessage(null); setForwardTargets([]); }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Context action popover */}
+      {actionMenu.open && (
+        <div
+          className="msg-action-popover"
+          style={{ position:'fixed', top: actionMenu.y - 10, left: actionMenu.x, transform:'translate(-50%, -100%)', background:'#18191a', color:'#e4e6eb', padding:'6px 0', borderRadius:12, minWidth:140, boxShadow:'0 8px 24px rgba(0,0,0,.4)', zIndex:2000, fontSize:13 }}
+        >
+          <div style={{ position:'absolute', bottom:-6, left:'50%', transform:'translateX(-50%)', width:0, height:0, borderLeft:'6px solid transparent', borderRight:'6px solid transparent', borderTop:'6px solid #18191a' }} />
+          {(() => {
+            const msg = messages.find(m => m._id === actionMenu.msgId);
+            if (!msg) return null;
+            const close = () => setActionMenu(m => ({ ...m, open:false }));
+            return (
+              <>
+                {msg.isOwn && (
+                  <button className="popover-item" onClick={()=>{ close(); if(window.confirm('Unsend this message?')) api.delete(`/messages/${msg._id}`, { headers }).then(()=> setMessages(ms=>ms.filter(m=>m._id!==msg._id))); }}>
+                    Unsend
+                  </button>
+                )}
+                <button className="popover-item" onClick={()=>{ close(); setForwardMessage(msg); setForwardTargets([]); setShowForwardModal(true); }}>
+                  Forward
+                </button>
+                <button className="popover-item" onClick={()=>{ close(); alert('Report submitted (stub)'); }}>
+                  Report
+                </button>
+              </>
+            );
+          })()}
+        </div>
+      )}
 
       {/* HEADER */}
       <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
@@ -694,13 +895,23 @@ const AreaChat = () => {
         </div>
         <div className="header-bottom">
           <nav className="header-nav">
-            <Link to="/am" className="nav-item"><FaTachometerAlt /><span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span></Link>
-            <Link to="/am/chat" className="nav-item active"><FaComments /><span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span></Link>
-            <Link to="/am/matreq" className="nav-item"><FaBoxes /><span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span></Link>
-            <Link to="/am/manpower-requests" className="nav-item"><FaUsers /><span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span></Link>
-            <Link to="/am/viewproj" className="nav-item"><FaProjectDiagram /><span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span></Link>
-            <Link to="/logs" className="nav-item"><FaClipboardList /><span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span></Link>
-            <Link to="/reports" className="nav-item"><FaChartBar /><span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span></Link>
+            {(NAV_CONFIG[baseSegment] || NAV_CONFIG['am']).map(item => {
+              // Support dynamic project-based links for PM & PIC
+              let to = item.to;
+              if (!to && item.toDynamic) {
+                const dynamicId = baseSegment === 'pm' ? pmProjectId : baseSegment === 'pic' ? picProjectId : null;
+                to = item.toDynamic(dynamicId);
+              }
+              if (!to) return null; // skip if still null
+              const Icon = item.icon;
+              const active = item.activeMatch ? item.activeMatch.test(window.location.pathname) : false;
+              return (
+                <Link key={to} to={to} className={`nav-item ${active ? 'active' : ''}`}>
+                  <Icon />
+                  <span className={isHeaderCollapsed ? 'hidden' : ''}>{item.label}</span>
+                </Link>
+              );
+            })}
           </nav>
           <NotificationBell />
         </div>
@@ -760,10 +971,31 @@ const AreaChat = () => {
                       </div>
                       <div className="modern-chat-header-info">
                         <h3>{selectedChat.isGroup ? selectedChat.name : getDisplayName(selectedChat.users.find(u => u._id !== userId))}</h3>
+                        <div className="message-search-inline" style={{ display:'flex', gap:4, alignItems:'center', marginTop:4 }}>
+                          <div style={{ position:'relative', display:'flex', alignItems:'center', background:'#f1f3f6', borderRadius:16, padding:'2px 6px' }}>
+                            <FaSearch style={{ fontSize:12, opacity:.6 }} />
+                            <input
+                              style={{ border:'none', outline:'none', background:'transparent', fontSize:12, padding:'2px 4px', width:140 }}
+                              placeholder="Search in chat"
+                              value={messageSearch}
+                              onChange={(e)=>setMessageSearch(e.target.value)}
+                            />
+                            {messageSearch && <FaTimes style={{ cursor:'pointer', fontSize:12, opacity:.6 }} onClick={()=>setMessageSearch('')} />}
+                          </div>
+                          {messageSearch && (
+                            <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+                              <button disabled={!searchMatches.length} onClick={()=>gotoMatch(-1)} className="mini-nav-btn" title="Previous"><FaArrowUp /></button>
+                              <button disabled={!searchMatches.length} onClick={()=>gotoMatch(1)} className="mini-nav-btn" title="Next"><FaArrowDown /></button>
+                              <span style={{ fontSize:11, opacity:.7 }}>{searchMatches.length ? (searchIndex+1) : 0}/{searchMatches.length}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <button className="modern-info-btn" onClick={() => setShowInfoSidebar(s => !s)}>i</button>
                   </div>
+
+                  {/* Reply banner relocated to input container for consistency */}
 
                   {/* Messages */}
                   <div className="modern-chat-messages">
@@ -797,11 +1029,19 @@ const AreaChat = () => {
                         })();
 
                         return (
-                          <div key={`${String(msg._id)}-${idx}`} className={`modern-message-wrapper ${msg.isOwn ? 'own' : 'other'}`}>
+                          <div key={`${String(msg._id)}-${idx}`} data-msg-index={idx} className={`modern-message-wrapper ${msg.isOwn ? 'own' : 'other'} ${searchMatches.includes(idx) ? 'search-hit' : ''}`}>
                             <div className={`modern-message ${msg.isOwn ? 'own' : 'other'}`}>
                               <div className="modern-message-content">
-                                {/* Text */}
-                                {msg.content && <div className="msg-text">{msg.content}</div>}
+                                {/* Forward label */}
+                                {msg.forwardOf && <div className="forward-label" style={{ fontSize:10, opacity:.6, marginBottom:2 }}>Forwarded</div>}
+                                {/* Reply reference */}
+                                {msg.replyTo && (
+                                  <div className="reply-ref" onClick={()=>{ const el = document.querySelector(`[data-reply-id='${msg.replyTo}']`) || document.querySelector(`[data-msg-index='${dedupedMessages.findIndex(m=>m._id===msg.replyTo)}']`); if(el) el.scrollIntoView({behavior:'smooth', block:'center'}); }} style={{ cursor:'pointer', background:'rgba(0,0,0,0.05)', borderLeft:'3px solid #4a68d4', padding:'4px 6px', borderRadius:4, fontSize:11, marginBottom:4 }}>
+                                    {(dedupedMessages.find(r => r._id === msg.replyTo)?.content || '[Original message]')?.slice(0,120)}
+                                  </div>
+                                )}
+                                {/* Text with highlight */}
+                                {msg.content && <div className="msg-text" dangerouslySetInnerHTML={{ __html: highlightMessage(msg.content) }} />}
 
                                 {/* Attachments */}
                                 {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
@@ -884,10 +1124,18 @@ const AreaChat = () => {
                                 })}
                               </div>
 
-                              <div className="hover-reactions-bar">
-                                {['👍', '❤️', '😂', '😮', '😢', '👎'].map((emoji) => (
-                                  <button key={emoji} className="hover-reaction-btn" onClick={() => toggleReaction(msg, emoji)} title={emoji}>{emoji}</button>
+                              {/* Removed legacy hover-reactions-bar to avoid duplicate emoji palette (now using floating layer) */}
+                            </div>
+                            {/* Floating outside toolbars (Messenger-style) */}
+                            <div className={`msg-floating-layer ${msg.isOwn ? 'own' : 'other'}`}>
+                              <div className="msg-reaction-palette">
+                                {['👍','❤️','😂','😮','😢','👎'].map(em => (
+                                  <button key={em} className="react-quick" onClick={()=>toggleReaction(msg, em)} title={em}>{em}</button>
                                 ))}
+                              </div>
+                              <div className="msg-float-actions">
+                                <button className="float-act-btn" title="Reply" onClick={()=>setReplyTo(msg)}><FaReply /></button>
+                                <button className="float-act-btn msg-action-trigger" title="More" onClick={(e)=>{ e.stopPropagation(); const rect=e.currentTarget.getBoundingClientRect(); setActionMenu({ open:true, msgId: msg._id, x: rect.left + rect.width/2, y: rect.top }); }}><FaEllipsisH /></button>
                               </div>
                             </div>
                           </div>
@@ -904,6 +1152,12 @@ const AreaChat = () => {
 
                   {/* INPUT */}
                   <div className="modern-message-input-container">
+                    {replyTo && (
+                      <div className="reply-banner">
+                        Replying to: <strong>{(replyTo.content||'').slice(0,80) || '[attachment]'}</strong>
+                        <button className="reply-cancel" onClick={()=>setReplyTo(null)}>×</button>
+                      </div>
+                    )}
                     <div className="modern-input-wrapper">
                       {/* Attach */}
                       <label className="modern-attach-btn">

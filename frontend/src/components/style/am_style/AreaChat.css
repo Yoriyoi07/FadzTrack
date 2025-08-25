@@ -530,6 +530,131 @@
   text-align: left;
 }
 
+/* Messenger-like action + reply/forward styling */
+.modern-message-wrapper .message-actions {
+  position: absolute;
+  top: 4px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s ease;
+  z-index: 5;
+}
+.modern-message-wrapper.own .message-actions { right: -4px; }
+.modern-message-wrapper.other .message-actions { left: -4px; }
+.modern-message-wrapper:hover .message-actions { opacity: 1; pointer-events: auto; }
+
+.msg-act-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,.1);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  color: #555;
+  box-shadow: 0 2px 4px rgba(0,0,0,.12);
+  transition: background .15s, transform .15s, color .15s;
+}
+.modern-message-wrapper.own .msg-act-btn { border-color: rgba(255,255,255,.35); background: rgba(255,255,255,.85); }
+.msg-act-btn:hover { background: #f0f2f5; transform: scale(1.05); color:#111; }
+.msg-act-btn:active { transform: scale(.92); }
+.msg-inline-act { opacity:.0; transition:opacity .15s ease; }
+.modern-message-wrapper:hover .msg-inline-act { opacity:1; }
+
+/* Popover */
+.msg-action-popover .popover-item {
+  all: unset;
+  display:block;
+  width:100%;
+  padding:8px 14px;
+  cursor:pointer;
+  font-size:13px;
+  line-height:1.2;
+  font-weight:500;
+  transition:background .12s ease;
+}
+.msg-action-popover .popover-item:hover { background:#242526; }
+.msg-action-popover .popover-item:active { background:#303133; }
+
+/* Floating outside layer (Messenger-like) */
+.msg-floating-layer { position: absolute; top: -42px; display:flex; align-items:center; gap:6px; opacity:0; pointer-events:none; transition:opacity .16s ease, transform .16s ease; }
+.modern-message-wrapper:hover .msg-floating-layer { opacity:1; pointer-events:auto; transform:translateY(-2px); }
+.msg-floating-layer.other { left: 0; }
+.msg-floating-layer.own { right: 0; flex-direction: row-reverse; }
+
+.msg-reaction-palette { background:#fff; border:1px solid #e4e6ea; padding:6px 8px; border-radius:28px; display:flex; gap:6px; box-shadow:0 4px 18px rgba(0,0,0,.15); }
+.react-quick { all:unset; cursor:pointer; font-size:20px; line-height:1; display:flex; align-items:center; justify-content:center; width:28px; height:28px; transition:transform .15s ease; }
+.react-quick:hover { transform:scale(1.25); }
+.react-quick:active { transform:scale(.85); }
+
+.msg-float-actions { display:flex; gap:6px; }
+.float-act-btn { width:34px; height:34px; border:none; border-radius:50%; background:#fff; color:#444; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.18); transition:background .15s, transform .15s; }
+.float-act-btn:hover { background:#f0f2f5; transform:scale(1.07); }
+.float-act-btn:active { transform:scale(.9); }
+
+@media (max-width:700px){
+  .msg-floating-layer { top: -50px; }
+  .msg-reaction-palette { padding:4px 6px; }
+  .react-quick { font-size:18px; width:26px; height:26px; }
+  .float-act-btn { width:30px; height:30px; }
+}
+
+.reply-ref {
+  font-size: 11px;
+  line-height: 1.3;
+  max-width: 100%;
+  background: rgba(0,0,0,0.05);
+  padding: 5px 8px;
+  border-left: 3px solid #1877f2;
+  border-radius: 6px;
+  margin-bottom: 6px;
+  color: #1f2937;
+  position: relative;
+}
+.modern-message.own .reply-ref { background: rgba(255,255,255,.15); color:#eef3ff; border-left-color:#fff; }
+.reply-ref:hover { filter: brightness(1.05); }
+
+.forward-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: #65676b;
+  margin-bottom: 4px;
+  opacity: .75;
+}
+.modern-message.own .forward-label { color: rgba(255,255,255,.85); }
+
+/* Reply banner (bottom composer inline) */
+.reply-banner {
+  background: #f0f2f5;
+  border-left: 4px solid #1877f2;
+  font-size: 12px;
+  color: #1f2937;
+}
+.reply-banner button { color:#555; }
+
+/* Search highlight */
+.msg-text mark.msg-hit, .msg-hit {
+  background: #ffe58f;
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 3px;
+}
+.modern-message-wrapper.search-hit .modern-message { outline: 2px solid #ffd666; box-shadow: 0 0 0 2px #ffd66633; }
+
+/* Adjust message content spacing for newly added elements */
+.modern-message-content .msg-text { white-space: pre-wrap; }
+
+@media (max-width: 680px) {
+  .modern-message-wrapper .message-actions { top: -28px; }
+}
+
 .message-tick {
   margin-left: 0.5rem;
   font-size: 0.8rem;

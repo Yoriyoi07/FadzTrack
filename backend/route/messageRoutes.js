@@ -44,7 +44,7 @@ router.get('/:chatId', async (req, res) => {
     if (!chat.users.map(String).includes(String(req.user.id)))
       return res.status(403).json({ error: 'Access denied' });
 
-    const msgs = await Message.find({ conversation: chatId }).sort({ createdAt: 1 }).lean();
+  const msgs = await Message.find({ conversation: chatId }).sort({ createdAt: 1 }).lean();
     // convert any attachment.path to a fresh signed URL (short-lived)
     const bucket = 'message';
     for (const m of msgs) {
@@ -68,7 +68,7 @@ router.get('/:chatId', async (req, res) => {
       }
     }
 
-    return res.json(msgs);
+  return res.json(msgs);
   } catch (err) {
     console.error('❌ GET /messages/:chatId', err);
     return res.status(500).json({ error: 'Failed to fetch messages' });
@@ -80,7 +80,7 @@ router.post('/', uploadMulter.any(), async (req, res) => {
     try {
       const userId = req.user.id;
   // content can come from multipart/form-data or JSON body
-  const { conversation, content } = req.body; // content is text
+  const { conversation, content, replyTo, forwardOf } = req.body; // content is text
 
       const chat = await Chat.findById(conversation);
       if (!chat) return res.status(404).json({ error: 'Chat not found' });
@@ -127,6 +127,8 @@ router.post('/', uploadMulter.any(), async (req, res) => {
         senderId: userId,
         message: (content || '').trim(),
         attachments: files,
+        replyTo: replyTo || undefined,
+        forwardOf: forwardOf || undefined,
       });
 
       // Log file uploads if any
@@ -175,6 +177,8 @@ router.post('/', uploadMulter.any(), async (req, res) => {
           content: msg.message || (files[0]?.url ?? ''),
           timestamp: msg.createdAt,
           attachments: msg.attachments,
+          replyTo: msg.replyTo ? String(msg.replyTo) : null,
+          forwardOf: msg.forwardOf ? String(msg.forwardOf) : null,
         });
 
         // also refresh left sidebar previews
@@ -184,7 +188,7 @@ router.post('/', uploadMulter.any(), async (req, res) => {
         });
       }
 
-      return res.status(201).json(msg);
+  return res.status(201).json(msg);
     } catch (err) {
       console.error('❌ POST /messages', err);
       return res.status(500).json({ error: 'Failed to send message' });
@@ -208,6 +212,25 @@ router.post('/:messageId/reactions', async (req, res) => {
     return res.json({ ok: true });
   } catch (e) {
     console.error(e); return res.status(500).json({ error: 'Failed to react' });
+  }
+});
+
+// DELETE /api/messages/:id  (soft delete own message)
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const msg = await Message.findById(id);
+    if (!msg) return res.status(404).json({ error: 'Message not found' });
+    if (String(msg.senderId) !== String(userId)) return res.status(403).json({ error: 'Cannot delete others\' messages' });
+    if (msg.deleted) return res.json({ ok: true });
+    msg.deleted = true; msg.deletedAt = new Date(); msg.deletedBy = userId; msg.message = '[deleted]';
+    await msg.save();
+    const io = req.app.get('io');
+    if (io) io.to(String(msg.conversation)).emit('receiveMessage', { _id: String(msg._id), conversation: String(msg.conversation), sender: String(msg.senderId), content: msg.message, timestamp: msg.updatedAt, attachments: [], replyTo: msg.replyTo ? String(msg.replyTo) : null, forwardOf: msg.forwardOf ? String(msg.forwardOf) : null });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error('DELETE /messages/:id', e); return res.status(500).json({ error: 'Failed to delete message' });
   }
 });
 

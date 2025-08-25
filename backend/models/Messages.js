@@ -30,12 +30,21 @@ const MessageSchema = new Schema({
   // text content (optional when sending files only)
   message:      { type: String, default: '' },
 
+  // reply threading
+  replyTo:      { type: Schema.Types.ObjectId, ref: 'Message' },
+  // forwarding reference
+  forwardOf:    { type: Schema.Types.ObjectId, ref: 'Message' },
+
   // array of files/media
   attachments:  { type: [AttachmentSchema], default: [] },
 
   // lightweight helpers
   reactions:    { type: [ReactionSchema], default: [] },
   seen:         { type: [SeenSchema], default: [] },
+  // soft delete support
+  deleted:      { type: Boolean, default: false },
+  deletedAt:    { type: Date },
+  deletedBy:    { type: Schema.Types.ObjectId, ref: 'User' },
 }, { timestamps: true });
 
 module.exports = mongoose.model('Message', MessageSchema);
