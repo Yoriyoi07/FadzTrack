@@ -1,0 +1,48 @@
+/* Area View Specific Project overrides to widen layout and improve large-screen responsiveness */
+.area-view-root .project-view-container {
+  width: min(1850px, 95vw);
+  max-width: 100%;
+  padding: 2rem 2.25rem; /* slightly less side padding to reclaim width */
+}
+
+/* Allow hero image to grow a bit on very large screens */
+@media (min-width: 1600px) {
+  .area-view-root .project-hero-image { height: 460px; }
+  .area-view-root .overview-grid { gap: 2rem; }
+}
+
+@media (min-width: 1800px) {
+  .area-view-root .project-view-container { max-width: min(1850px, 94vw); }
+  .area-view-root .overview-grid { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+}
+
+/* Tighten horizontal padding on medium screens to preserve space */
+@media (max-width: 1100px) {
+  .area-view-root .project-view-container { padding: 1.75rem 1.5rem; }
+}
+
+/* Mobile adjustments inherit from existing PM styles; just ensure no overflow */
+.area-view-root .overview-grid { width: 100%; }
+
+/* Discussions & files full width inside widened container */
+.area-view-root .tab-content,
+.area-view-root .project-details-content,
+.area-view-root .discussions-container,
+.area-view-root .reports-container,
+.area-view-root .files-container { max-width: 100%; }
+
+/* Ensure inner sections stretch and remove any left/right auto margins if inherited */
+.area-view-root .project-details-content,
+.area-view-root .discussions-container,
+.area-view-root .reports-container,
+.area-view-root .files-container,
+.area-view-root .project-header,
+.area-view-root .project-tabs { margin-left: 0; margin-right: 0; width: 100%; }
+
+/* Ensure hero image spans new width without looking cramped */
+.area-view-root .project-image-section { width: 100%; }
+
+/* Improve tab bar spacing on large screens */
+@media (min-width: 1600px) {
+  .area-view-root .project-tabs { padding-left: 0.25rem; padding-right: 0.25rem; }
+}
