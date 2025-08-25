@@ -1,0 +1,52 @@
+/* PM View Projects Wide Overrides for large screens */
+.pm-view-root .project-view-container {
+  width: min(1850px,95vw);
+  max-width: 100%;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+@media (min-width:1600px){
+  .pm-view-root .project-view-container {padding-left:2rem;padding-right:2rem;}
+}
+@media (min-width:1800px){
+  .pm-view-root .project-view-container {padding-left:2.5rem;padding-right:2.5rem;}
+}
+
+.pm-view-root .project-header,
+.pm-view-root .project-tabs,
+.pm-view-root .tab-content,
+.pm-view-root .project-details-content,
+.pm-view-root .discussions-container,
+.pm-view-root .files-container,
+.pm-view-root .reports-container {
+  width:100%;
+  max-width:100%;
+}
+
+/* Make overview grid breathe on wide screens */
+@media (min-width:1600px){
+  .pm-view-root .overview-grid {grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:2rem;}
+}
+
+/* Hero image larger on big screens */
+@media (min-width:1600px){
+  .pm-view-root .project-hero-image {height:460px;}
+}
+@media (min-width:1800px){
+  .pm-view-root .project-hero-image {height:500px;}
+}
+
+/* Discussions & files stretch full width */
+.pm-view-root .discussions-container,
+.pm-view-root .files-container,
+.pm-view-root .reports-container {
+  margin-left:0;
+  margin-right:0;
+}
+
+/* Ensure tables span width */
+.pm-view-root table.files-table {width:100%;}
+
+/* Avoid unintended horizontal scroll */
+.pm-view-root .project-view-container {overflow-x:hidden;}

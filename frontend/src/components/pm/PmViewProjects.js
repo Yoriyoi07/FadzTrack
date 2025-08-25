@@ -9,6 +9,7 @@ import { exportProjectDetails } from '../../utils/projectPdf';
 import { FaTachometerAlt, FaComments, FaBoxes, FaUsers as FaUsersNav, FaProjectDiagram, FaClipboardList, FaChartBar, FaCalendarAlt as FaCalendarAltNav } from 'react-icons/fa';
 import "../style/pm_style/Pm_Dash.css";
 import "../style/pm_style/Pm_ViewProjects.css";
+import "../style/pm_style/Pm_ViewProjects_Wide.css"; // wide layout overrides
 
 /* ---------- Socket.IO setup ---------- */
 const SOCKET_ORIGIN = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '');
@@ -858,7 +859,7 @@ const handleDeleteFile = async (doc, index) => {
     }
   };
   if (loading) return (
-    <div className="dashboard-container">
+    <div className="dashboard-container pm-view-root">
       <div className="professional-loading-screen">
         <div className="loading-content">
           <div className="loading-logo">
@@ -886,7 +887,7 @@ const handleDeleteFile = async (doc, index) => {
   );
   
   if (!project) return (
-    <div className="dashboard-container">
+    <div className="dashboard-container pm-view-root">
       <div className="professional-loading-screen">
         <div className="loading-content">
           <div className="loading-logo">
@@ -947,7 +948,7 @@ const handleDeleteFile = async (doc, index) => {
   const remaining = Math.max(budgetNum - Number(totalPO || 0), 0);
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container pm-view-root">
       {/* HEADER */}
       <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
         {/* Top Row: Logo and Profile */}
