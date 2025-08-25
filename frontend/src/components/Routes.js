@@ -68,6 +68,8 @@ import CeoMaterialRequestDetail from './ceo/CeoMaterialRequestDetail';
 import CeoAuditLogs from './ceo/CeoAuditLogs';
 import CeoChat from './chats/CeoChat';
 import CeoMaterialRequestEdit from './ceo/CeoMaterialRequestEdit';
+import CeoManpowerRequestList from './ceo/CeoManpowerRequestList';
+import CeoManpowerRequestDetail from './ceo/CeoManpowerRequestDetail';
 
 // HR
 import HrDash from './hr/HrDash';
@@ -176,6 +178,8 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/ceo/audit-logs" element={<CeoAuditLogs />} />
         <Route path="/ceo/chat" element={<CeoChat />} />
         <Route path="/ceo/chat/:chatId" element={<CeoChat />} />
+  <Route path="/ceo/manpower-requests" element={<CeoManpowerRequestList />} />
+  <Route path="/ceo/manpower-request/:id" element={<CeoManpowerRequestDetail />} />
       </Route>
 
       {/* HR-only */}

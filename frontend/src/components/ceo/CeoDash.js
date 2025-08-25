@@ -389,9 +389,7 @@ const CeoDash = () => {
             </div>
             {profileMenuOpen && (
               <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
+                <button onClick={handleLogout} className="logout-btn"><span>Logout</span></button>
               </div>
             )}
           </div>
@@ -405,6 +403,10 @@ const CeoDash = () => {
             <Link to="/ceo/chat" className="nav-item">
               <FaComments />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/ceo/manpower-requests" className="nav-item">
+              <FaUsers />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
             </Link>
             <Link to="/ceo/proj" className="nav-item">
               <FaProjectDiagram />
