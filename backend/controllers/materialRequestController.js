@@ -134,7 +134,7 @@ exports.createMaterialRequest = async (req, res) => {
       performedBy: req.user.id,
       performedByRole: req.user.role,
       description: `Created material request for project ${projectName}`,
-      meta: { requestId: newRequest._id }
+      meta: { requestId: newRequest._id, projectId: projectDoc?._id, projectName, context: 'material' }
     });
 
     if (req.user.role === 'CEO') {
@@ -143,7 +143,7 @@ exports.createMaterialRequest = async (req, res) => {
         performedBy: req.user.id,
         performedByRole: req.user.role,
         description: `CEO created material request for project ${projectName}`,
-        meta: { requestId: newRequest._id }
+    meta: { requestId: newRequest._id, projectId: projectDoc?._id, projectName, context: 'material' }
       });
     }
 

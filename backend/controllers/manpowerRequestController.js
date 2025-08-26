@@ -68,7 +68,7 @@ const createManpowerRequest = async (req, res) => {
       performedBy: req.user.id,
       performedByRole: req.user.role,
       description: `Created manpower request for project ${projectName}`,
-      meta: { requestId: newRequest._id, projectName }
+      meta: { requestId: newRequest._id, projectId: projectDoc?._id, projectName, context: 'manpower' }
     });
 
     // CEO-only audit log
@@ -78,7 +78,7 @@ const createManpowerRequest = async (req, res) => {
         performedBy: req.user.id,
         performedByRole: req.user.role,
         description: `CEO created manpower request for project ${projectName}`,
-        meta: { requestId: newRequest._id, projectName }
+    meta: { requestId: newRequest._id, projectId: projectDoc?._id, projectName, context: 'manpower' }
       });
     }
 

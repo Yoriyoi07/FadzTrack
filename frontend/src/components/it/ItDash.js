@@ -488,6 +488,10 @@ const handleLogout = () => {
                 <FaClipboardList />
                 <span className={isHeaderCollapsed ? 'hidden' : ''}>Audit Logs</span>
               </Link>
+              <Link to="/it/projects" className="nav-item">
+                <FaClipboardList />
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
+              </Link>
             </nav>
           </div>
         </header>

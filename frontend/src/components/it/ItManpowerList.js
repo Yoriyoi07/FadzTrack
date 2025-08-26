@@ -854,7 +854,8 @@ export default function ItManpowerList() {
                     <div 
                       key={movement._id} 
                       className="movement-item"
-                      onClick={() => navigate(`/it/manpower-request/${movement._id}`)}
+                      // Route defined in Routes.js is /it/manpower-list/:id, not /it/manpower-request/:id
+                      onClick={() => navigate(`/it/manpower-list/${movement._id}`)}
                     >
                       <div className="movement-requester">
                         <div className="requester-avatar">

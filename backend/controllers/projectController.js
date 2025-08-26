@@ -383,7 +383,7 @@ exports.addProject = async (req, res) => {
       performedBy: req.user.id,
       performedByRole: req.user.role,
       description: `Added new project ${projectName}`,
-      meta: { projectId: savedProject._id }
+      meta: { projectId: savedProject._id, projectName: savedProject.projectName, context: 'project' }
     });
     if (req.user.role === 'CEO') {
       await logAction({
@@ -391,7 +391,17 @@ exports.addProject = async (req, res) => {
         performedBy: req.user.id,
         performedByRole: req.user.role,
         description: `CEO added new project ${projectName}`,
-        meta: { projectId: savedProject._id }
+        meta: { projectId: savedProject._id, projectName: savedProject.projectName, context: 'project' }
+      });
+    }
+    // IT specific log (granular visibility for governance)
+    if (req.user.role === 'IT') {
+      await logAction({
+        action: 'IT_ADD_PROJECT',
+        performedBy: req.user.id,
+        performedByRole: req.user.role,
+        description: `IT created project ${projectName}`,
+        meta: { projectId: savedProject._id, projectName: savedProject.projectName, context: 'project' }
       });
     }
 
@@ -412,6 +422,29 @@ exports.updateProject = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = { ...req.body };
+    const existing = await Project.findById(id).lean();
+    if (!existing) return res.status(404).json({ message: 'Project not found' });
+
+    // Compute field-level diffs (simple strategy: shallow compare primitives + stringify arrays/objects)
+    const changes = [];
+    const considerKeys = Object.keys(updates);
+    for (const key of considerKeys) {
+      const before = existing[key];
+      const after = updates[key];
+      const norm = (v) => {
+        if (v == null) return v;
+        if (Array.isArray(v)) return [...v].map(x => (x && x._id) ? String(x._id) : String(x)).sort();
+        if (typeof v === 'object' && v._id) return String(v._id);
+        return v;
+      };
+      const b = norm(before);
+      const a = norm(after);
+      const equal = JSON.stringify(b) === JSON.stringify(a);
+      if (!equal) {
+        changes.push({ field: key, before: before instanceof Date ? before.toISOString() : b, after: after instanceof Date ? after.toISOString() : a });
+      }
+    }
+
     const updatedProject = await Project.findByIdAndUpdate(id, updates, { new: true });
     if (!updatedProject) return res.status(404).json({ message: 'Project not found' });
 
@@ -420,7 +453,7 @@ exports.updateProject = async (req, res) => {
       performedBy: req.user.id,
       performedByRole: req.user.role,
       description: `Updated project ${updatedProject.projectName}`,
-      meta: { projectId: updatedProject._id }
+      meta: { projectId: updatedProject._id, projectName: updatedProject.projectName, changedFields: changes, context: 'project' }
     });
     if (req.user.role === 'CEO') {
       await logAction({
@@ -428,7 +461,16 @@ exports.updateProject = async (req, res) => {
         performedBy: req.user.id,
         performedByRole: req.user.role,
         description: `CEO updated project ${updatedProject.projectName}`,
-        meta: { projectId: updatedProject._id }
+        meta: { projectId: updatedProject._id, projectName: updatedProject.projectName, changedFields: changes, context: 'project' }
+      });
+    }
+    if (req.user.role === 'IT') {
+      await logAction({
+        action: 'IT_UPDATE_PROJECT',
+        performedBy: req.user.id,
+        performedByRole: req.user.role,
+        description: `IT updated project ${updatedProject.projectName}`,
+        meta: { projectId: updatedProject._id, projectName: updatedProject.projectName, changedFields: changes, context: 'project' }
       });
     }
     res.status(200).json(updatedProject);
@@ -450,7 +492,7 @@ exports.deleteProject = async (req, res) => {
       performedBy: req.user.id,
       performedByRole: req.user.role,
       description: `Deleted project ${deletedProject.projectName}`,
-      meta: { projectId: deletedProject._id }
+      meta: { projectId: deletedProject._id, projectName: deletedProject.projectName, context: 'project' }
     });
     if (req.user.role === 'CEO') {
       await logAction({
@@ -458,7 +500,16 @@ exports.deleteProject = async (req, res) => {
         performedBy: req.user.id,
         performedByRole: req.user.role,
         description: `CEO deleted project ${deletedProject.projectName}`,
-        meta: { projectId: deletedProject._id }
+        meta: { projectId: deletedProject._id, projectName: deletedProject.projectName, context: 'project' }
+      });
+    }
+    if (req.user.role === 'IT') {
+      await logAction({
+        action: 'IT_DELETE_PROJECT',
+        performedBy: req.user.id,
+        performedByRole: req.user.role,
+        description: `IT deleted project ${deletedProject.projectName}`,
+        meta: { projectId: deletedProject._id, projectName: deletedProject.projectName, context: 'project' }
       });
     }
     res.status(200).json({ message: 'Project deleted successfully' });
@@ -1069,7 +1120,7 @@ exports.uploadProjectDocuments = async (req, res) => {
         (renamed.length ? `, renamed ${renamed.length} duplicate(s)` : '') +
         (replaced.length ? `, replaced ${replaced.reduce((a, r) => a + r.removed, 0)} old file(s)` : '') +
         ` for project ${project.projectName}`,
-      meta: { projectId: project._id, added: addedDocs.length, renamed, replaced }
+      meta: { projectId: project._id, projectName: project.projectName, added: addedDocs.length, renamed, replaced, context: 'project' }
     });
 
     const io = req.app.get('io');
@@ -1120,7 +1171,7 @@ exports.deleteProjectDocument = async (req, res) => {
         performedBy: req.user?.id,
         performedByRole: req.user?.role,
         description: `${req.user?.name || 'Unknown'} deleted document ${path} from project ${project.projectName}`,
-        meta: { projectId: project._id, path }
+  meta: { projectId: project._id, projectName: project.projectName, path, context: 'project' }
       });
     } catch (logErr) {
       console.error('Audit log error (deleteProjectDocument):', logErr);

@@ -47,6 +47,9 @@ router.post(
   controller.addProject
 );
 router.get('/', controller.getAllProjects);
+// NEW: update & delete project (needed for IT management UI)
+router.patch('/:id', verifyToken, controller.updateProject);
+router.delete('/:id', verifyToken, controller.deleteProject);
 
 /* ---------- Files tab ---------- */
 router.post('/:id/documents', verifyToken, upload.array('files', 20), controller.uploadProjectDocuments);

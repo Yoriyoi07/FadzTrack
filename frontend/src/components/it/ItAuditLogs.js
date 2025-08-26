@@ -21,6 +21,7 @@ const ItAuditLog = () => {
   const [endDate, setEndDate] = useState("");
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [expandedRow, setExpandedRow] = useState(null); // which log _id is expanded
 
   // User state
   const [user, setUser] = useState(() => {
@@ -96,6 +97,85 @@ const ItAuditLog = () => {
       window.dispatchEvent(new Event('storage'));
       navigate('/');
     });
+  };
+
+  // Toggle details row
+  const toggleRow = (id) => {
+    setExpandedRow(prev => prev === id ? null : id);
+  };
+
+  // Render meta details nicely
+  const renderMeta = (log) => {
+    const meta = log.meta || {};
+    // Changed fields diff
+    if (Array.isArray(meta.changedFields) && meta.changedFields.length) {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>Changed Fields ({meta.changedFields.length})</div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: '#f1f5f9' }}>
+                  <th style={metaTh}>Field</th>
+                  <th style={metaTh}>Before</th>
+                  <th style={metaTh}>After</th>
+                </tr>
+              </thead>
+              <tbody>
+                {meta.changedFields.map((f,i) => {
+                  const changed = f.before !== f.after;
+                  return (
+                    <tr key={i} style={{ background: i % 2 ? '#ffffff' : '#f8fafc' }}>
+                      <td style={metaTd}>{f.field}</td>
+                      <td style={{ ...metaTd, color: changed ? '#dc2626' : '#475569' }}>
+                        {formatValue(f.before)}
+                      </td>
+                      <td style={{ ...metaTd, color: changed ? '#16a34a' : '#475569' }}>
+                        {formatValue(f.after)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    // File uploads (chat / project)
+    if (meta.fileNames || meta.filesCount) {
+      return (
+        <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {meta.filesCount != null && <div><b>Files Count:</b> {meta.filesCount}</div>}
+          {Array.isArray(meta.fileNames) && meta.fileNames.length > 0 && (
+            <div>
+              <b>Files:</b>
+              <ul style={{ margin: '4px 0 0 16px', padding: 0 }}>
+                {meta.fileNames.map((n,i) => <li key={i} style={{ fontFamily: 'monospace' }}>{n}</li>)}
+              </ul>
+            </div>
+          )}
+          {meta.fileTypes && (
+            <div><b>Types:</b> {Array.isArray(meta.fileTypes) ? meta.fileTypes.join(', ') : meta.fileTypes}</div>
+          )}
+          {meta.totalSize && <div><b>Total Size:</b> {meta.totalSize} bytes</div>}
+        </div>
+      );
+    }
+
+    // Generic fallback JSON
+    return (
+      <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, margin: 0 }}>
+        {JSON.stringify(meta, null, 2)}
+      </pre>
+    );
+  };
+
+  const formatValue = (v) => {
+    if (v === null || v === undefined) return '';
+    if (typeof v === 'object') return JSON.stringify(v);
+    return String(v);
   };
 
   // Filter logic
@@ -904,121 +984,118 @@ const ItAuditLog = () => {
                   </tr>
                 ) : (
                   filteredLogs.map((log, i) => (
-                    <tr key={log._id || i} style={{ 
-                      background: i % 2 ? "#fafbfc" : "#fff",
-                      transition: 'all 0.2s ease',
-                      borderBottom: '1px solid #f3f4f6'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.closest('tr').style.backgroundColor = '#f0f9ff';
-                      e.target.closest('tr').style.transform = 'scale(1.01)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.closest('tr').style.backgroundColor = i % 2 ? "#fafbfc" : "#fff";
-                      e.target.closest('tr').style.transform = 'scale(1)';
-                    }}
-                    >
-                      <td style={{
-                        ...td,
-                        padding: '16px 12px',
-                        fontWeight: '500',
-                        color: '#374151'
-                      }}>
-                        {new Date(log.timestamp).toLocaleString()}
-                      </td>
-                      <td style={{
-                        ...td,
-                        padding: '16px 12px'
-                      }}>
-                        <span style={{ 
-                          background: getActionColor(log.action),
-                          color: 'white',
-                          borderRadius: '20px', 
-                          padding: "6px 12px",
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                          display: 'inline-block',
-                          minWidth: '80px',
-                          textAlign: 'center'
+                    <React.Fragment key={log._id || i}>
+                      <tr style={{ 
+                        background: i % 2 ? "#fafbfc" : "#fff",
+                        transition: 'all 0.2s ease',
+                        borderBottom: expandedRow === (log._id || i) ? 'none' : '1px solid #f3f4f6'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f0f9ff';
+                        e.currentTarget.style.transform = 'scale(1.01)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = i % 2 ? "#fafbfc" : "#fff";
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
+                      >
+                        <td style={{
+                          ...td,
+                          padding: '16px 12px',
+                          fontWeight: '500',
+                          color: '#374151'
                         }}>
-                          {log.action}
-                        </span>
-                      </td>
-                      <td style={{
-                        ...td,
-                        padding: '16px 12px',
-                        fontWeight: '500',
-                        color: '#1f2937'
-                      }}>
-                        {log.performedBy?.name || "Unknown"}
-                      </td>
-                      <td style={{
-                        ...td,
-                        padding: '16px 12px',
-                        color: '#6b7280'
-                      }}>
-                        {log.performedByRole}
-                      </td>
-                      <td style={{
-                        ...td,
-                        padding: '16px 12px',
-                        color: '#374151',
-                        maxWidth: '300px'
-                      }}>
-                        <div style={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
+                          {new Date(log.timestamp).toLocaleString()}
+                        </td>
+                        <td style={{
+                          ...td,
+                          padding: '16px 12px'
                         }}>
-                          {log.description}
-                        </div>
-                      </td>
-                      <td style={{
-                        ...td,
-                        padding: '16px 12px'
-                      }}>
-                        <details style={{ cursor: 'pointer' }}>
-                          <summary style={{ 
-                            cursor: "pointer",
-                            color: '#3b82f6',
-                            fontWeight: '500',
-                            fontSize: '13px',
-                            padding: '4px 8px',
-                            borderRadius: '6px',
-                            backgroundColor: '#eff6ff',
-                            border: '1px solid #dbeafe',
-                            transition: 'all 0.2s ease'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = '#dbeafe';
-                            e.target.style.borderColor = '#93c5fd';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = '#eff6ff';
-                            e.target.style.borderColor = '#dbeafe';
-                          }}
-                          >
-                            View Details
-                          </summary>
-                          <pre style={{ 
-                            whiteSpace: "pre-wrap", 
-                            fontSize: 12, 
-                            background: "#f8fafc", 
-                            padding: 12, 
-                            borderRadius: 8,
-                            border: '1px solid #e2e8f0',
-                            marginTop: '8px',
-                            color: '#374151',
-                            fontFamily: 'monospace',
-                            lineHeight: '1.5'
+                          <span style={{ 
+                            background: getActionColor(log.action),
+                            color: 'white',
+                            borderRadius: '20px', 
+                            padding: "6px 12px",
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            display: 'inline-block',
+                            minWidth: '80px',
+                            textAlign: 'center'
                           }}>
-                            {JSON.stringify(log.meta, null, 2)}
-                          </pre>
-                        </details>
-                      </td>
-                    </tr>
+                            {log.action}
+                          </span>
+                        </td>
+                        <td style={{
+                          ...td,
+                          padding: '16px 12px',
+                          fontWeight: '500',
+                          color: '#1f2937'
+                        }}>
+                          {log.performedBy?.name || "Unknown"}
+                        </td>
+                        <td style={{
+                          ...td,
+                          padding: '16px 12px',
+                          color: '#6b7280'
+                        }}>
+                          {log.performedByRole}
+                        </td>
+                        <td style={{
+                          ...td,
+                          padding: '16px 12px',
+                          color: '#374151',
+                          maxWidth: '300px'
+                        }}>
+                          <div style={{
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {log.description}
+                          </div>
+                        </td>
+                        <td style={{
+                          ...td,
+                          padding: '16px 12px'
+                        }}>
+                          <button onClick={() => toggleRow(log._id || i)}
+                            style={{
+                              cursor: 'pointer',
+                              color: '#3b82f6',
+                              fontWeight: 500,
+                              fontSize: 13,
+                              padding: '6px 12px',
+                              borderRadius: 6,
+                              backgroundColor: expandedRow === (log._id || i) ? '#dbeafe' : '#eff6ff',
+                              border: '1px solid #dbeafe',
+                              transition: 'all .2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#dbeafe';
+                            }}
+                            onMouseLeave={(e) => {
+                              if (expandedRow !== (log._id || i)) e.currentTarget.style.backgroundColor = '#eff6ff';
+                            }}
+                          >
+                            {expandedRow === (log._id || i) ? 'Hide' : 'View'} Details
+                          </button>
+                        </td>
+                      </tr>
+                      {expandedRow === (log._id || i) && (
+                        <tr style={{ background: '#f8fafc' }}>
+                          <td colSpan={6} style={{ padding: '20px 24px', borderTop: '1px solid #f1f5f9', borderBottom: '1px solid #f3f4f6' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                              {renderMeta(log)}
+                              <div style={{ fontSize: 11, color: '#64748b' }}>
+                                Log ID: {log._id} | Source: {log.source || 'N/A'}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   ))
                 )}
               </tbody>
@@ -1188,6 +1265,21 @@ const th = {
 const td = {
   padding: "8px 8px",
   borderBottom: "1px solid #eee",
+};
+const metaTh = {
+  textAlign: 'left',
+  padding: '6px 8px',
+  fontWeight: 600,
+  fontSize: 12,
+  borderBottom: '1px solid #e2e8f0',
+  color: '#334155'
+};
+const metaTd = {
+  padding: '6px 8px',
+  borderBottom: '1px solid #f1f5f9',
+  fontSize: 12,
+  verticalAlign: 'top',
+  fontFamily: 'system-ui, sans-serif'
 };
 
 export default ItAuditLog;
