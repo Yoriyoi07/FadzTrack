@@ -139,7 +139,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   const [showAddMembers, setShowAddMembers] = useState(false);
   const [availableMembers, setAvailableMembers] = useState([]);
   const [selectedNewMembers, setSelectedNewMembers] = useState([]);
-  // collapse/expand members list in info sidebar
+  // collapse/expand members list (only for group chats)
   const [showMembersList, setShowMembersList] = useState(false);
   // media viewer (lightbox)
   const [showMediaViewer, setShowMediaViewer] = useState(false);
@@ -786,6 +786,15 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   };
 
   const activeList = searchQuery.trim() ? searchResults : chatList;
+  // Derive unique members for selected group chat (avoid duplicates / missing _id entries inflating count)
+  const uniqueMembers = useMemo(() => {
+    if (!selectedChat?.isGroup) return [];
+    return (selectedChat.users || []).reduce((acc, curr) => {
+      if (!curr?._id) return acc; // skip invalid
+      if (!acc.map.has(curr._id)) { acc.map.set(curr._id, true); acc.list.push(curr); }
+      return acc;
+    }, { map: new Map(), list: [] }).list;
+  }, [selectedChat]);
 
   return (
     <>
@@ -1284,7 +1293,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                       <>
                         <div className="detail-item"><span className="detail-label">Group Name</span><span className="detail-value">{selectedChat.name}</span></div>
                         <div className="detail-item"><span className="detail-label">Join Code</span><span className="detail-value code">{selectedChat.joinCode}</span></div>
-                        <div className="detail-item"><span className="detail-label">Members</span><span className="detail-value">{selectedChat.users.length} people</span></div>
+                        <div className="detail-item"><span className="detail-label">Members</span><span className="detail-value">{uniqueMembers.length} people</span></div>
                       </>
                     ) : (
                       <>
@@ -1329,22 +1338,21 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                         onClick={() => setShowMembersList(s => !s)}
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                          width: '100%', background: 'transparent', border: 'none', padding: '4px 0',
-                          cursor: 'pointer', fontSize: 'inherit', fontWeight: 600
+                          width: '100%', background: 'transparent', border: 'none', padding: '6px 0',
+                          cursor: 'pointer', fontSize: 14, fontWeight: 600, color: '#222',
+                          borderBottom: '1px solid rgba(0,0,0,0.08)', marginTop: 12
                         }}
                       >
-                        <span>Members ({selectedChat.users.length})</span>
-                        <span style={{ fontSize: 12 }}>{showMembersList ? '▲' : '▼'}</span>
+                        <span style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <span style={{ letterSpacing: '.5px' }}>Members</span>
+                          <span style={{ fontSize:11, background:'#e5e7eb', padding:'2px 6px', borderRadius:12, color:'#111' }}>{uniqueMembers.length}</span>
+                        </span>
+                        <span style={{ fontSize: 12, opacity:.7 }}>{showMembersList ? '▲' : '▼'}</span>
                       </button>
                       {showMembersList && (
                         <div className="members-list">
                           {(() => {
-                            const unique = selectedChat.users.reduce((acc, curr) => {
-                              if (!curr?._id) return acc;
-                              if (!acc.map.has(curr._id)) { acc.map.set(curr._id, true); acc.list.push(curr); }
-                              return acc;
-                            }, { map: new Map(), list: [] }).list;
-                            return unique.map((u, i) => {
+                            return uniqueMembers.map((u, i) => {
                               const isCreator = selectedChat.creator && (selectedChat.creator === u._id || selectedChat.creator?._id === u._id);
                               return (
                                 <div key={`${u._id}-${i}`} className="member-item">
