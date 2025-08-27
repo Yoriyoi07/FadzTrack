@@ -133,89 +133,56 @@ const CeoDash = () => {
 
       for (const project of enrichedAllProjects) {
         try {
-          // Fetch AI reports for this project
-          const { data } = await api.get(`/projects/${project._id}/reports`);
-          const all = Array.isArray(data?.reports) ? data.reports : [];
-          if (!all.length) {
-            metrics.push({
-              projectId: project._id,
-              projectName: project.name,
-              pm: project.engineer,
-              area: project.location?.name || 'Unknown Area',
-              progress: 0,
-              totalPics: 0,
-              latestDate: null,
-              status: 'stale',
-              waitingForAll: false,
-              picNames: []
-            });
-            continue;
-          }
+          // Use the new averaged PiC contributions endpoint
+          const { data: contributionsData } = await api.get(`/daily-reports/project/${project._id}/pic-contributions`);
+          
+          const avg = contributionsData.averageContribution || 0;
+          const totalPics = contributionsData.totalPics || 0;
+          const reportingPics = contributionsData.reportingPics || 0;
+          const pendingPics = contributionsData.pendingPics || 0;
 
-          // Latest report per PIC (by uploadedBy)
-          const byPic = {};
-          for (const rep of all) {
-            const picId = rep.uploadedBy || rep.uploadedByName || 'unknown';
-            const repDate = rep.uploadedAt || rep.createdAt || rep.date;
-            if (!byPic[picId] || new Date(repDate) > new Date(byPic[picId].uploadedAt)) {
-              byPic[picId] = { ...rep, uploadedAt: repDate };
-            }
-          }
-
-          const picIds = Object.keys(byPic);
-          const expectedPics = Array.isArray(project.pic) ? project.pic.length : picIds.length; // fall back to seen PICs
-          const latestDate = picIds.length
-            ? picIds.map((id) => byPic[id].uploadedAt).sort((a, b) => new Date(b) - new Date(a))[0]
-            : null;
-
-          // Consider only reports matching the latest shared date when multiple PICs
-          const sameDay = (d1, d2) => new Date(d1).toDateString() === new Date(d2).toDateString();
-          let valuesAtLatest = [];
-          const namesAtLatest = [];
-          if (picIds.length > 1) {
-            picIds.forEach((id) => {
-              const rep = byPic[id];
-              if (rep?.uploadedAt && sameDay(rep.uploadedAt, latestDate)) {
-                valuesAtLatest.push(getPctFromAi(rep.ai || {}));
-                namesAtLatest.push(rep.uploadedByName || 'Unknown');
-              }
-            });
-          } else {
-            valuesAtLatest = picIds.map((id) => getPctFromAi(byPic[id].ai || {}));
-            namesAtLatest.push(byPic[picIds[0]]?.uploadedByName || 'Unknown');
-          }
-
-          const haveAll = picIds.length > 1 ? valuesAtLatest.length === expectedPics : valuesAtLatest.length > 0;
-          const avg = valuesAtLatest.length
-            ? Math.round(valuesAtLatest.reduce((s, v) => s + v, 0) / valuesAtLatest.length)
-            : 0;
-
-          // Status using AI performance score when available
-          const scores = picIds
-            .map((id) => Number((byPic[id]?.ai?.pic_performance_evaluation || {}).score))
-            .filter((n) => Number.isFinite(n));
-          const avgScore = scores.length ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length) : null;
-
+          // Determine status based on reporting and contribution levels
           let status = 'ontrack';
-          if (!haveAll && picIds.length > 1) status = 'pending';
-          else if (latestDate && (Date.now() - new Date(latestDate).getTime()) > 3 * 24 * 60 * 60 * 1000) status = 'stale';
-          else if (avgScore != null) status = avgScore >= 70 ? 'ontrack' : avgScore < 50 ? 'regressing' : 'ontrack';
+          if (pendingPics > 0 && totalPics > 1) status = 'pending';
           else if (avg < 50) status = 'regressing';
+          else if (avg >= 70) status = 'ontrack';
 
-          // Build PiC names display; include pending labels for those not on latest date
-          const pendingNames = picIds
-            .filter((id) => !(byPic[id]?.uploadedAt && sameDay(byPic[id].uploadedAt, latestDate)))
-            .map((id) => (byPic[id]?.uploadedByName || 'Unknown') + ' (pending)');
-          const allNames = [...namesAtLatest, ...pendingNames];
+          // Get latest report date from individual contributions
+          const latestDate = contributionsData.picContributions
+            .filter(pic => pic.lastReportDate)
+            .map(pic => new Date(pic.lastReportDate))
+            .sort((a, b) => b - a)[0] || null;
+
+          // Check if reports are stale (older than 3 days)
+          if (latestDate && (Date.now() - latestDate.getTime()) > 3 * 24 * 60 * 60 * 1000) {
+            status = 'stale';
+          }
+
+          // Build PiC names list
+          const picNames = contributionsData.picContributions.map(pic => {
+            if (pic.hasReport) {
+              return pic.picName;
+            } else {
+              return `${pic.picName} (pending)`;
+            }
+          });
 
           // Extract a risk string from any PIC's latest AI (prefer realistic CPA's risk)
           let aiRisk = '';
-          for (const id of picIds) {
-            const ai = byPic[id]?.ai;
-            const cpa = Array.isArray(ai?.critical_path_analysis) ? ai.critical_path_analysis : [];
-            const realistic = cpa.find(c => (c?.path_type || '').toLowerCase() === 'realistic');
-            aiRisk = (realistic?.risk || ai?.risk || '').toString();
-            if (aiRisk) break;
+          try {
+            // Fetch AI reports to get risk information
+            const { data: reportsData } = await api.get(`/projects/${project._id}/reports`);
+            const all = Array.isArray(reportsData?.reports) ? reportsData.reports : [];
+            
+            for (const rep of all) {
+              const ai = rep?.ai;
+              const cpa = Array.isArray(ai?.critical_path_analysis) ? ai.critical_path_analysis : [];
+              const realistic = cpa.find(c => (c?.path_type || '').toLowerCase() === 'realistic');
+              aiRisk = (realistic?.risk || ai?.risk || '').toString();
+              if (aiRisk) break;
+            }
+          } catch (e) {
+            console.error(`Error fetching AI reports for risk assessment:`, e);
           }
 
           metrics.push({
@@ -224,12 +191,14 @@ const CeoDash = () => {
             pm: project.engineer,
             area: project.location?.name || 'Unknown Area',
             progress: avg,
-            totalPics: picIds.length,
+            totalPics: totalPics,
             latestDate,
             status,
-            waitingForAll: picIds.length > 1 && !haveAll,
-            picNames: allNames,
-            aiRisk
+            waitingForAll: pendingPics > 0 && totalPics > 1,
+            picNames: picNames,
+            aiRisk,
+            reportingPics: reportingPics,
+            pendingPics: pendingPics
           });
         } catch (e) {
           metrics.push({

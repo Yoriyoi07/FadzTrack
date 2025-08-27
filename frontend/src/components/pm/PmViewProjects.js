@@ -297,6 +297,7 @@ const Pm_Project = () => {
   const [status, setStatus] = useState('');
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [picContributions, setPicContributions] = useState(null);
 
   // POs (optional summary)
   const [purchaseOrders, setPurchaseOrders] = useState([]);
@@ -363,11 +364,17 @@ const Pm_Project = () => {
         setProject(data);
         setStatus(data?.status || '');
 
-        // progress (for toggle availability)
+        // progress (for toggle availability) - now averaged across all PiCs
         try {
           const pr = await api.get(`/daily-reports/project/${id}/progress`);
           const completed = pr?.data?.progress?.find(p => p.name === 'Completed');
           setProgress(completed ? completed.value : 0);
+        } catch {}
+
+        // PiC contributions - averaged across all PiCs
+        try {
+          const contributions = await api.get(`/daily-reports/project/${id}/pic-contributions`);
+          setPicContributions(contributions.data);
         } catch {}
       } catch {
         if (!cancelled) setProject(null);
@@ -1267,6 +1274,91 @@ const handleDeleteFile = async (doc, index) => {
                       <div className="contractor-value">{contractor}</div>
                     </div>
                   </div>
+                </div>
+
+                {/* Project Progress Section */}
+                <div className="progress-section">
+                  <h2 className="section-title">Project Progress</h2>
+                  <div className="progress-grid">
+                    {/* Overall Progress Card */}
+                    <div className="progress-card overall-progress">
+                      <div className="card-icon">
+                        <FaChartBar />
+                      </div>
+                      <div className="card-content">
+                        <h3 className="card-title">Overall Progress</h3>
+                        <div className="progress-value">{Math.round(progress)}%</div>
+                        <div className="progress-bar">
+                          <div 
+                            className="progress-fill" 
+                            style={{ width: `${progress}%` }}
+                          ></div>
+                        </div>
+                        <div className="progress-description">
+                          Average across all PiCs
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* PiC Contributions Card */}
+                    {picContributions && (
+                      <div className="progress-card pic-contributions">
+                        <div className="card-icon">
+                          <FaUsers />
+                        </div>
+                        <div className="card-content">
+                          <h3 className="card-title">PiC Contributions</h3>
+                          <div className="contribution-value">
+                            {picContributions.averageContribution}%
+                          </div>
+                          <div className="contribution-details">
+                            <div className="detail-item">
+                              <span className="detail-label">Reporting:</span>
+                              <span className="detail-value">
+                                {picContributions.reportingPics}/{picContributions.totalPics} PiCs
+                              </span>
+                            </div>
+                            {picContributions.pendingPics > 0 && (
+                              <div className="detail-item pending">
+                                <span className="detail-label">Pending:</span>
+                                <span className="detail-value">
+                                  {picContributions.pendingPics} PiCs
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Individual PiC Contributions */}
+                  {picContributions && picContributions.picContributions.length > 0 && (
+                    <div className="individual-contributions">
+                      <h3 className="subsection-title">Individual PiC Contributions</h3>
+                      <div className="pic-list">
+                        {picContributions.picContributions.map((pic, index) => (
+                          <div key={index} className={`pic-item ${!pic.hasReport ? 'no-report' : ''}`}>
+                            <div className="pic-info">
+                              <span className="pic-name">{pic.picName}</span>
+                              {pic.lastReportDate && (
+                                <span className="last-report">
+                                  Last report: {new Date(pic.lastReportDate).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                            <div className="pic-contribution">
+                              {pic.hasReport ? (
+                                <span className="contribution-percent">{pic.contribution}%</span>
+                              ) : (
+                                <span className="no-contribution">No report</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Project Team Section */}

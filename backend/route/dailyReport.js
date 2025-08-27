@@ -9,6 +9,7 @@ router.get('/project/:projectId/manpower', verifyToken, dailyReportController.ge
 router.get('/project/:projectId/material-deliveries', verifyToken, dailyReportController.getApprovedMaterialDeliveries);
 router.get('/project/:projectId/tasks', verifyToken, dailyReportController.getProjectTasks);
 router.get('/project/:projectId/progress', verifyToken, dailyReportController.getProjectProgress);
+router.get('/project/:projectId/pic-contributions', verifyToken, dailyReportController.getProjectPicContributions);
 
 // 2. All daily reports for a project
 router.get('/project/:projectId', verifyToken, dailyReportController.getProjectDailyReports);

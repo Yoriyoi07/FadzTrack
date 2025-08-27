@@ -57,39 +57,122 @@ exports.getProjectDailyReports = async (req, res) => {
   }
 };
 
-// Get project progress data
-// dailyReportController.js
+// Get project progress data - averaged across all PiCs
 exports.getProjectProgress = async (req, res) => {
   try {
     const projectId = req.params.projectId;
-    const latestReport = await DailyReport.findOne({ project: projectId })
-      .sort({ date: -1 })
-      .populate('project', 'name');
+    
+    // Get the project to find all assigned PiCs
+    const project = await Project.findById(projectId).select('pic projectName');
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
 
-    if (!latestReport) {
+    // Get all PiCs assigned to this project
+    const picIds = project.pic || [];
+    
+    if (picIds.length === 0) {
+      return res.json({
+        name: 'No PiCs Assigned',
+        progress: [
+          { name: 'No PiCs', value: 100, color: '#CCCCCC' }
+        ]
+      });
+    }
+
+    // Get the latest report from each PiC
+    const latestReports = await Promise.all(
+      picIds.map(async (picId) => {
+        return await DailyReport.findOne({ 
+          project: projectId, 
+          submittedBy: picId 
+        }).sort({ date: -1 });
+      })
+    );
+
+    // Filter out null reports (PiCs with no reports)
+    const validReports = latestReports.filter(report => report !== null);
+    
+    if (validReports.length === 0) {
       return res.json({
         name: 'No Progress Data',
         progress: [
-          { name: 'No Data', value: 100, color: '#CCCCCC' }
+          { name: 'No Reports', value: 100, color: '#CCCCCC' }
         ]
       });
     }
 
-    const progressData = latestReport.calculateProgress?.();
-    if (!progressData) {
-      return res.json({
-        name: 'No Tasks',
-        progress: [
-          { name: 'No Tasks', value: 100, color: '#CCCCCC' }
-        ]
-      });
-    }
-
+    // Calculate average progress across all PiCs
+    const progressData = calculateAverageProgress(validReports, picIds.length);
     res.json(progressData);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Helper function to calculate average progress across multiple PiC reports
+function calculateAverageProgress(reports, totalPics) {
+  const progressCategories = {
+    completed: 0,
+    inProgress: 0,
+    notStarted: 0
+  };
+
+  let totalTasks = 0;
+  let reportsWithTasks = 0;
+
+  // Aggregate progress from all reports
+  reports.forEach(report => {
+    const reportProgress = report.calculateProgress?.();
+    if (reportProgress && reportProgress.progress) {
+      reportsWithTasks++;
+      reportProgress.progress.forEach(category => {
+        const taskCount = (category.value / 100) * report.workPerformed.length;
+        totalTasks += report.workPerformed.length;
+        
+        switch (category.name) {
+          case 'Completed':
+            progressCategories.completed += taskCount;
+            break;
+          case 'In Progress':
+            progressCategories.inProgress += taskCount;
+            break;
+          case 'Not Started':
+            progressCategories.notStarted += taskCount;
+            break;
+        }
+      });
+    }
+  });
+
+  if (totalTasks === 0) {
+    return {
+      name: 'No Tasks',
+      progress: [
+        { name: 'No Tasks', value: 100, color: '#CCCCCC' }
+      ]
+    };
+  }
+
+  // Calculate percentages
+  const completedPercent = (progressCategories.completed / totalTasks) * 100;
+  const inProgressPercent = (progressCategories.inProgress / totalTasks) * 100;
+  const notStartedPercent = (progressCategories.notStarted / totalTasks) * 100;
+
+  return {
+    name: `Project Progress (${reportsWithTasks}/${totalPics} PiCs)`,
+    progress: [
+      { name: 'Completed', value: Math.round(completedPercent * 10) / 10, color: '#4CAF50' },
+      { name: 'In Progress', value: Math.round(inProgressPercent * 10) / 10, color: '#5E4FDB' },
+      { name: 'Not Started', value: Math.round(notStartedPercent * 10) / 10, color: '#FF6B6B' }
+    ],
+    metadata: {
+      totalPics: totalPics,
+      reportingPics: reportsWithTasks,
+      pendingPics: totalPics - reportsWithTasks
+    }
+  };
+}
 
 
 // Get manpower list for project
@@ -216,6 +299,78 @@ exports.getDailyReportById = async (req, res) => {
       return res.status(404).json({ message: 'Daily report not found' });
     }
     res.json(report);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get averaged PiC contribution percentages for a project
+exports.getProjectPicContributions = async (req, res) => {
+  try {
+    const projectId = req.params.projectId;
+    
+    // Get the project to find all assigned PiCs
+    const project = await Project.findById(projectId).select('pic projectName');
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    const picIds = project.pic || [];
+    
+    if (picIds.length === 0) {
+      return res.json({
+        averageContribution: 0,
+        picContributions: [],
+        totalPics: 0,
+        reportingPics: 0
+      });
+    }
+
+    // Get the latest report from each PiC
+    const latestReports = await Promise.all(
+      picIds.map(async (picId) => {
+        const report = await DailyReport.findOne({ 
+          project: projectId, 
+          submittedBy: picId 
+        }).sort({ date: -1 }).populate('submittedBy', 'name');
+        return report;
+      })
+    );
+
+    // Calculate contributions
+    const picContributions = [];
+    let totalContribution = 0;
+    let reportingPics = 0;
+
+    latestReports.forEach((report, index) => {
+      const picId = picIds[index];
+      const contribution = report?.ai?.pic_contribution_percent || 0;
+      
+      picContributions.push({
+        picId: picId,
+        picName: report?.submittedBy?.name || 'Unknown',
+        contribution: Math.round(contribution),
+        hasReport: !!report,
+        lastReportDate: report?.date || null
+      });
+
+      if (report) {
+        totalContribution += contribution;
+        reportingPics++;
+      }
+    });
+
+    const averageContribution = reportingPics > 0 
+      ? Math.round(totalContribution / reportingPics) 
+      : 0;
+
+    res.json({
+      averageContribution,
+      picContributions,
+      totalPics: picIds.length,
+      reportingPics,
+      pendingPics: picIds.length - reportingPics
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
