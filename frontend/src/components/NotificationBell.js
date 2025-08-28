@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
 import { useNotifications } from "../context/NotificationContext";
-import { FaBell } from "react-icons/fa";
+import { FaBell, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaInfoCircle } from "react-icons/fa";
 import './style/NotificationBell.css';
 
 const NotificationBell = () => {
@@ -8,7 +9,9 @@ const NotificationBell = () => {
     notifications,
     unread,
     markAllRead,
+    markAsRead
   } = useNotifications();
+  const navigate = useNavigate();
 
   const [open, setOpen] = useState(false);
   const bellRef = useRef();
@@ -36,22 +39,66 @@ const NotificationBell = () => {
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const getNotificationType = (type) => {
-    switch (type) {
-      case "discussion":
-        return "New discussion posted";
-      case "reply":
-        return "New reply to your discussion";
-      case "mention":
-        return "You were mentioned";
-      case "manpower":
-        return "New manpower request";
-      case "task":
-        return "Task update";
-      case "system":
-        return "System update";
-      default:
-        return "General notification";
+  const iconFor = (severity, iconKey) => {
+    if (iconKey) {
+      // allow mapped custom icons later
+    }
+    switch (severity) {
+      case 'success': return <FaCheckCircle className="notif-icon success"/>;
+      case 'warning': return <FaExclamationTriangle className="notif-icon warning"/>;
+      case 'error': return <FaTimesCircle className="notif-icon error"/>;
+      default: return <FaInfoCircle className="notif-icon info"/>;
+    }
+  };
+
+  const userRole = (()=>{ try { return JSON.parse(localStorage.getItem('user')||'null')?.role || ''; } catch { return ''; } })();
+  const deriveFallbackUrl = (n) => {
+    const id = n.requestId?._id || n.requestId; // request reference (MaterialRequest or similar)
+    const projectId = n.projectId?._id || n.projectId; // project reference
+    const role = (userRole||'').toLowerCase();
+
+    const isPIC = role.includes('person in charge') || role==='pic';
+    const isPM = role.includes('project manager') || role==='pm';
+    const isAM = role.includes('area manager') || role==='am';
+    const isCEO = role==='ceo';
+    const isIT = role==='it';
+    const isHR = role==='hr' && !role.includes('site');
+    const isHRSite = role.includes('hr - site');
+    const isStaff = role==='staff';
+
+    const materialTypes = ['material_request_created','pending_approval','approved','denied','nudge'];
+    if(materialTypes.includes(n.type) && id){
+      if(isPIC) return `/pic/material-request/${id}`;
+      if(isPM) return `/pm/material-request/${id}`;
+      if(isAM) return `/am/material-request/${id}`;
+      if(isCEO) return `/ceo/material-request/${id}`;
+      if(isIT) return `/it/material-request/${id}`;
+      // HR rarely receives material request approvals; if so no dedicated route
+    }
+
+    const projectTypes = ['discussion','reply','mention','task','system'];
+    if(projectTypes.includes(n.type) && projectId){
+      if(isPIC) return `/pic/${projectId}`;
+      if(isPM) return `/pm/viewprojects/${projectId}`;
+      if(isAM) return `/am/viewproj/${projectId}`;
+      if(isCEO) return `/ceo/proj/${projectId}`;
+      if(isIT) return `/it/projects`; // no per-id route defined
+      if(isHR) return `/hr/project-records/${projectId}`;
+      if(isHRSite) return `/hr-site/current-project`; // simplified
+      if(isStaff) return `/staff/current-project`;
+    }
+    return null;
+  };
+
+  const clickNotification = (n) => {
+    if (n.status === 'unread') {
+      // optimistic mark read via context
+      if (markAsRead) markAsRead(n._id);
+    }
+    const target = n.actionUrl || deriveFallbackUrl(n);
+    if(target){
+      if(target.startsWith('http')) window.location.href = target;
+      else navigate(target);
     }
   };
 
@@ -83,16 +130,28 @@ const NotificationBell = () => {
             {notifications.length === 0 ? (
               <div className="notif-empty">No notifications</div>
             ) : (
-              notifications.slice(0, 8).map((n, i) => (
+              notifications.slice(0, 12).map((n, i) => (
                 <div
-                  className={`notif-item${n.status === "unread" ? " unread" : ""}`}
+                  className={`notif-item rich${n.status === 'unread' ? ' unread' : ''}`}
                   key={(n && n._id ? String(n._id) : `notif-${i}`) + `-${i}`}
+                  onClick={() => clickNotification(n)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyPress={(e)=>{ if(e.key==='Enter') clickNotification(n);} }
                 >
-                  <div className="notif-msg">
-                    {getNotificationType(n.type)}: {n.message}
+                  <div className="notif-left">
+                    {iconFor(n.severity, n.icon)}
                   </div>
-                  <div className="notif-date">
-                    {new Date(n.createdAt).toLocaleString()}
+                  <div className="notif-body">
+                    <div className="notif-title-row">
+                      <span className={`notif-title sev-${n.severity||'info'}`}>{n.title || 'Notification'}</span>
+                      {n.status==='unread' && <span className="badge-dot"/>}
+                    </div>
+                    <div className="notif-message">{n.message}</div>
+                    <div className="notif-meta-line">
+                      <span className="notif-date">{new Date(n.createdAt).toLocaleString()}</span>
+                      {n.projectId?.projectName && <span className="notif-project">{n.projectId.projectName}</span>}
+                    </div>
                   </div>
                 </div>
               ))

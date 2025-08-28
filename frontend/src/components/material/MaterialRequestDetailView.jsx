@@ -117,14 +117,14 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
             <section className="mrd-section" aria-labelledby="att-h"><h3 id="att-h" className="mrd-section-title"><i className="fas fa-paperclip"/> Attachments</h3>{materialRequest.attachments?.length ? <ul className="mrd-attach-list">{materialRequest.attachments.map((a,i)=>(<li key={i} className="mrd-attach-item"><div className="mrd-attach-icon">{renderAttachmentIcon(a)}</div><span className="mrd-attach-name">{a}</span><a href={a.startsWith('http')?a:`http://localhost:5000/uploads/${a}`} target="_blank" rel="noopener noreferrer" className="mrd-attach-link">Download</a></li>))}</ul> : <p className="mrd-empty">No attachments.</p>}</section>
             <section className="mrd-section" aria-labelledby="flow-h"><h3 id="flow-h" className="mrd-section-title"><i className="fas fa-tasks"/> Approval Flow</h3><ol className="mrd-flow">{steps.map(step => {const waitingForReceipt = step.key==='received' && step.state==='pending' && meta.pmApproved && meta.amApproved && !meta.isReceived && !meta.anyDenied; const metaText = step.date? new Date(step.date).toLocaleString() : step.state==='blocked' ? 'Waiting' : waitingForReceipt ? 'Awaiting PIC receipt' : 'Pending'; return (<li key={step.key} className={`mrd-flow-step ${step.state}`}><div className="mrd-step-icon"><i className={`fas ${step.state==='completed'?'fa-check':step.state==='denied'?'fa-times':step.state==='blocked'?'fa-pause':'fa-clock'}`}/></div><div className="mrd-step-body"><span className="mrd-step-title">{step.label}</span><span className="mrd-step-meta">{metaText}</span></div></li>);})}</ol></section>
             {canAct && <section className="mrd-section mrd-actions" aria-labelledby="act-h"><h3 id="act-h" className="mrd-section-title"><i className="fas fa-gavel"/> Actions</h3><ApproveDenyActions requestData={materialRequest} userId={userId} userRole={userRole} onBack={handleBack} /></section>}
-            {(canEditPIC || canMarkReceived) && (
+      {(canEditPIC || canMarkReceived) && (
               <section className="mrd-section mrd-actions" aria-labelledby="pic-act-h">
                 <h3 id="pic-act-h" className="mrd-section-title"><i className="fas fa-toolbox"/> PIC Actions</h3>
                 <div className="mrd-action-buttons" style={{display:'flex',gap:'12px',flexWrap:'wrap'}}>
                   {canEditPIC && <button onClick={handleEdit} className="btn-secondary"><i className="fas fa-edit"/> Edit Request</button>}
                   {canMarkReceived && <button onClick={handleMarkReceived} disabled={receiving} className="btn-primary"><i className="fas fa-box-open"/> {receiving? 'Marking...' : 'Mark as Received'}</button>}
                 </div>
-                <p style={{fontSize:'12px',marginTop:'8px',color:'#64748b'}}>PIC may edit only before any manager validates (no approvals yet). Mark as received becomes available after full approval.</p>
+        <p style={{fontSize:'12px',marginTop:'8px',color:'#64748b'}}>PIC may edit only before any manager validates (no approvals yet). Mark as received becomes available after full approval.</p>
               </section>
             )}
           </div>

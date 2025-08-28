@@ -8,13 +8,31 @@ exports.createAndEmitNotification = async ({
   message,
   projectId,
   requestId,
-  meta,
-  referenceId, // New field to handle dynamic reference (e.g., discussion, reply)
+  meta = {},
+  referenceId,
+  title,
+  severity,
+  icon,
+  actionUrl,
+  groupingKey,
+  expiresAt,
   req,
 }) => {
   try {
   console.log('[createAndEmitNotification] called with:', { type, toUserId, fromUserId, projectId, requestId, meta, referenceId });
     // Create the notification
+    // derive defaults
+    const derive = (t)=>{
+      switch(t){
+        case 'material_request_created': return { title:'Material Request Submitted', severity:'info', icon:'box-plus', actionUrl: requestId?`/pic/material-request/${requestId}`:undefined };
+        case 'pending_approval': return { title:'Approval Needed', severity:'warning', icon:'clipboard-check', actionUrl: requestId?`/pm/material-request/${requestId}`:undefined };
+        case 'approved': return { title:'Request Fully Approved', severity:'success', icon:'check-circle', actionUrl: requestId?`/pic/material-request/${requestId}`:undefined };
+        case 'denied': return { title:'Request Denied', severity:'error', icon:'x-circle', actionUrl: requestId?`/pic/material-request/${requestId}`:undefined };
+        case 'nudge': return { title:'Reminder Sent', severity:'info', icon:'bell-ring', actionUrl: requestId?`/pm/material-request/${requestId}`:undefined };
+        default: return { title: t.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()), severity:'info', icon:'info' };
+      }
+    };
+    const auto = derive(type);
     const notif = await Notification.create({
       type,
       toUserId,
@@ -24,6 +42,12 @@ exports.createAndEmitNotification = async ({
       requestId,
       meta,
       referenceId,
+      title: title || auto.title,
+      severity: severity || auto.severity,
+      icon: icon || auto.icon,
+      actionUrl: actionUrl || auto.actionUrl,
+      groupingKey,
+      expiresAt
     });
 console.log("Notification created:", notif);
     // Emit the notification via Socket.IO (if available)
@@ -112,7 +136,10 @@ exports.getNotifications = async (req, res) => {
   try {
     const notifs = await Notification.find({ toUserId: req.user.id })
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(100)
+      .populate('fromUserId','name role')
+      .populate('projectId','projectName')
+      .populate('requestId','requestNumber status');
 
     res.json(notifs);
   } catch (err) {
@@ -127,7 +154,7 @@ exports.markRead = async (req, res) => {
 
     await Notification.updateMany(
       { _id: { $in: ids }, toUserId: req.user.id },
-      { $set: { status: 'read' } }
+      { $set: { status: 'read', readAt: new Date() } }
     );
 
     res.json({ message: 'Marked as read' });
@@ -141,7 +168,7 @@ exports.markAllRead = async (req, res) => {
   try {
     await Notification.updateMany(
       { toUserId: req.user.id, status: 'unread' },
-      { $set: { status: 'read' } }
+      { $set: { status: 'read', readAt: new Date() } }
     );
 
     res.json({ message: 'All marked as read' });

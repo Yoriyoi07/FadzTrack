@@ -854,7 +854,6 @@ export default function ItManpowerList() {
                     <div 
                       key={movement._id} 
                       className="movement-item"
-                      // Route defined in Routes.js is /it/manpower-list/:id, not /it/manpower-request/:id
                       onClick={() => navigate(`/it/manpower-list/${movement._id}`)}
                     >
                       <div className="movement-requester">
@@ -866,27 +865,22 @@ export default function ItManpowerList() {
                           <p className="requester-role">{movement.createdBy?.role || 'Unknown Role'}</p>
                         </div>
                       </div>
-                      
                       <div className="movement-project">
                         <MapPin className="detail-icon" />
                         <span className="detail-value">{movement.project?.projectName || 'Unknown Project'}</span>
                       </div>
-                      
                       <div className="movement-position">
                         <FaUserPlus className="detail-icon" />
                         <span className="detail-value">{movement.manpowers?.[0]?.type || 'Unknown Position'}</span>
                       </div>
-                      
                       <div className="movement-quantity">
                         <FaUsers className="detail-icon" />
                         <span className="detail-value">{movement.manpowers?.[0]?.quantity || 1} needed</span>
                       </div>
-                      
                       <div className="movement-date">
                         <Calendar className="detail-icon" />
                         <span className="detail-value">{formatDate(movement.createdAt)}</span>
                       </div>
-                      
                       <div className="movement-status">
                         <span className={`status-badge ${statusInfo.color}`}>
                           <StatusIcon />

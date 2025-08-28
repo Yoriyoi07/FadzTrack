@@ -22,6 +22,20 @@ const MaterialRequestListView = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('date');
   const [currentPage, setCurrentPage] = useState(1);
+  // PIC specific state (active project + nudge cooldowns)
+  const [activeProject, setActiveProject] = useState(null);
+  const [nudgeCooldowns, setNudgeCooldowns] = useState({});
+  const [nowTs, setNowTs] = useState(Date.now());
+  const isPICRole = role === 'Person in Charge';
+  const storedUser = (()=>{ try { return JSON.parse(localStorage.getItem('user')||'null'); } catch { return null; } })();
+  const userId = storedUser?._id;
+
+  // Load cooldowns from localStorage (PIC only)
+  // Load persisted cooldowns once (don't filter out expired until display to keep stability if system clock shifts)
+  useEffect(()=>{ if(!isPICRole) return; try { const saved=JSON.parse(localStorage.getItem('nudgeCooldowns')||'{}'); setNudgeCooldowns(saved); } catch{} },[isPICRole]);
+  useEffect(()=>{ if(!isPICRole) return; localStorage.setItem('nudgeCooldowns', JSON.stringify(nudgeCooldowns)); },[nudgeCooldowns,isPICRole]);
+  // ticking clock for countdown display
+  useEffect(()=>{ if(!isPICRole) return; const id=setInterval(()=>setNowTs(Date.now()),1000); return ()=>clearInterval(id); },[isPICRole]);
   const ITEMS_PER_PAGE = itemsPerPage;
 
   useEffect(() => {
@@ -33,6 +47,9 @@ const MaterialRequestListView = ({
       .catch(err => setError(err?.response?.data?.message || 'Failed to load requests'))
       .finally(() => setLoading(false));
   }, [fetchUrl]);
+
+  // Fetch active project for PIC so we can show an inline New Request button
+  useEffect(()=>{ if(!isPICRole || !userId) return; api.get(`/projects/by-user-status?userId=${userId}&role=pic&status=Ongoing`).then(r=>{ setActiveProject(r.data?.[0]||null); }).catch(()=>setActiveProject(null)); },[isPICRole,userId]);
 
   const filteredRequests = requests.filter(r => {
     const status = (r.status||'').toLowerCase();
@@ -76,6 +93,44 @@ const MaterialRequestListView = ({
   const totalPages = Math.ceil(sortedRequests.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const pageRequests = sortedRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+  const [pendingNudges, setPendingNudges] = useState({}); // transient disable while awaiting server
+  const handleNudge = async (reqObj) => {
+    if(!isPICRole) return; const id=reqObj._id; const status=(reqObj.status||'').toLowerCase();
+    if(!(status==='pending project manager' || status==='pending area manager')) return;
+    if(nudgeCooldowns[id] && nudgeCooldowns[id] > Date.now()) return; // still cooling down
+    if(pendingNudges[id]) return; // already firing
+    setPendingNudges(p=>({...p,[id]:true}));
+    try {
+      const { data } = await api.post(`/requests/${id}/nudge`);
+      const until = data?.nextAllowedAt || (Date.now()+60*60*1000);
+      alert('Reminder sent.');
+      setNudgeCooldowns(prev=>{ const next={...prev,[id]:until}; localStorage.setItem('nudgeCooldowns', JSON.stringify(next)); return next; });
+    } catch(e){
+      const msg=e?.response?.data?.message; const untilServer=e?.response?.data?.nextAllowedAt; if(msg){ alert(msg); if(untilServer){ setNudgeCooldowns(prev=>{ const next={...prev,[id]:untilServer}; localStorage.setItem('nudgeCooldowns', JSON.stringify(next)); return next; }); } else { const match=/(\d+) minute/.exec(msg); if(match){ const mins=parseInt(match[1],10); const until=Date.now()+mins*60*1000; setNudgeCooldowns(prev=>{ const next={...prev,[id]:until}; localStorage.setItem('nudgeCooldowns', JSON.stringify(next)); return next; }); } } } else alert('Failed to send reminder.'); }
+    finally { setPendingNudges(p=>{ const { [id]:_, ...rest}=p; return rest; }); }
+  };
+
+  const formatRemaining = (ms) => {
+    if(ms <= 0) return 'Nudge';
+    const totalSec = Math.ceil(ms/1000);
+    const m = Math.floor(totalSec/60);
+    const s = totalSec%60;
+    if(m >= 60){
+      const h = Math.floor(m/60); const rm = m%60; return `${h}h ${rm}m`;
+    }
+    return m>0 ? `${m}m ${s.toString().padStart(2,'0')}s` : `${s}s`;
+  };
+
+  const formatNextTime = (ts) => {
+    if(!ts) return '';
+    const d = new Date(ts);
+    const now = new Date();
+    const opts = { hour:'2-digit', minute:'2-digit' };
+    const timePart = d.toLocaleTimeString([], opts);
+    const isToday = d.toDateString() === now.toDateString();
+    return `${isToday? 'Today' : d.toLocaleDateString()} ${timePart}`;
+  };
 
   const iconFor = (state) => {
     switch(state){
@@ -128,6 +183,11 @@ const MaterialRequestListView = ({
                   <option value="status">Sort by Status</option>
                 </select>
               </div>
+              {isPICRole && activeProject && (
+                <button onClick={()=>window.location.href = `/pic/projects/${activeProject._id}/request`} className="view-details-btn" style={{marginLeft:'0.5rem'}}>
+                  + New Request
+                </button>
+              )}
             </div>
           </div>
           <div className="requests-grid enhanced-list">
@@ -165,7 +225,24 @@ const MaterialRequestListView = ({
                           </div>))}
                       </div>
                       <div className="request-actions">
-                        <Link to={`${detailLinkBase}/${r._id}`} className="view-details-btn">View Details</Link>
+                        {isPICRole && (
+                          (()=>{ const status=(r.status||'').toLowerCase(); const canNudge = (status==='pending project manager'||status==='pending area manager') && r.createdBy?._id===userId && !meta.isReceived && !meta.anyDenied; if(!canNudge) return null; const coolingRaw=nudgeCooldowns[r._id]; const remaining = coolingRaw ? (coolingRaw - nowTs) : 0; if(remaining<=0 && coolingRaw){ // cleanup expired
+                            setTimeout(()=>{ setNudgeCooldowns(prev=>{ const copy={...prev}; delete copy[r._id]; localStorage.setItem('nudgeCooldowns', JSON.stringify(copy)); return copy; }); },0);
+                          }
+                          const isPending = pendingNudges[r._id];
+                          const nextAt = nudgeCooldowns[r._id];
+                          return <div style={{display:'flex', flexDirection:'column', alignItems:'flex-start'}}>
+                            <button
+                              onClick={()=>handleNudge(r)}
+                              disabled={remaining>0 || isPending}
+                              className="view-details-btn"
+                              title={remaining>0 && nextAt ? `Next nudge allowed at ${formatNextTime(nextAt)}` : 'Send reminder to pending approver'}
+                              style={{background:'#0f766e', opacity:(remaining>0||isPending)?0.7:1}}
+                            >{isPending? 'Sending...' : formatRemaining(remaining)}</button>
+                            {remaining>0 && nextAt && <span style={{marginTop:4, fontSize:11, color:'#0f766e'}}>{formatNextTime(nextAt)}</span>}
+                          </div>; })()
+                        )}
+                        <Link to={`${detailLinkBase}/${r._id}`} className="view-details-btn" style={{marginLeft:isPICRole? '0.5rem':0}}>View Details</Link>
                       </div>
                     </li>
                   );

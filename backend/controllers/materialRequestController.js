@@ -8,9 +8,11 @@ const User = require('../models/User');
 exports.nudgePendingApprover = async (req, res) => {
   try {
     const reqId = req.params.id;
-    const picId = req.user.id;
+  // Normalize IDs to strings for reliable comparison
+  const picId = req.user.id?.toString();
     const request = await MaterialRequest.findById(reqId).populate('project').populate('createdBy');
     if (!request) return res.status(404).json({ message: 'Request not found' });
+  console.log('[NUDGE] Incoming nudge', { reqId, picId, status: request.status });
 
     const project = request.project;
     let pendingUserId = null, pendingRole = null;
@@ -37,23 +39,35 @@ exports.nudgePendingApprover = async (req, res) => {
     if (!pendingUserId) return res.status(400).json({ message: 'No pending approver to nudge.' });
 
     // Cooldown: Only 1 nudge per PIC → Approver → Role → Request per hour
+    const COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
     if (!request.lastNudges) request.lastNudges = [];
     const now = new Date();
-    const nudgeRecord = request.lastNudges.find(
-      n => n.pic && n.pic.toString() === picId &&
-           n.to && n.to.toString() === pendingUserId &&
-           n.role === pendingRole
+    const matching = request.lastNudges.filter(n =>
+      n.pic && n.pic.toString() === picId &&
+      n.to && n.to.toString() === pendingUserId &&
+      (n.role || '').trim().toLowerCase() === pendingRole.toLowerCase()
     );
-    if (nudgeRecord && now - nudgeRecord.timestamp < 60 * 60 * 1000) {
-      const minutes = Math.ceil((60 * 60 * 1000 - (now - nudgeRecord.timestamp)) / (60 * 1000));
-      return res.status(429).json({ message: `You can only nudge every 1 hour. Try again in ${minutes} minute(s).` });
+    let latest = null;
+    for (const rec of matching) {
+      if (!latest || (rec.timestamp && rec.timestamp > latest.timestamp)) latest = rec;
     }
-    if (nudgeRecord) {
-      nudgeRecord.timestamp = now;
-    } else {
-      request.lastNudges.push({ pic: picId, to: pendingUserId, role: pendingRole, timestamp: now });
+    console.log('[NUDGE] Matching records count:', matching.length, 'latest:', latest?.timestamp, 'diffMs:', latest? (now - latest.timestamp): null);
+    if (latest && latest.timestamp && (now - latest.timestamp) < COOLDOWN_MS) {
+      const remainingMs = COOLDOWN_MS - (now - latest.timestamp);
+      const minutes = Math.ceil(remainingMs / (60 * 1000));
+      return res.status(429).json({
+        message: `You can only nudge every 1 hour. Try again in ${minutes} minute(s).`,
+        nextAllowedAt: latest.timestamp.getTime() + COOLDOWN_MS
+      });
     }
-    await request.save();
+    // Prune duplicates: keep only non-matching or the latest one
+    if (matching.length > 1 && latest) {
+      request.lastNudges = [ ...request.lastNudges.filter(n => !matching.includes(n)), latest ];
+    }
+    // Record new nudge
+    request.lastNudges.push({ pic: picId, to: pendingUserId, role: pendingRole, timestamp: now });
+  await request.save();
+  console.log('[NUDGE] Updated lastNudges', request.lastNudges.map(n=>({pic:n.pic,to:n.to,role:n.role,ts:n.timestamp,tsMs:n.timestamp?.getTime()})));
 
     // --- DEBUG PRINT ---
     console.log('[NUDGE] Sending nudge notification to:', pendingUserId, 'role:', pendingRole);
@@ -71,7 +85,7 @@ exports.nudgePendingApprover = async (req, res) => {
       req
     });
 
-    res.json({ message: `Reminder sent to ${pendingRole}` });
+  res.json({ message: `Reminder sent to ${pendingRole}`, nextAllowedAt: now.getTime() + COOLDOWN_MS });
   } catch (err) {
     console.error('Nudge error:', err);
     res.status(500).json({ message: 'Failed to nudge pending approver.' });

@@ -7,6 +7,15 @@ import ProgressTracker from '../ProgressTracker';
 import NotificationBell from '../NotificationBell';
 // Nav icons
 import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaBoxes, FaArrowRight, FaCheckCircle, FaClock, FaExclamationTriangle } from 'react-icons/fa';
+const formatRemaining = (ts) => {
+  if(!ts) return null;
+  const diff = ts - Date.now();
+  if(diff <= 0) return null;
+  const m = Math.floor(diff/60000);
+  if(m >= 60){ const h=Math.floor(m/60); const rm=m%60; return `${h}h ${rm}m`; }
+  const s = Math.floor((diff%60000)/1000);
+  return m>0? `${m}m ${s.toString().padStart(2,'0')}s` : `${s}s`;
+};
 
 const PicDash = () => {
   const navigate = useNavigate();
@@ -26,6 +35,7 @@ const PicDash = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [reports, setReports] = useState([]);
+  const [pendingNudges, setPendingNudges] = useState({});
 
   useEffect(() => {
   const saved = localStorage.getItem('nudgeCooldowns');
@@ -78,42 +88,34 @@ useEffect(() => {
   }, [navigate, token, user]);
 
   const handleNudge = async (request, pendingRole) => {
-  if (nudgeCooldowns[request._id]) return; // Already on cooldown
+  const untilTs = nudgeCooldowns[request._id];
+  if (untilTs && untilTs > Date.now()) return; // Already on cooldown
+  if (pendingNudges[request._id]) return; // already sending
+  setPendingNudges(p=>({...p,[request._id]:true}));
 
   try {
-    await api.post(`/requests/${request._id}/nudge`);
+    const { data } = await api.post(`/requests/${request._id}/nudge`);
     alert(`Reminder sent to ${pendingRole}.`);
-    setNudgeCooldowns(prev => ({
-      ...prev,
-      [request._id]: Date.now() + 60 * 60 * 1000 // 1 hour from now
-    }));
-    setTimeout(() => {
-      setNudgeCooldowns(prev => {
-        const { [request._id]: _, ...rest } = prev;
-        return rest;
-      });
-    }, 60 * 60 * 1000); // 1 hour
+    const until = data?.nextAllowedAt || (Date.now()+60*60*1000);
+  setNudgeCooldowns(prev => ({ ...prev, [request._id]: until }));
   } catch (err) {
-    // Handle 429 too, set cooldown for the remaining time
     if (err.response && err.response.data && err.response.data.message) {
       alert(err.response.data.message);
-      const match = /(\d+) minute/.exec(err.response.data.message);
-      if (match) {
-        const minutes = parseInt(match[1], 10);
-        setNudgeCooldowns(prev => ({
-          ...prev,
-          [request._id]: Date.now() + minutes * 60 * 1000
-        }));
-        setTimeout(() => {
-          setNudgeCooldowns(prev => {
-            const { [request._id]: _, ...rest } = prev;
-            return rest;
-          });
-        }, minutes * 60 * 1000);
+      const untilServer = err.response.data.nextAllowedAt;
+      if (untilServer) {
+        setNudgeCooldowns(prev => ({ ...prev, [request._id]: untilServer }));
+      } else {
+        const match = /(\d+) minute/.exec(err.response.data.message);
+        if (match) {
+          const minutes = parseInt(match[1], 10);
+            setNudgeCooldowns(prev => ({ ...prev, [request._id]: Date.now() + minutes * 60 * 1000 }));
+        }
       }
     } else {
       alert('Failed to send nudge.');
     }
+  } finally {
+    setPendingNudges(p=>{ const { [request._id]:_, ...rest}=p; return rest; });
   }
 };
 
@@ -251,13 +253,6 @@ const handleLogout = () => {
           
           <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
             <NotificationBell />
-            <button
-              onClick={() => navigate('/pic/requests')}
-              className="view-details-btn"
-              style={{ background:'#2563eb', color:'#fff', padding:'8px 14px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:500 }}
-            >
-              <FaClipboardList style={{ marginRight:6 }} /> Requests
-            </button>
           </div>
         </div>
       </header>
