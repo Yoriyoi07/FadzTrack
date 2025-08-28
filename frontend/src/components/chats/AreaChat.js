@@ -152,6 +152,12 @@ const AreaChat = ({ baseSegment = 'am' }) => {
       .flatMap(m => m.attachments || [])
       .filter(a => a && a.mime && a.mime.startsWith('image/') && a.url)
   ), [messages]);
+  // Map for quick lookup of an image attachment's index within mediaImages (by URL)
+  const mediaImageIndexByUrl = useMemo(() => {
+    const map = new Map();
+    mediaImages.forEach((img, idx) => { if (img?.url) map.set(img.url, idx); });
+    return map;
+  }, [mediaImages]);
   const openMediaViewer = (idx) => { setMediaViewerIndex(idx); setShowMediaViewer(true); };
   const closeMediaViewer = () => setShowMediaViewer(false);
   const navMedia = (dir) => {
@@ -1063,14 +1069,21 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                                       const href  = a.url;
 
                                         if (isImg) {
-                                          if (href) return (
-                                            <a key={i} href={href} target="_blank" rel="noreferrer" className="att-link img">
-                                              <img src={href} alt={a.name} className="att-image" />
-                                            </a>
-                                          );
-                                          return (
-                                            <div key={i} className="att-placeholder">Image (loading){a.name ? `: ${a.name}` : ''}</div>
-                                          );
+                                          if (href) {
+                                            const idxInViewer = mediaImageIndexByUrl.get(href);
+                                            return (
+                                              <button
+                                                key={i}
+                                                type="button"
+                                                className="att-link img"
+                                                onClick={() => { if (typeof idxInViewer === 'number') openMediaViewer(idxInViewer); }}
+                                                style={{ border:'none', background:'transparent', padding:0, cursor:'pointer' }}
+                                              >
+                                                <img src={href} alt={a.name} className="att-image" />
+                                              </button>
+                                            );
+                                          }
+                                          return <div key={i} className="att-placeholder">Image (loading){a.name ? `: ${a.name}` : ''}</div>;
                                         }
                                         if (isVid) return (
                                           href ? <div key={i} className="att-video"><video src={href} controls /></div>

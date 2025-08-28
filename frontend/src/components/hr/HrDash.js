@@ -483,7 +483,7 @@ const HrDash = ({ forceUserUpdate }) => {
   }, [markRequestAsViewed, navigate, persistViewedIds]);
 
   return (
-    <div className="dashboard-container">
+    <div className="hr-dashboard dashboard-container">
       {/* Header */}
       <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
         {/* Top Row: Logo, User Info, and Profile */}

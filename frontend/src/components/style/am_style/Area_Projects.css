@@ -1,21 +1,37 @@
 /* AM Projects Page Styles */
 
+/* Defensive override: some global/other role CSS sets .dashboard-container height:100vh and overflow hidden/auto, producing nested scrollbars.
+   Ensure this AM projects view lets the body own the scroll. */
+.dashboard-container {
+  height: auto !important;
+  min-height: 100vh;
+  overflow: visible !important;
+}
+
+/* Global overrides (scoped by cascade order only) to neutralize role CSS that forces html/body to 100vh which creates phantom extra scroll space */
+html, body {
+  height: auto !important;
+  min-height: 100%;
+  overflow-y: auto !important;
+}
+
 /* Projects Container */
 .projects-container {
   padding: 2rem;
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
-  height: 100%;
-  overflow-y: auto;
+  /* Removed height & overflow to prevent nested scrollbars; scrolling handled by .dashboard-main */
 }
 
 /* Dashboard Main - Ensure it's scrollable */
 .dashboard-main {
   flex: 1;
-  overflow-y: auto;
+  /* Removed overflow-y to avoid nested scrollbar; window/body now handles scrolling */
   background: #f8fafc;
-  min-height: calc(100vh - 120px); /* Adjust based on header height */
+  /* Remove forced min-height that created large blank space on short content pages */
+  min-height: auto;
+  padding-bottom: 2rem; /* modest breathing room */
 }
 
 /* Page Header */
@@ -274,7 +290,7 @@
 .projects-display {
   display: grid;
   gap: 1rem;
-  padding-bottom: 4rem;
+  padding-bottom: 1.5rem; /* reduced to cut dead space */
 }
 
 .projects-display.grid {

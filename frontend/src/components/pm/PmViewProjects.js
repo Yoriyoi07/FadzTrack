@@ -363,19 +363,7 @@ const Pm_Project = () => {
         if (cancelled) return;
         setProject(data);
         setStatus(data?.status || '');
-
-        // progress (for toggle availability) - now averaged across all PiCs
-        try {
-          const pr = await api.get(`/daily-reports/project/${id}/progress`);
-          const completed = pr?.data?.progress?.find(p => p.name === 'Completed');
-          setProgress(completed ? completed.value : 0);
-        } catch {}
-
-        // PiC contributions - averaged across all PiCs
-        try {
-          const contributions = await api.get(`/daily-reports/project/${id}/pic-contributions`);
-          setPicContributions(contributions.data);
-        } catch {}
+  // We'll defer progress & contributions to report-based calculation below
       } catch {
         if (!cancelled) setProject(null);
       } finally {
@@ -409,7 +397,8 @@ const Pm_Project = () => {
 
   /* ---------------- Discussions initial fetch ---------------- */
   useEffect(() => {
-    if (!project?._id || activeTab !== 'Discussions') return;
+    // Enable real-time updates for Discussions AND Reports (reports need live refresh on upload)
+    if (!project?._id || (activeTab !== 'Discussions' && activeTab !== 'Reports')) return;
     const controller = new AbortController();
     setLoadingMsgs(true);
     api.get(`/projects/${project._id}/discussions`, {
@@ -437,6 +426,45 @@ const Pm_Project = () => {
       setReports(data?.reports || []);
       if (process.env.NODE_ENV !== 'production') {
         console.debug('[reports payload]', data?.reports);
+      }
+      // Derive progress & pseudo contributions from reports
+      const reportsArr = data?.reports || [];
+      if (reportsArr.length) {
+        // Sort newest first by uploadedAt
+        const sorted = [...reportsArr].sort((a,b) => new Date(b.uploadedAt||0)-new Date(a.uploadedAt||0));
+        // Distinct latest per uploader
+        const byUser = new Map();
+        for (const rep of sorted) {
+          const key = rep.uploadedBy || rep.uploadedByName || rep._id; // fallback
+            if (!byUser.has(key)) byUser.set(key, rep);
+        }
+        const repsForAvg = [...byUser.values()];
+        let values = repsForAvg.map(r => Number(r?.ai?.pic_contribution_percent)).filter(v => isFinite(v) && v>=0);
+        if (!values.length) {
+          // fallback heuristic
+          values = repsForAvg.map(r => {
+            const done = r?.ai?.completed_tasks?.length || 0;
+            const total = done + (r?.ai?.summary_of_work_done?.length || 0);
+            return total>0 ? (done/total)*100 : 0;
+          });
+        }
+        if (values.length) {
+          const avg = values.reduce((s,v)=>s+v,0)/values.length;
+          setProgress(Number(Math.min(100, Math.max(0, avg)).toFixed(1)));
+          setPicContributions({
+            averageContribution: Number(avg.toFixed(1)),
+            picContributions: repsForAvg.map(r => ({
+              picId: r.uploadedBy || r._id,
+              picName: r.uploadedByName || 'Unknown',
+              contribution: Math.round(Number(r?.ai?.pic_contribution_percent) || 0),
+              hasReport: true,
+              lastReportDate: r.uploadedAt || null
+            })),
+            totalPics: repsForAvg.length,
+            reportingPics: repsForAvg.length,
+            pendingPics: 0
+          });
+        }
       }
     } catch {
       setReports([]);
@@ -561,8 +589,8 @@ const Pm_Project = () => {
       console.log('🔌 Socket.IO disconnected:', reason);
     });
 
-    // Join project room
-    socket.emit('joinProject', `project:${project._id}`);
+  // Join project room (shared for discussions + reports)
+  socket.emit('joinProject', `project:${project._id}`);
 
     // Handle new discussion
 const handleNewDiscussion = (data) => {
@@ -593,17 +621,26 @@ const handleNewReply = (data) => {
     };
 
 
+    // Handle reports updated (trigger refetch)
+    const handleReportsUpdated = (data) => {
+      if (String(data.projectId) === String(project._id)) {
+        fetchReports(project._id);
+      }
+    };
+
     // Listen for events
-  socket.on('project:newDiscussion', handleNewDiscussion);
-  socket.on('project:newReply', handleNewReply);
+    socket.on('project:newDiscussion', handleNewDiscussion);
+    socket.on('project:newReply', handleNewReply);
+    socket.on('project:reportsUpdated', handleReportsUpdated);
 
 
 
     // Cleanup
     return () => {
       console.log('🧹 Cleaning up Socket.IO connection');
-      socket.off('project:newDiscussion', handleNewDiscussion);
-      socket.off('project:newReply', handleNewReply);
+  socket.off('project:newDiscussion', handleNewDiscussion);
+  socket.off('project:newReply', handleNewReply);
+  socket.off('project:reportsUpdated', handleReportsUpdated);
       socket.off('connect');
       socket.off('connect_error');
       socket.off('disconnect');
@@ -1278,55 +1315,112 @@ const handleDeleteFile = async (doc, index) => {
 
                 {/* Project Progress Section */}
                 <div className="progress-section">
-                  <h2 className="section-title">Project Progress</h2>
-                  <div className="progress-grid">
+                  <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    Project Progress
+                    {progress >= 100 && (
+                      <span style={{
+                        background: 'linear-gradient(90deg,#16a34a,#4ade80)',
+                        color: '#fff',
+                        padding: '4px 10px',
+                        fontSize: 12,
+                        borderRadius: 20,
+                        letterSpacing: .5
+                      }}>COMPLETED</span>
+                    )}
+                  </h2>
+                  <div className="progress-grid" style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
                     {/* Overall Progress Card */}
-                    <div className="progress-card overall-progress">
-                      <div className="card-icon">
-                        <FaChartBar />
-                      </div>
-                      <div className="card-content">
-                        <h3 className="card-title">Overall Progress</h3>
-                        <div className="progress-value">{Math.round(progress)}%</div>
-                        <div className="progress-bar">
-                          <div 
-                            className="progress-fill" 
-                            style={{ width: `${progress}%` }}
-                          ></div>
+                    <div className="progress-card overall-progress" style={{
+                      background: '#0f172a',
+                      color: '#f1f5f9',
+                      borderRadius: 18,
+                      padding: 20,
+                      position: 'relative',
+                      overflow: 'hidden'
+                    }}>
+                      <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 30% 20%, rgba(59,130,246,.25), transparent 70%)' }} />
+                      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, letterSpacing: .5 }}>Overall Progress</h3>
+                          <FaChartBar style={{ opacity: .7 }} />
                         </div>
-                        <div className="progress-description">
-                          Average across all PiCs
+                        <div style={{ fontSize: 38, fontWeight: 700, lineHeight: 1, background: 'linear-gradient(90deg,#3b82f6,#06b6d4)', WebkitBackgroundClip: 'text', color: 'transparent' }}>
+                          {Math.round(progress)}%
                         </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div style={{ height: 14, background: '#1e293b', borderRadius: 10, position: 'relative' }} aria-label={`Overall progress ${Math.round(progress)}%`} role="progressbar" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>
+                            <div style={{
+                              position: 'absolute',
+                              inset: 0,
+                              background: 'linear-gradient(90deg,#3b82f6,#6366f1,#8b5cf6)',
+                              width: `${progress}%`,
+                              borderRadius: 10,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-end',
+                              boxShadow: '0 0 0 1px rgba(255,255,255,0.08),0 2px 8px rgba(0,0,0,0.35)',
+                              transition: 'width .5s ease'
+                            }} />
+                          </div>
+                          <small style={{ opacity: .8 }}>Average across all PiCs</small>
+                        </div>
+                        {picContributions && (
+                          <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ fontSize: 12, letterSpacing: .5, opacity: .85, textTransform: 'uppercase' }}>Reporting Coverage</div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              {Array.from({ length: picContributions.totalPics }).map((_, i) => {
+                                const reported = i < picContributions.reportingPics;
+                                return <div key={i} style={{ flex: 1, height: 6, background: reported ? 'linear-gradient(90deg,#10b981,#4ade80)' : '#334155', borderRadius: 4, transition: 'background .3s' }} />;
+                              })}
+                            </div>
+                            <div style={{ fontSize: 12, opacity: .7 }}>{picContributions.reportingPics}/{picContributions.totalPics} submitted</div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     {/* PiC Contributions Card */}
-                    {picContributions && (
-                      <div className="progress-card pic-contributions">
-                        <div className="card-icon">
-                          <FaUsers />
+                    {(picContributions || (project?.pic && project.pic.length > 0)) && (
+                      <div className="progress-card pic-contributions" style={{
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 18,
+                        padding: 20,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 12
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#0f172a' }}>PiC Contributions</h3>
+                          <FaUsers style={{ color: '#475569' }} />
                         </div>
-                        <div className="card-content">
-                          <h3 className="card-title">PiC Contributions</h3>
-                          <div className="contribution-value">
-                            {picContributions.averageContribution}%
-                          </div>
-                          <div className="contribution-details">
-                            <div className="detail-item">
-                              <span className="detail-label">Reporting:</span>
-                              <span className="detail-value">
-                                {picContributions.reportingPics}/{picContributions.totalPics} PiCs
-                              </span>
-                            </div>
-                            {picContributions.pendingPics > 0 && (
-                              <div className="detail-item pending">
-                                <span className="detail-label">Pending:</span>
-                                <span className="detail-value">
-                                  {picContributions.pendingPics} PiCs
-                                </span>
+                        <div style={{ fontSize: 32, fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>
+                          {picContributions ? picContributions.averageContribution : 0}%
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {picContributions ? (
+                            <>
+                              <div style={{ fontSize: 13, color: '#475569', display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Reporting</span>
+                                <span style={{ fontWeight: 600 }}>{picContributions.reportingPics}/{picContributions.totalPics}</span>
                               </div>
-                            )}
-                          </div>
+                              {picContributions.pendingPics > 0 && (
+                                <div style={{ fontSize: 13, color: '#b45309', background: '#fffbeb', padding: '6px 10px', borderRadius: 8, display: 'flex', justifyContent: 'space-between' }}>
+                                  <span>Pending</span>
+                                  <span style={{ fontWeight: 600 }}>{picContributions.pendingPics}</span>
+                                </div>
+                              )}
+                              {picContributions.reportingPics === 0 && project?.pic?.length > 0 && reports.length > 0 && (
+                                <div style={{ fontSize: 12, lineHeight: 1.4, background: '#f1f5f9', padding: '8px 10px', borderRadius: 8, color: '#475569' }}>
+                                  Reports exist in the Reports tab, but no Daily Reports have been submitted yet. PiC contributions are calculated from Daily Reports (AI field <code>pic_contribution_percent</code>). Ask PiCs to submit Daily Reports to populate this.
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div style={{ fontSize: 12, lineHeight: 1.4, background: '#f1f5f9', padding: '8px 10px', borderRadius: 8, color: '#475569' }}>
+                              No contribution data yet. This appears once PiCs submit their first Daily Report.
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1334,24 +1428,53 @@ const handleDeleteFile = async (doc, index) => {
 
                   {/* Individual PiC Contributions */}
                   {picContributions && picContributions.picContributions.length > 0 && (
-                    <div className="individual-contributions">
-                      <h3 className="subsection-title">Individual PiC Contributions</h3>
-                      <div className="pic-list">
+                    <div className="individual-contributions" style={{ marginTop: 24 }}>
+                      <h3 className="subsection-title" style={{ fontSize: 16, fontWeight: 600, margin: '0 0 12px', color: '#0f172a' }}>Individual PiC Contributions</h3>
+                      <div className="pic-list" style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
                         {picContributions.picContributions.map((pic, index) => (
-                          <div key={index} className={`pic-item ${!pic.hasReport ? 'no-report' : ''}`}>
-                            <div className="pic-info">
-                              <span className="pic-name">{pic.picName}</span>
+                          <div key={index} className={`pic-item ${!pic.hasReport ? 'no-report' : ''}`} style={{
+                            background: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: 14,
+                            padding: 14,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 8,
+                            position: 'relative'
+                          }}>
+                            {!pic.hasReport && (
+                              <span style={{ position: 'absolute', top: 8, right: 10, background: '#fee2e2', color: '#b91c1c', fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 6, letterSpacing: .5 }}>NO REPORT</span>
+                            )}
+                            <div className="pic-info" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              <span className="pic-name" style={{ fontWeight: 600, fontSize: 14, color: '#0f172a' }}>{pic.picName}</span>
                               {pic.lastReportDate && (
-                                <span className="last-report">
-                                  Last report: {new Date(pic.lastReportDate).toLocaleDateString()}
+                                <span className="last-report" style={{ fontSize: 11, color: '#64748b' }}>
+                                  Last: {new Date(pic.lastReportDate).toLocaleDateString()}
                                 </span>
                               )}
                             </div>
-                            <div className="pic-contribution">
+                            <div className="pic-contribution" style={{ marginTop: 'auto' }}>
                               {pic.hasReport ? (
-                                <span className="contribution-percent">{pic.contribution}%</span>
+                                <span className="contribution-percent" style={{
+                                  display: 'inline-block',
+                                  background: 'linear-gradient(90deg,#3b82f6,#6366f1)',
+                                  color: '#fff',
+                                  fontSize: 13,
+                                  padding: '4px 10px',
+                                  borderRadius: 8,
+                                  fontWeight: 600,
+                                  letterSpacing: .5
+                                }}>{pic.contribution}%</span>
                               ) : (
-                                <span className="no-contribution">No report</span>
+                                <span className="no-contribution" style={{
+                                  display: 'inline-block',
+                                  background: '#f1f5f9',
+                                  color: '#475569',
+                                  fontSize: 12,
+                                  padding: '4px 10px',
+                                  borderRadius: 8,
+                                  fontWeight: 500
+                                }}>No report</span>
                               )}
                             </div>
                           </div>
@@ -1962,120 +2085,161 @@ const handleDeleteFile = async (doc, index) => {
               </div>
             )}
 
-            {/* --- Reports Tab --- */}
+            {/* --- Reports Tab (mirrors PIC layout, read-only) --- */}
             {activeTab === 'Reports' && (
-              <div className="reports-container">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                  <h3 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600, color: '#1f2937' }}>Project Reports</h3>
+              <div className="project-reports" style={{ textAlign: 'left' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <h3 style={{ marginBottom: 18 }}>Project Reports</h3>
+                  {/* No upload control for PM */}
                 </div>
 
                 {reports.length === 0 ? (
-                  <div className="reports-placeholder">
-                    <FaRegFileAlt />
-                    <h3>Project Reports</h3>
-                    <p>No reports are currently available.</p>
-                  </div>
+                  <div style={{ color: '#888', fontSize: 16 }}>No reports yet.</div>
                 ) : (
                   <div style={{ overflowX: 'auto' }}>
                     <table className="files-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '2px solid #e5e7eb', background: '#f9fafb', fontWeight: 600, fontSize: '0.875rem', color: '#374151' }}>Report Period</th>
-                          <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '2px solid #e5e7eb', background: '#f9fafb', fontWeight: 600, fontSize: '0.875rem', color: '#374151' }}>Report File</th>
-                          <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '2px solid #e5e7eb', background: '#f9fafb', fontWeight: 600, fontSize: '0.875rem', color: '#374151' }}>Submitted By</th>
-                          <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '2px solid #e5e7eb', background: '#f9fafb', fontWeight: 600, fontSize: '0.875rem', color: '#374151' }}>Submitted At</th>
-                          <th style={{ textAlign: 'left', padding: '12px 16px', borderBottom: '2px solid #e5e7eb', background: '#f9fafb', fontWeight: 600, fontSize: '0.875rem', color: '#374151' }}>Actions</th>
+                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>Name</th>
+                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>Uploaded By</th>
+                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>Uploaded At</th>
+                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>Status</th>
+                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600, width: 280 }}>Action</th>
                         </tr>
                       </thead>
                       <tbody>
                         {reports.map((rep) => {
                           const uploadedAt = rep?.uploadedAt ? new Date(rep.uploadedAt).toLocaleString() : '—';
-                          const reportPeriod = rep?.reportPeriod || 'N/A';
                           return (
-                            <tr key={rep._id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                              <td style={{ padding: '12px 16px', fontSize: '0.875rem', color: '#374151' }}>
-                                {reportPeriod}
-                              </td>
-                              <td style={{ padding: '12px 16px', fontSize: '0.875rem', color: '#374151' }}>
+                            <tr key={rep._id}>
+                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
                                 <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                  <FaRegFileAlt style={{ marginRight: 8, color: '#6b7280' }} />
+                                  <FaRegFileAlt style={{ marginRight: 6 }} />
                                   {rep?.name || 'Report.pptx'}
                                 </span>
                               </td>
-                              <td style={{ padding: '12px 16px', fontSize: '0.875rem', color: '#374151' }}>
-                                {rep?.uploadedByName || 'Unknown'}
+                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{rep?.uploadedByName || 'Unknown'}</td>
+                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{uploadedAt}</td>
+                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1', textTransform: 'capitalize' }}>
+                                {rep?.status || 'pending'}
                               </td>
-                              <td style={{ padding: '12px 16px', fontSize: '0.875rem', color: '#374151' }}>
-                                {uploadedAt}
-                              </td>
-                              <td style={{ padding: '12px 16px' }}>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                  {/* View PPT */}
-                                  {rep?.path ? (
-                                    <button
-                                      onClick={() => openReportSignedPath(rep.path)}
-                                      style={{ 
-                                        border: '1px solid #d1d5db', 
-                                        background: '#ffffff', 
-                                        padding: '6px 12px', 
-                                        borderRadius: 6, 
-                                        cursor: 'pointer',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 500,
-                                        color: '#374151',
-                                        transition: 'all 0.2s ease'
-                                      }}
-                                      onMouseOver={(e) => {
-                                        e.target.style.background = '#f9fafb';
-                                        e.target.style.borderColor = '#9ca3af';
-                                      }}
-                                      onMouseOut={(e) => {
-                                        e.target.style.background = '#ffffff';
-                                        e.target.style.borderColor = '#d1d5db';
-                                      }}
-                                    >
-                                      View PPT
-                                    </button>
-                                  ) : (
-                                    <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>No PPT</span>
-                                  )}
-
-                                  {/* Download PDF */}
-                                  {rep?.pdfPath ? (
-                                    <button
-                                      onClick={() => openReportSignedPath(rep.pdfPath)}
-                                      style={{ 
-                                        border: '1px solid #d1d5db', 
-                                        background: '#ffffff', 
-                                        padding: '6px 12px', 
-                                        borderRadius: 6, 
-                                        cursor: 'pointer',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 500,
-                                        color: '#374151',
-                                        transition: 'all 0.2s ease'
-                                      }}
-                                      onMouseOver={(e) => {
-                                        e.target.style.background = '#f9fafb';
-                                        e.target.style.borderColor = '#9ca3af';
-                                      }}
-                                      onMouseOut={(e) => {
-                                        e.target.style.background = '#ffffff';
-                                        e.target.style.borderColor = '#d1d5db';
-                                      }}
-                                    >
-                                      Download PDF
-                                    </button>
-                                  ) : (
-                                    <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>No PDF</span>
-                                  )}
-                                </div>
+                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
+                                {rep?.path ? (
+                                  <button
+                                    onClick={() => openReportSignedPath(rep.path)}
+                                    style={{
+                                      marginRight: 10,
+                                      border: '1px solid #cbd5e1',
+                                      background: '#f8fafc',
+                                      padding: '6px 12px',
+                                      borderRadius: 8,
+                                      cursor: 'pointer',
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      color: '#0f172a',
+                                      letterSpacing: .3,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 6,
+                                      transition: 'all .2s'
+                                    }}
+                                    onMouseOver={(e) => { e.currentTarget.style.background = '#e2e8f0'; }}
+                                    onMouseOut={(e) => { e.currentTarget.style.background = '#f8fafc'; }}
+                                  >
+                                    View PPT
+                                  </button>
+                                ) : (
+                                  <span style={{ color: '#94a3b8', marginRight: 10, fontSize: 12 }}>No PPT</span>
+                                )}
+                                {rep?.pdfPath ? (
+                                  <button
+                                    onClick={() => openReportSignedPath(rep.pdfPath)}
+                                    style={{
+                                      marginRight: 10,
+                                      border: '1px solid #cbd5e1',
+                                      background: 'linear-gradient(90deg,#3b82f6,#6366f1)',
+                                      padding: '6px 12px',
+                                      borderRadius: 8,
+                                      cursor: 'pointer',
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      color: '#ffffff',
+                                      letterSpacing: .3,
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 6,
+                                      boxShadow: '0 4px 12px -2px rgba(59,130,246,0.35)',
+                                      transition: 'all .25s'
+                                    }}
+                                    onMouseOver={(e) => { e.currentTarget.style.filter = 'brightness(1.08)'; }}
+                                    onMouseOut={(e) => { e.currentTarget.style.filter = 'brightness(1)'; }}
+                                  >
+                                    Download AI PDF
+                                  </button>
+                                ) : (
+                                  <span style={{ color: '#94a3b8', marginRight: 10, fontSize: 12 }}>No PDF</span>
+                                )}
                               </td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
+
+                    {/* Latest AI Summary (read-only) */}
+                    {reports[0]?.ai && (
+                      <div style={{ marginTop: 16, padding: 16, border: '1px solid #eee', borderRadius: 10 }}>
+                        <h4 style={{ marginTop: 0 }}>Latest AI Summary</h4>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                            gap: 16
+                          }}
+                        >
+                          <div style={{ minWidth: 0 }}>
+                            <b>Summary of Work Done</b>
+                            <ul style={{ marginTop: 6 }}>
+                              {(reports[0].ai.summary_of_work_done || []).map((x, i) => <li key={i}>{x}</li>)}
+                            </ul>
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <b>Completed Tasks</b>
+                            <ul style={{ marginTop: 6 }}>
+                              {(reports[0].ai.completed_tasks || []).map((x, i) => <li key={i}>{x}</li>)}
+                            </ul>
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <b>Critical Path (3)</b>
+                            <div style={{ marginTop: 6 }}>
+                              {(reports[0].ai.critical_path_analysis || []).slice(0,3).map((c, i) => (
+                                <div key={i} style={{ marginBottom: 8 }}>
+                                  <b>{`${i + 1}. ${c?.path_type || 'Path ' + (i+1)}`}</b>
+                                  <ul style={{ marginTop: 4, marginBottom: 4 }}>
+                                    {c?.risk && <li><b>Risk:</b> {c.risk}</li>}
+                                    {c?.blockers?.length > 0 && <li><b>Blockers:</b> {c.blockers.join('; ')}</li>}
+                                    {c?.next?.length > 0 && <li><b>Next:</b> {c.next.join('; ')}</li>}
+                                  </ul>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <b>PiC Performance</b>
+                            <p style={{ marginTop: 6 }}>
+                              {reports[0].ai.pic_performance_evaluation?.text || 'Performance summary unavailable.'}
+                            </p>
+                            {typeof reports[0].ai.pic_performance_evaluation?.score === 'number' && (
+                              <p>Score: {reports[0].ai.pic_performance_evaluation.score}/100</p>
+                            )}
+                            <p>PiC Contribution: {Math.round(Number(reports[0].ai.pic_contribution_percent) || 0)}%</p>
+                            {typeof reports[0].ai.confidence === 'number' && (
+                              <p>Model Confidence: {(reports[0].ai.confidence * 100).toFixed(0)}%</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

@@ -479,7 +479,7 @@ const AreaDash = () => {
   }
 
   return (
-    <div className="dashboard-container">
+    <div className="am-dashboard dashboard-container">
       {/* Modern Header - PM Style */}
       <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
         {/* Top Row: Logo and Profile */}

@@ -233,10 +233,10 @@ const handleLogout = () => {
               <FaComments />
               <span>Chat</span>
             </Link>
-            <Link to="/pic/requests" className="nav-item">
-              <FaClipboardList />
-              <span>Requests</span>
-            </Link>
+                  <Link to="/pic/requests" className="nav-item">
+                               <FaClipboardList />
+                               <span >Requests</span>
+                             </Link>
             {project && (
               <Link to={`/pic/${project._id}`} className="nav-item">
                 <FaEye />

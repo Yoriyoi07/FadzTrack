@@ -561,7 +561,7 @@ useEffect(() => {
     }
   }, [project?._id, id, activeTab]);
 
-  // Fetch project (+progress)
+  // Fetch project (progress derived later from reports)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -594,14 +594,6 @@ useEffect(() => {
           setProject(normalized);
           setStatus(ongoing?.status || '');
         }
-
-        if (id) {
-          try {
-            const pr = await api.get(`/daily-reports/project/${id}/progress`);
-            const completed = pr?.data?.progress?.find(p => p.name === 'Completed');
-            setProgress(completed ? completed.value : 0);
-          } catch {}
-        }
       } catch {
         if (!cancelled) setProject(null);
       } finally {
@@ -610,6 +602,36 @@ useEffect(() => {
     })();
     return () => { cancelled = true; };
   }, [id, userId]);
+
+  // Derive progress from latest report per uploader (averaged)
+  useEffect(() => {
+    if (!reports || !reports.length) { setProgress(0); return; }
+    // pick latest per uploader
+    const latestByUser = {};
+    for (const r of reports) {
+      const uid = r.uploader?._id || r.uploader || 'unknown';
+      if (!latestByUser[uid]) latestByUser[uid] = r;
+      else {
+        const prev = latestByUser[uid];
+        if (new Date(r.createdAt || r.timestamp || 0) > new Date(prev.createdAt || prev.timestamp || 0)) {
+          latestByUser[uid] = r;
+        }
+      }
+    }
+    const list = Object.values(latestByUser);
+    if (!list.length) { setProgress(0); return; }
+    const vals = list.map(r => {
+      const pct = r?.ai?.pic_contribution_percent;
+      if (typeof pct === 'number' && isFinite(pct)) return pct;
+      const done = Array.isArray(r?.ai?.completed_tasks) ? r.ai.completed_tasks.length : 0;
+      const total = done + (Array.isArray(r?.ai?.pending_tasks) ? r.ai.pending_tasks.length : 0);
+      if (total > 0) return (done / total) * 100;
+      return 0;
+    });
+    const avg = vals.reduce((s,v)=>s+v,0)/vals.length;
+    const clamped = Math.min(100, Math.max(0, avg));
+    setProgress(Number(clamped.toFixed(1)));
+  }, [reports]);
 
   // Discussions initial fetch (oldest → newest)
   useEffect(() => {
@@ -1169,7 +1191,7 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
 
   if (!project) {
     return (
-      <div className="dashboard-container">
+  <div className="dashboard-container pic-dashboard">
         {/* Modern Header */}
         <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
           {/* Top Row: Logo and Profile */}
@@ -1220,14 +1242,6 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
                 <FaUsers />
                 <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
               </Link>
-              <Link to="/pic/daily-logs" className="nav-item">
-                <FaClipboardList />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
-              </Link>
-              <Link to="/pic/daily-logs-list" className="nav-item">
-                <FaCalendarAlt />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Daily Logs</span>
-              </Link>
             </nav>
             
             <NotificationBell />
@@ -1277,7 +1291,7 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
       : 'No Manpower Assigned';
 
   return (
-    <div className="dashboard-container">
+  <div className="dashboard-container pic-dashboard">
       {/* Modern Header */}
       <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
         {/* Top Row: Logo and Profile */}
@@ -1320,34 +1334,20 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
               <FaComments />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
             </Link>
-            <Link to="/pic/request/:id" className="nav-item">
-              <FaBoxes />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
-            </Link>
-            <Link to="/pic/manpower-list" className="nav-item">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
+             <Link to="/pic/requests" className="nav-item">
+                                           <FaClipboardList />
+                                           <span >Requests</span>
+                                         </Link>
             {project && (
-              <Link to={`/pic/viewprojects/${project._id || project.id}`} className="nav-item">
+              <Link to={`/pic/viewprojects/${project._id || project.id}`} className="nav-item active">
                 <FaEye />
                 <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
               </Link>
             )}
-            <Link to="/pic/daily-logs" className="nav-item">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
-            </Link>
-            {project && (
-              <Link to={`/pic/progress-report/${project._id}`} className="nav-item">
-                <FaChartBar />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
-              </Link>
-            )}
-            <Link to="/pic/daily-logs-list" className="nav-item">
-              <FaCalendarAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Daily Logs</span>
-            </Link>
+                <Link to="/pic/projects" className="nav-item">
+                         <FaProjectDiagram />
+                         <span>My Projects</span>
+                       </Link>
           </nav>
           
           <NotificationBell />
@@ -1389,11 +1389,11 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
               </div>
               <div className="metric-value">{progress}%</div>
               <div className="metric-description">Overall project completion</div>
-              <div className="progress-container">
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+              <div className="pic-progress-container" title={`Completed ${progress}%`}>
+                <div className="pic-progress-bar" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+                  <div className="pic-progress-fill" style={{ width: `${progress}%` }} />
                 </div>
-                <div className="progress-text">{progress}% Complete</div>
+                <div className="pic-progress-text">{progress}% Complete</div>
               </div>
             </div>
 

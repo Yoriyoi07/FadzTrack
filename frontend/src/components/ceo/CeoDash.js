@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, Link } from 'react-router-dom';
-import '../style/am_style/Area_Dash.css';
-import '../style/ceo_style/Ceo_Dash.css';
 import '../style/ceo_style/Ceo_Dash.css';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
@@ -338,7 +336,7 @@ const CeoDash = () => {
   }
 
   return (
-    <div className="dashboard-container">
+    <div className="ceo-dashboard dashboard-container">
       {/* Header (AM style) */}
       <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
         <div className="header-top">

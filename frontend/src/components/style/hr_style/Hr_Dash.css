@@ -87,6 +87,11 @@
   max-width: 100% !important;
   margin: 0 !important;
 }
+/* ===================== ROLE SCOPE ISOLATION (HR) ===================== */
+.hr-dashboard.dashboard-container { min-height:100vh; height:auto; overflow:visible; }
+.hr-dashboard .dashboard-card { position:relative; }
+.hr-dashboard .dashboard-header { position:sticky; top:0; }
+.hr-dashboard .nav-item { white-space:nowrap; }
 
 /* Collapsed header state */
 .dashboard-header.collapsed {

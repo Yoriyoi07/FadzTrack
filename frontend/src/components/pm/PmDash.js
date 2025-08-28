@@ -366,7 +366,7 @@ const PmDash = ({ forceUserUpdate }) => {
   };
 
   return (
-    <div className="dashboard-container">
+    <div className="pm-dashboard dashboard-container">
       {/* Modern Header */}
       <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
         {/* Top Row: Logo and Profile */}

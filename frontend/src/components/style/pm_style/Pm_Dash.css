@@ -1,46 +1,29 @@
-/* ===================== MODERN PM DASHBOARD STYLES ===================== */
+/* ===================== MODERN PM DASHBOARD STYLES (SCOPED) ===================== */
+/* All selectors are prefixed with .pm-dashboard to isolate PM styles */
 
-/* CRITICAL SCROLLING FIXES */
-html, body {
-  overflow: auto !important; /* Allow scrolling */
-  height: 100vh !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  width: 100% !important;
-}
-
-/* Force scrollbar to always be visible */
-html {
-  scrollbar-width: auto !important;
-  -ms-overflow-style: auto !important;
-}
-
-/* Base Styles */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
+.pm-dashboard {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
   background-color: #f8fafc;
   color: #1e293b;
   line-height: 1.6;
   min-height: 100vh;
-  margin: 0 !important;
-  padding: 0 !important;
-  width: 100% !important;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
+.pm-dashboard * { box-sizing: border-box; }
+
 /* Dashboard Container */
-.dashboard-container {
-  height: 100vh; /* Fixed height to enable scrolling */
+.pm-dashboard.dashboard-container, .pm-dashboard .dashboard-container {
+  /* Allow natural document height so full page scroll works */
+  height: auto;
+  min-height: 100vh;
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   margin: 0;
   padding: 0;
   width: 100%;
-  overflow: hidden; /* Prevent container scrolling */
+  overflow: visible; /* permit children to extend; scrolling handled by body */
   position: relative;
   display: flex;
   flex-direction: column;
@@ -48,7 +31,7 @@ body {
 }
 
 /* ===================== HEADER LAYOUT ===================== */
-.dashboard-header {
+.pm-dashboard .dashboard-header {
   background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
   color: white;
   padding: 1rem 2rem;
@@ -62,57 +45,57 @@ body {
 }
 
 /* Collapsed header state */
-.dashboard-header.collapsed {
+.pm-dashboard .dashboard-header.collapsed {
   padding: 0.5rem 2rem;
 }
 
-.dashboard-header.collapsed .header-top {
+.pm-dashboard .dashboard-header.collapsed .header-top {
   margin-bottom: 0.5rem;
   padding-bottom: 0.5rem;
 }
 
-.dashboard-header.collapsed .header-bottom {
+.pm-dashboard .dashboard-header.collapsed .header-bottom {
   padding-top: 0.5rem;
 }
 
 /* Hidden elements when collapsed */
-.hidden {
+.pm-dashboard .hidden {
   display: none !important;
 }
 
 /* Collapsed navigation items */
-.dashboard-header.collapsed .nav-item {
+.pm-dashboard .dashboard-header.collapsed .nav-item {
   padding: 0.5rem 0.75rem;
   min-width: 50px;
   justify-content: center;
 }
 
-.dashboard-header.collapsed .nav-item span {
+.pm-dashboard .dashboard-header.collapsed .nav-item span {
   display: none;
 }
 
-.dashboard-header.collapsed .nav-item svg {
+.pm-dashboard .dashboard-header.collapsed .nav-item svg {
   font-size: 1.2rem;
   margin: 0;
 }
 
 /* Collapsed profile section */
-.dashboard-header.collapsed .profile-info {
+.pm-dashboard .dashboard-header.collapsed .profile-info {
   display: none;
 }
 
-.dashboard-header.collapsed .user-profile {
+.pm-dashboard .dashboard-header.collapsed .user-profile {
   padding: 0.25rem 0.5rem;
 }
 
-.dashboard-header.collapsed .profile-avatar {
+.pm-dashboard .dashboard-header.collapsed .profile-avatar {
   width: 35px;
   height: 35px;
   font-size: 1rem;
 }
 
 /* Top Row: Logo and Profile */
-.header-top {
+.pm-dashboard .header-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -121,19 +104,19 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.logo-section {
+.pm-dashboard .logo-section {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
-.header-logo {
+.pm-dashboard .header-logo {
   width: 40px;
   height: 40px;
   object-fit: contain;
 }
 
-.header-brand {
+.pm-dashboard .header-brand {
   font-size: 1.5rem;
   font-weight: 700;
   margin: 0;
@@ -144,20 +127,20 @@ body {
 }
 
 /* Bottom Row: Navigation and Notifications */
-.header-bottom {
+.pm-dashboard .header-bottom {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.header-nav {
+.pm-dashboard .header-nav {
   display: flex;
   gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
 }
 
-.nav-item {
+.pm-dashboard .nav-item {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -174,23 +157,23 @@ body {
   white-space: nowrap;
 }
 
-.nav-item:hover {
+.pm-dashboard .nav-item:hover {
   color: white;
   background-color: rgba(59, 130, 246, 0.2);
   transform: translateY(-1px);
 }
 
-.nav-item.active {
+.pm-dashboard .nav-item.active {
   color: white;
   background-color: rgba(59, 130, 246, 0.2);
   border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
-.nav-item svg {
+.pm-dashboard .nav-item svg {
   font-size: 1rem;
 }
 
-.user-profile {
+.pm-dashboard .user-profile {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -203,12 +186,12 @@ body {
   border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
-.user-profile:hover {
+.pm-dashboard .user-profile:hover {
   background-color: rgba(59, 130, 246, 0.2);
   border-color: rgba(59, 130, 246, 0.3);
 }
 
-.profile-avatar {
+.pm-dashboard .profile-avatar {
   width: 40px;
   height: 40px;
   background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
@@ -222,20 +205,20 @@ body {
   text-transform: uppercase;
 }
 
-.profile-info {
+.pm-dashboard .profile-info {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
 
-.profile-name {
+.pm-dashboard .profile-name {
   font-weight: 700;
   font-size: 0.9rem;
   color: white;
   line-height: 1.2;
 }
 
-.profile-role {
+.pm-dashboard .profile-role {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.8);
   text-transform: uppercase;
@@ -243,7 +226,7 @@ body {
   font-weight: 500;
 }
 
-.profile-dropdown {
+.pm-dashboard .profile-dropdown {
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
@@ -257,7 +240,7 @@ body {
   animation: fadeInUp 0.2s ease-out;
 }
 
-.profile-menu {
+.pm-dashboard .profile-menu {
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
@@ -271,7 +254,7 @@ body {
   animation: fadeInUp 0.2s ease-out;
 }
 
-.profile-menu button {
+.pm-dashboard .profile-menu button {
   width: 100%;
   padding: 0.75rem 1rem;
   background: none;
@@ -285,11 +268,11 @@ body {
   font-size: 0.875rem;
 }
 
-.profile-menu button:hover {
+.pm-dashboard .profile-menu button:hover {
   background-color: #fef2f2;
 }
 
-.logout-btn {
+.pm-dashboard .logout-btn {
   width: 100%;
   padding: 0.75rem 1rem;
   background: none;
@@ -303,12 +286,12 @@ body {
   font-size: 0.875rem;
 }
 
-.logout-btn:hover {
+.pm-dashboard .logout-btn:hover {
   background-color: #fef2f2;
 }
 
 /* ===================== MAIN CONTENT ===================== */
-.dashboard-main {
+.pm-dashboard .dashboard-main {
   padding: 2rem;
   max-width: 1400px;
   margin: 0 auto;
@@ -321,30 +304,84 @@ body {
   min-height: 0; /* Allow flex item to shrink */
 }
 
-.dashboard-grid {
+/* Refined responsive grid: two balanced columns, auto-wrap for cards, full-width feature cards */
+/* Structured grid with named areas for stable layout */
+.pm-dashboard .dashboard-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 2rem;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-areas:
+    "welcome welcome"
+    "chats requests"
+    "chart chart";
+  gap: 1.75rem;
   align-items: start;
   width: 100%;
   overflow: visible;
   min-height: auto;
-  padding-bottom: 8rem; /* Much more bottom padding for extensive scrolling */
+  padding-bottom: 4rem;
+}
+
+.pm-dashboard .welcome-card { grid-area: welcome; }
+.pm-dashboard .chats-card { grid-area: chats; }
+.pm-dashboard .requests-card { grid-area: requests; }
+.pm-dashboard .chart-card { grid-area: chart; }
+
+/* Large screens: allow three middle columns if very wide */
+@media (min-width: 1700px) {
+  .pm-dashboard .dashboard-grid {
+    grid-template-columns: 1.2fr 1fr 1fr;
+    grid-template-areas:
+      "welcome welcome welcome"
+      "chats requests chart";
+  }
+  .pm-dashboard .chart-card { align-self: stretch; }
+}
+
+/* Medium screens fallback: two columns */
+@media (max-width: 1300px) {
+  .pm-dashboard .dashboard-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "welcome welcome"
+      "chats requests"
+      "chart chart";
+  }
+}
+
+/* Small screens: single column stacking */
+@media (max-width: 900px) {
+  .pm-dashboard .dashboard-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "welcome"
+      "chats"
+      "requests"
+      "chart";
+  }
 }
 
 /* ===================== DASHBOARD CARDS ===================== */
-.dashboard-card {
-  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
-  color: white;
+/* Base card now neutral; gradients reserved for hero/welcome */
+.pm-dashboard .dashboard-card {
+  background: #ffffff;
+  color: #1e293b;
   border-radius: 16px;
-  padding: 1.5rem;
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.2);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  transition: all 0.3s ease;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0,0,0,0.05);
+  transition: box-shadow .25s ease, transform .25s ease;
   position: relative;
 }
 
-.dashboard-card::before {
+.pm-dashboard .dashboard-card:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,0.12); }
+
+/* Accent stripe */
+.pm-dashboard .dashboard-card::before { content:''; position:absolute; inset:0  auto 0 0; width:4px; background:linear-gradient(180deg,#3b82f6,#1e40af); border-radius:4px 0 0 4px; opacity:.9; }
+
+/* Remove old gradient hover bar logic */
+.pm-dashboard .dashboard-card:hover::before { opacity:1; }
+
+.pm-dashboard .dashboard-card::before {
   content: '';
   position: absolute;
   top: 0;
@@ -356,16 +393,16 @@ body {
   transition: opacity 0.3s ease;
 }
 
-.dashboard-card:hover::before {
+.pm-dashboard .dashboard-card:hover::before {
   opacity: 1;
 }
 
-.dashboard-card:hover {
+.pm-dashboard .dashboard-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 30px rgba(59, 130, 246, 0.3);
 }
 
-.card-header {
+.pm-dashboard .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -373,13 +410,13 @@ body {
   background: hsla(0, 0%, 0%, 0);
 }
 
-.card-actions {
+.pm-dashboard .card-actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
 
-.refresh-btn {
+.pm-dashboard .refresh-btn {
   background: #f8f9fa;
   border: 1px solid #e9ecef;
   border-radius: 6px;
@@ -392,33 +429,33 @@ body {
   color: #6c757d;
 }
 
-.refresh-btn:hover:not(:disabled) {
+.pm-dashboard .refresh-btn:hover:not(:disabled) {
   background: #e9ecef;
   border-color: #dee2e6;
   color: #495057;
 }
 
-.refresh-btn:disabled {
+.pm-dashboard .refresh-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.refresh-btn svg {
+.pm-dashboard .refresh-btn svg {
   transition: transform 0.2s ease;
 }
 
-.refresh-btn:not(:disabled):hover svg {
+.pm-dashboard .refresh-btn:not(:disabled):hover svg {
   transform: rotate(180deg);
 }
 
-.card-title {
+.pm-dashboard .card-title {
   font-size: 1.25rem;
   font-weight: 700;
   color: white;
   margin: 0;
 }
 
-.view-all-link {
+.pm-dashboard .view-all-link {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -429,43 +466,44 @@ body {
   transition: all 0.2s ease;
 }
 
-.view-all-link:hover {
+.pm-dashboard .view-all-link:hover {
   color: white;
   transform: translateX(2px);
 }
 
 /* ===================== WELCOME CARD ===================== */
-.welcome-card {
-  grid-column: 1 / -1;
-  background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%) !important;
-  color: white !important;
-  border: none !important;
-}
+/* Hero welcome card retains gradient branding and spans full width row */
+/* NOTE: The primary .welcome-card styles are defined ONCE later in this file (search for 'Polished welcome card').
+  This earlier block was duplicating those rules and caused confusion when edits here appeared to do nothing
+  because a later selector with identical specificity overwrote them. Keep changes in the later block only. */
+/* (Intentionally left blank – duplicate removed) */
+/* Maintain stacking order so metrics are not overlapped */
+.pm-dashboard .dashboard-grid > .chats-card, .pm-dashboard .dashboard-grid > .requests-card, .pm-dashboard .dashboard-grid > .chart-card { z-index: 1; }
 
-.welcome-card::before {
+.pm-dashboard .welcome-card::before {
   display: none;
 }
 
-.welcome-card .card-header {
-  margin-bottom: 3rem;
+.pm-dashboard .welcome-card .card-header {
+  margin-bottom: 2rem; /* reduced so content doesn't push out */
   background-color: hsla(0, 0%, 0%, 0);
 }
 
-.welcome-content h2 {
+.pm-dashboard .welcome-content h2 {
   font-size: 2rem;
   font-weight: 700;
   margin-bottom: 1rem;
   
 }
 
-.welcome-subtitle {
+.pm-dashboard .welcome-subtitle {
   font-size: 1rem;
   color: rgba(255, 255, 255, 0.9);
   margin: 0;
   margin-bottom: 2rem;
 }
 
-.project-badge {
+.pm-dashboard .project-badge {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -476,18 +514,21 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
-.project-badge svg {
+.pm-dashboard .project-badge svg {
   font-size: 1.25rem;
 }
 
-.project-stats {
+/* Adaptive stats grid */
+.pm-dashboard .project-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1.25rem;
   margin-top: 1rem;
+  position: relative;
+  z-index: 2;
 }
 
-.stat-item {
+.pm-dashboard .stat-item {
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -498,7 +539,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.stat-icon {
+.pm-dashboard .stat-icon {
   width: 48px;
   height: 48px;
   border-radius: 12px;
@@ -510,34 +551,34 @@ body {
   font-size: 1.5rem;
 }
 
-.stat-icon.completed {
+.pm-dashboard .stat-icon.completed {
   background: rgba(16, 185, 129, 0.2);
   color: #10b981;
 }
 
-.stat-icon.in-progress {
+.pm-dashboard .stat-icon.in-progress {
   background: rgba(59, 130, 246, 0.2);
   color: #3b82f6;
 }
 
-.stat-icon.not-started {
+.pm-dashboard .stat-icon.not-started {
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
 }
 
-.stat-content {
+.pm-dashboard .stat-content {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
 
-.stat-value {
+.pm-dashboard .stat-value {
   font-size: 1.75rem;
   font-weight: 700;
   color: white;
 }
 
-.stat-label {
+.pm-dashboard .stat-label {
   font-size: 0.875rem;
   color: rgba(255, 255, 255, 0.8);
   text-transform: uppercase;
@@ -545,11 +586,11 @@ body {
 }
 
 /* ===================== CHART CARD ===================== */
-.chart-card {
+.pm-dashboard .chart-card {
   grid-column: 1 / -1;
 }
 
-.chart-container {
+.pm-dashboard .chart-container {
   height: 200px;
   display: flex;
   align-items: center;
@@ -558,21 +599,21 @@ body {
 }
 
 @media (max-width: 768px) {
-  .chart-container {
+  .pm-dashboard .chart-container {
     height: 180px;
     min-height: 180px;
   }
 }
 
 @media (max-width: 480px) {
-  .chart-container {
+  .pm-dashboard .chart-container {
     height: 150px;
     min-height: 150px;
   }
 }
 
 /* ===================== CHATS CARD ===================== */
-.chats-card {
+.pm-dashboard .chats-card {
   grid-column: 1 / 2;
   background: white !important;
   color: #1e293b !important;
@@ -580,19 +621,19 @@ body {
   flex-direction: column;
 }
 
-.chats-card .card-title {
+.pm-dashboard .chats-card .card-title {
   color: #1e293b !important;
 }
 
-.chats-card .view-all-link {
+.pm-dashboard .chats-card .view-all-link {
   color: #3b82f6 !important;
 }
 
-.chats-card .view-all-link:hover {
+.pm-dashboard .chats-card .view-all-link:hover {
   color: #1e40af !important;
 }
 
-.chats-list {
+.pm-dashboard .chats-list {
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -602,25 +643,25 @@ body {
   flex: 1;
 }
 
-.chats-list::-webkit-scrollbar {
+.pm-dashboard .chats-list::-webkit-scrollbar {
   width: 6px;
 }
 
-.chats-list::-webkit-scrollbar-track {
+.pm-dashboard .chats-list::-webkit-scrollbar-track {
   background: #f1f5f9;
   border-radius: 3px;
 }
 
-.chats-list::-webkit-scrollbar-thumb {
+.pm-dashboard .chats-list::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 3px;
 }
 
-.chats-list::-webkit-scrollbar-thumb:hover {
+.pm-dashboard .chats-list::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
-.chat-item {
+.pm-dashboard .chat-item {
   display: flex;
   gap: 1rem;
   padding: 1rem;
@@ -635,19 +676,19 @@ body {
   color: inherit;
 }
 
-.chat-item:hover {
+.pm-dashboard .chat-item:hover {
   background: #f1f5f9;
   border-color: #3b82f6;
   transform: translateX(4px);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
-.chat-item:active {
+.pm-dashboard .chat-item:active {
   transform: translateX(2px);
   transition: transform 0.1s ease;
 }
 
-.chat-avatar {
+.pm-dashboard .chat-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -660,30 +701,145 @@ body {
   flex-shrink: 0;
 }
 
-.chat-content {
+.pm-dashboard .chat-content {
   flex: 1;
   min-width: 0;
 }
 
-.chat-header {
+/* ===================== PM DASHBOARD VISUAL REFRESH OVERRIDES ===================== */
+/* Non-destructive aesthetic improvements scoped to pm-dashboard */
+.pm-dashboard {
+  --pm-surface: #ffffff;
+  --pm-surface-alt: #f1f5f9;
+  --pm-border: #e2e8f0;
+  --pm-primary: #1e40af;
+  --pm-primary-accent: #3b82f6;
+  --pm-radius-lg: 20px;
+  --pm-radius: 14px;
+  --pm-gap: 1.5rem;
+  --pm-shadow-sm: 0 2px 6px -1px rgba(0,0,0,.08),0 1px 3px rgba(0,0,0,.04);
+  --pm-shadow: 0 8px 28px -6px rgba(30,64,175,.25),0 4px 16px -4px rgba(0,0,0,.2);
+  --pm-shadow-hover: 0 14px 42px -8px rgba(30,64,175,.35),0 6px 24px -6px rgba(0,0,0,.28);
+  --pm-glass-bg: rgba(255,255,255,0.12);
+  --pm-glass-border: rgba(255,255,255,0.35);
+  /* Adjustable welcome card bottom padding so metrics always sit inside blue area */
+  --pm-welcome-padding-bottom: 5rem; /* tweak this value instead of editing multiple rules */
+}
+
+/* Elevate header separation */
+.pm-dashboard .dashboard-header { box-shadow: 0 6px 24px -10px rgba(0,0,0,.4), 0 2px 6px -2px rgba(255,255,255,.15) inset; }
+
+/* Polished welcome card with decorative overlays */
+.pm-dashboard .welcome-card {
+  border-radius: 20px !important;
+  /* Use variable for bottom padding so future adjustments are one-line */
+  padding: 1.75rem 2rem var(--pm-welcome-padding-bottom);
+  background: linear-gradient(130deg,#1d3d96 0%,#1e40af 55%,#193579 100%) !important;
+  box-shadow: 0 6px 24px -8px rgba(0,0,0,.45);
+  position: relative;
+}
+/* Remove decorative overlays for cleaner look */
+.pm-dashboard .welcome-card::after,
+.pm-dashboard .welcome-card::before { display:none !important; }
+
+/* Title refinement */
+.pm-dashboard .welcome-title { font-size:2.2rem; letter-spacing:.5px; }
+.pm-dashboard .welcome-subtitle { opacity:.9; font-weight:500; }
+
+/* Metric area layout (ensures contained & centered) */
+.pm-dashboard .project-stats { 
+  margin-top:.75rem; /* tighten gap above metrics */
+  display:grid; 
+  grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); 
+  gap:1rem; 
+  position:static; 
+}
+/* Reduce subtitle spacing & pull badge closer to metrics */
+.pm-dashboard .welcome-subtitle { margin:0 0 .5rem !important; }
+.pm-dashboard .project-badge { margin-top:0; margin-bottom:.25rem; }
+
+/* Metric cards (glass look) */
+.pm-dashboard .stat-item {
+  display:flex;
+  align-items:center;
+  gap:.9rem;
+  background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.25);
+  border-radius:14px;
+  padding:1rem 1.1rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow:0 4px 14px -6px rgba(0,0,0,.5);
+  transition:box-shadow .25s, transform .25s;
+}
+.pm-dashboard .stat-item:hover { transform:translateY(-4px); box-shadow:0 10px 26px -8px rgba(0,0,0,.55); }
+.pm-dashboard .stat-icon { background: linear-gradient(135deg,#3b82f6,#1e40af); box-shadow:0 4px 12px -4px rgba(0,0,0,.55); }
+.pm-dashboard .stat-value { font-size:1.65rem; letter-spacing:.25px; }
+.pm-dashboard .stat-label { font-weight:600; letter-spacing:.5px; }
+
+/* Neutral cards restyle */
+.pm-dashboard .dashboard-card:not(.welcome-card) {
+  background: var(--pm-surface);
+  border:1px solid var(--pm-border);
+  border-radius: var(--pm-radius-lg);
+  box-shadow: var(--pm-shadow-sm);
+  transition: box-shadow .3s, transform .3s; 
+}
+.pm-dashboard .dashboard-card:not(.welcome-card):hover { box-shadow: var(--pm-shadow); transform: translateY(-4px); }
+
+/* Remove old top-bar duplicate pseudo element on cards */
+.pm-dashboard .dashboard-card:not(.welcome-card)::before { display:none !important; }
+
+/* Card headers unify */
+.pm-dashboard .card-header { padding:0 0 .75rem; margin-bottom:1.25rem; border-bottom:1px solid #e2e8f0; }
+.pm-dashboard .welcome-card .card-header { border-bottom-color:rgba(255,255,255,.25); }
+
+/* Chat & Requests scroll subtle overlay */
+.pm-dashboard .chats-list, .pm-dashboard .requests-content { position:relative; }
+.pm-dashboard .chats-list::after, .pm-dashboard .requests-content::after { content:""; position:absolute; left:0; right:0; bottom:0; height:28px; background:linear-gradient(to top, rgba(248,250,252,1),rgba(248,250,252,0)); pointer-events:none; }
+/* Remove previous bottom gradient bar under metrics */
+.pm-dashboard .welcome-card .project-stats::after { display:none !important; }
+
+/* Responsive tuning */
+@media (max-width: 900px) { .pm-dashboard .welcome-title { font-size:1.65rem; } }
+@media (max-width: 600px) { .pm-dashboard .project-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media (max-width: 420px) { .pm-dashboard .project-stats { grid-template-columns:1fr; } }
+
+/* Accessibility contrast tweak */
+.pm-dashboard .chats-card .card-title, .pm-dashboard .requests-card .card-title, .pm-dashboard .chart-card .card-title { color:#1e293b; }
+.pm-dashboard .view-all-link { color:#1e40af; }
+.pm-dashboard .view-all-link:hover { color:#0f2d64; }
+
+/* Smooth appearance */
+.pm-dashboard .dashboard-grid > * { animation: pmFadeIn .5s ease both; }
+@keyframes pmFadeIn { from { opacity:0; transform:translateY(10px);} to { opacity:1; transform:translateY(0);} }
+
+
+/* ===================== ROLE SCOPE ISOLATION (Appended) ===================== */
+/* Constrain PM dashboard styles so they don't leak and defend against other role overrides */
+/* (Removed redundant earlier isolation overrides; card gradient kept only for welcome card) */
+/* .pm-dashboard specific overrides consolidated above */
+
+
+.pm-dashboard .chat-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
 }
 
-.chat-name {
+.pm-dashboard .chat-name {
   font-weight: 600;
   color: #1e293b;
   font-size: 0.875rem;
 }
 
-.chat-time {
+.pm-dashboard .chat-time {
   font-size: 0.75rem;
   color: #64748b;
 }
 
-.chat-message {
+.pm-dashboard .chat-message {
   color: #1e293b !important;
   font-size: 0.875rem !important;
   margin: 0 !important;
@@ -698,7 +854,7 @@ body {
 }
 
 /* ===================== REQUESTS CARD ===================== */
-.requests-card {
+.pm-dashboard .requests-card {
   grid-column: 2 / 3;
   background: white !important;
   color: #1e293b !important;
@@ -706,46 +862,46 @@ body {
   flex-direction: column;
 }
 
-.requests-card .card-title {
+.pm-dashboard .requests-card .card-title {
   color: #1e293b !important;
 }
 
-.requests-card .view-all-link {
+.pm-dashboard .requests-card .view-all-link {
   color: #3b82f6 !important;
 }
 
-.requests-card .view-all-link:hover {
+.pm-dashboard .requests-card .view-all-link:hover {
   color: #1e40af !important;
 }
 
-.requests-content {
+.pm-dashboard .requests-content {
   height: 300px;
   overflow-y: scroll;
   padding-right: 0.5rem;
   flex: 1;
 }
 
-.requests-content::-webkit-scrollbar {
+.pm-dashboard .requests-content::-webkit-scrollbar {
   width: 6px;
 }
 
-.requests-content::-webkit-scrollbar-track {
+.pm-dashboard .requests-content::-webkit-scrollbar-track {
   background: #f1f5f9;
   border-radius: 3px;
 }
 
-.requests-content::-webkit-scrollbar-thumb {
+.pm-dashboard .requests-content::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 3px;
 }
 
-.requests-content::-webkit-scrollbar-thumb:hover {
+.pm-dashboard .requests-content::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
-.loading-state,
-.error-state,
-.empty-state {
+.pm-dashboard .loading-state,
+.pm-dashboard .error-state,
+.pm-dashboard .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -758,7 +914,7 @@ body {
   min-height: 200px;
 }
 
-.loading-spinner {
+.pm-dashboard .loading-spinner {
   width: 32px;
   height: 32px;
   border: 3px solid #e2e8f0;
@@ -767,29 +923,29 @@ body {
   animation: spin 1s linear infinite;
 }
 
-.error-state svg {
+.pm-dashboard .error-state svg {
   font-size: 2rem;
   color: #ef4444;
 }
 
-.empty-state svg {
+.pm-dashboard .empty-state svg {
   font-size: 2rem;
   color: #94a3b8;
 }
 
-.empty-state p {
+.pm-dashboard .empty-state p {
   font-size: 0.875rem;
   color: #94a3b8;
   margin: 0;
 }
 
-.requests-list {
+.pm-dashboard .requests-list {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.request-item {
+.pm-dashboard .request-item {
   display: flex;
   gap: 1rem;
   padding: 1rem;
@@ -803,13 +959,13 @@ body {
   flex-shrink: 0;
 }
 
-.request-item:hover {
+.pm-dashboard .request-item:hover {
   background: #f1f5f9;
   border-color: #cbd5e1;
   transform: translateX(4px);
 }
 
-.request-icon {
+.pm-dashboard .request-icon {
   width: 40px;
   height: 40px;
   border-radius: 8px;
@@ -822,12 +978,12 @@ body {
   flex-shrink: 0;
 }
 
-.request-details {
+.pm-dashboard .request-details {
   flex: 1;
   min-width: 0;
 }
 
-.request-title {
+.pm-dashboard .request-title {
   font-size: 0.875rem;
   font-weight: 600;
   color: #1e293b;
@@ -835,21 +991,21 @@ body {
   line-height: 1.4;
 }
 
-.request-description {
+.pm-dashboard .request-description {
   font-size: 0.8rem;
   color: #64748b;
   margin-bottom: 0.75rem;
   line-height: 1.4;
 }
 
-.request-meta {
+.pm-dashboard .request-meta {
   display: flex;
   gap: 1rem;
   font-size: 0.75rem;
   color: #94a3b8;
 }
 
-.request-status {
+.pm-dashboard .request-status {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -857,23 +1013,23 @@ body {
   min-width: 80px;
 }
 
-.status-icon {
+.pm-dashboard .status-icon {
   font-size: 1.25rem;
 }
 
-.status-icon.completed {
+.pm-dashboard .status-icon.completed {
   color: #10b981;
 }
 
-.status-icon.pending {
+.pm-dashboard .status-icon.pending {
   color: #f59e0b;
 }
 
-.status-icon.rejected {
+.pm-dashboard .status-icon.rejected {
   color: #ef4444;
 }
 
-.status-text {
+.pm-dashboard .status-text {
   font-size: 0.75rem;
   font-weight: 500;
   text-align: center;
@@ -883,17 +1039,17 @@ body {
   letter-spacing: 0.5px;
 }
 
-.status-text.completed {
+.pm-dashboard .status-text.completed {
   background: #d1fae5;
   color: #065f46;
 }
 
-.status-text.pending {
+.pm-dashboard .status-text.pending {
   background: #fef3c7;
   color: #92400e;
 }
 
-.status-text.rejected {
+.pm-dashboard .status-text.rejected {
   background: #fee2e2;
   color: #991b1b;
 }
@@ -917,110 +1073,110 @@ body {
 
 /* ===================== RESPONSIVE DESIGN ===================== */
 @media (max-width: 1400px) {
-  .dashboard-main {
+  .pm-dashboard .dashboard-main {
     padding: 1.5rem;
     max-width: 1200px;
   }
   
-  .dashboard-grid {
+  .pm-dashboard .dashboard-grid {
     gap: 1.5rem;
   }
   
-  .project-stats {
+  .pm-dashboard .project-stats {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 1.25rem;
   }
 }
 
 @media (max-width: 1200px) {
-  .dashboard-grid {
+  .pm-dashboard .dashboard-grid {
     grid-template-columns: 1fr;
     gap: 1.5rem;
   }
   
-  .chats-card,
-  .requests-card {
+  .pm-dashboard .chats-card,
+  .pm-dashboard .requests-card {
     grid-column: 1 / -1;
   }
   
-  .project-stats {
+  .pm-dashboard .project-stats {
     grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
   }
   
-  .welcome-content h2 {
+  .pm-dashboard .welcome-content h2 {
     font-size: 1.75rem;
   }
 }
 
 @media (max-width: 768px) {
-  .dashboard-main {
+  .pm-dashboard .dashboard-main {
     padding: 1rem;
   }
   
-  .dashboard-header {
+  .pm-dashboard .dashboard-header {
     padding: 1rem;
   }
   
-  .header-top {
+  .pm-dashboard .header-top {
     flex-direction: column;
     gap: 1rem;
     align-items: center;
     text-align: center;
   }
   
-  .header-bottom {
+  .pm-dashboard .header-bottom {
     flex-direction: column;
     gap: 1rem;
     align-items: center;
   }
   
-  .header-nav {
+  .pm-dashboard .header-nav {
     flex-wrap: wrap;
     justify-content: center;
     gap: 0.5rem;
   }
   
-  .nav-item {
+  .pm-dashboard .nav-item {
     padding: 0.5rem 0.75rem;
     font-size: 0.8rem;
     min-width: 100px;
   }
   
-  .project-stats {
+  .pm-dashboard .project-stats {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
   
-  .stat-item {
+  .pm-dashboard .stat-item {
     padding: 1rem;
   }
   
-  .stat-value {
+  .pm-dashboard .stat-value {
     font-size: 1.5rem;
   }
   
-  .welcome-content h2 {
+  .pm-dashboard .welcome-content h2 {
     font-size: 1.5rem;
   }
   
-  .dashboard-card {
+  .pm-dashboard .dashboard-card {
     padding: 1.25rem;
   }
   
-  .chats-list,
-  .requests-content {
+  .pm-dashboard .chats-list,
+  .pm-dashboard .requests-content {
     height: 250px;
   }
   
-  .chat-item,
-  .request-item {
+  .pm-dashboard .chat-item,
+  .pm-dashboard .request-item {
     padding: 0.75rem;
     min-height: 70px;
   }
   
-  .chat-avatar,
-  .request-icon {
+  .pm-dashboard .chat-avatar,
+  .pm-dashboard .request-icon {
     width: 35px;
     height: 35px;
     font-size: 0.875rem;
@@ -1028,213 +1184,213 @@ body {
 }
 
 @media (max-width: 480px) {
-  .dashboard-main {
+  .pm-dashboard .dashboard-main {
     padding: 0.75rem;
   }
   
-  .dashboard-header {
+  .pm-dashboard .dashboard-header {
     padding: 0.75rem;
   }
   
-  .header-top {
+  .pm-dashboard .header-top {
     gap: 0.75rem;
   }
   
-  .header-bottom {
+  .pm-dashboard .header-bottom {
     gap: 0.75rem;
   }
   
-  .header-nav {
+  .pm-dashboard .header-nav {
     gap: 0.25rem;
   }
   
-  .nav-item {
+  .pm-dashboard .nav-item {
     padding: 0.4rem 0.6rem;
     font-size: 0.75rem;
     min-width: 90px;
   }
   
-  .nav-item span {
+  .pm-dashboard .nav-item span {
     display: none;
   }
   
-  .nav-item svg {
+  .pm-dashboard .nav-item svg {
     font-size: 1.1rem;
   }
   
-  .welcome-content h2 {
+  .pm-dashboard .welcome-content h2 {
     font-size: 1.25rem;
   }
   
-  .welcome-subtitle {
+  .pm-dashboard .welcome-subtitle {
     font-size: 0.875rem;
   }
   
-  .dashboard-card {
+  .pm-dashboard .dashboard-card {
     padding: 1rem;
   }
   
-  .card-title {
+  .pm-dashboard .card-title {
     font-size: 1.1rem;
   }
   
-  .project-stats {
+  .pm-dashboard .project-stats {
     gap: 0.75rem;
   }
   
-  .stat-item {
+  .pm-dashboard .stat-item {
     padding: 0.75rem;
   }
   
-  .stat-icon {
+  .pm-dashboard .stat-icon {
     width: 40px;
     height: 40px;
     font-size: 1.25rem;
   }
   
-  .stat-value {
+  .pm-dashboard .stat-value {
     font-size: 1.25rem;
   }
   
-  .stat-label {
+  .pm-dashboard .stat-label {
     font-size: 0.75rem;
   }
   
-  .chats-list,
-  .requests-content {
+  .pm-dashboard .chats-list,
+  .pm-dashboard .requests-content {
     height: 200px;
   }
   
-  .chat-item,
-  .request-item {
+  .pm-dashboard .chat-item,
+  .pm-dashboard .request-item {
     padding: 0.5rem;
     min-height: 60px;
     gap: 0.75rem;
   }
   
-  .chat-avatar,
-  .request-icon {
+  .pm-dashboard .chat-avatar,
+  .pm-dashboard .request-icon {
     width: 30px;
     height: 30px;
     font-size: 0.75rem;
   }
   
-  .chat-name,
-  .request-title {
+  .pm-dashboard .chat-name,
+  .pm-dashboard .request-title {
     font-size: 0.8rem;
   }
   
-  .chat-message,
-  .request-description {
+  .pm-dashboard .chat-message,
+  .pm-dashboard .request-description {
     font-size: 0.75rem;
   }
   
-  .chat-time,
-  .request-meta {
+  .pm-dashboard .chat-time,
+  .pm-dashboard .request-meta {
     font-size: 0.7rem;
   }
   
-  .project-badge {
+  .pm-dashboard .project-badge {
     padding: 0.5rem 0.75rem;
     font-size: 0.875rem;
   }
   
-  .project-badge svg {
+  .pm-dashboard .project-badge svg {
     font-size: 1rem;
   }
 }
 
 @media (max-width: 360px) {
-  .dashboard-main {
+  .pm-dashboard .dashboard-main {
     padding: 0.5rem;
   }
   
-  .dashboard-header {
+  .pm-dashboard .dashboard-header {
     padding: 0.5rem;
   }
   
-  .header-nav {
+  .pm-dashboard .header-nav {
     gap: 0.2rem;
   }
   
-  .nav-item {
+  .pm-dashboard .nav-item {
     padding: 0.35rem 0.5rem;
     min-width: 80px;
   }
   
-  .dashboard-card {
+  .pm-dashboard .dashboard-card {
     padding: 0.75rem;
   }
   
-  .welcome-content h2 {
+  .pm-dashboard .welcome-content h2 {
     font-size: 1.1rem;
   }
   
-  .welcome-subtitle {
+  .pm-dashboard .welcome-subtitle {
     font-size: 0.8rem;
   }
   
-  .stat-item {
+  .pm-dashboard .stat-item {
     padding: 0.6rem;
   }
   
-  .stat-icon {
+  .pm-dashboard .stat-icon {
     width: 35px;
     height: 35px;
     font-size: 1.1rem;
   }
   
-  .stat-value {
+  .pm-dashboard .stat-value {
     font-size: 1.1rem;
   }
   
-  .stat-label {
+  .pm-dashboard .stat-label {
     font-size: 0.7rem;
   }
 }
 
 /* ===================== SCROLLBAR FIXES ===================== */
 /* Ensure main content scrollbar is properly positioned */
-.dashboard-main::-webkit-scrollbar {
+.pm-dashboard .dashboard-main::-webkit-scrollbar {
   width: 12px;
 }
 
-.dashboard-main::-webkit-scrollbar-track {
+.pm-dashboard .dashboard-main::-webkit-scrollbar-track {
   background: #f1f5f9;
   border-radius: 6px;
 }
 
-.dashboard-main::-webkit-scrollbar-thumb {
+.pm-dashboard .dashboard-main::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 6px;
   border: 2px solid #f1f5f9;
 }
 
-.dashboard-main::-webkit-scrollbar-thumb:hover {
+.pm-dashboard .dashboard-main::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
-.chats-card,
-.requests-card {
+.pm-dashboard .chats-card,
+.pm-dashboard .requests-card {
   position: relative;
 }
 
-.chats-card 
-.requests-card  {
+.pm-dashboard .chats-card 
+.pm-dashboard .requests-card  {
   padding-bottom: 1rem;
   margin-bottom: 1rem;
   border-bottom: 1px solid #e2e8f0;
 }
 
 /* Ensure the scrollable content area is properly contained */
-.chats-list,
-.requests-content {
+.pm-dashboard .chats-list,
+.pm-dashboard .requests-content {
   margin-top: 0;
   padding-top: 0;
 }
 
 /* Ensure chat items don't cause horizontal overflow */
-.chat-content {
+.pm-dashboard .chat-content {
   flex: 1;
   min-width: 0;
 }
