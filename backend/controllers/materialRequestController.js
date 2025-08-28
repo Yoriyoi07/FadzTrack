@@ -172,8 +172,8 @@ exports.getAllMaterialRequests = async (req, res) => {
 exports.getMaterialRequestById = async (req, res) => {
   try {
     const request = await MaterialRequest.findById(req.params.id)
-      .populate('project', 'projectName')
-      .populate('createdBy', 'name role')
+      .populate({ path: 'project', select: 'projectName location', populate: { path: 'location', select: 'name region' } })
+      .populate('createdBy', 'name role email')
       .populate('approvals.user', 'name role');
     if (!request) return res.status(404).json({ message: 'Not found' });
     res.json(request);
@@ -345,15 +345,15 @@ exports.approveMaterialRequest = async (req, res) => {
           });
         }
       }
-      // CEO step removed; no further approver after AM
-      // Notify PIC/requestor on final approval
+    // CEO step removed; no further approver after AM
+    // Notify PIC/requestor on final approval (status now 'Approved' meaning: waiting for PIC receipt)
       if (nextStatus === 'Approved') {
         const requestorId = request.createdBy;
         await createAndEmitNotification({
           type: 'approved',
           toUserId: requestorId,
           fromUserId: req.user.id,
-          message: `Your material request for project "${project.projectName}" has been fully approved.`,
+      message: `Your material request for project "${project.projectName}" is fully approved and awaiting receipt confirmation.`,
           projectId: project._id,
           requestId: request._id,
           meta: { approvedBy: req.user.name },
@@ -413,15 +413,23 @@ exports.getMyMaterialRequests = async (req, res) => {
   try {
     let requests = [];
     if (userRole === 'PIC' || userRole === 'Person in Charge') {
-      requests = await MaterialRequest.find({ createdBy: userId }).populate('project').populate('createdBy');
+      requests = await MaterialRequest.find({ createdBy: userId })
+        .populate({ path: 'project', select: 'projectName location', populate: { path: 'location', select: 'name region' } })
+        .populate('createdBy', 'name role email');
     } else if (userRole === 'PM' || userRole === 'Project Manager') {
       const projects = await Project.find({ projectmanager: userId });
-      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } }).populate('project').populate('createdBy');
+      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
+        .populate({ path: 'project', select: 'projectName location', populate: { path: 'location', select: 'name region' } })
+        .populate('createdBy', 'name role email');
     } else if (userRole === 'AM' || userRole === 'Area Manager') {
       const projects = await Project.find({ areamanager: userId });
-      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } }).populate('project').populate('createdBy');
+      requests = await MaterialRequest.find({ project: { $in: projects.map(p => p._id) } })
+        .populate({ path: 'project', select: 'projectName location', populate: { path: 'location', select: 'name region' } })
+        .populate('createdBy', 'name role email');
     } else if (userRole === 'CEO') {
-      requests = await MaterialRequest.find().populate('project').populate('createdBy');
+      requests = await MaterialRequest.find()
+        .populate({ path: 'project', select: 'projectName location', populate: { path: 'location', select: 'name region' } })
+        .populate('createdBy', 'name role email');
     } else {
       return res.status(403).json({ message: 'Unauthorized' });
     }
@@ -445,13 +453,14 @@ exports.markReceived = async (req, res) => {
       return res.status(403).json({ message: 'Not your request.' });
     }
 
-    if (request.status !== 'Approved') return res.status(400).json({ message: 'Request is not approved yet.' });
-    if (request.receivedByPIC) return res.status(400).json({ message: 'Already marked as received.' });
+  if (request.status !== 'Approved') return res.status(400).json({ message: 'Request is not fully approved yet.' });
+  if (request.receivedByPIC || request.status === 'Received') return res.status(400).json({ message: 'Already marked as received.' });
 
-    request.receivedByPIC = true;
-    request.receivedDate = new Date();
-    await request.save();
-    res.json({ message: 'Marked as received.' });
+  request.receivedByPIC = true;
+  request.receivedDate = new Date();
+  request.status = 'Received';
+  await request.save();
+  res.json({ message: 'Marked as received. Status updated to Received.' });
   } catch (err) {
     res.status(500).json({ message: 'Failed to mark as received', error: err.message });
   }

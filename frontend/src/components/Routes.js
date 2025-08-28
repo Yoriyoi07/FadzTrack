@@ -15,8 +15,8 @@ import PrivateRoute from './PrivateRoute';
 import PmDash from './pm/PmDash';
 import PmChat from './chats/PmChat';
 import PmRequestManpower from './pm/PmRequestManpower';
-import PmMatRequestList from './pm/PmMatRequestList';
-import PmMatRequestDetail from './pm/PmMatRequestDetail';
+import PmMatRequestListWrapper from './pm/PmMatRequestListWrapper';
+import PmMatRequestDetailWrapper from './pm/PmMatRequestDetailWrapper';
 import PmManpowerList from './pm/PmManpowerList';
 import PM_Manpower_Request_List from './pm/PM_Manpower_Request_List';
 import PmRequestedManpowerDetail from './pm/PmRequestedManpowerDetail';
@@ -29,10 +29,12 @@ import PmProgressReport from './pm/PmProgressReport';
 // PIC
 import PicDash from './pic/PicDash';
 import PicChat from './chats/PicChat';
-import PicReq from './pic/PicReq';
+import PicReq from './pic/PicReq'; // legacy detail (to retire)
 import PicProject from './pic/PicProject';
 import PicMatReq from './pic/PicMatReq';
-import PicRequestList from './pic/PicRequestList';
+import PicRequestList from './pic/PicRequestList'; // legacy list
+import PicMatRequestListWrapper from './pic/PicMatRequestListWrapper';
+import PicMatRequestDetailWrapper from './pic/PicMatRequestDetailWrapper';
 import PicAllProjects from './pic/PicAllProjects';
 import PicMaterialRequestEdit from './pic/PicMaterialRequestEdit';
 
@@ -40,12 +42,12 @@ import PicMaterialRequestEdit from './pic/PicMaterialRequestEdit';
 import AreaManagerDashboard from './am/AreaDash';
 import AreaChat from './chats/AreaChat';
 import AddProject from './am/AreaAddproj';
-import AreaMaterialList from './am/AreaMaterialList';
+import AmMatRequestList from './am/AmMatRequestList';
 import AreaManpowerList from './am/AreaManpowerList';
 import AreasPage from './am/AreaProjArea';
 import AreaViewSpecificProj from './am/AreaViewSpecificProj';
 import AreaManpowerReqDetails from './am/AreaManpowerReqDetails';
-import AreaMaterialReq from './am/AreaRequestDetail';
+import AmMatRequestDetail from './am/AmMatRequestDetail';
 import ProgressReport from './am/ProgressReport';
 
 // IT
@@ -109,8 +111,8 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/pm" element={<PmDash />} />
         <Route path="/pm/chat" element={<PmChat />} />
         <Route path="/pm/chat/:chatId" element={<PmChat />} />
-        <Route path="/pm/request/:id" element={<PmMatRequestList />} />
-        <Route path="/pm/material-request/:id" element={<PmMatRequestDetail />} />
+  <Route path="/pm/request/:id" element={<PmMatRequestListWrapper />} />
+  <Route path="/pm/material-request/:id" element={<PmMatRequestDetailWrapper />} />
         <Route path="/pm/request-manpower" element={<PmRequestManpower />} />
         <Route path="/pm/request-manpower/edit/:id" element={<PmRequestManpower />} />
         <Route path="/pm/manpower-request/:id" element={<PmRequestedManpowerDetail />} />
@@ -128,8 +130,9 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/pic" element={<PicDash />} />
         <Route path="/pic/chat" element={<PicChat />} />
         <Route path="/pic/chat/:chatId" element={<PicChat />} />
-        <Route path="/pic/request/:id" element={<PicReq />} />
-        <Route path="/pic/requests" element={<PicRequestList />} />
+  {/* PIC Material Requests (list + detail) */}
+  <Route path="/pic/requests" element={<PicMatRequestListWrapper />} />
+  <Route path="/pic/material-request/:id" element={<PicMatRequestDetailWrapper />} />
         <Route path="/pic/:id" element={<PicProject />} />
         <Route path="/pic/projects/:projectId/request" element={<PicMatReq />} />
         <Route path="/pic/projects" element={<PicAllProjects />} />
@@ -142,15 +145,15 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/am/chat" element={<AreaChat />} />
         <Route path="/am/chat/:chatId" element={<AreaChat />} />
         <Route path="/am/addproj" element={<AddProject />} />
-        <Route path="/am/matreq" element={<AreaMaterialList />} />
+  <Route path="/am/matreq" element={<AmMatRequestList />} />
         <Route path="/am/manpower-requests" element={<AreaManpowerList />} />
         <Route path="/am/viewproj" element={<AreasPage />} />
         <Route path="/am/viewproj/:id" element={<AreasPage />} />
         <Route path="/am/manpower-requests/:id" element={<AreaManpowerReqDetails />} />
         <Route path="/am/projects" element={<AreasPage />} />
         <Route path="/am/projects/:id" element={<AreaViewSpecificProj />} />
-        <Route path="/am/material-list" element={<AreaMaterialList />} />
-        <Route path="/am/material-request/:id" element={<AreaMaterialReq />} />
+  <Route path="/am/material-list" element={<AmMatRequestList />} />
+  <Route path="/am/material-request/:id" element={<AmMatRequestDetail />} />
         <Route path="/am/progress-report/:id" element={<ProgressReport />} />
       </Route>
 

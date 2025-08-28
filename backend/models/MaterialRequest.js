@@ -15,8 +15,12 @@ const materialRequestSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: [
-      'Pending Project Manager', 'Denied by Project Manager', 'Pending Area Manager',
-      'Denied by Area Manager', 'Approved'
+  'Pending Project Manager',
+  'Denied by Project Manager',
+  'Pending Area Manager',
+  'Denied by Area Manager',
+  'Approved',            // Fully approved, awaiting receipt by PIC
+  'Received'             // Materials received/closed
     ],
     default: 'Pending Project Manager'
   },

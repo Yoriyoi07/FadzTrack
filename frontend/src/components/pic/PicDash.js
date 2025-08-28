@@ -249,7 +249,16 @@ const handleLogout = () => {
             </Link>
           </nav>
           
-          <NotificationBell />
+          <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+            <NotificationBell />
+            <button
+              onClick={() => navigate('/pic/requests')}
+              className="view-details-btn"
+              style={{ background:'#2563eb', color:'#fff', padding:'8px 14px', borderRadius:'6px', border:'none', cursor:'pointer', fontSize:'13px', fontWeight:500 }}
+            >
+              <FaClipboardList style={{ marginRight:6 }} /> Requests
+            </button>
+          </div>
         </div>
       </header>
 
