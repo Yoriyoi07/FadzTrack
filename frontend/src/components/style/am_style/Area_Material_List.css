@@ -5,20 +5,20 @@
   object-fit: contain;
 }
 
-.logo-container {
+.am-dashboard .logo-container {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 65px;
 }
 
-.brand-name {
+.am-dashboard .brand-name {
   font-size: 1.6rem;
   font-weight: bold;
   margin-top: 4px; /* Slight nudge for vertical alignment */
 }
 
-.header {
+.am-dashboard .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -28,28 +28,28 @@
   padding: 0.8rem 2.5rem;
 }
 
-.nav-menu {
+.am-dashboard .nav-menu {
   display: flex;
   gap: 1.8rem;
   align-items: center;
 }
 
-.nav-link {
+.am-dashboard .nav-link {
   color: white;
   text-decoration: none;
   font-size: 0.95rem;
   font-weight: 500;
 }
 
-.nav-link:hover {
+.am-dashboard .nav-link:hover {
   color: #c0c0c0;
 }
 
-.profile-menu-container {
+.am-dashboard .profile-menu-container {
   position: relative;
 }
 
-.profile-circle {
+.am-dashboard .profile-circle {
   width: 40px;
   height: 40px;
   background-color: #555;
@@ -62,7 +62,7 @@
   font-weight: bold;
 }
 
-.profile-menu {
+.am-dashboard .profile-menu {
   position: absolute;
   right: 0;
   margin-top: 10px;
@@ -74,7 +74,7 @@
   z-index: 10;
 }
 
-.profile-menu button {
+.am-dashboard .profile-menu button {
   background: none;
   border: none;
   padding: 5px 10px;
@@ -83,11 +83,11 @@
   text-align: left;
 }
 
-.profile-menu button:hover {
+.am-dashboard .profile-menu button:hover {
   background-color: #f0f0f0;
 }
 
-.profile-circle {
+.am-dashboard .profile-circle {
   width: 32px;
   height: 32px;
   background-color: #9c27b0;

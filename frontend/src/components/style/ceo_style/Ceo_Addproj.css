@@ -1,4 +1,4 @@
-.app-container {
+.ceo-dashboard .app-container {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -9,7 +9,7 @@
   overflow: hidden; /* Prevent any scrolling issues */
 }
 
-.app-container::before {
+.ceo-dashboard .app-container::before {
   content: '';
   position: absolute;
   top: 0;
@@ -21,7 +21,7 @@
 }
 
 /* Header styles */
-.header {
+.ceo-dashboard .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -34,19 +34,19 @@
   border-bottom: none;
 }
 
-.logo-container {
+.ceo-dashboard .logo-container {
   display: flex;
   align-items: center;
 }
 
-.logo {
+.ceo-dashboard .logo {
   position: relative;
   width: 40px;
   height: 40px;
   margin-right: 10px;
 }
 
-.logo-building {
+.ceo-dashboard .logo-building {
   position: absolute;
   bottom: 0;
   left: 5px;
@@ -56,7 +56,7 @@
   border-radius: 3px 3px 0 0;
 }
 
-.logo-flag {
+.ceo-dashboard .logo-flag {
   position: absolute;
   top: 0;
   left: 18px;
@@ -65,7 +65,7 @@
   background-color: #ffffff;
 }
 
-.logo-flag::after {
+.ceo-dashboard .logo-flag::after {
   content: '';
   position: absolute;
   top: 0;
@@ -75,18 +75,18 @@
   background-color: #ff3333;
 }
 
-.brand-name {
+.ceo-dashboard .brand-name {
   font-size: 1.5rem;
   font-weight: bold;
   color: white;
 }
 
-.nav-menu {
+.ceo-dashboard .nav-menu {
   display: flex;
   gap: 2rem;
 }
 
-.nav-link {
+.ceo-dashboard .nav-link {
   color: white;
   text-decoration: none;
   font-size: 1rem;
@@ -94,17 +94,17 @@
   transition: color 0.2s;
 }
 
-.nav-link:hover {
+.ceo-dashboard .nav-link:hover {
   color: #c0c0c0;
 }
 
-.search-profile {
+.ceo-dashboard .search-profile {
   display: flex;
   align-items: center;
   gap: 1rem;
 }
 
-.search-container {
+.ceo-dashboard .search-container {
   display: flex;
   align-items: center;
   background-color: rgba(255, 255, 255, 0.2);
@@ -112,7 +112,7 @@
   padding: 0.2rem 0.5rem;
 }
 
-.search-input {
+.ceo-dashboard .search-input {
   background: transparent;
   border: none;
   color: white;
@@ -121,11 +121,11 @@
   outline: none;
 }
 
-.search-input::placeholder {
+.ceo-dashboard .search-input::placeholder {
   color: rgba(255, 255, 255, 0.7);
 }
 
-.search-button {
+.ceo-dashboard .search-button {
   background: transparent;
   border: none;
   color: white;
@@ -135,7 +135,7 @@
   justify-content: center;
 }
 
-.profile-menu-container {
+.ceo-dashboard .profile-menu-container {
   position: relative;
 }
 
@@ -341,13 +341,13 @@ textarea {
 }
 
 /* --- Icon + text spacing/alignment for header nav --- */
-.nav-menu {
+ .ceo-dashboard .nav-menu {
   display: flex;
   align-items: center;
   gap: 1.8rem;            /* already in your CSS; keep for item-to-item spacing */
 }
 
-.nav-link {
+.ceo-dashboard .nav-link {
   display: flex;          /* line up icon + label */
   align-items: center;    /* vertical center */
   gap: 6px;               /* space between icon and text */
@@ -357,27 +357,27 @@ textarea {
   transition: color .15s ease, background-color .15s ease;
 }
 
-.nav-link svg {
+.ceo-dashboard .nav-link svg {
   font-size: 1.05rem;     /* consistent icon size */
   flex-shrink: 0;         /* icon won’t squish on narrow widths */
 }
 
 /* Optional polish: subtle hover bg to make spacing feel intentional */
-.nav-link:hover {
+.ceo-dashboard .nav-link:hover {
   color: #cfd8ff;         /* or keep your #c0c0c0 if you prefer */
   background-color: rgba(255,255,255,0.08);
 }
 
 /* If you later switch to NavLink, this will highlight the current page */
-.nav-link.active {
+.ceo-dashboard .nav-link.active {
   background-color: rgba(255,255,255,0.14);
   color: #ffffff;
 }
 
 /* Responsive: tighten gaps a bit on smaller screens */
 @media (max-width: 900px) {
-  .nav-menu { gap: 1rem; }
-  .nav-link { gap: 5px; padding: 6px 6px; }
+  .ceo-dashboard .nav-menu { gap: 1rem; }
+  .ceo-dashboard .nav-link { gap: 5px; padding: 6px 6px; }
 }
 
 /* Responsive styles */

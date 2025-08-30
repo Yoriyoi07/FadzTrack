@@ -2,14 +2,14 @@
 
 /* Defensive override: some global/other role CSS sets .dashboard-container height:100vh and overflow hidden/auto, producing nested scrollbars.
    Ensure this AM projects view lets the body own the scroll. */
-.dashboard-container {
+.am-dashboard .dashboard-container, .am-dashboard.dashboard-container {
   height: auto !important;
   min-height: 100vh;
   overflow: visible !important;
 }
 
 /* Global overrides (scoped by cascade order only) to neutralize role CSS that forces html/body to 100vh which creates phantom extra scroll space */
-html, body {
+.am-dashboard html, .am-dashboard body, .am-dashboard {
   height: auto !important;
   min-height: 100%;
   overflow-y: auto !important;
@@ -25,7 +25,7 @@ html, body {
 }
 
 /* Dashboard Main - Ensure it's scrollable */
-.dashboard-main {
+.am-dashboard .dashboard-main {
   flex: 1;
   /* Removed overflow-y to avoid nested scrollbar; window/body now handles scrolling */
   background: #f8fafc;

@@ -1,47 +1,19 @@
-.ceo-content .project-metrics-container { min-height: 0 !important; }
-.dashboard-container {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  max-height: 100vh;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #333;
-  background-color: #f8f9fa;
-  overflow-x: hidden;
-}
+/* === Scoped CEO Dashboard Overrides (added) === */
+/* This block ensures CEO styles apply only inside an element with class 'ceo-dashboard' */
+.ceo-dashboard .dashboard-container { display:flex; flex-direction:column; width:100%; min-height:100vh; height:auto; max-height:none; background-color:#f8f9fa; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:#333; overflow:visible; }
+.ceo-dashboard .dashboard-layout { display:flex; flex:1; overflow-y:auto; height:auto; width:100%; padding:0; background-color:#f0f2f5; }
+.ceo-dashboard .header { display:flex; align-items:center; justify-content:space-between; padding:.8rem 2.5rem; background-color:#000466; color:#fff; }
+.ceo-dashboard .nav-menu { display:flex; gap:2.5rem; justify-content:center; flex:1; margin:0 2rem; }
+.ceo-dashboard .nav-link { color:#fff; text-decoration:none; font-size:1rem; font-weight:500; transition:color .2s ease, background-color .15s ease; display:flex; align-items:center; gap:6px; line-height:1; padding:6px 8px; border-radius:6px; }
+.ceo-dashboard .nav-link:hover { color:#cfd8ff; background:rgba(255,255,255,.08); }
+.ceo-dashboard .nav-link.active { background:rgba(255,255,255,.14); color:#fff; }
+.ceo-dashboard .nav-link svg { font-size:1.05rem; flex-shrink:0; }
+.ceo-dashboard .sidebar, .ceo-dashboard .right-sidebar { background:#fff; }
+.ceo-dashboard .dashboard-card.ceo-welcome-card { background:linear-gradient(135deg,#3b82f6 0%,#1e40af 100%)!important; color:#fff; }
+@media (max-width:900px){ .ceo-dashboard .nav-menu { gap:1rem; } .ceo-dashboard .nav-link { gap:5px; padding:6px 6px; } }
+/* === End scoped overrides === */
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.8rem 2.5rem;
-  background-color: #000466;
-  color: white;
-}
-
-.logo-container {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.nav-menu {
-  display: flex;
-  gap: 2.5rem; /* Adjust spacing between links */
-  justify-content: center;
-  flex: 1;
-  margin: 0 2rem;
-}
-
-.nav-link {
-  color: white;
-  text-decoration: none;
-  font-size: 1rem;
-  font-weight: 500;
-  transition: color 0.2s ease;
-}
+.ceo-content .project-metrics-container { min-height:0!important; }
 
 .nav-link:hover {
   color: #c0c0c0;
@@ -872,13 +844,13 @@ body {
   z-index: 2;
 }
 /* --- Icon + text spacing/alignment for header nav --- */
-.nav-menu {
+.ceo-dashboard .nav-menu {
   display: flex;
   align-items: center;
   gap: 1.8rem;            /* already in your CSS; keep for item-to-item spacing */
 }
 
-.nav-link {
+.ceo-dashboard .nav-link {
   display: flex;          /* line up icon + label */
   align-items: center;    /* vertical center */
   gap: 6px;               /* space between icon and text */
@@ -888,19 +860,19 @@ body {
   transition: color .15s ease, background-color .15s ease;
 }
 
-.nav-link svg {
+.ceo-dashboard .nav-link svg {
   font-size: 1.05rem;     /* consistent icon size */
   flex-shrink: 0;         /* icon won’t squish on narrow widths */
 }
 
 /* Optional polish: subtle hover bg to make spacing feel intentional */
-.nav-link:hover {
+.ceo-dashboard .nav-link:hover {
   color: #cfd8ff;         /* or keep your #c0c0c0 if you prefer */
   background-color: rgba(255,255,255,0.08);
 }
 
 /* If you later switch to NavLink, this will highlight the current page */
-.nav-link.active {
+.ceo-dashboard .nav-link.active {
   background-color: rgba(255,255,255,0.14);
   color: #ffffff;
 }
@@ -924,7 +896,8 @@ body {
 }
 
 /* Override AM full-width cards to sit side-by-side for CEO */
-.ceo-grid .project-metrics-card { grid-column: 1 / -1; width: 100%; }
+/* CEO specific metrics card (renamed to avoid cross-role collisions) */
+.ceo-dashboard .ceo-project-metrics-card { grid-column:1 / -1; width:100%; }
 
 /* CEO Welcome card – match AM visual without forcing full width */
 .ceo-welcome-card {

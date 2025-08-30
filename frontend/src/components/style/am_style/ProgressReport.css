@@ -197,8 +197,8 @@
   box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
 }
 
-/* Style for nav links with icons */
-.nav-link {
+/* Style for nav links with icons (scoped) */
+.am-dashboard .nav-link {
   color: white;
   text-decoration: none;
   font-size: 0.95rem;
@@ -208,12 +208,12 @@
   gap: 6px; /* space between icon and text */
 }
 
-.nav-link svg {
+.am-dashboard .nav-link svg {
   font-size: 1.05rem; /* icon size */
   vertical-align: middle;
 }
 
-.nav-link:hover {
+.am-dashboard .nav-link:hover {
   color: #c0c0c0;
 }
 

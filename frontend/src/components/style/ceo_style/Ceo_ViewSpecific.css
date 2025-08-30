@@ -15,7 +15,7 @@
   font-weight: bold;
   margin-top: 4px;
 }
-.header {
+.ceo-dashboard .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -23,19 +23,19 @@
   background-color: #000466;
   color: white;
 }
-.nav-menu {
+.ceo-dashboard .nav-menu {
   display: flex;
   gap: 1.8rem;
   align-items: center;
 }
-.nav-link {
+.ceo-dashboard .nav-link {
   color: white;
   text-decoration: none;
   font-size: 0.95rem;
   font-weight: 500;
   transition: color 0.2s;
 }
-.nav-link:hover {
+.ceo-dashboard .nav-link:hover {
   color: #c0c0c0;
 }
 .profile-menu-container {
@@ -470,13 +470,13 @@
   text-decoration: underline;
 }
 /* --- Icon + text spacing/alignment for header nav --- */
-.nav-menu {
+.ceo-dashboard .nav-menu {
   display: flex;
   align-items: center;
   gap: 1.8rem;            /* already in your CSS; keep for item-to-item spacing */
 }
 
-.nav-link {
+.ceo-dashboard .nav-link {
   display: flex;          /* line up icon + label */
   align-items: center;    /* vertical center */
   gap: 6px;               /* space between icon and text */
@@ -486,27 +486,27 @@
   transition: color .15s ease, background-color .15s ease;
 }
 
-.nav-link svg {
+.ceo-dashboard .nav-link svg {
   font-size: 1.05rem;     /* consistent icon size */
   flex-shrink: 0;         /* icon won’t squish on narrow widths */
 }
 
 /* Optional polish: subtle hover bg to make spacing feel intentional */
-.nav-link:hover {
+.ceo-dashboard .nav-link:hover {
   color: #cfd8ff;         /* or keep your #c0c0c0 if you prefer */
   background-color: rgba(255,255,255,0.08);
 }
 
 /* If you later switch to NavLink, this will highlight the current page */
-.nav-link.active {
+.ceo-dashboard .nav-link.active {
   background-color: rgba(255,255,255,0.14);
   color: #ffffff;
 }
 
 /* Responsive: tighten gaps a bit on smaller screens */
 @media (max-width: 900px) {
-  .nav-menu { gap: 1rem; }
-  .nav-link { gap: 5px; padding: 6px 6px; }
+  .ceo-dashboard .nav-menu { gap: 1rem; }
+  .ceo-dashboard .nav-link { gap: 5px; padding: 6px 6px; }
 }
 
 /* === RESPONSIVE === */
@@ -517,8 +517,8 @@
 }
 @media (max-width: 768px) {
   .project-details-grid { grid-template-columns: 1fr; }
-  .header { flex-direction: column; padding: 1rem; }
-  .nav-menu { margin: 1rem 0; justify-content: center; flex-wrap: wrap; gap: 1rem; }
+  .ceo-dashboard .header { flex-direction: column; padding: 1rem; }
+  .ceo-dashboard .nav-menu { margin: 1rem 0; justify-content: center; flex-wrap: wrap; gap: 1rem; }
   .main-content { padding: 1rem; }
   .project-detail-container { padding: 1.5rem; }
 }

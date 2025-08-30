@@ -309,9 +309,11 @@
 .pm-dashboard .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
+  /* Stack all secondary cards beneath the hero welcome card full width */
   grid-template-areas:
     "welcome welcome"
-    "chats requests"
+    "chats chats"
+    "requests requests"
     "chart chart";
   gap: 1.75rem;
   align-items: start;
@@ -321,18 +323,21 @@
   padding-bottom: 4rem;
 }
 
-.pm-dashboard .welcome-card { grid-area: welcome; }
+.pm-dashboard .welcome-card, .pm-dashboard .pm-welcome-card { grid-area: welcome; margin-bottom:1.5rem; }
 .pm-dashboard .chats-card { grid-area: chats; }
 .pm-dashboard .requests-card { grid-area: requests; }
 .pm-dashboard .chart-card { grid-area: chart; }
 
 /* Large screens: allow three middle columns if very wide */
 @media (min-width: 1700px) {
+  /* Maintain vertical stacking even on ultra-wide screens for clarity */
   .pm-dashboard .dashboard-grid {
-    grid-template-columns: 1.2fr 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     grid-template-areas:
       "welcome welcome welcome"
-      "chats requests chart";
+      "chats chats chats"
+      "requests requests requests"
+      "chart chart chart";
   }
   .pm-dashboard .chart-card { align-self: stretch; }
 }
@@ -343,7 +348,8 @@
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "welcome welcome"
-      "chats requests"
+      "chats chats"
+      "requests requests"
       "chart chart";
   }
 }
@@ -371,36 +377,14 @@
   border: 1px solid rgba(0,0,0,0.05);
   transition: box-shadow .25s ease, transform .25s ease;
   position: relative;
+  isolation: isolate; /* ensure pseudo elements layer safely */
 }
 
-.pm-dashboard .dashboard-card:hover { transform: translateY(-3px); box-shadow: 0 8px 28px rgba(0,0,0,0.12); }
-
-/* Accent stripe */
-.pm-dashboard .dashboard-card::before { content:''; position:absolute; inset:0  auto 0 0; width:4px; background:linear-gradient(180deg,#3b82f6,#1e40af); border-radius:4px 0 0 4px; opacity:.9; }
-
-/* Remove old gradient hover bar logic */
+/* Single top gradient bar (removed earlier left stripe + duplicate definition) */
+.pm-dashboard .dashboard-card::before { content:""; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,#3b82f6,#60a5fa,#93c5fd); opacity:0; transition:opacity .3s ease; border-radius:16px 16px 0 0; }
 .pm-dashboard .dashboard-card:hover::before { opacity:1; }
 
-.pm-dashboard .dashboard-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #3b82f6, #60a5fa, #93c5fd);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.pm-dashboard .dashboard-card:hover::before {
-  opacity: 1;
-}
-
-.pm-dashboard .dashboard-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 30px rgba(59, 130, 246, 0.3);
-}
+.pm-dashboard .dashboard-card:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(59,130,246,0.25); }
 
 .pm-dashboard .card-header {
   display: flex;
@@ -448,12 +432,9 @@
   transform: rotate(180deg);
 }
 
-.pm-dashboard .card-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: white;
-  margin: 0;
-}
+.pm-dashboard .card-title { font-size:1.25rem; font-weight:700; color:#1e293b; margin:0; }
+/* Preserve white titles only inside welcome card */
+.pm-dashboard .welcome-card .card-title, .pm-dashboard .pm-welcome-card .card-title { color:#ffffff; }
 
 .pm-dashboard .view-all-link {
   display: flex;
@@ -480,11 +461,11 @@
 /* Maintain stacking order so metrics are not overlapped */
 .pm-dashboard .dashboard-grid > .chats-card, .pm-dashboard .dashboard-grid > .requests-card, .pm-dashboard .dashboard-grid > .chart-card { z-index: 1; }
 
-.pm-dashboard .welcome-card::before {
+.pm-dashboard .welcome-card::before, .pm-dashboard .pm-welcome-card::before {
   display: none;
 }
 
-.pm-dashboard .welcome-card .card-header {
+.pm-dashboard .welcome-card .card-header, .pm-dashboard .pm-welcome-card .card-header {
   margin-bottom: 2rem; /* reduced so content doesn't push out */
   background-color: hsla(0, 0%, 0%, 0);
 }
@@ -572,11 +553,7 @@
   gap: 0.25rem;
 }
 
-.pm-dashboard .stat-value {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: white;
-}
+.pm-dashboard .stat-value { font-size:1.75rem; font-weight:700; color:#ffffff; }
 
 .pm-dashboard .stat-label {
   font-size: 0.875rem;
@@ -730,24 +707,27 @@
 .pm-dashboard .dashboard-header { box-shadow: 0 6px 24px -10px rgba(0,0,0,.4), 0 2px 6px -2px rgba(255,255,255,.15) inset; }
 
 /* Polished welcome card with decorative overlays */
-.pm-dashboard .welcome-card {
+.pm-dashboard .welcome-card, .pm-dashboard .pm-welcome-card {
   border-radius: 20px !important;
   /* Use variable for bottom padding so future adjustments are one-line */
   padding: 1.75rem 2rem var(--pm-welcome-padding-bottom);
   background: linear-gradient(130deg,#1d3d96 0%,#1e40af 55%,#193579 100%) !important;
   box-shadow: 0 6px 24px -8px rgba(0,0,0,.45);
   position: relative;
+  z-index:0; /* create stacking context */
 }
 /* Remove decorative overlays for cleaner look */
 .pm-dashboard .welcome-card::after,
-.pm-dashboard .welcome-card::before { display:none !important; }
+.pm-dashboard .welcome-card::before,
+.pm-dashboard .pm-welcome-card::after,
+.pm-dashboard .pm-welcome-card::before { display:none !important; }
 
 /* Title refinement */
-.pm-dashboard .welcome-title { font-size:2.2rem; letter-spacing:.5px; }
-.pm-dashboard .welcome-subtitle { opacity:.9; font-weight:500; }
+.pm-dashboard .welcome-title, .pm-dashboard .pm-welcome-card .welcome-title { font-size:2.2rem; letter-spacing:.5px; }
+.pm-dashboard .welcome-subtitle, .pm-dashboard .pm-welcome-card .welcome-subtitle { opacity:.9; font-weight:500; }
 
 /* Metric area layout (ensures contained & centered) */
-.pm-dashboard .project-stats { 
+.pm-dashboard .project-stats, .pm-dashboard .pm-welcome-card .project-stats { 
   margin-top:.75rem; /* tighten gap above metrics */
   display:grid; 
   grid-template-columns: repeat(auto-fit,minmax(170px,1fr)); 
@@ -755,8 +735,8 @@
   position:static; 
 }
 /* Reduce subtitle spacing & pull badge closer to metrics */
-.pm-dashboard .welcome-subtitle { margin:0 0 .5rem !important; }
-.pm-dashboard .project-badge { margin-top:0; margin-bottom:.25rem; }
+.pm-dashboard .welcome-subtitle, .pm-dashboard .pm-welcome-card .welcome-subtitle { margin:0 0 .5rem !important; }
+.pm-dashboard .project-badge, .pm-dashboard .pm-welcome-card .project-badge { margin-top:0; margin-bottom:.25rem; }
 
 /* Metric cards (glass look) */
 .pm-dashboard .stat-item {
@@ -777,18 +757,12 @@
 .pm-dashboard .stat-value { font-size:1.65rem; letter-spacing:.25px; }
 .pm-dashboard .stat-label { font-weight:600; letter-spacing:.5px; }
 
-/* Neutral cards restyle */
-.pm-dashboard .dashboard-card:not(.welcome-card) {
-  background: var(--pm-surface);
-  border:1px solid var(--pm-border);
-  border-radius: var(--pm-radius-lg);
-  box-shadow: var(--pm-shadow-sm);
-  transition: box-shadow .3s, transform .3s; 
-}
-.pm-dashboard .dashboard-card:not(.welcome-card):hover { box-shadow: var(--pm-shadow); transform: translateY(-4px); }
+/* Neutral cards restyle (other than hero) */
+.pm-dashboard .dashboard-card:not(.welcome-card) { background:var(--pm-surface); border:1px solid var(--pm-border); border-radius:var(--pm-radius-lg); box-shadow:var(--pm-shadow-sm); position:relative; }
+.pm-dashboard .dashboard-card:not(.welcome-card):hover { box-shadow:var(--pm-shadow); }
 
-/* Remove old top-bar duplicate pseudo element on cards */
-.pm-dashboard .dashboard-card:not(.welcome-card)::before { display:none !important; }
+/* Ensure top bar still visible for hover accent */
+.pm-dashboard .dashboard-card:not(.welcome-card)::before { height:3px; }
 
 /* Card headers unify */
 .pm-dashboard .card-header { padding:0 0 .75rem; margin-bottom:1.25rem; border-bottom:1px solid #e2e8f0; }
@@ -855,7 +829,8 @@
 
 /* ===================== REQUESTS CARD ===================== */
 .pm-dashboard .requests-card {
-  grid-column: 2 / 3;
+  /* Full-width row placement ensured via grid-area definition above */
+  grid-column: 1 / -1;
   background: white !important;
   color: #1e293b !important;
   display: flex;

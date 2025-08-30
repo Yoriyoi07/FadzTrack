@@ -556,7 +556,7 @@ const HrDash = ({ forceUserUpdate }) => {
       <main className="dashboard-main">
         <div className="dashboard-grid">
           {/* Welcome & Overview Card */}
-          <div className="dashboard-card welcome-card">
+          <div className="dashboard-card hr-welcome-card">
             <div className="welcome-header">
               <div className="welcome-content">
                 <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>

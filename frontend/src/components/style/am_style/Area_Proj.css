@@ -1,7 +1,7 @@
 /* AreasPage.css */
 
 /* Base styles */
-.app {
+.am-dashboard .app {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -10,7 +10,7 @@
 }
 
 /* Header styles */
-.header {
+.am-dashboard .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -19,18 +19,18 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.logo-container {
+.am-dashboard .logo-container {
   display: flex;
   align-items: center;
 }
 
-.logo {
+.am-dashboard .logo {
   width: 35px;
   height: 35px;
   position: relative;
 }
 
-.logo-building {
+.am-dashboard .logo-building {
   width: 25px;
   height: 25px;
   background-color: #1a73e8;
@@ -38,7 +38,7 @@
   border-radius: 0 0 3px 3px;
 }
 
-.logo-top {
+.am-dashboard .logo-top {
   width: 8px;
   height: 8px;
   background-color: red;
@@ -48,7 +48,7 @@
   right: 2px;
 }
 
-.app-title {
+.am-dashboard .app-title {
   margin-left: 10px;
   font-size: 18px;
   font-weight: bold;
@@ -56,14 +56,14 @@
 }
 
 /* Navigation */
-.navigation ul {
+.am-dashboard .navigation ul {
   display: flex;
   list-style-type: none;
   margin: 0;
   padding: 0;
 }
 
-.nav-link {
+.am-dashboard .nav-link {
   padding: 0.5rem 1rem;
   text-decoration: none;
   color: #333;
@@ -71,12 +71,12 @@
   font-size: 14px;
 }
 
-.nav-link:hover {
+.am-dashboard .nav-link:hover {
   color: #1a73e8;
 }
 
 /* Search */
-.search-container {
+.am-dashboard .search-container {
   display: flex;
   align-items: center;
   border: 1px solid #ddd;
@@ -84,14 +84,14 @@
   padding: 5px 12px;
 }
 
-.search-input {
+.am-dashboard .search-input {
   border: none;
   outline: none;
   font-size: 14px;
   width: 150px;
 }
 
-.search-button {
+.am-dashboard .search-button {
   background: none;
   border: none;
   cursor: pointer;
@@ -100,7 +100,7 @@
 }
 
 /* Main content styles */
-.main {
+.am-dashboard .main {
   max-width: 1200px;
   margin: 0 auto;
   padding: 32px 16px;
@@ -108,11 +108,11 @@
 }
 
 /* Area section */
-.area-section {
+.am-dashboard .area-section {
   margin-bottom: 48px;
 }
 
-.section-title {
+.am-dashboard .section-title {
   font-size: 24px;
   font-weight: bold;
   color: #333;

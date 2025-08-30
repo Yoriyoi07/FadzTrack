@@ -5,20 +5,20 @@
   object-fit: contain;
 }
 
-.logo-container {
+.am-dashboard .logo-container {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 65px;
 }
 
-.brand-name {
+.am-dashboard .brand-name {
   font-size: 1.6rem;
   font-weight: bold;
   margin-top: 4px; /* Slight nudge for vertical alignment */
 }
 
-.header {
+.am-dashboard .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -28,28 +28,28 @@
   padding: 0.8rem 2.5rem;
 }
 
-.nav-menu {
+.am-dashboard .nav-menu {
   display: flex;
   gap: 1.8rem;
   align-items: center;
 }
 
-.nav-link {
+.am-dashboard .nav-link {
   color: white;
   text-decoration: none;
   font-size: 0.95rem;
   font-weight: 500;
 }
 
-.nav-link:hover {
+.am-dashboard .nav-link:hover {
   color: #c0c0c0;
 }
 
-.profile-menu-container {
+.am-dashboard .profile-menu-container {
   position: relative;
 }
 
-.profile-circle {
+.am-dashboard .profile-circle {
   width: 40px;
   height: 40px;
   background-color: #555;
@@ -62,7 +62,7 @@
   font-weight: bold;
 }
 
-.profile-menu {
+.am-dashboard .profile-menu {
   position: absolute;
   right: 0;
   margin-top: 10px;
@@ -74,7 +74,7 @@
   z-index: 10;
 }
 
-.profile-menu button {
+.am-dashboard .profile-menu button {
   background: none;
   border: none;
   padding: 5px 10px;
@@ -83,11 +83,11 @@
   text-align: left;
 }
 
-.profile-menu button:hover {
+.am-dashboard .profile-menu button:hover {
   background-color: #f0f0f0;
 }
 
-.profile-circle {
+.am-dashboard .profile-circle {
   width: 32px;
   height: 32px;
   background-color: #9c27b0;
@@ -353,8 +353,8 @@ input:focus, textarea:focus, select:focus { box-shadow:0 0 0 3px rgba(11,95,255,
   min-width: 240px;
 }
 
-/* Style for nav links with icons */
-.nav-link {
+/* Style for nav links with icons (scoped) */
+.am-dashboard .nav-link {
   color: white;
   text-decoration: none;
   font-size: 0.95rem;
@@ -364,12 +364,12 @@ input:focus, textarea:focus, select:focus { box-shadow:0 0 0 3px rgba(11,95,255,
   gap: 6px; /* space between icon and text */
 }
 
-.nav-link svg {
+.am-dashboard .nav-link svg {
   font-size: 1.05rem; /* icon size */
   vertical-align: middle;
 }
 
-.nav-link:hover {
+.am-dashboard .nav-link:hover {
   color: #c0c0c0;
 }
 
@@ -512,6 +512,6 @@ ul.available-list .empty { font-size:.75rem; color:#6f7f91; padding:6px 4px; tex
 .meta-card .area-addproj-form-group input, .meta-card .area-addproj-form-group select { padding-top:.75rem; padding-bottom:.55rem; }
 
 /* Slight gradient background behind full form for subtle depth */
-body { background:linear-gradient(180deg,#f5f7fb,#eef2f7); }
+.am-dashboard body, .am-dashboard { background:linear-gradient(180deg,#f5f7fb,#eef2f7); }
 
 

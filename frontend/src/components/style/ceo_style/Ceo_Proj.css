@@ -1,12 +1,14 @@
-.dashboard-container {
+/* Scoped CEO Projects page layout elements to avoid cross-role leakage */
+.ceo-dashboard .dashboard-container {
   width: 100%;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  height: auto;
+  overflow: visible;
 }
 
-.header {
+.ceo-dashboard .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -15,14 +17,14 @@
   color: white;
 }
 
-.logo-container {
+.ceo-dashboard .logo-container {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-shrink: 0;
 }
 
-.nav-menu {
+.ceo-dashboard .nav-menu {
   display: flex;
   gap: 2.5rem; /* Adjust spacing between links */
   justify-content: center;
@@ -30,24 +32,27 @@
   margin: 0 2rem;
 }
 
-.nav-link {
+.ceo-dashboard .nav-link {
   color: white;
   text-decoration: none;
   font-size: 1rem;
   font-weight: 500;
   transition: color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
-.nav-link:hover {
+.ceo-dashboard .nav-link:hover {
   color: #c0c0c0;
 }
 
-.profile-menu-container {
+.ceo-dashboard .profile-menu-container {
   position: relative;
   flex-shrink: 0;
 }
 
-.profile-circle {
+.ceo-dashboard .profile-circle {
   width: 36px;
   height: 36px;
   background-color: #9c27b0;
@@ -61,7 +66,7 @@
   transition: background-color 0.3s;
 }
 
-.profile-circle:hover {
+.ceo-dashboard .profile-circle:hover {
   background-color: #7b1fa2;
 }
 
@@ -419,14 +424,14 @@
 .ceo-proj-project-cards.grid::-webkit-scrollbar-thumb:hover {
   background: #a1a1a1;
 }
-/* --- Icon + text spacing/alignment for header nav --- */
-.nav-menu {
+/* --- Icon + text spacing/alignment for header nav (scoped) --- */
+.ceo-dashboard .nav-menu {
   display: flex;
   align-items: center;
-  gap: 1.8rem;            /* already in your CSS; keep for item-to-item spacing */
+  gap: 1.8rem;            /* item spacing */
 }
 
-.nav-link {
+.ceo-dashboard .nav-link {
   display: flex;          /* line up icon + label */
   align-items: center;    /* vertical center */
   gap: 6px;               /* space between icon and text */
@@ -436,27 +441,27 @@
   transition: color .15s ease, background-color .15s ease;
 }
 
-.nav-link svg {
+.ceo-dashboard .nav-link svg {
   font-size: 1.05rem;     /* consistent icon size */
   flex-shrink: 0;         /* icon won’t squish on narrow widths */
 }
 
 /* Optional polish: subtle hover bg to make spacing feel intentional */
-.nav-link:hover {
+.ceo-dashboard .nav-link:hover {
   color: #cfd8ff;         /* or keep your #c0c0c0 if you prefer */
   background-color: rgba(255,255,255,0.08);
 }
 
 /* If you later switch to NavLink, this will highlight the current page */
-.nav-link.active {
+.ceo-dashboard .nav-link.active {
   background-color: rgba(255,255,255,0.14);
   color: #ffffff;
 }
 
 /* Responsive: tighten gaps a bit on smaller screens */
 @media (max-width: 900px) {
-  .nav-menu { gap: 1rem; }
-  .nav-link { gap: 5px; padding: 6px 6px; }
+  .ceo-dashboard .nav-menu { gap: 1rem; }
+  .ceo-dashboard .nav-link { gap: 5px; padding: 6px 6px; }
 }
 
 /* Responsive adjustments */

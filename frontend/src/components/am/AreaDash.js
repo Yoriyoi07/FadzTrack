@@ -618,7 +618,7 @@ const AreaDash = () => {
           {/* Main Content Grid */}
           <div className="dashboard-grid">
             {/* Welcome Card */}
-            <div className="dashboard-card welcome-card">
+            <div className="dashboard-card am-welcome-card">
               <div className="welcome-content">
                 <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>
                 <p className="welcome-subtitle">Here's what's happening with your areas today</p>

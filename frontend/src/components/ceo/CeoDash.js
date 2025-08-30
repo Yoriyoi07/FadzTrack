@@ -536,7 +536,7 @@ const CeoDash = () => {
           {/* Project Metrics (row 2) */}
           <div style={{ height: '24px' }} />
           <div className="dashboard-grid" style={{ marginTop: '0rem' }}>
-            <div className="dashboard-card project-metrics-card" style={{ marginBottom: '0.5rem' }}>
+            <div className="dashboard-card ceo-project-metrics-card" style={{ marginBottom: '0.5rem' }}>
               <div className="card-header" style={{ alignItems: 'center' }}>
                 <h3>Project Progress</h3>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
