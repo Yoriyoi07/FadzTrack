@@ -1,0 +1,1230 @@
+// Reusable ProjectView component with role-based permissions (pm, am, ceo, hr)
+// Extracted and refactored from original PM-specific implementation.
+import React, { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { io } from 'socket.io-client';
+import NotificationBell from '../NotificationBell';
+import api from '../../api/axiosInstance';
+import { exportProjectDetails } from '../../utils/projectPdf';
+import {
+  FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaDownload, FaCalendarAlt, FaMapMarkerAlt,
+  FaUsers, FaUserTie, FaBuilding, FaMoneyBillWave, FaCheckCircle, FaClock, FaTrash, FaCamera
+} from 'react-icons/fa';
+import { FaTachometerAlt, FaComments, FaBoxes, FaUsers as FaUsersNav, FaProjectDiagram, FaClipboardList, FaChartBar, FaCalendarAlt as FaCalendarAltNav } from 'react-icons/fa';
+import "../style/pm_style/Pm_Dash.css";
+import "../style/pm_style/Pm_ViewProjects.css";
+import "../style/pm_style/Pm_ViewProjects_Wide.css";
+
+const SOCKET_ORIGIN = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '');
+const SOCKET_PATH = '/socket.io';
+
+function extractOriginalNameFromPath(path) {
+  const base = (path || '').split('/').pop() || '';
+  const underscore = base.indexOf('_');
+  if (underscore !== -1 && underscore < base.length - 1) return base.slice(underscore + 1);
+  const m = base.match(/^project-\d{8,}-(.+)$/i);
+  if (m && m[1]) return m[1];
+  return base;
+}
+function getFileType(fileName) {
+  const ext = fileName.split('.').pop()?.toLowerCase();
+  const map = { pdf:'PDF', doc:'DOC', docx:'DOCX', xls:'XLS', xlsx:'XLSX', ppt:'PPT', pptx:'PPTX', txt:'TXT', rtf:'RTF', csv:'CSV', jpg:'JPG', jpeg:'JPEG', png:'PNG', gif:'GIF', bmp:'BMP', svg:'SVG' };
+  return map[ext] || 'FILE';
+}
+function getFileSize() { return 'N/A'; }
+async function openSignedPath(path) { try { const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(path)}`); const url=data?.signedUrl; if(!url) throw 0; window.open(url,'_blank','noopener,noreferrer'); } catch { alert('Failed to open attachment.'); } }
+async function openReportSignedPath(projectId, path) {
+  try {
+    if(!projectId) throw new Error('Missing project id');
+    const { data } = await api.get(`/projects/${encodeURIComponent(projectId)}/reports-signed-url`, { params: { path } });
+    const url = data?.signedUrl; if(!url) throw new Error('No signed url');
+    window.open(url,'_blank','noopener,noreferrer');
+  } catch (e) { console.error('Failed to open report file', e); alert('Failed to open report file.'); }
+}
+async function fetchSignedUrlsForImages(files){ const imgs=files.filter(f=>{ const name= typeof f==='string'? extractOriginalNameFromPath(f) : f.name || extractOriginalNameFromPath(f.path); return ['JPG','JPEG','PNG','GIF','BMP','SVG'].includes(getFileType(name));}); const out={}; for(const f of imgs){ const p= typeof f==='string'? f : f.path; try { const {data}=await api.get(`/photo-signed-url?path=${encodeURIComponent(p)}`); if(data?.signedUrl) out[p]=data.signedUrl; } catch{} } return out; }
+function generateFileThumbnail(fileName,filePath,fileType,signedUrl){ const isImg=['JPG','JPEG','PNG','GIF','BMP','SVG'].includes(fileType); if(isImg){ const src=signedUrl||filePath; return <div className="file-thumbnail image-thumbnail"><img src={src} alt={fileName} onError={(e)=>{e.target.style.display='none'; e.target.nextSibling.style.display='flex';}} /><div className="fallback-icon" style={{display:'none'}}>🖼️</div></div>; } const map={ PDF:['#ff6b6b','#ee5a52','📄'], DOC:['#4ecdc4','#44a08d','📝'], DOCX:['#4ecdc4','#44a08d','📝'], XLS:['#45b7d1','#96c93d','📊'], XLSX:['#45b7d1','#96c93d','📊'], PPT:['#f093fb','#f5576c','📈'], PPTX:['#f093fb','#f5576c','📈'], TXT:['#a8edea','#fed6e3','📄'], RTF:['#a8edea','#fed6e3','📄'], CSV:['#ffecd2','#fcb69f','📊'], FILE:['#667eea','#764ba2','📁'] }; const s=map[fileType]||map.FILE; return <div className="file-thumbnail document-thumbnail" style={{background:`linear-gradient(135deg,${s[0]},${s[1]})`}}><span className="thumbnail-icon">{s[2]}</span><span className="thumbnail-extension">{fileType}</span></div>; }
+function renderMessageText(text='',me=''){ const slug=(me||'').trim().toLowerCase().replace(/\s+/g,''); if(!slug||!text) return text; const re=new RegExp(`@${slug}\\b`,'gi'); const parts=text.split(re); if(parts.length===1) return text; return parts.map((p,i)=> i===0? p : <React.Fragment key={i}><span style={{background:'#f6c343',color:'#3a2f00',padding:'2px 6px',borderRadius:4,fontWeight:'bold',fontSize:'0.9em'}}>@{me}</span>{p}</React.Fragment>); }
+function isMentioned(text='',me=''){ const slug=(me||'').trim().toLowerCase().replace(/\s+/g,''); if(!slug||!text) return false; return text.toLowerCase().replace(/\s+/g,'').includes(`@${slug}`); }
+function readContractor(p){ const c=p?.contractor; if(!c) return 'N/A'; if(typeof c==='string') return c.trim()||'N/A'; if(Array.isArray(c)){ const names=c.map(x=> typeof x==='string'? x : (x?.name||x?.company||x?.companyName||'')).map(s=> (s||'').trim()).filter(Boolean); return names.length?names.join(', '):'N/A'; } if(typeof c==='object'){ for(const v of [c.name,c.company,c.companyName,c.title,c.fullName]) if(typeof v==='string'&&v.trim()) return v.trim(); } if(typeof p?.contractorName==='string'&&p.contractorName.trim()) return p.contractorName.trim(); return 'N/A'; }
+const peso = new Intl.NumberFormat('en-PH',{ style:'currency', currency:'PHP' });
+const mentionRowStyles={ container:{position:'relative',background:'#fffbe6',border:'1px solid #f6c343',boxShadow:'0 0 0 2px rgba(246,195,67,.25) inset',borderRadius:10}, badge:{position:'absolute',top:6,right:6,fontSize:12,lineHeight:'16px',background:'#f6c343',color:'#3a2f00',borderRadius:999,padding:'2px 8px',fontWeight:700}};
+const roleConfigs={ pm:{ label:'Project Manager', permissions:{ image:true,statusToggle:true,uploadFiles:true,deleteFiles:true,postDiscuss:true }, base:'/pm'}, am:{ label:'Area Manager', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:true }, base:'/am'}, ceo:{ label:'CEO', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/ceo'}, hr:{ label:'HR', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/hr'} };
+
+export default function ProjectView({ role='pm', navItems, permissionsOverride, navPathOverrides }) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const token = localStorage.getItem('token');
+  const roleCfg = roleConfigs[role] || roleConfigs.pm;
+  const perms = { ...roleCfg.permissions, ...(permissionsOverride||{}) };
+  const basePath = roleCfg.base;
+  // Role-specific route differences (legacy structure mapping)
+  const viewProjectPathMap = {
+    pm: `${basePath}/viewprojects/${id}`,
+    am: `${basePath}/projects/${id}`, // legacy AM route
+    ceo: `${basePath}/proj/${id}`,
+    hr: `${basePath}/project-records/${id}`
+  };
+  const progressReportPathMap = {
+    pm: `${basePath}/progress-report/${id}`,
+    am: `${basePath}/progress-report/${id}`,
+    ceo: `${basePath}/progress-report/${id}`,
+    hr: `${basePath}/progress-report/${id}`
+  };
+  const dailyLogsPathMap = {
+    pm: `${basePath}/daily-logs-list`,
+    am: `${basePath}/daily-logs-list`,
+    ceo: `${basePath}/daily-logs-list`,
+    hr: `${basePath}/daily-logs-list`
+  };
+  const defaultNav = [
+    { to: basePath, icon:<FaTachometerAlt/>, label:'Dashboard' },
+    { to: `${basePath}/chat`, icon:<FaComments/>, label:'Chat' },
+    { to: `${basePath}/request/:id`, icon:<FaBoxes/>, label:'Material' },
+    { to: `${basePath}/manpower-list`, icon:<FaUsersNav/>, label:'Manpower' },
+    { to: viewProjectPathMap[role] || `${basePath}/viewprojects/${id}`, icon:<FaProjectDiagram/>, label:'View Project', active:true },
+    { to: `${basePath}/daily-logs`, icon:<FaClipboardList/>, label:'Logs' },
+    { to: progressReportPathMap[role] || `${basePath}/progress-report/${id}`, icon:<FaChartBar/>, label:'Reports' },
+    { to: dailyLogsPathMap[role] || `${basePath}/daily-logs-list`, icon:<FaCalendarAltNav/>, label:'Daily Logs' }
+  ].map(item => navPathOverrides && navPathOverrides[item.label] ? { ...item, to: navPathOverrides[item.label] } : item);
+  const nav = navItems || defaultNav;
+  const userRef = useRef(null); if(userRef.current===null){ try { userRef.current = JSON.parse(localStorage.getItem('user')); } catch { userRef.current=null; } }
+  const user = userRef.current; const userId = user?._id || null; const [userName] = useState(user?.name || roleCfg.label.split(' ')[0]);
+  const [profileMenuOpen,setProfileMenuOpen]=useState(false);
+  const [isHeaderCollapsed,setIsHeaderCollapsed]=useState(false);
+  const [project,setProject]=useState(null); const [activeTab,setActiveTab]=useState('Details'); const [status,setStatus]=useState('');
+  const [progress,setProgress]=useState(0); const [loading,setLoading]=useState(true); const [picContributions,setPicContributions]=useState(null);
+  const [purchaseOrders,setPurchaseOrders]=useState([]); const [totalPO,setTotalPO]=useState(0);
+  const [messages,setMessages]=useState([]); const [loadingMsgs,setLoadingMsgs]=useState(false); const [newMessage,setNewMessage]=useState('');
+  // Per-message reply collapse map: { [messageId]: boolean }
+  const [collapsedReplies, setCollapsedReplies] = useState({});
+  const [replyInputs,setReplyInputs]=useState({}); const [posting,setPosting]=useState(false); const [composerFiles,setComposerFiles]=useState([]); const [isDragOver,setIsDragOver]=useState(false); const [selectedLabel,setSelectedLabel]=useState('');
+  const listScrollRef=useRef(null); const listBottomRef=useRef(null); const textareaRef=useRef(null);
+  const [uploading,setUploading]=useState(false); const [uploadProgress,setUploadProgress]=useState(0); const [uploadError,setUploadError]=useState('');
+  const [imageUploading,setImageUploading]=useState(false); const [imageUploadProgress,setImageUploadProgress]=useState(0); const [imageUploadError,setImageUploadError]=useState('');
+  const [mentionDropdown,setMentionDropdown]=useState({open:false,options:[],query:'',position:{top:0,left:0},activeInputId:null});
+  const [projectUsers,setProjectUsers]=useState([]); const [fileSignedUrls,setFileSignedUrls]=useState({}); const [fileSearchTerm,setFileSearchTerm]=useState('');
+  const [reports,setReports]=useState([]);
+  // Realtime socket refs
+  const socketRef = useRef(null);
+  const joinedProjectRef = useRef(null);
+  useEffect(()=>{ const onScroll=()=> setIsHeaderCollapsed((window.pageYOffset||document.documentElement.scrollTop)>50); window.addEventListener('scroll',onScroll); return ()=> window.removeEventListener('scroll',onScroll); },[]);
+  useEffect(()=>{ let cancelled=false; (async()=>{ try { const {data}=await api.get(`/projects/${id}`); if(cancelled) return; setProject(data); setStatus(data?.status||''); } catch { if(!cancelled) setProject(null); } finally { if(!cancelled) setLoading(false);} })(); return ()=> {cancelled=true;}; },[id]);
+  useEffect(()=>{ if(!project?._id) return; let cancelled=false; (async()=>{ try { const res=await api.get('/requests'); if(cancelled) return; const approved=(res.data||[]).filter(r=> String(r?.project?._id||'')===String(project._id) && r.status==='Approved' && r.totalValue); setPurchaseOrders(approved); setTotalPO(approved.reduce((s,r)=> s+(Number(r.totalValue)||0),0)); } catch { if(!cancelled){ setPurchaseOrders([]); setTotalPO(0);} } })(); return ()=> {cancelled=true;}; },[project?._id]);
+  useEffect(()=>{ if(!project?._id || (activeTab!=='Discussions' && activeTab!=='Reports')) return; const controller=new AbortController(); setLoadingMsgs(true); api.get(`/projects/${project._id}/discussions`,{ headers:{Authorization:`Bearer ${token}`}, signal:controller.signal }).then(res=>{ const list=Array.isArray(res.data)?[...res.data].sort((a,b)=> new Date(a.timestamp||0)-new Date(b.timestamp||0)):[]; setMessages(list); }).catch(()=> setMessages([])).finally(()=> setLoadingMsgs(false)); return ()=> controller.abort(); },[project?._id,activeTab,token]);
+  // Initialize collapsed state for messages with 3+ replies (only once per message)
+  useEffect(()=>{ if(!messages.length) return; setCollapsedReplies(prev=>{ const next={...prev}; let changed=false; messages.forEach(m=>{ const rc=Array.isArray(m.replies)?m.replies.length:0; if(rc>=3 && typeof next[m._id]==='undefined'){ next[m._id]=true; changed=true; } }); return changed?next:prev; }); },[messages]);
+  const fetchReports=async(pid=project?._id)=>{ if(!pid) return; try { const {data}=await api.get(`/projects/${pid}/reports`,{ headers:{Authorization:`Bearer ${token}`}}); const list=data?.reports||[]; setReports(list); if(!list.length){ console.info('[ProjectView] No reports for project', pid, 'role', role); return; } const sorted=[...list].sort((a,b)=> new Date(b.uploadedAt||0)-new Date(a.uploadedAt||0)); const byUser=new Map(); for(const rep of sorted){ const key=rep.uploadedBy||rep.uploadedByName||rep._id; if(!byUser.has(key)) byUser.set(key,rep);} const distinct=[...byUser.values()]; let vals=distinct.map(r=> Number(r?.ai?.pic_contribution_percent)).filter(v=> isFinite(v)&&v>=0); if(!vals.length){ vals=distinct.map(r=>{ const done=r?.ai?.completed_tasks?.length||0; const total=done+(r?.ai?.summary_of_work_done?.length||0); return total>0?(done/total)*100:0; }); } if(vals.length){ const avg=vals.reduce((s,v)=> s+v,0)/vals.length; const avgClamped=Number(Math.min(100,Math.max(0,avg)).toFixed(1)); setProgress(avgClamped); setPicContributions({ averageContribution:Number(avg.toFixed(1)), picContributions:distinct.map(r=> ({ picId:r.uploadedBy||r._id, picName:r.uploadedByName||'Unknown', contribution:Math.round(Number(r?.ai?.pic_contribution_percent)||0), hasReport:true, lastReportDate:r.uploadedAt||null })), totalPics:distinct.length, reportingPics:distinct.length, pendingPics:0 }); } } catch (e){ console.error('[ProjectView] fetchReports failed', e); setReports([]);} };
+  useEffect(()=>{ if(!project?._id) return; fetchReports(project._id); },[project?._id]);
+  useEffect(()=>{ if(activeTab==='Reports' && project?._id && reports.length===0) fetchReports(project._id); },[activeTab,project?._id]);
+  useEffect(()=>{ if(!project?._id) return; const int=setInterval(()=> fetchReports(project._id),120000); return ()=> clearInterval(int); },[project?._id]);
+  useEffect(()=>{ if(activeTab!=='Discussions') return; requestAnimationFrame(()=>{ if(listBottomRef.current) listBottomRef.current.scrollIntoView(); else if(listScrollRef.current) listScrollRef.current.scrollTop=listScrollRef.current.scrollHeight; }); },[messages,activeTab]);
+  useEffect(()=>{ if(!project?._id) return; let cancelled=false; (async()=>{ try { const all=[]; if(project.documents) all.push(...project.documents); if(messages) messages.forEach(m=>{ if(m.attachments) all.push(...m.attachments); m.replies?.forEach(r=> r.attachments && all.push(...r.attachments)); }); if(all.length){ const signed=await fetchSignedUrlsForImages(all); if(!cancelled) setFileSignedUrls(p=> ({...p,...signed})); } } catch{} })(); return ()=> {cancelled=true;}; },[project?.documents,messages]);
+  useEffect(()=>{ if(!project?._id || activeTab!=='Discussions') return; let cancelled=false; (async()=>{ try { const res=await api.get(`/projects/${project._id}/users`); if(!cancelled) setProjectUsers(res.data||[]); } catch { if(!cancelled) setProjectUsers([]);} })(); return ()=> {cancelled=true;}; },[project?._id,activeTab]);
+  useEffect(()=>{ const close=e=>{ if(!e.target.closest('.user-profile')) setProfileMenuOpen(false); }; document.addEventListener('click',close); return ()=> document.removeEventListener('click',close); },[]);
+  // Live discussions socket (all roles) - single effect with dedup
+  useEffect(()=>{
+    if(activeTab !== 'Discussions' || !project?._id){
+      if(socketRef.current){
+        try { socketRef.current.emit('leaveProject', joinedProjectRef.current); } catch {}
+        try { socketRef.current.disconnect(); } catch {}
+        socketRef.current=null; joinedProjectRef.current=null;
+      }
+      return;
+    }
+    if(socketRef.current){
+      if(joinedProjectRef.current === project._id) return; // already connected to correct project
+      try { socketRef.current.emit('leaveProject', joinedProjectRef.current); } catch {}
+      joinedProjectRef.current=null;
+    }
+    const socket=io(SOCKET_ORIGIN,{ path:SOCKET_PATH, transports:['websocket'], auth:{ userId } });
+    socketRef.current=socket; joinedProjectRef.current=project._id;
+    socket.emit('joinProject', project._id);
+    const hNew=data=>{ if(String(data.projectId)===String(project._id)&&data.message){ const mid=String(data.message._id); setMessages(prev=> prev.some(m=> String(m._id)===mid) ? prev : [...prev,data.message].sort((a,b)=> new Date(a.timestamp)-new Date(b.timestamp))); } };
+    const hReply=data=>{ if(String(data.projectId)===String(project._id)&&data.msgId&&data.reply){ setMessages(prev=> prev.map(m=> { if(String(m._id)!==data.msgId) return m; const has = m.replies.some(r=> String(r._id)===String(data.reply._id)); return has? m : { ...m, replies:[...m.replies,data.reply] }; })); } };
+    const hReports=d=>{ if(String(d.projectId)===String(project._id)) fetchReports(project._id); };
+    socket.on('project:newDiscussion',hNew); socket.on('project:newReply',hReply); socket.on('project:reportsUpdated',hReports);
+    return ()=>{ try{socket.off('project:newDiscussion',hNew);socket.off('project:newReply',hReply);socket.off('project:reportsUpdated',hReports);socket.emit('leaveProject',joinedProjectRef.current);socket.disconnect();}catch{} socketRef.current=null; joinedProjectRef.current=null; };
+  },[project?._id,activeTab,userId]);
+  const handlePostMessage=async()=>{ if(!perms.postDiscuss) return; if((!newMessage.trim() && composerFiles.length===0) || posting || !project?._id) return; try { setPosting(true); const fd=new FormData(); if(newMessage.trim()) fd.append('text',newMessage.trim()); if(selectedLabel) fd.append('label',selectedLabel); composerFiles.forEach(f=> fd.append('files',f)); const res=await api.post(`/projects/${project._id}/discussions`,fd,{ headers:{Authorization:`Bearer ${token}`}}); const msg=res.data; setMessages(prev=> prev.some(m=> String(m._id)===String(msg._id)) ? prev : [...prev,msg].sort((a,b)=> new Date(a.timestamp)-new Date(b.timestamp))); setNewMessage(''); setComposerFiles([]); setSelectedLabel(''); } catch {} finally { setPosting(false);} };
+  const handlePostReply=async(msgId)=>{ if(!perms.postDiscuss) return; const txt=(replyInputs[msgId]||'').trim(); if(!txt||posting||!project?._id) return; setPosting(true); try { const fd=new FormData(); fd.append('text',txt); const res=await api.post(`/projects/${project._id}/discussions/${msgId}/reply`,fd,{ headers:{Authorization:`Bearer ${token}`}}); const reply=res.data; setMessages(prev=> prev.map(m=> { if(String(m._id)!==msgId) return m; if(m.replies.some(r=> String(r._id)===String(reply._id))) return m; return { ...m, replies:[...m.replies,reply] }; })); setReplyInputs(p=> ({...p,[msgId]:''})); } catch {} finally { setPosting(false);} };
+  const handleKeyDownComposer=e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); if(!posting && (newMessage.trim()||composerFiles.length)) handlePostMessage(); } };
+  const acceptTypes=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv,image/*";
+  const addComposerFiles=f=>{ if(!perms.postDiscuss) return; if(!f?.length) return; setComposerFiles(p=> [...p,...Array.from(f)]); };
+  const handleTextareaInput=e=>{ const v=e.target.value; setNewMessage(v); const caret=e.target.selectionStart; const up=v.slice(0,caret); const m=/(^|\s)@(\w*)$/.exec(up); if(m){ const q=m[2].toLowerCase(); const opts=projectUsers.concat([{_id:'_all_',name:'all'},{_id:'_everyone_',name:'everyone'}]).filter(u=> (u.name||'').toLowerCase().includes(q)); setMentionDropdown({open:true,options:opts,query:q,position:{top:0,left:0},activeInputId:e.target.id}); } else setMentionDropdown({open:false,options:[],query:'',position:{top:0,left:0},activeInputId:null}); };
+  const handleMentionSelect=u=>{ if(!textareaRef.current) return; const val=newMessage; const caret=textareaRef.current.selectionStart; const up=val.slice(0,caret); const m=/(^|\s)@(\w*)$/.exec(up); if(!m) return; const before=val.slice(0,m.index+m[1].length); const after=val.slice(caret); const mention=`@${u.name} `; const nv=before+mention+after; setNewMessage(nv); setMentionDropdown({open:false,options:[],query:'',position:{top:0,left:0},activeInputId:null}); setTimeout(()=>{ if(textareaRef.current){ textareaRef.current.focus(); textareaRef.current.selectionStart=textareaRef.current.selectionEnd=(before+mention).length; }},0); };
+  const handleLogout=()=>{ localStorage.removeItem('token'); localStorage.removeItem('user'); navigate(basePath); };
+  const handleFileUpload=async(files)=>{ if(!perms.uploadFiles) return; if(!files?.length||!project?._id) return; setUploading(true); setUploadProgress(0); setUploadError(''); try { const fd=new FormData(); files.forEach(f=> fd.append('files',f)); const it=setInterval(()=> setUploadProgress(p=> p>=90? (clearInterval(it),90):p+10),200); const res=await api.post(`/projects/${project._id}/documents`,fd,{ headers:{Authorization:`Bearer ${token}`,'Content-Type':'multipart/form-data'} }); clearInterval(it); setUploadProgress(100); if(res.data?.documents) setProject(pr=> ({...pr,documents:res.data.documents})); setTimeout(()=>{ setUploading(false); setUploadProgress(0); },800); } catch { setUploadError('Upload failed'); setUploading(false); setUploadProgress(0);} };
+  const handleDeleteFile=async(doc,i)=>{ if(!perms.deleteFiles) return; if(!project?._id || !window.confirm('Delete this file?')) return; try { const path= typeof doc==='string'? doc : doc.path; await api.delete(`/projects/${project._id}/documents`,{ headers:{Authorization:`Bearer ${token}`}, data:{ path }}); setProject(pr=> ({...pr,documents: pr.documents.filter((_,idx)=> idx!==i)})); } catch { alert('Failed to delete file'); } };
+  if(loading) return <div className="dashboard-container pm-view-root"><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-spinner-container"><div className="loading-spinner"/></div><div className="loading-text"><h2 className="loading-title">Loading Project Details</h2><p className="loading-subtitle">Fetching project information...</p></div><div className="loading-progress"><div className="progress-bar"><div className="progress-fill"/></div></div></div></div></div>;
+  if(!project) return <div className="dashboard-container pm-view-root"><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-text"><h2 className="loading-title" style={{color:'#ef4444'}}>Project Not Found</h2><p className="loading-subtitle">Project missing or access denied.</p></div><div style={{marginTop:'2rem'}}><button onClick={()=> navigate(basePath)} style={{background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',border:'none',padding:'12px 24px',borderRadius:8,fontSize:'1rem',fontWeight:600,cursor:'pointer'}}>Return to Dashboard</button></div></div></div></div>;
+  const start = project?.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A';
+  const end = project?.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A';
+  const contractor = readContractor(project);
+  const locationLabel = project?.location?.name ? `${project.location.name}${project.location?.region?` (${project.location.region})`:''}` : 'N/A';
+  const manpowerText = Array.isArray(project?.manpower)&&project.manpower.length>0 ? project.manpower.map(mp=> [mp?.name,mp?.position].filter(Boolean).join(' (') + (mp?.position?')':'')).join(', ') : 'No Manpower Assigned';
+  const budgetNum = Number(project?.budget||0); const remaining = Math.max(budgetNum - Number(totalPO||0),0);
+  // Rewritten JSX with proper nesting & explicit wrappers to avoid unclosed tag errors
+// Discussion label style map
+const labelColorMap = {
+  Important: { bg: 'linear-gradient(90deg,#dc2626,#f87171)', fg: '#fff' },
+  Announcement: { bg: 'linear-gradient(90deg,#6366f1,#8b5cf6)', fg: '#fff' },
+  Update: { bg: 'linear-gradient(90deg,#0d9488,#14b8a6)', fg: '#fff' },
+  Reminder: { bg: 'linear-gradient(90deg,#eab308,#f59e0b)', fg: '#3a2f00' },
+  Urgent: { bg: 'linear-gradient(90deg,#b91c1c,#ef4444)', fg: '#fff' }
+};
+function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[label]||{bg:'#334155',fg:'#fff'}; return <span className="discussion-label-badge" style={{background:s.bg,color:s.fg,padding:'2px 8px',borderRadius:8,fontSize:11,marginLeft:8,fontWeight:600,letterSpacing:.5,display:'inline-flex',alignItems:'center',gap:4}}>{label}</span>; }
+  return (
+    <div className="dashboard-container pm-view-root">
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        <div className="header-top">
+          <div className="logo-section">
+            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
+            <h1 className="header-brand">FadzTrack</h1>
+          </div>
+          <div className="user-profile" onClick={() => setProfileMenuOpen(o => !o)}>
+            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'U'}</div>
+            <div className="profile-info">
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{roleCfg.label}</span>
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="header-bottom">
+          <nav className="header-nav">
+            {nav.map(n => (
+              <Link key={n.to} to={n.to} className={`nav-item ${n.active ? 'active' : ''}`}>
+                {n.icon}
+                <span className={isHeaderCollapsed ? 'hidden' : ''}>{n.label}</span>
+              </Link>
+            ))}
+          </nav>
+          <NotificationBell />
+        </div>
+      </header>
+      <main className="dashboard-main">
+        <div className="project-view-container">
+          {/* Project Header */}
+          <div className="project-header">
+            <div className="project-image-section">
+              <img
+                src={(project.photos && project.photos[0]) || 'https://placehold.co/1200x400?text=Project+Image'}
+                alt={project.projectName}
+                className="project-hero-image"
+              />
+              {perms.image && (
+                <div className="image-upload-overlay">
+                  <input
+                    type="file"
+                    id="project-image-upload"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={async e => {
+                      const f = e.target.files[0];
+                      if (!f) return;
+                      if (!f.type.startsWith('image/')) {
+                        alert('Select an image');
+                        return;
+                      }
+                      if (f.size > 5 * 1024 * 1024) {
+                        alert('Image must be <5MB');
+                        return;
+                      }
+                      try {
+                        setImageUploading(true);
+                        setImageUploadProgress(0);
+                        setImageUploadError('');
+                        const fd = new FormData();
+                        fd.append('photo', f);
+                        const res = await api.post(`/projects/${project._id}/photo`, fd, {
+                          onUploadProgress: pe =>
+                            setImageUploadProgress(Math.round((pe.loaded * 100) / pe.total))
+                        });
+                        setProject(p => ({ ...p, photos: [res.data.photoUrl, ...(p.photos || []).slice(1)] }));
+                      } catch {
+                        setImageUploadError('Upload failed');
+                      } finally {
+                        setImageUploading(false);
+                        setImageUploadProgress(0);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                  <label htmlFor="project-image-upload" className="change-image-btn">
+                    <FaCamera />
+                    <span>Change Image</span>
+                  </label>
+                  {imageUploading && (
+                    <div className="image-upload-progress">
+                      <div className="progress-bar">
+                        <div className="progress-fill" style={{ width: `${imageUploadProgress}%` }} />
+                      </div>
+                      <p className="progress-text">Uploading... {imageUploadProgress}%</p>
+                    </div>
+                  )}
+                  {imageUploadError && (
+                    <div className="image-upload-error">
+                      <p>{imageUploadError}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              {perms.statusToggle && progress === 100 && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await api.patch(`/projects/${project._id}/toggle-status`);
+                      setStatus(res.data?.status || status);
+                    } catch {
+                      alert('Failed to toggle project status.');
+                    }
+                  }}
+                  className={`status-toggle-btn ${status === 'Completed' ? 'completed' : 'ongoing'}`}
+                >
+                  {status === 'Completed' ? 'Mark as Ongoing' : 'Mark as Completed'}
+                </button>
+              )}
+            </div>
+            <div className="project-title-section">
+              <h1 className="project-title">{project.projectName}</h1>
+              <div className="project-status-badge">
+                <span className={`status-indicator ${status === 'Completed' ? 'completed' : 'ongoing'}`}>
+                  {status === 'Completed' ? <FaCheckCircle /> : <FaClock />}
+                </span>
+                <span className="status-text">{status || project?.status || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+          {/* Tabs */}
+          <div className="project-tabs">
+            <button className={`project-tab ${activeTab === 'Details' ? 'active' : ''}`} onClick={() => setActiveTab('Details')}>
+              <FaRegListAlt />
+              <span>Project Details</span>
+            </button>
+            <button className={`project-tab ${activeTab === 'Discussions' ? 'active' : ''}`} onClick={() => setActiveTab('Discussions')}>
+              <FaRegCommentDots />
+              <span>Discussions</span>
+            </button>
+            <button className={`project-tab ${activeTab === 'Files' ? 'active' : ''}`} onClick={() => setActiveTab('Files')}>
+              <FaRegFileAlt />
+              <span>Files</span>
+            </button>
+            <button className={`project-tab ${activeTab === 'Reports' ? 'active' : ''}`} onClick={() => setActiveTab('Reports')}>
+              <FaRegFileAlt />
+              <span>Reports</span>
+            </button>
+          </div>
+          <div className="tab-content">
+            {/* DETAILS TAB */}
+            {activeTab === 'Details' && (
+              <div className="project-details-content">
+                <div className="action-buttons">
+                  <button
+                    onClick={() =>
+                      exportProjectDetails(project, {
+                        contextTitle: `Project Details — ${roleCfg.label}`,
+                        includeBudget: true,
+                        includePM: true,
+                        includeAM: true,
+                        includePIC: true,
+                        includeHrSite: true,
+                        includeStaff: true
+                      })
+                    }
+                    className="export-btn"
+                  >
+                    <FaDownload />
+                    <span>Export PDF</span>
+                  </button>
+                </div>
+                <div className="pm-overview-grid">
+                  {/* Budget */}
+                  <div className="pm-overview-card pm-budget-card">
+                    <div className="card-icon">
+                      <FaMoneyBillWave />
+                    </div>
+                    <div className="card-content">
+                      <h3 className="card-title">Budget Overview</h3>
+                      <div className="budget-amount">
+                        {peso.format(budgetNum || 0)}
+                        {totalPO > 0 && (
+                          <span className="po-deduction"> − {peso.format(totalPO)} (POs)</span>
+                        )}
+                      </div>
+                      {totalPO > 0 && (
+                        <div className="remaining-budget">Remaining: {peso.format(remaining)}</div>
+                      )}
+                    </div>
+                  </div>
+                  {/* Timeline */}
+                  <div className="pm-overview-card pm-timeline-card">
+                    <div className="card-icon">
+                      <FaCalendarAlt />
+                    </div>
+                    <div className="card-content">
+                      <h3 className="card-title">Project Timeline</h3>
+                      <div className="timeline-dates">
+                        <div className="date-item">
+                          <span className="date-label">Start:</span>
+                          <span className="date-value">{start}</span>
+                        </div>
+                        <div className="date-item">
+                          <span className="date-label">End:</span>
+                          <span className="date-value">{end}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Location */}
+                  <div className="pm-overview-card pm-location-card">
+                    <div className="card-icon">
+                      <FaMapMarkerAlt />
+                    </div>
+                    <div className="card-content">
+                      <h3 className="card-title">Location</h3>
+                      <div className="location-value">{locationLabel}</div>
+                    </div>
+                  </div>
+                  {/* Contractor */}
+                  <div className="pm-overview-card pm-contractor-card">
+                    <div className="card-icon">
+                      <FaBuilding />
+                    </div>
+                    <div className="card-content">
+                      <h3 className="card-title">Contractor</h3>
+                      <div className="contractor-value">{contractor}</div>
+                    </div>
+                  </div>
+                </div>
+                {/* Progress Section */}
+                <div className="progress-section">
+                  <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    Project Progress{' '}
+                    {progress >= 100 && (
+                      <span
+                        style={{
+                          background: 'linear-gradient(90deg,#16a34a,#4ade80)',
+                          color: '#fff',
+                          padding: '4px 10px',
+                          fontSize: 12,
+                          borderRadius: 20
+                        }}
+                      >
+                        COMPLETED
+                      </span>
+                    )}
+                  </h2>
+                  <div
+                    className="progress-grid"
+                    style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}
+                  >
+                    {/* Overall Progress */}
+                    <div
+                      className="progress-card overall-progress"
+                      style={{ background: '#0f172a', color: '#f1f5f9', borderRadius: 18, padding: 20, position: 'relative' }}
+                    >
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: 'radial-gradient(circle at 30% 20%, rgba(59,130,246,.25), transparent 70%)'
+                        }}
+                      />
+                      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Overall Progress</h3>
+                          <FaChartBar style={{ opacity: 0.7 }} />
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 38,
+                            fontWeight: 700,
+                            background: 'linear-gradient(90deg,#3b82f6,#06b6d4)',
+                            WebkitBackgroundClip: 'text',
+                            color: 'transparent'
+                          }}
+                        >
+                          {Math.round(progress)}%
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <div
+                            style={{ height: 14, background: '#1e293b', borderRadius: 10, position: 'relative' }}
+                            aria-label={`Overall progress ${Math.round(progress)}%`}
+                            role="progressbar"
+                            aria-valuenow={Math.round(progress)}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                          >
+                            <div
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background: 'linear-gradient(90deg,#3b82f6,#6366f1,#8b5cf6)',
+                                width: `${progress}%`,
+                                borderRadius: 10,
+                                transition: 'width .5s ease'
+                              }}
+                            />
+                          </div>
+                          <small style={{ opacity: 0.8 }}>Average across all PiCs</small>
+                        </div>
+                        {picContributions && (
+                          <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ fontSize: 12, letterSpacing: 0.5, opacity: 0.85 }}>Reporting Coverage</div>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              {Array.from({ length: picContributions.totalPics }).map((_, i) => (
+                                <div
+                                  key={i}
+                                  style={{
+                                    flex: 1,
+                                    height: 6,
+                                    background:
+                                      i < picContributions.reportingPics
+                                        ? 'linear-gradient(90deg,#10b981,#4ade80)'
+                                        : '#334155',
+                                    borderRadius: 4
+                                  }}
+                                />
+                              ))}
+                            </div>
+                            <div style={{ fontSize: 12, opacity: 0.7 }}>
+                              {picContributions.reportingPics}/{picContributions.totalPics} submitted
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {(picContributions || (project?.pic && project.pic.length > 0)) && (
+                      <div
+                        className="progress-card pic-contributions"
+                        style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: 20 }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#0f172a' }}>PiC Contributions</h3>
+                          <FaUsers style={{ color: '#475569' }} />
+                        </div>
+                        <div style={{ fontSize: 32, fontWeight: 700, color: '#0f172a' }}>
+                          {picContributions ? picContributions.averageContribution : 0}%
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {picContributions ? (
+                            <div
+                              style={{ fontSize: 13, color: '#475569', display: 'flex', justifyContent: 'space-between' }}
+                            >
+                              <span>Reporting</span>
+                              <span style={{ fontWeight: 600 }}>
+                                {picContributions.reportingPics}/{picContributions.totalPics}
+                              </span>
+                            </div>
+                          ) : (
+                            <div
+                              style={{ fontSize: 12, background: '#f1f5f9', padding: '8px 10px', borderRadius: 8, color: '#475569' }}
+                            >
+                              No contribution data yet.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {picContributions && picContributions.picContributions.length > 0 && (
+                    <div className="individual-contributions" style={{ marginTop: 24 }}>
+                      <h3 className="subsection-title" style={{ fontSize: 16, fontWeight: 600, margin: '0 0 12px' }}>
+                        Individual PiC Contributions
+                      </h3>
+                      <div
+                        className="pic-list"
+                        style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}
+                      >
+                        {picContributions.picContributions.map((pic, i) => (
+                          <div
+                            key={i}
+                            className={`pic-item ${!pic.hasReport ? 'no-report' : ''}`}
+                            style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 14 }}
+                          >
+                            <div style={{ fontWeight: 600 }}>{pic.picName}</div>
+                            {pic.lastReportDate && (
+                              <span style={{ fontSize: 11, color: '#64748b' }}>
+                                Last: {new Date(pic.lastReportDate).toLocaleDateString()}
+                              </span>
+                            )}
+                            <div style={{ marginTop: 8 }}>
+                              {pic.hasReport ? (
+                                <span
+                                  style={{
+                                    display: 'inline-block',
+                                    background: 'linear-gradient(90deg,#3b82f6,#6366f1)',
+                                    color: '#fff',
+                                    fontSize: 13,
+                                    padding: '4px 10px',
+                                    borderRadius: 8,
+                                    fontWeight: 600
+                                  }}
+                                >
+                                  {pic.contribution}%
+                                </span>
+                              ) : (
+                                <span
+                                  style={{
+                                    display: 'inline-block',
+                                    background: '#f1f5f9',
+                                    color: '#475569',
+                                    fontSize: 12,
+                                    padding: '4px 10px',
+                                    borderRadius: 8
+                                  }}
+                                >
+                                  No report
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {/* Team */}
+                <div className="team-section">
+                  <h2 className="section-title">Project Team</h2>
+                  <div className="team-grid">
+                    <div className="team-member">
+                      <div className="member-avatar">
+                        <FaUserTie />
+                      </div>
+                      <div className="member-info">
+                        <h4 className="member-role">Project Manager</h4>
+                        <p className="member-name">{project?.projectmanager?.name || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="team-member">
+                      <div className="member-avatar">
+                        <FaUsers />
+                      </div>
+                      <div className="member-info">
+                        <h4 className="member-role">Person in Charge</h4>
+                        <p className="member-name">
+                          {Array.isArray(project?.pic) && project.pic.length
+                            ? project.pic.map(p => p?.name).filter(Boolean).join(', ')
+                            : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* Manpower */}
+                <div className="manpower-section">
+                  <h2 className="section-title">Assigned Manpower</h2>
+                  <div className="manpower-content">
+                    <p className="manpower-text">{manpowerText}</p>
+                  </div>
+                </div>
+                {/* Purchase Orders */}
+                {purchaseOrders.length > 0 && (
+                  <div className="purchase-orders-section">
+                    <h2 className="section-title">Purchase Orders</h2>
+                    <div className="po-list">
+                      {purchaseOrders.map(po => (
+                        <div key={po._id} className="po-item">
+                          <span className="po-number">PO#: {po.purchaseOrder}</span>
+                          <span className="po-amount">{peso.format(Number(po.totalValue))}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* DISCUSSIONS TAB */}
+            {activeTab === 'Discussions' && (
+              <div className="discussions-container">
+                <div className="messages-list" ref={listScrollRef}>
+                  {loadingMsgs ? (
+                    <div className="loading-messages">
+                      <div className="loading-spinner" />
+                      <span>Loading discussions...</span>
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="empty-discussions">
+                      <FaRegCommentDots />
+                      <h3>No discussions yet</h3>
+                      <p>Start a conversation about this project.</p>
+                    </div>
+                  ) : (
+                    messages.map(msg => {
+                      const mentioned = isMentioned(msg.text, userName);
+          return ( 
+                        <div key={msg._id} className="message-item" style={{ ...(mentioned ? mentionRowStyles.container : {}) }}>
+                          {mentioned && <div style={mentionRowStyles.badge}>MENTIONED</div>}
+                          <div className="message-header">
+                            <div className="message-avatar">{msg.userName?.charAt(0)?.toUpperCase() || '?'}</div>
+                            <div className="message-info">
+                              <span className="message-author">{msg.userName || 'Unknown'}</span>
+                              <span className="message-time">
+                                {msg.timestamp ? new Date(msg.timestamp).toLocaleString() : ''}
+                              </span>
+                            </div>
+            {renderLabelBadge(msg.label)}
+                          </div>
+                          <div className="message-content">
+                            {msg.text && (
+                              <p className="message-text">{renderMessageText(msg.text, userName)}</p>
+                            )}
+                            {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
+                              <div className="message-attachments">
+                                {msg.attachments.map((att, i) => {
+                                  const name = att.name || extractOriginalNameFromPath(att.path);
+                                  const t = getFileType(name);
+                                  return (
+                                    <div key={i} className="attachment-item">
+                                      <div className="attachment-thumbnail">
+                                        {generateFileThumbnail(name, att.path, t, fileSignedUrls[att.path])}
+                                      </div>
+                                      <div className="attachment-info">
+                                        <a
+                                          href="#"
+                                          onClick={e => {
+                                            e.preventDefault();
+                                            openSignedPath(att.path);
+                                          }}
+                                          className="attachment-name"
+                                          title={name}
+                                        >
+                                          {name}
+                                        </a>
+                                        <span className="attachment-type">{t}</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                          {Array.isArray(msg.replies) && msg.replies.length > 0 && (
+                            <div className="replies-container">
+                              {(() => { const total = msg.replies.length; const collapsed = collapsedReplies[msg._id]; const list = (collapsed && total >=3) ? msg.replies.slice(0,2) : msg.replies; return list.map(r => {
+                                const rm = isMentioned(r.text, userName);
+                                return (
+                                  <div key={r._id} className="reply-item" style={rm ? mentionRowStyles.container : {}}>
+                                    {rm && <div style={mentionRowStyles.badge}>MENTIONED</div>}
+                                    <div className="reply-header">
+                                      <div className="reply-avatar">{r.userName?.charAt(0)?.toUpperCase() || '?'}</div>
+                                      <div className="reply-info">
+                                        <span className="reply-author">{r.userName || 'Unknown'}</span>
+                                        <span className="reply-time">
+                                          {r.timestamp ? new Date(r.timestamp).toLocaleString() : ''}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div className="reply-content">
+                                      {r.text && (
+                                        <p className="reply-text">{renderMessageText(r.text, userName)}</p>
+                                      )}
+                                      {Array.isArray(r.attachments) && r.attachments.length > 0 && (
+                                        <div className="reply-attachments">
+                                          {r.attachments.map((att, i) => {
+                                            const name = att.name || extractOriginalNameFromPath(att.path);
+                                            const t = getFileType(name);
+                                            return (
+                                              <div key={i} className="attachment-item">
+                                                <div className="attachment-thumbnail">
+                                                  {generateFileThumbnail(name, att.path, t, fileSignedUrls[att.path])}
+                                                </div>
+                                                <div className="attachment-info">
+                                                  <a
+                                                    href="#"
+                                                    onClick={e => {
+                                                      e.preventDefault();
+                                                      openSignedPath(att.path);
+                                                    }}
+                                                    className="attachment-name"
+                                                    title={name}
+                                                  >
+                                                    {name}
+                                                  </a>
+                                                  <span className="attachment-type">{t}</span>
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              }); })()}
+                              {msg.replies.length >=3 && (
+                                <button
+                                  onClick={()=> setCollapsedReplies(p=> ({...p, [msg._id]: !p[msg._id]}))}
+                                  className="replies-toggle-btn"
+                                  style={{marginTop:8,background:'transparent',border:'none',color:'#2563eb',cursor:'pointer',fontSize:13,fontWeight:600,padding:0}}
+                                >
+                                  {collapsedReplies[msg._id] ? `Show all ${msg.replies.length} replies` : 'Hide replies'}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          {/* Reply Composer */}
+                          {perms.postDiscuss && (
+                            <div className="reply-composer" style={{marginTop:12,padding:12,borderTop:'1px solid #e2e8f0',display:'flex',gap:8,alignItems:'flex-start'}}>
+                              <textarea
+                                value={replyInputs[msg._id] || ''}
+                                onChange={e => setReplyInputs(p => ({ ...p, [msg._id]: e.target.value }))}
+                                onKeyDown={e => { if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); handlePostReply(msg._id); } }}
+                                placeholder="Write a reply..."
+                                style={{flex:1,minHeight:60,resize:'vertical',fontFamily:'inherit',fontSize:14,padding:8,border:'1px solid #cbd5e1',borderRadius:8}}
+                              />
+                              <button
+                                onClick={() => handlePostReply(msg._id)}
+                                disabled={posting || !(replyInputs[msg._id]||'').trim()}
+                                style={{background:'linear-gradient(90deg,#3b82f6,#6366f1)',color:'#fff',border:'none',padding:'10px 16px',borderRadius:8,fontSize:14,fontWeight:600,cursor: posting || !(replyInputs[msg._id]||'').trim()? 'not-allowed':'pointer',opacity: posting || !(replyInputs[msg._id]||'').trim()? .6:1,alignSelf:'stretch'}}
+                              >
+                                {posting ? 'Posting...' : 'Reply'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                <div ref={listBottomRef} />
+                {perms.postDiscuss && (
+                  <div className="message-composer">
+                    <div
+                      className={`composer-area ${isDragOver ? 'drag-over' : ''}`}
+                      onDragOver={e => {
+                        e.preventDefault();
+                        setIsDragOver(true);
+                      }}
+                      onDragLeave={e => {
+                        e.preventDefault();
+                        setIsDragOver(false);
+                      }}
+                      onDrop={e => {
+                        e.preventDefault();
+                        setIsDragOver(false);
+                        if (e.dataTransfer?.files?.length) addComposerFiles(e.dataTransfer.files);
+                      }}
+                    >
+                      <div className="label-selector">
+                        <select
+                          value={selectedLabel}
+                          onChange={e => setSelectedLabel(e.target.value)}
+                          className="label-dropdown"
+                        >
+                          <option value="">No Label</option>
+                          <option value="Important">Important</option>
+                          <option value="Announcement">Announcement</option>
+                          <option value="Update">Update</option>
+                          <option value="Reminder">Reminder</option>
+                          <option value="Urgent">Urgent</option>
+                        </select>
+                      </div>
+                      <textarea
+                        ref={textareaRef}
+                        id="main-composer-textarea"
+                        value={newMessage}
+                        onChange={handleTextareaInput}
+                        onKeyDown={handleKeyDownComposer}
+                        placeholder="Type your message here..."
+                        className="composer-textarea"
+                      />
+                      {mentionDropdown.open && mentionDropdown.activeInputId === textareaRef.current?.id && (
+                        <div className="mention-dropdown">
+                          {mentionDropdown.options.map(u => (
+                            <div key={u._id} className="mention-option" onClick={() => handleMentionSelect(u)}>
+                              {u.name}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="composer-actions">
+                      <div className="composer-left">
+                        <label htmlFor="composer-attachments" className="attachment-button">
+                          <FaRegFileAlt />
+                          <span>Attach Files</span>
+                        </label>
+                        <input
+                          id="composer-attachments"
+                          type="file"
+                          multiple
+                          accept={acceptTypes}
+                          style={{ display: 'none' }}
+                          onChange={e => {
+                            addComposerFiles(e.target.files);
+                            e.target.value = '';
+                          }}
+                        />
+                        {composerFiles.map((f, i) => (
+                          <div key={i} className="file-preview">
+                            <span>📎 {f.name}</span>
+                            <button
+                              onClick={() => setComposerFiles(p => p.filter((_, idx) => idx !== i))}
+                              className="remove-file-btn"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="composer-right">
+                        <button
+                          onClick={handlePostMessage}
+                          disabled={posting || (!newMessage.trim() && composerFiles.length === 0)}
+                          className="send-button"
+                        >
+                          {posting ? 'Sending...' : 'Send Message'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* FILES TAB */}
+            {activeTab === 'Files' && (
+              <div className="files-container">
+                <div className="files-header">
+                  <div className="files-title-section">
+                    <h2 className="files-title">Project Files</h2>
+                    <p className="files-subtitle">
+                      {project?.documents && project.documents.length
+                        ? `Showing ${Math.min(
+                            project.documents.filter(d => {
+                              if (!fileSearchTerm) return true;
+                              const n =
+                                typeof d === 'string'
+                                  ? extractOriginalNameFromPath(d)
+                                  : d.name || extractOriginalNameFromPath(d.path);
+                              return n.toLowerCase().includes(fileSearchTerm.toLowerCase());
+                            }).length,
+                            5
+                          )} of ${project.documents.length} files`
+                        : 'Manage and organize project documents'}
+                    </p>
+                  </div>
+                  <div className="files-actions">
+                    <div className="search-container">
+                      <input
+                        type="text"
+                        placeholder="Search files..."
+                        value={fileSearchTerm}
+                        onChange={e => setFileSearchTerm(e.target.value)}
+                        className="file-search-input"
+                      />
+                    </div>
+                    {perms.uploadFiles && (
+                      <>
+                        <label htmlFor="file-upload" className="upload-btn">
+                          <FaRegFileAlt />
+                          <span>Upload Files</span>
+                        </label>
+                        <input
+                          id="file-upload"
+                          type="file"
+                          multiple
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.csv,image/*"
+                          style={{ display: 'none' }}
+                          onChange={e => {
+                            if (e.target.files?.length) handleFileUpload(Array.from(e.target.files));
+                            e.target.value = '';
+                          }}
+                        />
+                      </>
+                    )}
+                  </div>
+                </div>
+                {uploading && (
+                  <div className="upload-progress">
+                    <div className="progress-bar">
+                      <div className="progress-fill" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                    <span className="progress-text">Uploading... {uploadProgress}%</span>
+                  </div>
+                )}
+                <div className="files-table-container">
+                  {project?.documents && project.documents.length ? (
+                    <table className="files-table">
+                      <thead className="table-header">
+                        <tr>
+                          <th className="header-cell file-name">File Name</th>
+                          <th className="header-cell file-type">Type</th>
+                          <th className="header-cell file-size">Size</th>
+                          <th className="header-cell file-uploader">Uploaded By</th>
+                          <th className="header-cell file-date">Date</th>
+                          <th className="header-cell file-actions">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="table-body">
+                        {project.documents
+                          .filter(d => {
+                            if (!fileSearchTerm) return true;
+                            const n =
+                              typeof d === 'string'
+                                ? extractOriginalNameFromPath(d)
+                                : d.name || extractOriginalNameFromPath(d.path);
+                            return n.toLowerCase().includes(fileSearchTerm.toLowerCase());
+                          })
+                          .slice(0, 5)
+                          .map((doc, i) => {
+                            const fileName =
+                              typeof doc === 'string'
+                                ? extractOriginalNameFromPath(doc)
+                                : doc.name || extractOriginalNameFromPath(doc.path);
+                            const filePath = typeof doc === 'string' ? doc : doc.path;
+                            const type = getFileType(fileName);
+                            const size = getFileSize(fileName);
+                            const by = typeof doc === 'string' ? 'Unknown' : doc.uploadedByName || 'Unknown';
+                            const at = typeof doc === 'string' ? null : doc.uploadedAt;
+                            return (
+                              <tr key={i} className="table-row">
+                                <td className="table-cell file-name">
+                                  <div className="file-info">
+                                    <div className="file-thumbnail-container">
+                                      {generateFileThumbnail(fileName, filePath, type, fileSignedUrls[filePath])}
+                                    </div>
+                                    <span className="file-name-text" title={fileName}>
+                                      {fileName}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="table-cell file-type">
+                                  <span className="file-type-badge">{type}</span>
+                                </td>
+                                <td className="table-cell file-size">{size}</td>
+                                <td className="table-cell file-uploader">{by}</td>
+                                <td className="table-cell file-date">
+                                  {at ? new Date(at).toLocaleDateString() : 'N/A'}
+                                </td>
+                                <td className="table-cell file-actions">
+                                  <div className="action-buttons">
+                                    <button
+                                      onClick={() => openSignedPath(filePath)}
+                                      className="action-btn download-btn"
+                                      title="Download"
+                                    >
+                                      <FaDownload />
+                                    </button>
+                                    {perms.deleteFiles && (
+                                      <button
+                                        onClick={() => handleDeleteFile(doc, i)}
+                                        className="action-btn delete-btn"
+                                        title="Delete"
+                                      >
+                                        <FaTrash />
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="empty-files">
+                      <FaRegFileAlt />
+                      <h3>No files uploaded yet</h3>
+                      <p>Upload project documents to get started</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {/* REPORTS TAB */}
+            {activeTab === 'Reports' && (
+              <div className="project-reports" style={{ textAlign: 'left' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <h3 style={{ marginBottom: 18 }}>Project Reports</h3>
+                </div>
+                {reports.length === 0 ? (
+                  <div style={{ color: '#888', fontSize: 16 }}>No reports yet.</div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="files-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa' }}>
+                            Name
+                          </th>
+                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa' }}>
+                            Uploaded By
+                          </th>
+                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa' }}>
+                            Uploaded At
+                          </th>
+                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa' }}>
+                            Status
+                          </th>
+                          <th
+                            style={{
+                              textAlign: 'left',
+                              padding: '10px 12px',
+                              borderBottom: '1px solid #eee',
+                              background: '#fafafa',
+                              width: 280
+                            }}
+                          >
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {reports.map(r => {
+                          const uploadedAt = r?.uploadedAt ? new Date(r.uploadedAt).toLocaleString() : '—';
+                          return (
+                            <tr key={r._id}>
+                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
+                                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                  <FaRegFileAlt style={{ marginRight: 6 }} />
+                                  {r?.name || 'Report.pptx'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
+                                {r?.uploadedByName || 'Unknown'}
+                              </td>
+                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{uploadedAt}</td>
+                              <td
+                                style={{
+                                  padding: '10px 12px',
+                                  borderTop: '1px solid #f1f1f1',
+                                  textTransform: 'capitalize'
+                                }}
+                              >
+                                {r?.status || 'pending'}
+                              </td>
+                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
+                                {r?.path ? (
+                                  <button
+                                    onClick={() => openReportSignedPath(project._id, r.path)}
+                                    style={{
+                                      marginRight: 10,
+                                      border: '1px solid #cbd5e1',
+                                      background: '#f8fafc',
+                                      padding: '6px 12px',
+                                      borderRadius: 8,
+                                      cursor: 'pointer',
+                                      fontSize: 13,
+                                      fontWeight: 600
+                                    }}
+                                  >
+                                    View PPT
+                                  </button>
+                                ) : (
+                                  <span style={{ color: '#94a3b8', marginRight: 10, fontSize: 12 }}>No PPT</span>
+                                )}
+                                {r?.pdfPath ? (
+                                  <button
+                                    onClick={() => openReportSignedPath(project._id, r.pdfPath)}
+                                    style={{
+                                      marginRight: 10,
+                                      border: '1px solid #cbd5e1',
+                                      background: 'linear-gradient(90deg,#3b82f6,#6366f1)',
+                                      padding: '6px 12px',
+                                      borderRadius: 8,
+                                      cursor: 'pointer',
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      color: '#fff'
+                                    }}
+                                  >
+                                    Download AI PDF
+                                  </button>
+                                ) : (
+                                  <span style={{ color: '#94a3b8', marginRight: 10, fontSize: 12 }}>No PDF</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {reports[0]?.ai && (
+                      <div style={{ marginTop: 16, padding: 16, border: '1px solid #eee', borderRadius: 10 }}>
+                        <h4 style={{ marginTop: 0 }}>Latest AI Summary</h4>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))',
+                            gap: 16
+                          }}
+                        >
+                          <div>
+                            <b>Summary of Work Done</b>
+                            <ul style={{ marginTop: 6 }}>
+                              {(reports[0].ai.summary_of_work_done || []).map((x, i) => (
+                                <li key={i}>{x}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <b>Completed Tasks</b>
+                            <ul style={{ marginTop: 6 }}>
+                              {(reports[0].ai.completed_tasks || []).map((x, i) => (
+                                <li key={i}>{x}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          <div>
+                            <b>Critical Path (3)</b>
+                            <div style={{ marginTop: 6 }}>
+                              {(reports[0].ai.critical_path_analysis || [])
+                                .slice(0, 3)
+                                .map((c, i) => (
+                                  <div key={i} style={{ marginBottom: 8 }}>
+                                    <b>{`${i + 1}. ${c?.path_type || 'Path ' + (i + 1)}`}</b>
+                                    <ul style={{ marginTop: 4, marginBottom: 4 }}>
+                                      {c?.risk && (
+                                        <li>
+                                          <b>Risk:</b> {c.risk}
+                                        </li>
+                                      )}
+                                      {c?.blockers?.length > 0 && (
+                                        <li>
+                                          <b>Blockers:</b> {c.blockers.join('; ')}
+                                        </li>
+                                      )}
+                                      {c?.next?.length > 0 && (
+                                        <li>
+                                          <b>Next:</b> {c.next.join('; ')}
+                                        </li>
+                                      )}
+                                    </ul>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                          <div>
+                            <b>PiC Performance</b>
+                            <p style={{ marginTop: 6 }}>
+                              {reports[0].ai.pic_performance_evaluation?.text || 'Performance summary unavailable.'}
+                            </p>
+                            {typeof reports[0].ai.pic_performance_evaluation?.score === 'number' && (
+                              <p>Score: {reports[0].ai.pic_performance_evaluation.score}/100</p>
+                            )}
+                            <p>
+                              PiC Contribution: {Math.round(Number(reports[0].ai.pic_contribution_percent) || 0)}%
+                            </p>
+                            {typeof reports[0].ai.confidence === 'number' && (
+                              <p>Model Confidence: {(reports[0].ai.confidence * 100).toFixed(0)}%</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

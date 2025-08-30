@@ -45,10 +45,10 @@ import AddProject from './am/AreaAddproj';
 import AmMatRequestList from './am/AmMatRequestList';
 import AreaManpowerList from './am/AreaManpowerList';
 import AreasPage from './am/AreaProjArea';
-import AreaViewSpecificProj from './am/AreaViewSpecificProj';
 import AreaManpowerReqDetails from './am/AreaManpowerReqDetails';
 import AmMatRequestDetail from './am/AmMatRequestDetail';
 import ProgressReport from './am/ProgressReport';
+import AmViewProject from './am/AmViewProject';
 
 // IT
 import ItDash from './it/ItDash';
@@ -64,7 +64,6 @@ import ItProjects from './it/ItProjects';
 // CEO
 import CeoDash from './ceo/CeoDash';
 import CeoProj from './ceo/CeoProj';
-import CeoViewSpecific from './ceo/CeoViewSpecific';
 import CeoAddArea from './ceo/CeoAddArea';
 import CeoMaterialList from './ceo/CeoMaterialList';
 import CeoMaterialRequestDetail from './ceo/CeoMaterialRequestDetail';
@@ -73,16 +72,17 @@ import CeoChat from './chats/CeoChat';
 import CeoMaterialRequestEdit from './ceo/CeoMaterialRequestEdit';
 import CeoManpowerRequestList from './ceo/CeoManpowerRequestList';
 import CeoManpowerRequestDetail from './ceo/CeoManpowerRequestDetail';
+import CeoViewProject from './ceo/CeoViewProject';
 
 // HR
 import HrDash from './hr/HrDash';
 import HrManpowerList from './hr/HrManpowerList';
 import HrMovementList from './hr/HrMovementList';
 import HrProj from './hr/HrProj';
-import HrViewSpecific from './hr/HrViewSpeficic';
 import HrManpowerRequestDetail from './hr/HrManpowerRequestDetail';
 import HrChat from './chats/HrChat';
 import HrManpowerRequestList from './hr/HrManpowerRequestList';
+import HrViewProject from './hr/HrViewProject';
 
 // STAFF
 import StaffCurrentProject from './staff/StaffCurrentProject';
@@ -151,7 +151,9 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/am/viewproj/:id" element={<AreasPage />} />
         <Route path="/am/manpower-requests/:id" element={<AreaManpowerReqDetails />} />
         <Route path="/am/projects" element={<AreasPage />} />
-        <Route path="/am/projects/:id" element={<AreaViewSpecificProj />} />
+  <Route path="/am/projects/:id" element={<AmViewProject />} />
+  {/* New unified project view (reusable) */}
+  <Route path="/am/viewprojects/:id" element={<AmViewProject />} />
   <Route path="/am/material-list" element={<AmMatRequestList />} />
   <Route path="/am/material-request/:id" element={<AmMatRequestDetail />} />
         <Route path="/am/progress-report/:id" element={<ProgressReport />} />
@@ -176,7 +178,9 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/ceo/dash" element={<CeoDash />} />
         <Route path="/ceo/addarea" element={<CeoAddArea />} />
         <Route path="/ceo/proj" element={<CeoProj />} />
-        <Route path="/ceo/proj/:id" element={<CeoViewSpecific />} />
+  <Route path="/ceo/proj/:id" element={<CeoViewProject />} />
+  {/* New unified project view (reusable) */}
+  <Route path="/ceo/viewprojects/:id" element={<CeoViewProject />} />
         <Route path="/ceo/material-list" element={<CeoMaterialList />} />
         <Route path="/ceo/material-request/:id" element={<CeoMaterialRequestDetail />} />
         <Route path="/ceo/material-request/edit/:id" element={<CeoMaterialRequestEdit />} />
@@ -193,7 +197,9 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/hr/mlist" element={<HrManpowerList />} />
         <Route path="/hr/movement" element={<HrMovementList />} />
         <Route path="/hr/project-records" element={<HrProj />} />
-        <Route path="/hr/project-records/:id" element={<HrViewSpecific />} />
+  <Route path="/hr/project-records/:id" element={<HrViewProject />} />
+  {/* New unified project view (reusable) */}
+  <Route path="/hr/viewprojects/:id" element={<HrViewProject />} />
         <Route path="/hr/manpower-request/:id" element={<HrManpowerRequestDetail />} />
         <Route path="/hr/chat" element={<HrChat />} />
         <Route path="/hr/chat/:chatId" element={<HrChat />} />
