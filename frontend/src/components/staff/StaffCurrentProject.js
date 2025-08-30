@@ -1,29 +1,51 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
-import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaPlus, FaTrash } from 'react-icons/fa';
-import "../style/pic_style/Pic_Project.css";
+import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaDownload, FaCalendarAlt, FaMapMarkerAlt, FaUsers, FaUserTie, FaBuilding, FaMoneyBillWave, FaCheckCircle, FaClock, FaTrash, FaCamera, FaChartBar } from 'react-icons/fa';
+import { exportProjectDetails } from '../../utils/projectPdf';
+// Nav icons
+import { FaTachometerAlt, FaComments, FaBoxes, FaUsers as FaUsersNav, FaProjectDiagram, FaClipboardList } from 'react-icons/fa';
+import "../style/staff_style/Staff_Dash.css";
+import "../style/pm_style/Pm_ViewProjects.css";
+import "../style/staff_style/Staff_ViewProject.css";
 
-/* ---------- Socket endpoint setup ---------- */
-const RAW = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
-const SOCKET_ORIGIN = RAW.replace(/\/api$/, '');
+/* ---------- Socket.IO setup ---------- */
+const SOCKET_ORIGIN = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '');
 const SOCKET_PATH = '/socket.io';
 
-/* ---------- Open private file (attachments) ---------- */
+/* ---------- File handling utilities ---------- */
 async function openSignedPath(path) {
   try {
     const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(path)}`);
     const url = data?.signedUrl;
     if (!url) throw new Error('No signedUrl in response');
     window.open(url, '_blank', 'noopener,noreferrer');
-  } catch {
+  } catch (e) {
     alert('Failed to open attachment.');
   }
 }
 
-/* ---------- Mentions: render + highlight ---------- */
+function extractOriginalNameFromPath(path) {
+  const base = (path || '').split('/').pop() || '';
+  const underscore = base.indexOf('_');
+  if (underscore !== -1 && underscore < base.length - 1) return base.slice(underscore + 1);
+  const m = base.match(/^project-\d{8,}-(.+)$/i);
+  if (m && m[1]) return m[1];
+  return base;
+}
+
+function getFileType(fileName) {
+  const extension = fileName.split('.').pop()?.toLowerCase();
+  const typeMap = {
+    'pdf': 'PDF', 'doc': 'DOC', 'docx': 'DOCX', 'xls': 'XLS', 'xlsx': 'XLSX',
+    'ppt': 'PPT', 'pptx': 'PPTX', 'txt': 'TXT', 'rtf': 'RTF', 'csv': 'CSV',
+    'jpg': 'JPG', 'jpeg': 'JPEG', 'png': 'PNG', 'gif': 'GIF', 'bmp': 'BMP', 'svg': 'SVG'
+  };
+  return typeMap[extension] || 'FILE';
+}
+
 function renderMessageText(text = '', meName = '') {
   const meSlug = (meName || '').trim().toLowerCase().replace(/\s+/g, '');
   const re = /@[\w.-]+/g;
@@ -36,35 +58,32 @@ function renderMessageText(text = '', meName = '') {
       const raw = tag.slice(1);
       const slug = raw.toLowerCase().replace(/\s+/g, '');
       const isEveryone = slug === 'all' || slug === 'everyone';
-      const isMe = meSlug && slug === meSlug;
+      const isMe = slug === meSlug;
       nodes.push(
-        <span
-          key={`m${i}`}
-          style={{
-            background: isMe ? 'rgba(25,118,210,.15)' : isEveryone ? 'rgba(76,175,80,.15)' : 'rgba(25,118,210,.08)',
-            border: '1px solid rgba(25,118,210,.25)',
-            color: '#1976d2',
-            padding: '1px 4px',
-            borderRadius: 4,
-            fontWeight: 600,
-            marginRight: 2
-          }}
-        >
+        <span key={i} style={{ 
+          background: isMe ? '#f6c343' : isEveryone ? '#3b82f6' : '#e5e7eb',
+          color: isMe ? '#3a2f00' : isEveryone ? 'white' : '#374151',
+          padding: '2px 6px', 
+          borderRadius: '4px', 
+          fontWeight: 'bold',
+          fontSize: '0.9em'
+        }}>
           {tag}
         </span>
       );
     }
-    nodes.push(<span key={`t${i}`}>{parts[i]}</span>);
+    if (parts[i]) nodes.push(parts[i]);
   }
   return nodes;
 }
+
 function isMentioned(text = '', meName = '') {
-  if (!text || !meName) return false;
-  if (/@(all|everyone)\b/i.test(text)) return true;
+  const meSlug = (meName || '').trim().toLowerCase().replace(/\s+/g, '');
+  if (!meSlug || !text) return false;
   const collapsed = text.toLowerCase().replace(/\s+/g, '');
-  const meSlug = meName.trim().toLowerCase().replace(/\s+/g, '');
   return collapsed.includes(`@${meSlug}`);
 }
+
 const mentionRowStyles = {
   container: {
     position: 'relative',
@@ -87,68 +106,24 @@ const mentionRowStyles = {
   }
 };
 
-/* ---------- Filename / timestamp + meta helpers ---------- */
-function extractOriginalNameFromPath(path) {
-  const base = (path || '').split('/').pop() || '';
-  const underscore = base.indexOf('_');
-  if (underscore !== -1 && underscore < base.length - 1) return base.slice(underscore + 1);
-  const m = base.match(/^project-\d{8,}-(.+)$/i);
-  if (m && m[1]) return m[1];
-  return base;
-}
-function parseTimestampFromPath(path = '') {
-  const base = (path || '').split('/').pop() || '';
-  const m = base.match(/^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)_/);
-  if (!m) return null;
-  const iso = m[1].replace(/T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z/, (_, hh, mm, ss, ms) => `T${hh}:${mm}:${ss}.${ms}Z`);
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? null : d;
-}
-const fmt = d => { try { return d?.toLocaleString() || ''; } catch { return ''; } };
+const peso = new Intl.NumberFormat('en-PH', {
+  style: 'currency',
+  currency: 'PHP',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
 
-function readUploadedBy(doc) {
-  if (!doc || typeof doc !== 'object') return 'N/A';
-  for (const key of ['uploadedByName','uploaderName','addedByName','ownerName','createdByName','name']) {
-    const v = doc[key];
-    if (typeof v === 'string' && v.trim()) return v.trim();
-  }
-  const nested = doc.uploadedBy || doc.uploader || doc.addedBy || doc.owner || doc.createdBy || doc.user;
-  if (nested && typeof nested === 'object') {
-    const v = nested.name || nested.fullName || nested.username || nested.email;
-    if (typeof v === 'string' && v.trim()) return v.trim();
-  }
-  const looksLikeId = s => typeof s === 'string' && /^[a-f0-9]{24}$/i.test(s);
-  for (const c of [doc.uploadedBy, doc.uploader, doc.addedBy, doc.owner, doc.createdBy, doc.user]) {
-    if (typeof c === 'string' && c.trim() && !looksLikeId(c)) return c.trim();
+function readContractor(project) {
+  if (typeof project?.contractor === 'string' && project.contractor.trim().length > 0) {
+    return project.contractor;
   }
   return 'N/A';
 }
-function readUploadedAt(doc, path) {
-  let t = null;
-  if (doc && typeof doc === 'object') {
-    t = doc.uploadedAt || doc.createdAt || doc.timestamp || doc.addedAt || doc.date || doc.time || null;
-  }
-  if (t) {
-    const dt = new Date(t);
-    if (!isNaN(dt.getTime())) return fmt(dt);
-  }
-  const fromPath = parseTimestampFromPath(path);
-  if (fromPath) return fmt(fromPath);
-  return '';
-}
 
 const StaffCurrentProject = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
-
-  // Profile + nav state
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('Details');
-
-  // Project + budgets
-  const [project, setProject] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [purchaseOrders, setPurchaseOrders] = useState([]);
-  const [totalPO, setTotalPO] = useState(0);
+  const token = localStorage.getItem('token');
 
   // Stable user
   const userRef = useRef(null);
@@ -159,171 +134,67 @@ const StaffCurrentProject = () => {
   const user = userRef.current;
   const userId = user?._id || null;
   const [userName] = useState(user?.name || 'Staff');
-  const token = localStorage.getItem('token');
+
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+
+  const [project, setProject] = useState(null);
+  const [activeTab, setActiveTab] = useState('Details');
+  const [status, setStatus] = useState('');
+  const [progress, setProgress] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   // Discussions
   const [messages, setMessages] = useState([]);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
-  const [hasLoadedDiscussions, setHasLoadedDiscussions] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [replyInputs, setReplyInputs] = useState({});
-  const [showNewMsgInput, setShowNewMsgInput] = useState(false);
-
-  // Attachments (new message + replies)
-  const [composerFiles, setComposerFiles] = useState([]);
-  const [isDragOver, setIsDragOver] = useState(false);
   const [posting, setPosting] = useState(false);
+  const [composerFiles, setComposerFiles] = useState([]);
+  const [selectedLabel, setSelectedLabel] = useState('');
+  const listScrollRef = useRef(null);
+  const listBottomRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  // File management state
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState('');
+  const [fileSearchTerm, setFileSearchTerm] = useState('');
 
   // Mentions
-  const textareaRef = useRef();
-  const [mentionDropdown, setMentionDropdown] = useState({ open: false, options: [], query: '', position: { top: 0, left: 0 } });
+  const [mentionDropdown, setMentionDropdown] = useState({ 
+    open: false, 
+    options: [], 
+    query: '', 
+    position: { top: 0, left: 0 },
+    activeInputId: null
+  });
+  const [projectUsers, setProjectUsers] = useState([]);
 
-  // Files tab
-  const [docSignedUrls, setDocSignedUrls] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadErr, setUploadErr] = useState('');
-  const [pendingFiles, setPendingFiles] = useState(null);
-  const [duplicateNames, setDuplicateNames] = useState([]);
-  const [showDupModal, setShowDupModal] = useState(false);
-
-  // Sockets
-  const socketRef = useRef(null);
-  const joinedRoomRef = useRef(null);
-  const projectIdRef = useRef(null);
-
-  // keep ref synced
+  // Scroll handler for header collapse
   useEffect(() => {
-    projectIdRef.current = project?._id ? String(project._id) : null;
-  }, [project?._id]);
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const shouldCollapse = scrollTop > 50;
+      setIsHeaderCollapsed(shouldCollapse);
+    };
 
-  // Build staff list for mentions (PM, PIC, Staff, HR - Site)
-  const staffList = useMemo(() => {
-    if (!project) return [];
-    let staff = [];
-    if (project.projectmanager && typeof project.projectmanager === 'object') {
-      staff.push({ _id: project.projectmanager._id, name: project.projectmanager.name });
-    }
-    if (Array.isArray(project.pic)) staff = staff.concat(project.pic.map(p => ({ _id: p._id, name: p.name })));
-    if (Array.isArray(project.staff)) staff = staff.concat(project.staff.map(s => ({ _id: s._id, name: s.name })));
-    if (Array.isArray(project.hrsite)) staff = staff.concat(project.hrsite.map(h => ({ _id: h._id, name: h.name })));
-    const seen = new Set();
-    return staff.filter(u => u._id && !seen.has(u._id) && seen.add(u._id));
-  }, [project]);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
-  // Can upload/delete docs?
-  const canUploadOrDelete = useMemo(() => {
-    if (!user || !project) return false;
-    const allowed = new Set(['Person in Charge', 'Area Manager', 'Project Manager', 'Staff', 'HR - Site']);
-    const roleName = (user.role || user.userType || user.position || user.designation || '').toString().trim();
-    const byRole = roleName && [...allowed].some(r => roleName.toLowerCase().includes(r.toLowerCase()));
-    const uid = String(userId || '');
-    const isPM = String(project.projectmanager?._id || project.projectmanager || '') === uid;
-    const isAM = String(project.areamanager?._id || project.areamanager || '') === uid;
-    const inPIC = Array.isArray(project.pic) && project.pic.some(p => String(p._id || p) === uid);
-    const inStaff = Array.isArray(project.staff) && project.staff.some(p => String(p._id || p) === uid);
-    const inHR = Array.isArray(project.hrsite) && project.hrsite.some(p => String(p._id || p) === uid);
-    return byRole || isPM || isAM || inPIC || inStaff || inHR;
-  }, [user, project, userId]);
-
-  /* -------------------- Socket (once) -------------------- */
+  /* ---------------- Fetch specific project ---------------- */
   useEffect(() => {
-    if (socketRef.current) return;
-
-    const sock = io(SOCKET_ORIGIN, {
-      path: SOCKET_PATH,
-      withCredentials: true,
-      transports: ['websocket'],
-      auth: { userId },
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      randomizationFactor: 0.5,
-    });
-    socketRef.current = sock;
-
-    const onConnect = () => {
-      if (joinedRoomRef.current) sock.emit('joinProject', joinedRoomRef.current);
-    };
-    const onNewDiscussion = (payload) => {
-      const currentPid = projectIdRef.current;
-      if (!currentPid || payload?.projectId !== currentPid) return;
-      setMessages(prev => [...prev, payload.message]);
-    };
-    const onNewReply = (payload) => {
-      const currentPid = projectIdRef.current;
-      if (!currentPid || payload?.projectId !== currentPid) return;
-      setMessages(prev => {
-        const clone = prev.map(m => ({ ...m, replies: [...(m.replies || [])] }));
-        const idx = clone.findIndex(m => String(m._id) === String(payload.msgId));
-        if (idx !== -1) clone[idx].replies.push(payload.reply);
-        return clone;
-      });
-    };
-    const onDocsUpdated = async () => {
-      if (!projectIdRef.current) return;
-      try {
-        const { data } = await api.get(`/projects/${projectIdRef.current}`);
-        const normalizedDocs = Array.isArray(data?.documents)
-          ? data.documents.map(d => (typeof d === 'string'
-              ? { path: d, uploadedByName: 'Unknown', uploadedAt: parseTimestampFromPath(d) || null }
-              : d))
-          : [];
-        setProject(prev => ({ ...data, documents: normalizedDocs }));
-      } catch {}
-    };
-
-    sock.on('connect', onConnect);
-    sock.on('project:newDiscussion', onNewDiscussion);
-    sock.on('project:newReply', onNewReply);
-    sock.on('project:documentsUpdated', onDocsUpdated);
-
-    return () => {
-      sock.off('connect', onConnect);
-      sock.off('project:newDiscussion', onNewDiscussion);
-      sock.off('project:newReply', onNewReply);
-      sock.off('project:documentsUpdated', onDocsUpdated);
-      sock.disconnect();
-      socketRef.current = null;
-      joinedRoomRef.current = null;
-    };
-  }, [userId]);
-
-  /* -------- Join/leave project room when Discussions tab is active -------- */
-  const projectId = project?._id || null;
-  useEffect(() => {
-    const sock = socketRef.current;
-    if (!sock) return;
-    const desiredRoom = (activeTab === 'Discussions' && projectId) ? `project:${projectId}` : null;
-
-    if (joinedRoomRef.current === desiredRoom) return;
-    if (joinedRoomRef.current && (!desiredRoom || joinedRoomRef.current !== desiredRoom)) {
-      sock.emit('leaveProject', joinedRoomRef.current);
-      joinedRoomRef.current = null;
-    }
-    if (desiredRoom && joinedRoomRef.current !== desiredRoom) {
-      sock.emit('joinProject', desiredRoom);
-      joinedRoomRef.current = desiredRoom;
-    }
-  }, [projectId, activeTab]);
-
-  /* -------------------- Fetch current project (by assigned) -------------------- */
-  useEffect(() => {
-    if (!userId) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.get(`/projects/assigned/allroles/${userId}`);
+        // Get specific project by ID
+        const { data } = await api.get(`/projects/${id}`);
         if (cancelled) return;
-        const ongoing = (res.data || []).find(p => p.status === 'Ongoing') || (res.data || [])[0] || null;
-
-        // normalize legacy docs (string → object)
-        const normalizedDocs = Array.isArray(ongoing?.documents)
-          ? ongoing.documents.map(d => (typeof d === 'string'
-              ? { path: d, uploadedByName: 'Unknown', uploadedAt: parseTimestampFromPath(d) || null }
-              : d))
-          : [];
-        setProject(ongoing ? { ...ongoing, documents: normalizedDocs } : null);
+        setProject(data);
+        setStatus(data?.status || '');
+        setProgress(data?.progress || 0);
       } catch {
         if (!cancelled) setProject(null);
       } finally {
@@ -331,285 +202,253 @@ const StaffCurrentProject = () => {
       }
     })();
     return () => { cancelled = true; };
-  }, [userId]);
+  }, [id]);
 
-  /* -------------------- Purchase Orders -------------------- */
+  /* ---------------- Discussions initial fetch ---------------- */
   useEffect(() => {
-    if (!projectId) return;
+    if (!project?._id) return;
+    
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.get('/requests');
+        setLoadingMsgs(true);
+        const { data } = await api.get(`/projects/${project._id}/messages`);
         if (cancelled) return;
-        const approved = (res.data || []).filter(r =>
-          String(r?.project?._id || '') === String(projectId) &&
-          r.status === 'Approved' &&
-          r.totalValue
-        );
-        setPurchaseOrders(approved);
-        setTotalPO(approved.reduce((s, r) => s + (Number(r.totalValue) || 0), 0));
+        setMessages(data || []);
       } catch {
-        if (!cancelled) { setPurchaseOrders([]); setTotalPO(0); }
+        if (!cancelled) setMessages([]);
+      } finally {
+        if (!cancelled) setLoadingMsgs(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [project?._id]);
 
-  /* -------------------- Discussions initial fetch -------------------- */
+  /* ---------------- Socket.IO connection ---------------- */
   useEffect(() => {
-    if (!projectId || activeTab !== 'Discussions' || hasLoadedDiscussions) return;
-    const controller = new AbortController();
-    setLoadingMsgs(true);
-    api.get(`/projects/${projectId}/discussions`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal,
-    })
-      .then(res => setMessages(Array.isArray(res.data) ? res.data : []))
-      .catch(() => setMessages([]))
-      .finally(() => {
-        setLoadingMsgs(false);
-        setHasLoadedDiscussions(true);
-      });
-    return () => controller.abort();
-  }, [projectId, activeTab, token, hasLoadedDiscussions]);
-  useEffect(() => { setHasLoadedDiscussions(false); }, [projectId]);
+    if (!project?._id) return;
+    
+    const socket = io(SOCKET_ORIGIN, {
+      path: SOCKET_PATH,
+      query: { projectId: project._id }
+    });
 
-  /* -------------------- Files: signed URLs -------------------- */
+    socket.on('new-message', (message) => {
+      setMessages(prev => [...prev, message]);
+    });
+
+    socket.on('new-reply', (reply) => {
+      setMessages(prev => prev.map(msg => 
+        msg._id === reply.messageId 
+          ? { ...msg, replies: [...(msg.replies || []), reply] }
+          : msg
+      ));
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [project?._id]);
+
+  /* ---------------- Project users for mentions ---------------- */
   useEffect(() => {
-    let intervalId;
-    async function fetchSignedUrls() {
-      const docs = Array.isArray(project?.documents) ? project.documents : [];
-      if (docs.length) {
-        const urls = await Promise.all(
-          docs.map(async d => {
-            const p = typeof d === 'string' ? d : d?.path;
-            if (!p) return null;
-            try {
-              const { data } = await api.get(`/photo-signed-url?path=${encodeURIComponent(p)}`);
-              return data.signedUrl;
-            } catch { return null; }
-          })
-        );
-        setDocSignedUrls(urls);
-      } else {
-        setDocSignedUrls([]);
+    if (!project?._id) return;
+    
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get(`/projects/${project._id}/users`);
+        if (cancelled) return;
+        setProjectUsers(data || []);
+      } catch {
+        if (!cancelled) setProjectUsers([]);
       }
-    }
-    if (activeTab === 'Files') {
-      fetchSignedUrls();
-      intervalId = setInterval(fetchSignedUrls, 270000);
-    }
-    return () => clearInterval(intervalId);
-  }, [activeTab, project]);
+    })();
+    return () => { cancelled = true; };
+  }, [project?._id]);
 
-  /* -------------------- Mentions -------------------- */
-  const handleTextareaInput = (e) => {
-    const value = e.target.value;
-    setNewMessage(value);
-    const caret = e.target.selectionStart;
-    const textUpToCaret = value.slice(0, caret);
-    const match = /(^|\s)@(\w*)$/.exec(textUpToCaret);
-    if (match) {
-      const query = match[2].toLowerCase();
-      const options = staffList
-        .concat([{ _id: '_all_', name: 'all' }, { _id: '_everyone_', name: 'everyone' }])
-        .filter(u => (u.name || '').toLowerCase().includes(query));
-      const rect = e.target.getBoundingClientRect();
-      setMentionDropdown({ open: true, options, query, position: { top: rect.top + e.target.offsetHeight, left: rect.left + 10 } });
-    } else {
-      setMentionDropdown({ open: false, options: [], query: '', position: { top: 0, left: 0 } });
-    }
-  };
-  const handleMentionSelect = (selUser) => {
-    if (!textareaRef.current) return;
-    const value = newMessage;
-    const caret = textareaRef.current.selectionStart;
-    const textUpToCaret = value.slice(0, caret);
-    const match = /(^|\s)@(\w*)$/.exec(textUpToCaret);
-    if (!match) return;
-    const before = value.slice(0, match.index + match[1].length);
-    const after  = value.slice(caret);
-    const mentionText = `@${selUser.name} `;
-    const newVal = before + mentionText + after;
-    setNewMessage(newVal);
-    setMentionDropdown({ open: false, options: [], query: '', position: { top: 0, left: 0 } });
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-        textareaRef.current.selectionStart = textareaRef.current.selectionEnd = (before + mentionText).length;
-      }
-    }, 0);
-  };
-
-  /* -------------------- Discussions: post & reply (with attachments) -------------------- */
-  const acceptTypes = ".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv,image/*";
-  const disabledPost = (!newMessage.trim() && composerFiles.length === 0) || posting || !projectId;
-
-  function addComposerFiles(files) {
-    if (!files?.length) return;
-    const arr = Array.from(files);
-    setComposerFiles(prev => [...prev, ...arr]);
-  }
-  const onDragOverComposer = (e) => { e.preventDefault(); setIsDragOver(true); };
-  const onDragLeaveComposer = (e) => { e.preventDefault(); setIsDragOver(false); };
-  const onDropComposer = (e) => {
-    e.preventDefault(); setIsDragOver(false);
-    if (e.dataTransfer?.files?.length) addComposerFiles(e.dataTransfer.files);
-  };
-  const addReplyFiles = (msgId, fileList) => {
-    const filesKey = `_replyFiles_${msgId}`;
-    const arr = Array.from(fileList || []);
-    setReplyInputs(prev => ({ ...prev, [filesKey]: [...(prev[filesKey] || []), ...arr] }));
-  };
-
+  /* ---------------- Message posting ---------------- */
   const handlePostMessage = async () => {
-    if (disabledPost) return;
+    if (!newMessage.trim() && composerFiles.length === 0) return;
+    if (!project?._id) return;
+    
+    setPosting(true);
     try {
-      setPosting(true);
-      const fd = new FormData();
-      if (newMessage.trim()) fd.append('text', newMessage.trim());
-      composerFiles.forEach(f => fd.append('attachments', f));
-      await api.post(`/projects/${projectId}/discussions`, fd, {
-        headers: { Authorization: `Bearer ${token}` }
+      const formData = new FormData();
+      formData.append('text', newMessage);
+      composerFiles.forEach(file => formData.append('attachments', file));
+      
+      const { data } = await api.post(`/projects/${project._id}/messages`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
+      
+      setMessages(prev => [...prev, data]);
       setNewMessage('');
       setComposerFiles([]);
-      setShowNewMsgInput(false);
-    } catch {
-      alert('Failed to post message');
+    } catch (error) {
+      console.error('Failed to post message:', error);
+      alert('Failed to post message. Please try again.');
     } finally {
       setPosting(false);
     }
   };
 
-  const handlePostReply = async (msgId) => {
-    const replyText = (replyInputs[msgId] || '').trim();
-    const filesKey = `_replyFiles_${msgId}`;
-    const replyFiles = (replyInputs[filesKey] || []);
-    const disabledReply = (!replyText && replyFiles.length === 0) || !projectId;
-    if (disabledReply) return;
+  /* ---------------- Reply posting ---------------- */
+  const handlePostReply = async (messageId) => {
+    const replyText = replyInputs[messageId];
+    if (!replyText?.trim()) return;
+    if (!project?._id) return;
+    
     try {
-      const fd = new FormData();
-      if (replyText) fd.append('text', replyText);
-      replyFiles.forEach(f => fd.append('attachments', f));
-      await api.post(`/projects/${projectId}/discussions/${msgId}/reply`, fd, {
-        headers: { Authorization: `Bearer ${token}` }
+      const { data } = await api.post(`/projects/${project._id}/messages/${messageId}/replies`, {
+        text: replyText
       });
-      setReplyInputs(prev => ({ ...prev, [msgId]: '', [filesKey]: [] }));
-    } catch {
-      alert('Failed to post reply');
+      
+      setMessages(prev => prev.map(msg => 
+        msg._id === messageId 
+          ? { ...msg, replies: [...(msg.replies || []), data] }
+          : msg
+      ));
+      
+      setReplyInputs(prev => ({ ...prev, [messageId]: '' }));
+    } catch (error) {
+      console.error('Failed to post reply:', error);
+      alert('Failed to post reply. Please try again.');
     }
   };
 
-  /* -------------------- Files: upload / delete (permission-gated) -------------------- */
-  const actuallyUpload = async (filesArr, useOverwrite = false) => {
+  /* ---------------- File upload ---------------- */
+  const handleFileUpload = async (files) => {
+    if (!files?.length || !project?._id) return;
+    
     setUploading(true);
-    setUploadErr('');
+    setUploadProgress(0);
+    setUploadError('');
+    
     try {
-      const fd = new FormData();
-      filesArr.forEach(f => fd.append('files', f));
-
-      const { data } = await api.post(
-        `/projects/${project._id}/documents${useOverwrite ? '?overwrite=1' : ''}`,
-        fd,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      const normalized = Array.isArray(data?.documents)
-        ? data.documents.map(d => (typeof d === 'string'
-            ? { path: d, uploadedByName: 'Unknown', uploadedAt: parseTimestampFromPath(d) || null }
-            : d))
-        : [];
-      setProject(prev => ({ ...prev, documents: normalized }));
-
-      if (data?.renamed?.length) {
-        alert(data.renamed.map(r => `⚠️ ${r.from} already existed, uploaded as ${r.to}`).join('\n'));
-      }
-      if (data?.replaced?.length) {
-        alert(data.replaced.map(r => `ℹ️ ${r.originalName} was replaced (${r.removed} old version(s) removed)`).join('\n'));
-      }
-    } catch {
-      setUploadErr('Upload failed. Please try again.');
-    } finally {
-      setUploading(false);
-      setPendingFiles(null);
-      setDuplicateNames([]);
-      setShowDupModal(false);
-    }
-  };
-
-  const handlePrepareUpload = (files) => {
-    if (!files?.length || !project) return;
-    const existing = new Set(
-      (project.documents || []).map(item => {
-        const p = typeof item === 'string' ? item : item?.path || '';
-        return extractOriginalNameFromPath(p).toLowerCase();
-      })
-    );
-    const dups = [];
-    files.forEach(f => { if (existing.has((f.name || '').toLowerCase())) dups.push(f.name); });
-    if (dups.length) {
-      setPendingFiles(files);
-      setDuplicateNames(dups);
-      setShowDupModal(true);
-    } else {
-      actuallyUpload(files, false);
-    }
-  };
-
-  const handleDelete = async (docItem) => {
-    if (!canUploadOrDelete) return;
-    const path = typeof docItem === 'string' ? docItem : docItem?.path;
-    const fileName = extractOriginalNameFromPath(path);
-    const ok = window.confirm(`Delete "${fileName}" from this project?`);
-    if (!ok) return;
-
-    try {
-      const { data } = await api.delete(`/projects/${project._id}/documents`, {
-        headers: { Authorization: `Bearer ${token}` },
-        data: { path }
+      const formData = new FormData();
+      files.forEach(file => formData.append('files', file));
+      
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 200);
+      
+      const response = await api.post(`/projects/${project._id}/documents`, formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
       });
-      const normalized = Array.isArray(data?.documents)
-        ? data.documents.map(d => (typeof d === 'string'
-            ? { path: d, uploadedByName: 'Unknown', uploadedAt: parseTimestampFromPath(d) || null }
-            : d))
-        : [];
-      setProject(prev => ({ ...prev, documents: normalized }));
-    } catch {
-      alert('Failed to delete file.');
+      
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      
+      if (response.data?.documents) {
+        setProject(prev => ({
+          ...prev,
+          documents: response.data.documents
+        }));
+      }
+      
+      setTimeout(() => {
+        setUploading(false);
+        setUploadProgress(0);
+      }, 1000);
+      
+    } catch (error) {
+      console.error('File upload error:', error);
+      setUploadError('Upload failed. Please try again.');
+      setUploading(false);
+      setUploadProgress(0);
+      alert('Upload failed. Please try again.');
     }
   };
 
-  /* -------------------- UI misc -------------------- */
-  useEffect(() => {
-    const handleClickOutside = (e) => { if (!e.target.closest(".profile-menu-container")) setProfileMenuOpen(false); };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
+  /* ---------------- File deletion ---------------- */
+  const handleDeleteFile = async (doc, index) => {
+    if (!project?._id || !window.confirm('Are you sure you want to delete this file?')) return;
+    
+    try {
+      const filePath = typeof doc === 'string' ? doc : doc.path;
+      await api.delete(`/projects/${project._id}/documents`, {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { path: filePath }
+      });
+      
+      setProject(prev => ({
+        ...prev,
+        documents: prev.documents.filter((_, i) => i !== index)
+      }));
+      
+    } catch (error) {
+      console.error('File delete error:', error);
+      alert('Failed to delete file. Please try again.');
+    }
+  };
+
+  /* ---------------- Utility functions ---------------- */
+  const addComposerFiles = (files) => {
+    if (!files?.length) return;
+    setComposerFiles(prev => [...prev, ...Array.from(files)]);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/');
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (!project) {
-    return (
-      <>
-        <header className="header">
-          <div className="logo-container">
-            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-            <h1 className="brand-name">FadzTrack</h1>
+  if (loading) return (
+    <div className="dashboard-container staff-view-root">
+      <div className="professional-loading-screen">
+        <div className="loading-content">
+          <div className="loading-logo">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="loading-logo-img"
+            />
           </div>
-          <nav className="nav-menu">
-            <Link to="/staff/current-project" className="nav-link">Dashboard</Link>
-            <Link to="/staff/all-projects" className="nav-link">My Projects</Link>
-            <Link to="/staff/chat" className="nav-link">Chat</Link>
-          </nav>
-          <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-            <NotificationBell />
-            <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-              {userName?.charAt(0).toUpperCase() || 'S'}
+          <div className="loading-spinner-container">
+            <div className="loading-spinner"></div>
+          </div>
+          <div className="loading-text">
+            <h2 className="loading-title">Loading Project Details</h2>
+            <p className="loading-subtitle">Please wait while we fetch your project information...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+  
+  if (!project) return (
+    <div className="dashboard-container staff-view-root">
+      {/* HEADER */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        {/* Top Row: Logo and Profile */}
+        <div className="header-top">
+          <div className="logo-section">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="header-logo"
+            />
+            <h1 className="header-brand">FadzTrack</h1>
+          </div>
+
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">
+              {userName ? userName.charAt(0).toUpperCase() : 'S'}
+            </div>
+            <div className="profile-info">
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">Staff</span>
             </div>
             {profileMenuOpen && (
               <div className="profile-menu">
@@ -617,673 +456,503 @@ const StaffCurrentProject = () => {
               </div>
             )}
           </div>
-        </header>
-        <main className="main1">
-          <div className="no-project-message">
-            <h2>No assigned project</h2>
-            <p>Your account doesn’t have an active project yet.</p>
-            <p>Please wait for an assignment or contact your manager.</p>
-          </div>
-        </main>
-      </>
-    );
-  }
+        </div>
 
-  // Derived helpers
+        {/* Bottom Row: Navigation and Notifications */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/staff" className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Project</span>
+            </Link>
+            <Link to="/staff/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/staff/projects" className="nav-item">
+              <FaClipboardList />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
+            </Link>
+          </nav>
+          
+          <NotificationBell />
+        </div>
+      </header>
+
+      {/* MAIN CONTENT */}
+      <main className="dashboard-main">
+        <div className="project-view-container">
+          <div className="professional-loading-screen">
+            <div className="loading-content">
+              <div className="loading-logo">
+                <img
+                  src={require('../../assets/images/FadzLogo1.png')}
+                  alt="FadzTrack Logo"
+                  className="loading-logo-img"
+                />
+              </div>
+              <div className="loading-text">
+                <h2 className="loading-title" style={{ color: '#ef4444' }}>No Current Project</h2>
+                <p className="loading-subtitle">You are not currently assigned to any project.</p>
+              </div>
+              <div style={{ marginTop: '2rem' }}>
+                <button 
+                  onClick={() => navigate('/staff')}
+                  style={{
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '8px',
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Return to Dashboard
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+
+  // Derived values
   const start = project?.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A';
-  const end   = project?.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A';
-  const contractor =
-    typeof project?.contractor === 'string' && project.contractor.trim().length > 0 ? project.contractor : 'N/A';
+  const end = project?.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A';
+  const contractor = readContractor(project);
   const locationLabel = project?.location?.name
     ? `${project.location.name}${project.location?.region ? ` (${project.location.region})` : ''}`
     : 'N/A';
-  const budgetNum = Number(project?.budget || 0);
-  const remaining = Math.max(budgetNum - Number(totalPO || 0), 0);
   const manpowerText =
     Array.isArray(project?.manpower) && project.manpower.length > 0
       ? project.manpower.map(mp => [mp?.name, mp?.position].filter(Boolean).join(' (') + (mp?.position ? ')' : '')).join(', ')
       : 'No Manpower Assigned';
 
   return (
-    <>
+    <div className="dashboard-container staff-view-root">
       {/* HEADER */}
-      <header className="header">
-        <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-          <h1 className="brand-name">FadzTrack</h1>
-        </div>
-        <nav className="nav-menu">
-          <Link to="/staff/current-project" className="nav-link">Dashboard</Link>
-          {project && (<Link to={`/staff/projects/${project._id}/request`} className="nav-link">Requests</Link>)}
-          {project && (<Link to={`/staff/${project._id}`} className="nav-link">View Project</Link>)}
-          <Link to="/staff/all-projects" className="nav-link">My Projects</Link>
-          <Link to="/staff/chat" className="nav-link">Chat</Link>
-        </nav>
-        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <NotificationBell />
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {userName?.charAt(0).toUpperCase() || 'S'}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        {/* Top Row: Logo and Profile */}
+        <div className="header-top">
+          <div className="logo-section">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="header-logo"
+            />
+            <h1 className="header-brand">FadzTrack</h1>
           </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
+
+          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">
+              {userName ? userName.charAt(0).toUpperCase() : 'S'}
             </div>
-          )}
+            <div className="profile-info">
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">Staff</span>
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Row: Navigation and Notifications */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/staff" className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Project</span>
+            </Link>
+            <Link to="/staff/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/staff/projects" className="nav-item">
+              <FaClipboardList />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
+            </Link>
+          </nav>
+          
+          <NotificationBell />
         </div>
       </header>
 
-      {/* LAYOUT */}
-      <div className="dashboard-layout">
-        {/* Optional sidebar (kept simple / static) */}
-        <div className="sidebar">
-          <div className="chats-section">
-            <h3 className="chats-title">Chats</h3>
-            <div className="chats-list" />
-          </div>
-        </div>
-
-        {/* MAIN CONTENT */}
-        <main className="main1">
-          <div className="project-detail-container">
-            <div className="project-image-container" style={{ marginBottom: 12 }}>
+      {/* MAIN CONTENT */}
+      <main className="dashboard-main">
+        <div className="project-view-container">
+          {/* Project Header */}
+          <div className="project-header">
+            <div className="project-image-section">
               <img
-                src={(project.photos && project.photos[0]) || 'https://placehold.co/800x300?text=No+Photo'}
+                src={(project.photos && project.photos[0]) || 'https://placehold.co/1200x400?text=Project+Image'}
                 alt={project.projectName}
-                className="responsive-photo"
+                className="project-hero-image"
               />
             </div>
 
-            <h1 className="project-title">{project.projectName}</h1>
-
-            {/* Tabs */}
-            <div className="tabs-row">
-              <button className={`tab-btn${activeTab === 'Discussions' ? ' active' : ''}`} onClick={() => setActiveTab('Discussions')}>
-                <FaRegCommentDots /> Discussions
-              </button>
-              <button className={`tab-btn${activeTab === 'Details' ? ' active' : ''}`} onClick={() => setActiveTab('Details')}>
-                <FaRegListAlt /> Details
-              </button>
-              <button className={`tab-btn${activeTab === 'Files' ? ' active' : ''}`} onClick={() => setActiveTab('Files')}>
-                <FaRegFileAlt /> Files
-              </button>
-              <button className={`tab-btn${activeTab === 'Reports' ? ' active' : ''}`} onClick={() => setActiveTab('Reports')}>
-                <FaRegFileAlt /> Reports
-              </button>
+            <div className="project-title-section">
+              <h1 className="project-title">{project.projectName}</h1>
+              <div className="project-status-badge">
+                <span className={`status-indicator ${status === 'Completed' ? 'completed' : 'ongoing'}`}>
+                  {status === 'Completed' ? <FaCheckCircle /> : <FaClock />}
+                </span>
+                <span className="status-text">{status || project?.status || 'N/A'}</span>
+              </div>
             </div>
+          </div>
 
-            {/* --- Discussions --- */}
-            {activeTab === 'Discussions' && (
-              <div className="discussions-card" style={{ display: 'flex', flexDirection: 'column', height: 540 }}>
-                <div style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
-                  {loadingMsgs ? (
-                    <div style={{ textAlign: "center", color: "#aaa" }}>Loading discussions…</div>
-                  ) : (
-                    <>
-                      {messages.length === 0 ? (
-                        <div style={{ color: '#bbb', fontSize: 18, textAlign: 'center', marginTop: 40, userSelect: 'none' }}>
-                          No messages yet — be the first to post.
-                        </div>
-                      ) : (
-                        messages.map(msg => {
-                          const mentionedMe = isMentioned(msg.text, userName);
-                          return (
-                            <div
-                              key={msg._id}
-                              className="discussion-msg"
-                              style={mentionedMe ? mentionRowStyles.container : undefined}
-                            >
-                              {mentionedMe && <span style={mentionRowStyles.badge}>Mentioned you</span>}
+          {/* Action Buttons */}
+          <div className="action-buttons">
+            <button
+              onClick={() => exportProjectDetails(project)}
+              className="export-btn"
+            >
+              <FaDownload />
+              Export Project Details
+            </button>
+          </div>
 
-                              <div className="discussion-user">
-                                <div className="discussion-avatar">{msg.userName?.charAt(0) ?? '?'}</div>
-                                <div className="discussion-user-info">
-                                  <span className="discussion-user-name">{msg.userName || 'Unknown'}</span>
-                                  <span className="discussion-timestamp">
-                                    {msg.timestamp ? new Date(msg.timestamp).toLocaleString() : ''}
-                                  </span>
-                                </div>
-                              </div>
+          {/* Project Tabs */}
+          <div className="project-tabs">
+            <button
+              className={`project-tab ${activeTab === 'Details' ? 'active' : ''}`}
+              onClick={() => setActiveTab('Details')}
+            >
+              <FaRegListAlt />
+              Details
+            </button>
+            <button
+              className={`project-tab ${activeTab === 'Discussions' ? 'active' : ''}`}
+              onClick={() => setActiveTab('Discussions')}
+            >
+              <FaRegCommentDots />
+              Discussions
+            </button>
+            <button
+              className={`project-tab ${activeTab === 'Files' ? 'active' : ''}`}
+              onClick={() => setActiveTab('Files')}
+            >
+              <FaRegFileAlt />
+              Files
+            </button>
+            <button
+              className={`project-tab ${activeTab === 'Reports' ? 'active' : ''}`}
+              onClick={() => setActiveTab('Reports')}
+            >
+              <FaRegFileAlt />
+              Reports
+            </button>
+          </div>
 
-                              <div className="discussion-text">
-                                {renderMessageText(msg.text, userName)}
-                              </div>
+          {/* Tab Content */}
+          <div className="tab-content">
+            {/* --- Details Tab --- */}
+            {activeTab === 'Details' && (
+              <div className="project-details-content">
+                {/* Overview Grid */}
+                <div className="overview-grid">
+                  <div className="overview-card budget-card">
+                    <div className="card-icon">
+                      <FaMoneyBillWave />
+                    </div>
+                    <h3 className="card-title">Budget</h3>
+                    <div className="budget-amount">{peso.format(project?.budget || 0)}</div>
+                  </div>
 
-                              {/* attachments on message */}
-                              {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
-                                <div style={{ marginTop: 6 }}>
-                                  {msg.attachments.map((att, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                                      <FaRegFileAlt />
-                                      <a href="#" onClick={(e) => { e.preventDefault(); openSignedPath(att.path); }} title={att.name}>
-                                        {att.name || extractOriginalNameFromPath(att.path)}
-                                      </a>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                  <div className="overview-card timeline-card">
+                    <div className="card-icon">
+                      <FaCalendarAlt />
+                    </div>
+                    <h3 className="card-title">Timeline</h3>
+                    <div className="timeline-dates">
+                      <div className="date-item">
+                        <span className="date-label">Start:</span>
+                        <span className="date-value">{start}</span>
+                      </div>
+                      <div className="date-item">
+                        <span className="date-label">End:</span>
+                        <span className="date-value">{end}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                              {/* Replies */}
-                              <div className="discussion-replies">
-                                {msg.replies?.map(reply => {
-                                  const replyMentionedMe = isMentioned(reply.text, userName);
-                                  return (
-                                    <div key={reply._id} className="discussion-reply">
-                                      <div className="reply-avatar">{reply.userName?.charAt(0) ?? '?'}</div>
-                                      <div
-                                        className="reply-info"
-                                        style={replyMentionedMe ? { ...mentionRowStyles.container, padding: 8 } : undefined}
-                                      >
-                                        {replyMentionedMe && <span style={mentionRowStyles.badge}>Mentioned you</span>}
-                                        <span className="reply-name">{reply.userName || 'Unknown'}</span>
-                                        <span className="reply-timestamp">
-                                          {reply.timestamp ? new Date(reply.timestamp).toLocaleString() : ''}
-                                        </span>
-                                        <span className="reply-text">{renderMessageText(reply.text, userName)}</span>
+                  <div className="overview-card location-card">
+                    <div className="card-icon">
+                      <FaMapMarkerAlt />
+                    </div>
+                    <h3 className="card-title">Location</h3>
+                    <div className="location-value">{locationLabel}</div>
+                  </div>
 
-                                        {Array.isArray(reply.attachments) && reply.attachments.length > 0 && (
-                                          <div style={{ marginTop: 4 }}>
-                                            {reply.attachments.map((att, i) => (
-                                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <FaRegFileAlt />
-                                                <a href="#" onClick={(e) => { e.preventDefault(); openSignedPath(att.path); }} title={att.name}>
-                                                  {att.name || extractOriginalNameFromPath(att.path)}
-                                                </a>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-
-                                {/* Reply input + files */}
-                                <div className="reply-input-row" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                  <div style={{ display: 'flex', gap: 8 }}>
-                                    <input
-                                      type="text"
-                                      value={replyInputs[msg._id] || ''}
-                                      onChange={e => setReplyInputs(prev => ({ ...prev, [msg._id]: e.target.value }))}
-                                      onKeyDown={e => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                          e.preventDefault();
-                                          handlePostReply(msg._id);
-                                        }
-                                      }}
-                                      placeholder="Reply…"
-                                      style={{ flex: 1 }}
-                                    />
-                                    <label
-                                      htmlFor={`reply-attachments-${msg._id}`}
-                                      style={{
-                                        cursor: 'pointer',
-                                        padding: '6px 10px',
-                                        borderRadius: 6,
-                                        border: '1px solid #ddd',
-                                        background: '#fff',
-                                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                                        fontSize: 14,
-                                        userSelect: 'none',
-                                        whiteSpace: 'nowrap'
-                                      }}
-                                    >
-                                      Attach
-                                    </label>
-                                    <input
-                                      id={`reply-attachments-${msg._id}`}
-                                      type="file"
-                                      multiple
-                                      accept={acceptTypes}
-                                      style={{ display: 'none' }}
-                                      onChange={(e) => {
-                                        addReplyFiles(msg._id, e.target.files);
-                                        e.target.value = '';
-                                      }}
-                                    />
-                                    <button onClick={() => handlePostReply(msg._id)}>
-                                      Reply
-                                    </button>
-                                  </div>
-                                  {(replyInputs[`_replyFiles_${msg._id}`] || []).map((f, i) => (
-                                    <div key={i} style={{ fontSize: 13, color: '#555' }}>
-                                      • {f.name}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </>
-                  )}
+                  <div className="overview-card contractor-card">
+                    <div className="card-icon">
+                      <FaBuilding />
+                    </div>
+                    <h3 className="card-title">Contractor</h3>
+                    <div className="contractor-value">{contractor}</div>
+                  </div>
                 </div>
 
-                {/* Composer with drag & drop */}
-                <div style={{ borderTop: '1px solid #eee', paddingTop: 10, marginTop: 10 }}>
-                  <div
-                    onDragOver={onDragOverComposer}
-                    onDragLeave={onDragLeaveComposer}
-                    onDrop={onDropComposer}
-                    style={{
-                      position: 'relative',
-                      marginBottom: 8,
-                      borderRadius: 10,
-                      padding: 8,
-                      transition: 'border-color .15s ease-in-out',
-                      background: isDragOver ? 'rgba(25,118,210,.04)' : 'transparent'
-                    }}
-                  >
-                    <textarea
-                      ref={textareaRef}
-                      value={newMessage}
-                      onChange={handleTextareaInput}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          if (!disabledPost) handlePostMessage();
-                        }
-                      }}
-                      placeholder="Type a message "
-                      style={{
-                        width: '100%',
-                        minHeight: 70,
-                        resize: 'vertical',
-                        padding: 10,
-                        borderRadius: 8,
-                        border: '1px solid #ddd'
-                      }}
-                    />
-                    {mentionDropdown.open && (
-                      <div
-                        className="mention-dropdown"
-                        style={{
-                          position: 'absolute',
-                          left: 8,
-                          bottom: 80,
-                          background: '#fff',
-                          border: '1px solid #e5e5e5',
-                          borderRadius: 8,
-                          padding: 6,
-                          boxShadow: '0 6px 24px rgba(0,0,0,0.12)',
-                          zIndex: 10
-                        }}
-                      >
-                        {mentionDropdown.options.map(u => (
-                          <div
-                            key={u._id}
-                            className="mention-option"
-                            onClick={() => handleMentionSelect(u)}
-                            style={{ padding: '6px 10px', cursor: 'pointer' }}
-                          >
-                            {u.name}
-                          </div>
-                        ))}
+                {/* Project Progress Section */}
+                <div className="progress-section">
+                  <h2 className="section-title">Project Progress</h2>
+                  <div className="progress-grid">
+                    <div className="progress-card overall-progress">
+                      <div className="progress-icon">
+                        <FaChartBar />
+                      </div>
+                      <div className="progress-content">
+                        <div className="progress-value">{progress}%</div>
+                        <div className="progress-label">Overall Progress</div>
+                      </div>
+                    </div>
+                    <div className="progress-card pic-contributions">
+                      <div className="progress-icon">
+                        <FaChartBar />
+                      </div>
+                      <div className="progress-content">
+                        <div className="progress-value">85%</div>
+                        <div className="progress-label">PiC Contributions</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Project Team Section */}
+                <div className="team-section">
+                  <h2 className="section-title">Project Team</h2>
+                  <div className="team-grid">
+                    {project?.projectManager && (
+                      <div className="team-member">
+                        <div className="member-avatar">
+                          {project.projectManager.name?.charAt(0)?.toUpperCase() || 'P'}
+                        </div>
+                        <div className="member-info">
+                          <h4 className="member-role">Project Manager</h4>
+                          <p className="member-name">{project.projectManager.name || 'N/A'}</p>
+                        </div>
+                      </div>
+                    )}
+                    {project?.pic && Array.isArray(project.pic) && project.pic.length > 0 && (
+                      <div className="team-member">
+                        <div className="member-avatar">
+                          {project.pic[0]?.name?.charAt(0)?.toUpperCase() || 'P'}
+                        </div>
+                        <div className="member-info">
+                          <h4 className="member-role">Person in Charge</h4>
+                          <p className="member-name">{project.pic[0]?.name || 'N/A'}</p>
+                        </div>
                       </div>
                     )}
                   </div>
+                </div>
 
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <label
-                      htmlFor="discussion-attachments"
-                      style={{
-                        cursor: 'pointer',
-                        padding: '6px 10px',
-                        borderRadius: 6,
-                        border: '1px solid #ddd',
-                        background: '#fff',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                        fontSize: 14,
-                        userSelect: 'none',
-                      }}
-                    >
-                      Attach Files
+                {/* Assigned Manpower Section */}
+                <div className="manpower-section">
+                  <h2 className="section-title">Assigned Manpower</h2>
+                  <div className="manpower-content">
+                    <div className="manpower-card">
+                      <p className="manpower-text">{manpowerText}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- Discussions Tab --- */}
+            {activeTab === 'Discussions' && (
+              <div className="discussions-container">
+                <div className="messages-list">
+                  {loadingMsgs ? (
+                    <div className="loading-messages">
+                      <div className="loading-spinner"></div>
+                      <span>Loading discussions...</span>
+                    </div>
+                  ) : messages.length === 0 ? (
+                    <div className="empty-discussions">
+                      <FaRegCommentDots />
+                      <h3>No discussions yet</h3>
+                      <p>Be the first to start a conversation about this project!</p>
+                    </div>
+                  ) : (
+                    <div>
+                      {messages.map(msg => (
+                        <div key={msg._id} className="message-item">
+                          <div className="message-header">
+                            <div className="message-avatar">
+                              {msg.userName?.charAt(0)?.toUpperCase() || '?'}
+                            </div>
+                            <div className="message-info">
+                              <div className="message-author">{msg.userName || 'Unknown User'}</div>
+                              <div className="message-timestamp">
+                                {msg.timestamp ? new Date(msg.timestamp).toLocaleString() : ''}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="message-content">
+                            <div className="message-text">
+                              {renderMessageText(msg.text, userName)}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="message-composer">
+                  <div className="composer-area">
+                    <textarea
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      placeholder="Type your message here..."
+                      className="composer-textarea"
+                    />
+                  </div>
+                  <div className="composer-actions">
+                    <div className="composer-left">
+                      <button className="attachment-button">
+                        <FaRegFileAlt />
+                        <span>Attach Files</span>
+                      </button>
+                    </div>
+                    <div className="composer-right">
+                      <button
+                        onClick={handlePostMessage}
+                        disabled={posting || !newMessage.trim()}
+                        className="send-button"
+                      >
+                        {posting ? 'Sending...' : 'Send Message'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* --- Files Tab --- */}
+            {activeTab === 'Files' && (
+              <div className="files-container">
+                <div className="files-header">
+                  <div className="files-title-section">
+                    <h2>Project Files</h2>
+                    <p className="files-subtitle">Manage and organize project documents</p>
+                  </div>
+                  <div className="files-actions">
+                    <label htmlFor="file-upload" className="upload-btn">
+                      <FaRegFileAlt />
+                      Upload Files
                     </label>
                     <input
-                      id="discussion-attachments"
+                      id="file-upload"
                       type="file"
                       multiple
-                      accept={acceptTypes}
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.csv,image/*"
                       style={{ display: 'none' }}
-                      onChange={(e) => {
-                        addComposerFiles(e.target.files);
-                        e.target.value = '';
-                      }}
+                      onChange={(e) => handleFileUpload(e.target.files)}
                     />
-                    {composerFiles.map((f, i) => (
-                      <div key={i} style={{ background: '#f3f6fb', border: '1px solid #e3e7f0', borderRadius: 999, padding: '6px 10px' }}>
-                        {f.name}
-                        <button onClick={() => setComposerFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ marginLeft: 8 }} title="Remove">×</button>
-                      </div>
-                    ))}
-                    {!!composerFiles.length && (
-                      <button
-                        onClick={() => setComposerFiles([])}
-                        style={{ marginLeft: 'auto', border: '1px solid #ddd', background: '#fff', padding: '6px 10px', borderRadius: 6 }}
-                      >
-                        Clear
-                      </button>
-                    )}
-                    <button
-                      onClick={handlePostMessage}
-                      disabled={disabledPost}
-                      style={{
-                        marginLeft: 'auto',
-                        padding: '8px 16px',
-                        borderRadius: 6,
-                        border: disabledPost ? '1px solid #ccc' : '1px solid #1976d2',
-                        background: disabledPost ? '#e9ecef' : '#1976d2',
-                        color: disabledPost ? '#888' : '#fff',
-                        cursor: disabledPost ? 'not-allowed' : 'pointer'
-                      }}
-                      title={disabledPost ? 'Type a message or attach files' : 'Post'}
-                    >
-                      {posting ? 'Posting…' : 'Post'}
-                    </button>
                   </div>
                 </div>
 
-                {/* Floating add button for small screens, optional */}
-                <button className="discussion-plus-btn" onClick={() => setShowNewMsgInput(v => !v)} title="Start a new conversation">
-                  <FaPlus />
-                </button>
-
-                {/* Simple modal version (mobile) */}
-                {showNewMsgInput && (
-                  <div className="new-msg-modal" onClick={() => setShowNewMsgInput(false)}>
-                    <div className="new-msg-box" onClick={e => e.stopPropagation()}>
-                      <h3 style={{ margin: 0, marginBottom: 16 }}>Start a new conversation</h3>
-                      <textarea
-                        value={newMessage}
-                        onChange={handleTextareaInput}
-                        ref={textareaRef}
-                        placeholder="Type your message... (you can @Name)"
-                      />
-                      {mentionDropdown.open && (
-                        <div
-                          className="mention-dropdown"
-                          style={{ top: mentionDropdown.position.top, left: mentionDropdown.position.left }}
-                        >
-                          {mentionDropdown.options.map(u => (
-                            <div key={u._id} className="mention-option" onClick={() => handleMentionSelect(u)}>
-                              {u.name}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <div className="new-msg-actions">
-                        <button className="cancel-btn" onClick={() => setShowNewMsgInput(false)}>Cancel</button>
-                        <button className="post-btn" onClick={handlePostMessage}>Post</button>
-                      </div>
+                {uploading && (
+                  <div className="upload-progress">
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill" 
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* --- Details --- */}
-            {activeTab === 'Details' && (
-              <div>
-                <div className="project-details-grid">
-                  <div className="details-column">
-                    <p className="detail-item">
-                      <span className="detail-label">Location:</span>
-                      {locationLabel}
-                    </p>
-
-                    <div className="detail-group">
-                      <p className="detail-label">Project Manager:</p>
-                      <p className="detail-value">{project?.projectmanager?.name || 'N/A'}</p>
-                    </div>
-
-                    <div className="detail-group">
-                      <p className="detail-label">Contractor:</p>
-                      <p className="detail-value">{contractor}</p>
-                    </div>
-
-                    <div className="detail-group">
-                      <p className="detail-label">Target Date:</p>
-                      <p className="detail-value">{start} — {end}</p>
-                    </div>
-                  </div>
-
-                  <div className="details-column">
-                    <div className="budget-container">
-                      <p className="budget-amount">
-                        ₱{(budgetNum || 0).toLocaleString()}
-                        {totalPO > 0 && (
-                          <span style={{ color: 'red', fontSize: 16, marginLeft: 8 }}>
-                            - ₱{totalPO.toLocaleString()} (POs)
-                          </span>
-                        )}
-                      </p>
-                      <p className="budget-label">Estimated Budget</p>
-                    </div>
-
-                    {totalPO > 0 && (
-                      <div style={{ color: '#219653', fontWeight: 600, marginBottom: 8 }}>
-                        Remaining Budget: ₱{remaining.toLocaleString()}
-                      </div>
-                    )}
-
-                    <div className="detail-group">
-                      <p className="detail-label">PIC:</p>
-                      <p className="detail-value">
-                        {Array.isArray(project?.pic) && project.pic.length > 0
-                          ? project.pic.map(p => p?.name).filter(Boolean).join(', ')
-                          : 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {purchaseOrders.length > 0 && (
-                  <div style={{ color: 'red', fontSize: 13, marginBottom: 8 }}>
-                    Purchase Orders:
-                    <ul style={{ margin: 0, padding: '0 0 0 16px' }}>
-                      {purchaseOrders.map(po => (
-                        <li key={po._id}>
-                          PO#: <b>{po.purchaseOrder}</b> — ₱{Number(po.totalValue).toLocaleString()}
-                        </li>
-                      ))}
-                    </ul>
+                    <p className="progress-text">Uploading... {uploadProgress}%</p>
                   </div>
                 )}
 
-                <div className="manpower-section">
-                  <p className="detail-label">Manpower:</p>
-                  <p className="manpower-list">{manpowerText}</p>
-                </div>
-
-                <p><b>Status:</b> {project?.status || 'N/A'}</p>
-              </div>
-            )}
-
-            {/* --- Files --- */}
-            {activeTab === 'Files' && (
-              <div className="project-files-list" style={{ textAlign: 'left', alignItems: 'flex-start' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                  <h3 style={{ marginBottom: 18 }}>Project Documents</h3>
-
-                  {canUploadOrDelete && (
-                    <div>
-                      <label
-                        htmlFor="file-uploader"
-                        style={{
-                          cursor: uploading ? 'not-allowed' : 'pointer',
-                          padding: '8px 12px',
-                          borderRadius: 6,
-                          border: '1px solid #ddd',
-                          background: uploading ? '#f3f3f3' : '#fff',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                          fontSize: 14,
-                          userSelect: 'none',
-                        }}
-                        title={uploading ? 'Uploading…' : 'Attach files'}
-                      >
-                        {uploading ? 'Uploading…' : 'Attach Files'}
-                      </label>
-                      <input
-                        id="file-uploader"
-                        type="file"
-                        multiple
-                        style={{ display: 'none' }}
-                        disabled={uploading}
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files || []);
-                          if (!files.length) return;
-                          handlePrepareUpload(files);
-                          e.target.value = '';
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {uploadErr && <div style={{ color: '#b00020', marginBottom: 10 }}>{uploadErr}</div>}
-
-                {project?.documents && project.documents.length > 0 ? (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="files-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
+                <div className="files-table-container">
+                  {project?.documents && project.documents.length > 0 ? (
+                    <table className="files-table">
+                      <thead className="table-header">
                         <tr>
-                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>
-                            File
-                          </th>
-                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>
-                            Uploaded By
-                          </th>
-                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>
-                            Uploaded At
-                          </th>
-                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600, width: 220 }}>
-                            Action
-                          </th>
+                          <th className="header-cell">File</th>
+                          <th className="header-cell">Type</th>
+                          <th className="header-cell">Size</th>
+                          <th className="header-cell">Actions</th>
                         </tr>
                       </thead>
-                      <tbody>
-                        {project.documents.map((docItem, idx) => {
-                          const path = typeof docItem === 'string' ? docItem : docItem?.path;
-                          const fileName = extractOriginalNameFromPath(path);
-                          const url = docSignedUrls[idx];
-
-                          const uploadedBy = readUploadedBy(typeof docItem === 'object' ? docItem : null);
-                          const uploadedAt = readUploadedAt(typeof docItem === 'object' ? docItem : null, path);
-
+                      <tbody className="table-body">
+                        {project.documents.map((doc, index) => {
+                          const fileName = typeof doc === 'string' ? extractOriginalNameFromPath(doc) : doc.name;
+                          const fileType = getFileType(fileName);
                           return (
-                            <tr key={idx}>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1', verticalAlign: 'middle' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                  <FaRegFileAlt style={{ marginRight: 6 }} />
-                                  {fileName}
-                                </span>
+                            <tr key={index} className="table-row">
+                              <td className="table-cell">
+                                <div className="file-info">
+                                  <div className="file-thumbnail-container">
+                                    <div className="file-thumbnail">
+                                      <FaRegFileAlt />
+                                    </div>
+                                  </div>
+                                  <span className="file-name-text">{fileName}</span>
+                                </div>
                               </td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{uploadedBy || 'Unknown'}</td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{uploadedAt || '—'}</td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1', verticalAlign: 'middle' }}>
-                                {url ? (
-                                  <a
-                                    href={url}
-                                    download={fileName}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{ textDecoration: 'underline', marginRight: 14 }}
-                                  >
-                                    View
-                                  </a>
-                                ) : (
-                                  <span style={{ color: '#aaa', marginRight: 14 }}>Loading link…</span>
-                                )}
-
-                                {canUploadOrDelete && (
+                              <td className="table-cell">
+                                <span className="file-type-badge">{fileType}</span>
+                              </td>
+                              <td className="table-cell">N/A</td>
+                              <td className="table-cell">
+                                <div className="action-buttons">
                                   <button
-                                    onClick={() => handleDelete(docItem)}
-                                    style={{
-                                      border: '1px solid #e5e5e5',
-                                      background: '#fff',
-                                      padding: '6px 10px',
-                                      borderRadius: 6,
-                                      cursor: 'pointer',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 6
-                                    }}
-                                    title="Delete file"
+                                    onClick={() => openSignedPath(typeof doc === 'string' ? doc : doc.path)}
+                                    className="action-btn download-btn"
+                                    title="Download"
                                   >
-                                    <FaTrash /> Delete
+                                    <FaDownload />
                                   </button>
-                                )}
+                                  <button
+                                    onClick={() => handleDeleteFile(doc, index)}
+                                    className="action-btn delete-btn"
+                                    title="Delete"
+                                  >
+                                    <FaTrash />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
-                  </div>
-                ) : (
-                  <div style={{ color: '#888', fontSize: 16 }}>No documents uploaded for this project.</div>
-                )}
+                  ) : (
+                    <div className="empty-files">
+                      <FaRegFileAlt />
+                      <h3>No files uploaded yet</h3>
+                      <p>Upload project documents to get started</p>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
-            {/* --- Reports --- */}
+            {/* --- Reports Tab --- */}
             {activeTab === 'Reports' && (
-              <div className="project-reports-placeholder">
-                <h3 style={{ marginBottom: 12 }}>Project Reports</h3>
-                <div style={{ color: '#888' }}>No reports are currently available.</div>
+              <div className="reports-container">
+                <div className="reports-placeholder">
+                  <FaRegFileAlt />
+                  <h3>Reports Coming Soon</h3>
+                  <p>Project reports and analytics will be available here</p>
+                </div>
               </div>
             )}
-          </div>
-        </main>
-      </div>
-
-      {/* ===== Duplicate Modal ===== */}
-      {showDupModal && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-          }}
-          onClick={() => setShowDupModal(false)}
-        >
-          <div
-            style={{
-              background: '#fff', padding: 18, borderRadius: 10, minWidth: 360,
-              maxWidth: 520, boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ marginTop: 0, marginBottom: 10 }}>Duplicate file name(s) found</h3>
-            <p style={{ marginTop: 0 }}>These files already exist in the project:</p>
-            <ul style={{ marginTop: 4 }}>
-              {duplicateNames.map((n, i) => <li key={i}>• {n}</li>)}
-            </ul>
-            <p style={{ marginTop: 10 }}>Choose what to do:</p>
-            <div style={{ display: 'flex', gap: 10, marginTop: 12, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => { if (pendingFiles?.length) actuallyUpload(pendingFiles, false); }}
-                style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
-              >
-                Yes — Upload renamed
-              </button>
-              <button
-                onClick={() => { if (pendingFiles?.length) actuallyUpload(pendingFiles, true); }}
-                style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #d9534f', background: '#d9534f', color: '#fff', cursor: 'pointer' }}
-                title="Replace existing files with the same names"
-              >
-                Overwrite existing
-              </button>
-              <button
-                onClick={() => { setShowDupModal(false); setPendingFiles(null); setDuplicateNames([]); }}
-                style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd', background: '#fff', cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-            </div>
           </div>
         </div>
-      )}
-    </>
+      </main>
+    </div>
   );
 };
 

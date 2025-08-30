@@ -1,210 +1,473 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import api from "../../api/axiosInstance";
-import NotificationBell from "../NotificationBell";
-import '../style/ceo_style/Ceo_Proj.css';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import api from '../../api/axiosInstance';
+import NotificationBell from '../NotificationBell';
+import '../style/hr_style/HrSite_Dash.css';
+import '../style/am_style/Area_Projects.css';
 
-/**
- * HRAllProjects
- * — Mirrors StaffAllProjects but tailored for the HR-site user role.
- * — Pulls projects where the current user participates with role=hr.
- * — Same UX: header, tabs (Ongoing / Completed), project table, and a simple chat sidebar.
- * — Routes are under the /hr path segment.
- */
-
-const demoChats = [
-  { id: 1, name: "Payroll Team", initial: "P", message: "Reminder: cut-off Fri…", color: "#4A6AA5" },
-  { id: 2, name: "Recruitment", initial: "R", message: "Candidates for PIC role…", color: "#2E7D32" },
-  { id: 3, name: "Compliance", initial: "C", message: "Update 201 files…", color: "#9C27B0" }
-];
+// React Icons
+import { 
+  FaTachometerAlt, 
+  FaComments, 
+  FaProjectDiagram, 
+  FaClipboardList,
+  FaMapMarkerAlt,
+  FaUserTie,
+  FaBuilding,
+  FaCalendarAlt,
+  FaUsers as FaUsersIcon,
+  FaMoneyBillWave,
+  FaCheckCircle,
+  FaClock,
+  FaFilter,
+  FaTh,
+  FaList,
+  FaSearch,
+  FaChevronDown,
+  FaChevronUp
+} from 'react-icons/fa';
 
 const HrSiteAllProjects = () => {
-  const navigate = useNavigate();
-
-  // --- current user
-  const stored = typeof window !== "undefined" ? localStorage.getItem("user") : null;
-  const user = stored ? JSON.parse(stored) : null;
-  const userId = user?._id || user?.id;
-  const userName = user?.name || "";
-
-  // --- ui state
+  const [filter, setFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('grid');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('name');
+  const [sortOrder, setSortOrder] = useState('asc');
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("Ongoing");
-  const [ongoing, setOngoing] = useState([]);
-  const [completed, setCompleted] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
 
-  // Close profile menu on outside click
+  const navigate = useNavigate();
+  const stored = localStorage.getItem('user');
+  const user = stored ? JSON.parse(stored) : null;
+  const userName = user?.name || 'HR-Site';
+  const userRole = user?.role || 'HR-Site';
+  const hrSiteId = user?._id;
+
+  // Scroll handler for header collapse
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const shouldCollapse = scrollTop > 50;
+      setIsHeaderCollapsed(shouldCollapse);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) {
+      if (!event.target.closest('.profile-menu-container')) {
         setProfileMenuOpen(false);
       }
     };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // Logout
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/");
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/');
   };
 
-  // Fetch HR user's projects by status
+  // Fetch projects assigned to this HR-Site user
   useEffect(() => {
-    if (!userId) return;
-    setLoading(true);
-    setError("");
+    const fetchProjects = async () => {
+      try {
+        setLoading(true);
+        // Get projects where this HR-Site user is assigned
+        const response = await api.get(`/projects/by-user/${hrSiteId}`);
+        setProjects(response.data || []);
+        setError(null);
+      } catch (error) {
+        console.error('Failed to fetch projects:', error);
+        setError('Failed to load projects. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (hrSiteId) {
+      fetchProjects();
+    }
+  }, [hrSiteId]);
 
-    const base = `/projects/by-user-status?userId=${encodeURIComponent(userId)}&role=hr`;
+  // Apply filters and search
+  const displayedProjects = projects
+    .filter(project => {
+      // Status filter
+      if (filter === 'completed') {
+        return project.status === 'Completed';
+      }
+      if (filter === 'ongoing') {
+        return project.status === 'Ongoing' || project.status === 'On Going';
+      }
+      if (filter === 'pending') {
+        return project.status === 'Pending' || project.status === 'Not Started';
+      }
+      
+      // Search filter
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        return (
+          project.projectName?.toLowerCase().includes(searchLower) ||
+          project.location?.name?.toLowerCase().includes(searchLower) ||
+          project.projectManager?.name?.toLowerCase().includes(searchLower) ||
+          project.contractor?.toLowerCase().includes(searchLower)
+        );
+      }
+      
+      return true;
+    })
+    .sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case 'name':
+          aValue = a.projectName || '';
+          bValue = b.projectName || '';
+          break;
+        case 'location':
+          aValue = a.location?.name || '';
+          bValue = b.location?.name || '';
+          break;
+        case 'manager':
+          aValue = a.projectManager?.name || '';
+          bValue = b.projectManager?.name || '';
+          break;
+        case 'status':
+          aValue = a.status || '';
+          bValue = b.status || '';
+          break;
+        case 'startDate':
+          aValue = new Date(a.startDate || 0);
+          bValue = new Date(b.startDate || 0);
+          break;
+        default:
+          aValue = a.projectName || '';
+          bValue = b.projectName || '';
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
 
-    Promise.all([
-      api.get(`${base}&status=Ongoing`),
-      api.get(`${base}&status=Completed`)
-    ])
-      .then(([resOngoing, resCompleted]) => {
-        setOngoing(Array.isArray(resOngoing?.data) ? resOngoing.data : []);
-        setCompleted(Array.isArray(resCompleted?.data) ? resCompleted.data : []);
-      })
-      .catch((e) => {
-        console.error("Failed to load HR projects", e);
-        setOngoing([]);
-        setCompleted([]);
-        setError("We couldn't load your projects. Please try again.");
-      })
-      .finally(() => setLoading(false));
-  }, [userId]);
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return '#10B981';
+      case 'ongoing':
+      case 'on going':
+        return '#3B82F6';
+      case 'pending':
+      case 'not started':
+        return '#F59E0B';
+      default:
+        return '#6B7280';
+    }
+  };
 
-  const visibleProjects = useMemo(() => (activeTab === "Ongoing" ? ongoing : completed), [activeTab, ongoing, completed]);
+  const getStatusIcon = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return <FaCheckCircle />;
+      case 'ongoing':
+      case 'on going':
+        return <FaClock />;
+      case 'pending':
+      case 'not started':
+        return <FaClock />;
+      default:
+        return <FaClock />;
+    }
+  };
 
-  if (loading) return <div style={{ padding: 32 }}>Loading...</div>;
-
-  const ProjectTable = ({ projects }) => (
-    <table className="myprojects-table">
-      <thead>
-        <tr>
-          <th>Project Name</th>
-          <th>Status</th>
-          <th>Location</th>
-          <th>Start</th>
-          <th>End</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {projects.length === 0 ? (
-          <tr>
-            <td colSpan={6} style={{ textAlign: "center", padding: "20px", color: "#666" }}>
-              You don’t have any {activeTab.toLowerCase()} projects assigned yet.
-            </td>
-          </tr>
-        ) : (
-          projects.map((proj) => (
-            <tr key={proj._id}>
-              <td>{proj.projectName}</td>
-              <td>
-                <span className={`status-badge badge-${(proj.status || "unknown").toLowerCase()}`}>
-                  {proj.status}
-                </span>
-              </td>
-              <td>{proj.location?.name || "-"}</td>
-              <td>{proj.startDate ? new Date(proj.startDate).toLocaleDateString() : "-"}</td>
-              <td>{proj.endDate ? new Date(proj.endDate).toLocaleDateString() : "-"}</td>
-              <td>
-                <button className="view-btn" onClick={() => navigate(`/hr/${proj._id}`)}>
-                  View
-                </button>
-              </td>
-            </tr>
-          ))
-        )}
-      </tbody>
-    </table>
-  );
+  if (loading) {
+    return (
+      <div className="dashboard-container">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Loading projects...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <>
-      <header className="header">
-        <div className="logo-container">
-          <img src={require("../../assets/images/FadzLogo1.png")} alt="FadzTrack Logo" className="logo-img" />
-          <h1 className="brand-name">FadzTrack</h1>
+    <div className="dashboard-container">
+      {/* Modern Header - PM Style */}
+      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+        {/* Top Row: Logo and Profile */}
+        <div className="header-top">
+          <div className="logo-section">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="header-logo"
+            />
+            <h1 className="header-brand">FadzTrack</h1>
+          </div>
+
+          <div className="user-profile profile-menu-container" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <div className="profile-avatar">
+              {userName ? userName.charAt(0).toUpperCase() : 'H'}
+            </div>
+            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
+              <span className="profile-name">{userName}</span>
+              <span className="profile-role">{userRole}</span>
+            </div>
+            {profileMenuOpen && (
+              <div className="profile-dropdown">
+                <button onClick={handleLogout} className="logout-btn">
+                  <span>Logout</span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
-        <nav className="nav-menu">
-          <Link to="/hr/current-project" className="nav-link">Dashboard</Link>
-          <Link to="/hr/projects" className="nav-link">Projects</Link>
-          <Link to="/hr/chat" className="nav-link">Chat</Link>
-        </nav>
+        {/* Bottom Row: Navigation and Notifications */}
+        <div className="header-bottom">
+          <nav className="header-nav">
+            <Link to="/hr-site" className="nav-item">
+              <FaProjectDiagram />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Project</span>
+            </Link>
+            <Link to="/hr-site/chat" className="nav-item">
+              <FaComments />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
+            </Link>
+            <Link to="/hr-site/projects" className="nav-item active">
+              <FaClipboardList />
+              <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
+            </Link>
+          </nav>
 
-        <div className="profile-menu-container" style={{ display: "flex", alignItems: "center", gap: 18 }}>
           <NotificationBell />
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {(userName?.charAt(0) || "Z").toUpperCase()}
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={handleLogout}>Logout</button>
-            </div>
-          )}
         </div>
       </header>
 
-      <div className="dashboard-layout">
-        {/* Sidebar */}
-        <aside className="sidebar">
-          <div className="chats-section">
-            <h3 className="chats-title">Chats</h3>
-            <div className="chats-list">
-              {demoChats.map((chat) => (
-                <div key={chat.id} className="chat-item" onClick={() => navigate("/hr/chat") }>
-                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
-                    {chat.initial}
-                  </div>
-                  <div className="chat-info">
-                    <div className="chat-name">{chat.name}</div>
-                    <div className="chat-message">{chat.message}</div>
-                  </div>
+      {/* Main Content */}
+      <main className="dashboard-main">
+        <div className="projects-container">
+          {/* Page Header */}
+          <div className="page-header">
+            <div className="page-title-section">
+              <h1 className="page-title">My Projects</h1>
+              <p className="page-subtitle">View all projects you are assigned to</p>
+            </div>
+          </div>
+
+          {/* Filters and Controls */}
+          <div className="projects-controls">
+            <div className="controls-left">
+              {/* Search */}
+              <div className="search-container">
+                <FaSearch className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search projects..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input"
+                />
+              </div>
+
+              {/* Status Filter */}
+              <div className="filter-group">
+                <button
+                  className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+                  onClick={() => setFilter('all')}
+                >
+                  All ({projects.length})
+                </button>
+                <button
+                  className={`filter-btn ${filter === 'ongoing' ? 'active' : ''}`}
+                  onClick={() => setFilter('ongoing')}
+                >
+                  Ongoing ({projects.filter(p => p.status === 'Ongoing' || p.status === 'On Going').length})
+                </button>
+                <button
+                  className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
+                  onClick={() => setFilter('completed')}
+                >
+                  Completed ({projects.filter(p => p.status === 'Completed').length})
+                </button>
+                <button
+                  className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
+                  onClick={() => setFilter('pending')}
+                >
+                  Pending ({projects.filter(p => p.status === 'Pending' || p.status === 'Not Started').length})
+                </button>
+              </div>
+            </div>
+
+            <div className="controls-right">
+              {/* Sort */}
+              <div className="sort-container">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="sort-select"
+                >
+                  <option value="name">Sort by Name</option>
+                  <option value="location">Sort by Location</option>
+                  <option value="manager">Sort by Manager</option>
+                  <option value="status">Sort by Status</option>
+                  <option value="startDate">Sort by Start Date</option>
+                </select>
+                <button
+                  className="sort-order-btn"
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                >
+                  {sortOrder === 'asc' ? <FaChevronUp /> : <FaChevronDown />}
+                </button>
+              </div>
+
+              {/* View Mode */}
+              <div className="view-mode-container">
+                <button
+                  className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                  onClick={() => setViewMode('grid')}
+                >
+                  <FaTh />
+                </button>
+                <button
+                  className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
+                  onClick={() => setViewMode('list')}
+                >
+                  <FaList />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Error State */}
+          {error && (
+            <div className="error-state">
+              <FaClock />
+              <span>{error}</span>
+              <button onClick={() => window.location.reload()} className="retry-btn">
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {/* Projects Grid/List */}
+          {!error && (
+            <div className={`projects-display ${viewMode}`}>
+              {displayedProjects.length === 0 ? (
+                <div className="empty-state">
+                  <FaProjectDiagram />
+                  <h3>No projects found</h3>
+                  <p>
+                    {searchTerm || filter !== 'all' 
+                      ? 'Try adjusting your search or filters'
+                      : 'You are not assigned to any projects yet'
+                    }
+                  </p>
                 </div>
-              ))}
-            </div>
-          </div>
-        </aside>
+              ) : (
+                displayedProjects.map(project => (
+                  <div
+                    key={project._id}
+                    className="project-card"
+                    onClick={() => navigate(`/hr-site/current-project/${project._id}`)}
+                  >
+                    {/* Project Image */}
+                    <div className="project-image-container">
+                      <img
+                        src={project.photos && project.photos.length > 0
+                          ? project.photos[0]
+                          : 'https://placehold.co/400x250?text=No+Photo'}
+                        alt={project.projectName}
+                        className="project-image"
+                      />
+                      <div className="project-status-badge" style={{ backgroundColor: getStatusColor(project.status) }}>
+                        {getStatusIcon(project.status)}
+                        <span>{project.status || 'Unknown'}</span>
+                      </div>
+                    </div>
 
-        {/* Main */}
-        <main className="main1">
-          <div className="main-content-container">
-            <div className="title-row">
-              <h1 className="main-title">My Projects</h1>
-              {error && <div className="inline-error" role="status">{error}</div>}
-            </div>
+                    {/* Project Content */}
+                    <div className="project-content">
+                      <div className="project-header">
+                        <h3 className="project-name">{project.projectName}</h3>
+                        <div className="project-location">
+                          <FaMapMarkerAlt />
+                          <span>{project.location?.name || 'No Location'}</span>
+                        </div>
+                      </div>
 
-            <div className="tabs">
-              <button
-                className={activeTab === "Ongoing" ? "tab active" : "tab"}
-                onClick={() => setActiveTab("Ongoing")}
-                aria-pressed={activeTab === "Ongoing"}
-              >
-                Ongoing
-              </button>
-              <button
-                className={activeTab === "Completed" ? "tab active" : "tab"}
-                onClick={() => setActiveTab("Completed")}
-                aria-pressed={activeTab === "Completed"}
-              >
-                Completed
-              </button>
-            </div>
+                      <div className="project-details">
+                        <div className="detail-item">
+                          <FaUserTie className="detail-icon" />
+                          <div className="detail-content">
+                            <span className="detail-label">Project Manager</span>
+                            <span className="detail-value">{project.projectManager?.name || 'Not Assigned'}</span>
+                          </div>
+                        </div>
 
-            <div className="projects-table-container">
-              <ProjectTable projects={visibleProjects} />
+                        <div className="detail-item">
+                          <FaBuilding className="detail-icon" />
+                          <div className="detail-content">
+                            <span className="detail-label">Contractor</span>
+                            <span className="detail-value">{project.contractor || 'Not Assigned'}</span>
+                          </div>
+                        </div>
+
+                        <div className="detail-item">
+                          <FaCalendarAlt className="detail-icon" />
+                          <div className="detail-content">
+                            <span className="detail-label">Timeline</span>
+                            <span className="detail-value">
+                              {project.startDate && project.endDate
+                                ? `${new Date(project.startDate).toLocaleDateString()} - ${new Date(project.endDate).toLocaleDateString()}`
+                                : 'Not Set'
+                              }
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="detail-item">
+                          <FaUsersIcon className="detail-icon" />
+                          <div className="detail-content">
+                            <span className="detail-label">Manpower</span>
+                            <span className="detail-value">
+                              {Array.isArray(project.manpower) && project.manpower.length > 0
+                                ? `${project.manpower.length} assigned`
+                                : 'No manpower assigned'
+                              }
+                            </span>
+                          </div>
+                        </div>
+
+                        {project.budget && (
+                          <div className="detail-item">
+                            <FaMoneyBillWave className="detail-icon" />
+                            <div className="detail-content">
+                              <span className="detail-label">Budget</span>
+                              <span className="detail-value">{project.budget}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-          </div>
-        </main>
-      </div>
-    </>
+          )}
+        </div>
+      </main>
+    </div>
   );
 };
 

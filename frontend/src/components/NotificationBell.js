@@ -111,7 +111,7 @@ const NotificationBell = () => {
           if (unread > 0) markAllRead();
         }}
       >
-        <FaBell size={22} color="#666" />
+        <FaBell size={22} color="white" />
         {unread > 0 && <span className="notif-badge">{unread}</span>}
       </div>
 
