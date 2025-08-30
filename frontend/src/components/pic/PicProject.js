@@ -2,9 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
-import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaTrash } from 'react-icons/fa';
+import { FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaTrash, FaCamera } from 'react-icons/fa';
 import { io } from 'socket.io-client';
 import "../style/pic_style/Pic_Project.css";
+// Reuse PM view styling for unified look & feel
+import "../style/pm_style/Pm_ViewProjects.css";
+import "../style/pm_style/Pm_ViewProjects_Wide.css";
 // Nav icons
 import { 
   FaTachometerAlt, 
@@ -255,6 +258,11 @@ const PicCurrentProject = () => {
   const [reports, setReports] = useState([]);
   const [reportUploading, setReportUploading] = useState(false);
 
+  // Project image upload state (restored like PM view)
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageUploadProgress, setImageUploadProgress] = useState(0);
+  const [imageUploadError, setImageUploadError] = useState('');
+
   const [openReportIds, setOpenReportIds] = useState(() => new Set());
 const toggleReportOpen = (id) => {
   setOpenReportIds(prev => {
@@ -450,6 +458,12 @@ useEffect(() => {
 useEffect(() => {
   if (activeTab === 'Reports' && project?._id) fetchReports(project._id);
 }, [activeTab, project?._id]); // eslint-disable-line
+
+// NEW: Auto-fetch reports as soon as the project loads so progress/metrics show immediately
+useEffect(() => {
+  if (project?._id) fetchReports(project._id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [project?._id]);
 
   const canUploadOrDelete = useMemo(() => {
     if (!user || !project) return false;
@@ -937,223 +951,6 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
   }
 };
 
-  /* ---------- Reports Tab actions ---------- */
-{activeTab === 'Reports' && (
-  <div className="project-reports" style={{ textAlign: 'left' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-      <h3 style={{ marginBottom: 18 }}>Project Reports</h3>
-
-      {canUploadOrDelete && (
-        <div>
-          <label
-            htmlFor="report-uploader"
-            style={{
-              cursor: reportUploading ? 'not-allowed' : 'pointer',
-              padding: '8px 12px',
-              borderRadius: 6,
-              border: '1px solid #ddd',
-              background: reportUploading ? '#f3f3f3' : '#fff',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-              fontSize: 14,
-              userSelect: 'none',
-            }}
-            title={reportUploading ? 'Uploading…' : 'Upload .pptx report'}
-          >
-            {reportUploading ? 'Uploading…' : 'Upload Report (.pptx)'}
-          </label>
-          <input
-            id="report-uploader"
-            type="file"
-            accept=".pptx"
-            style={{ display: 'none' }}
-            disabled={reportUploading}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              e.target.value = '';
-              if (!f) return;
-              if (!/\.pptx$/i.test(f.name)) {
-                alert('Please upload a .pptx file.');
-                return;
-              }
-              handleUploadReport(f);
-            }}
-          />
-        </div>
-      )}
-    </div>
-
-    {reports.length === 0 ? (
-      <div style={{ color: '#888', fontSize: 16 }}>No reports yet.</div>
-    ) : (
-      <div style={{ overflowX: 'auto' }}>
-        <table className="files-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>Name</th>
-              <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>Uploaded By</th>
-              <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>Uploaded At</th>
-              <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>Status</th>
-              <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600, width: 420 }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reports.map((rep) => {
-              const uploadedAt = rep?.uploadedAt ? new Date(rep.uploadedAt).toLocaleString() : '—';
-              const isOpen = openReportIds.has(String(rep._id));
-              return (
-                <React.Fragment key={rep._id}>
-                  <tr>
-                    <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                        <FaRegFileAlt style={{ marginRight: 6 }} />
-                        {rep?.name || 'Report.pptx'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{rep?.uploadedByName || 'Unknown'}</td>
-                    <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{uploadedAt}</td>
-                    <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1', textTransform: 'capitalize' }}>
-                      {rep?.status || 'pending'}
-                    </td>
-                    <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
-                      <button
-                        onClick={() => toggleReportOpen(rep._id)}
-                        style={{ marginRight: 10, border: '1px solid #ddd', background: '#fff', padding: '6px 10px', borderRadius: 6, cursor: 'pointer' }}
-                      >
-                        {isOpen ? 'Hide Details' : 'Show Details'}
-                      </button>
-
-                      {rep?.path ? (
-                        <button
-                          onClick={() => openReportSignedPath(rep.path)}
-                          style={{ marginRight: 10, border: '1px solid #ddd', background: '#fff', padding: '6px 10px', borderRadius: 6, cursor: 'pointer' }}
-                        >
-                          View PPT
-                        </button>
-                      ) : <span style={{ color: '#aaa', marginRight: 10 }}>No PPT</span>}
-
-{rep?.pdfPath ? (
-  <button
-    onClick={() =>
-      downloadReportPdf(
-        rep.pdfPath,
-        extractOriginalNameFromPath(rep.pdfPath) || 'AI-Report.pdf'
-      )
-    }
-    style={{ marginRight: 10, border: '1px solid #ddd', background: '#fff',
-             padding: '6px 10px', borderRadius: 6, cursor: 'pointer' }}
-  >
-    Download AI PDF
-  </button>
-) : (
-  <span style={{ color: '#aaa', marginRight: 10 }}>No PDF</span>
-)}
-
-
-                      {rep?.pdfPath ? (
-                        <button
-                          onClick={() => openReportSignedPath(rep.pdfPath)}
-                          style={{ marginRight: 10, border: '1px solid #ddd', background: '#fff', padding: '6px 10px', borderRadius: 6, cursor: 'pointer' }}
-                        >
-                          View AI PDF
-                        </button>
-                      ) : <span style={{ color: '#aaa', marginRight: 10 }}>No PDF</span>}
-
-                      {canUploadOrDelete && (
-                        <button
-                          onClick={() => handleDeleteReport(rep)}
-                          style={{ border: '1px solid #e5e5e5', background: '#fff', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                          title="Delete report"
-                        >
-                          <FaTrash /> Delete
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-
-                  {/* Collapsible AI analysis per report */}
-                  {isOpen && (
-                    <tr>
-                      <td colSpan={5} style={{ padding: 0, borderTop: 'none' }}>
-                        <div style={{ margin: '8px 12px 16px', padding: 12, border: '1px solid #eee', borderRadius: 10 }}>
-                          <h4 style={{ marginTop: 0 }}>AI Analysis</h4>
-                          {!rep.ai ? (
-                            <div style={{ color: '#777' }}>No AI data yet.</div>
-                          ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                              <div>
-                                <b>Summary of Work Done</b>
-                                <ul style={{ marginTop: 6 }}>
-                                  {(rep.ai.summary_of_work_done || []).map((x, i) => <li key={i}>{x}</li>)}
-                                </ul>
-                              </div>
-                              <div>
-                                <b>Completed Tasks</b>
-                                <ul style={{ marginTop: 6 }}>
-                                  {(rep.ai.completed_tasks || []).map((x, i) => <li key={i}>{x}</li>)}
-                                </ul>
-                              </div>
-                              <div>
-                                <b>Critical Path (3)</b>
-                               <ol style={{ marginTop: 6 }}>
-  {(rep.ai.critical_path_analysis || []).slice(0, 3).map((c, i) => {
-  const days = aiEstimatedDays(c);   // << strictly from AI
-
-  if (process.env.NODE_ENV !== 'production') {
-    console.debug('[CPA row]', { reportId: rep._id, index: i, path_type: c?.path_type, days, item: c });
-  }
-
-  return (
-    <li key={i} style={{ marginBottom: 6 }}>
-      <div>
-        <b>{`${i + 1}. ${cpaLabel(c, i)}`}</b>
-        {Number.isFinite(days) ? ` — ${days} days` : ''}   {/* show only if AI provided */}
-      </div>
-
-      {Array.isArray(c?.blockers) && c.blockers.length > 0 && (
-        <div><i>Blockers:</i> {c.blockers.join('; ')}</div>
-      )}
-      {c?.risk && <div><i>Risk:</i> {c.risk}</div>}
-      {Array.isArray(c?.next) && c.next.length > 0 && (
-        <div><i>Next:</i> {c.next.join('; ')}</div>
-      )}
-    </li>
-  );
-})}
-
-</ol>
-{(rep.ai.critical_path_analysis || []).slice(0,3).map((c, i) => {
-  const days = readDays(c);
-  if (days === null) console.log('No days parsed for item', i, c);
-})}
-
-                              </div>
-                              <div>
-                                <b>PiC Performance</b>
-                                <p style={{ marginTop: 6 }}>{rep.ai.pic_performance_evaluation?.text || '—'}</p>
-                                {typeof rep.ai.pic_performance_evaluation?.score === 'number' && (
-                                  <p>Score: {rep.ai.pic_performance_evaluation.score}/100</p>
-                                )}
-                                <p>PiC Contribution: {Math.round(Number(rep.ai.pic_contribution_percent) || 0)}%</p>
-                                {typeof rep.ai.confidence === 'number' && (
-                                  <p>Model Confidence: {(rep.ai.confidence * 100).toFixed(0)}%</p>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    )}
-  </div>
-)}
-
 
   /* ---------- Drag & Drop helpers ---------- */
   const acceptTypes = ".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.txt,.rtf,.csv,image/*";
@@ -1184,100 +981,77 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
   };
 
   if (loading) return (
-    <div className="loading-container">
-      <p>Loading project details...</p>
+    <div className="dashboard-container pm-view-root">
+      <div className="professional-loading-screen">
+        <div className="loading-content">
+          <div className="loading-logo">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="loading-logo-img"
+            />
+          </div>
+          <div className="loading-spinner-container">
+            <div className="loading-spinner" />
+          </div>
+          <div className="loading-text">
+            <h2 className="loading-title">Loading Project Details</h2>
+            <p className="loading-subtitle">Please wait while we fetch your project information...</p>
+          </div>
+          <div className="loading-progress">
+            <div className="progress-bar"><div className="progress-fill" /></div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 
-  if (!project) {
-    return (
-  <div className="dashboard-container pic-dashboard">
-        {/* Modern Header */}
-        <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-          {/* Top Row: Logo and Profile */}
-          <div className="header-top">
-            <div className="logo-section">
-              <img
-                src={require('../../assets/images/FadzLogo1.png')}
-                alt="FadzTrack Logo"
-                className="header-logo"
-              />
-              <h1 className="header-brand">FadzTrack</h1>
-            </div>
-
-            <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-              <div className="profile-avatar">
-                {userName ? userName.charAt(0).toUpperCase() : 'P'}
-              </div>
-              <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-                <span className="profile-name">{userName}</span>
-                <span className="profile-role">{userRole}</span>
-              </div>
-              {profileMenuOpen && (
-                <div className="profile-dropdown">
-                  <button onClick={handleLogout} className="logout-btn">
-                    <span>Logout</span>
-                  </button>
-                </div>
-              )}
-            </div>
+  if (!project) return (
+    <div className="dashboard-container pm-view-root">
+      <div className="professional-loading-screen">
+        <div className="loading-content">
+          <div className="loading-logo">
+            <img
+              src={require('../../assets/images/FadzLogo1.png')}
+              alt="FadzTrack Logo"
+              className="loading-logo-img"
+            />
           </div>
-
-          {/* Bottom Row: Navigation and Notifications */}
-          <div className="header-bottom">
-            <nav className="header-nav">
-              <Link to="/pic" className="nav-item">
-                <FaTachometerAlt />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-              </Link>
-              <Link to="/pic/chat" className="nav-item">
-                <FaComments />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-              </Link>
-              <Link to="/pic/request/:id" className="nav-item">
-                <FaBoxes />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
-              </Link>
-              <Link to="/pic/manpower-list" className="nav-item">
-                <FaUsers />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-              </Link>
-            </nav>
-            
-            <NotificationBell />
+          <div className="loading-text">
+            <h2 className="loading-title" style={{ color: '#ef4444' }}>No Assigned Project</h2>
+            <p className="loading-subtitle">Your account doesn’t have an active project yet. Please wait for an assignment.</p>
           </div>
-        </header>
-
-        <div className="dashboard-layout">
-          <div className="sidebar">
-            <div className="chats-section">
-              <h3 className="chats-title">Chats</h3>
-              <div className="chats-list">
-                {chats.map(chat => (
-                  <div key={chat.id} className="chat-item">
-                    <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
-                      {chat.initial}
-                    </div>
-                    <div className="chat-info">
-                      <div className="chat-name">{chat.name}</div>
-                      <div className="chat-message">{chat.message}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div style={{ marginTop: '2rem' }}>
+            <button 
+              onClick={() => navigate('/pic')}
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                color: 'white',
+                border: 'none',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontSize: '1rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseOver={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)';
+              }}
+              onMouseOut={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+              }}
+            >
+              Return to Dashboard
+            </button>
           </div>
-          <main className="main1">
-            <div className="no-project-message">
-              <h2>No assigned project</h2>
-              <p>Your PIC account doesn’t have an active project yet.</p>
-              <p>Please wait for an assignment or contact your manager.</p>
-            </div>
-          </main>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
   // Derived labels
   const start = project?.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A';
@@ -1291,541 +1065,315 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
       : 'No Manpower Assigned';
 
   return (
-  <div className="dashboard-container pic-dashboard">
-      {/* Modern Header */}
+    <div className="dashboard-container pm-view-root">
+      {/* HEADER (mirrors PM styling) */}
       <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo and Profile */}
         <div className="header-top">
           <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
+            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
             <h1 className="header-brand">FadzTrack</h1>
           </div>
-
           <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'P'}
-            </div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
+            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'P'}</div>
+            <div className="profile-info">
               <span className="profile-name">{userName}</span>
               <span className="profile-role">{userRole}</span>
             </div>
             {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
+              <div className="profile-menu">
+                <button onClick={handleLogout}>Logout</button>
               </div>
             )}
           </div>
         </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
         <div className="header-bottom">
           <nav className="header-nav">
-            <Link to="/pic" className="nav-item">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/pic/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-             <Link to="/pic/requests" className="nav-item">
-                                           <FaClipboardList />
-                                           <span >Requests</span>
-                                         </Link>
-            {project && (
-              <Link to={`/pic/viewprojects/${project._id || project.id}`} className="nav-item active">
-                <FaEye />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
-              </Link>
-            )}
-                <Link to="/pic/projects" className="nav-item">
-                         <FaProjectDiagram />
-                         <span>My Projects</span>
-                       </Link>
+            <Link to="/pic" className="nav-item"><FaTachometerAlt /><span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span></Link>
+            <Link to="/pic/chat" className="nav-item"><FaComments /><span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span></Link>
+            <Link to="/pic/requests" className="nav-item"><FaClipboardList /><span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span></Link>
+            <Link to={`/pic/viewprojects/${project._id}`} className="nav-item active"><FaProjectDiagram /><span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span></Link>
           </nav>
-          
           <NotificationBell />
         </div>
       </header>
-
-      {/* LAYOUT */}
-      <div className="dashboard-layout">
-        {/* Sidebar (Chats) */}
-        <div className="sidebar">
-          <div className="chats-section">
-            <h3 className="chats-title">Chats</h3>
-            <div className="chats-list">
-              {chats.map(chat => (
-                <div key={chat.id} className="chat-item">
-                  <div className="chat-avatar" style={{ backgroundColor: chat.color }}>
-                    {chat.initial}
-                  </div>
-                  <div className="chat-info">
-                    <div className="chat-name">{chat.name}</div>
-                    <div className="chat-message">{chat.message}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* MAIN CONTENT */}
-        <main className="main1">
-          {/* Project Metrics */}
-          <div className="project-metrics">
-            <div className="metric-card">
-              <div className="metric-header">
-                <span className="metric-title">Project Progress</span>
-                <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
-                  <FaChartBar />
-                </div>
-              </div>
-              <div className="metric-value">{progress}%</div>
-              <div className="metric-description">Overall project completion</div>
-              <div className="pic-progress-container" title={`Completed ${progress}%`}>
-                <div className="pic-progress-bar" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
-                  <div className="pic-progress-fill" style={{ width: `${progress}%` }} />
-                </div>
-                <div className="pic-progress-text">{progress}% Complete</div>
-              </div>
-            </div>
-
-            <div className="metric-card">
-              <div className="metric-header">
-                <span className="metric-title">Project Status</span>
-                <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' }}>
-                  <FaEye />
-                </div>
-              </div>
-              <div className="metric-value">{status || 'Active'}</div>
-              <div className="metric-description">Current project status</div>
-            </div>
-
-            <div className="metric-card">
-              <div className="metric-header">
-                <span className="metric-title">Team Members</span>
-                <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
-                  <FaUsers />
-                </div>
-              </div>
-              <div className="metric-value">
-                {Array.isArray(project?.manpower) ? project.manpower.length : 0}
-              </div>
-              <div className="metric-description">Assigned manpower</div>
-            </div>
-
-            <div className="metric-card">
-              <div className="metric-header">
-                <span className="metric-title">Documents</span>
-                <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-                  <FaRegFileAlt />
-                </div>
-              </div>
-              <div className="metric-value">
-                {Array.isArray(project?.documents) ? project.documents.length : 0}
-              </div>
-              <div className="metric-description">Project documents</div>
-            </div>
-          </div>
-
-          <div className="project-detail-container">
-            <div className="project-image-container">
+      {/* MAIN */}
+      <main className="dashboard-main">
+        <div className="project-view-container">
+          {/* Project Header */}
+          <div className="project-header">
+            <div className="project-image-section">
               <img
-                src={(project.photos && project.photos[0]) || 'https://placehold.co/800x300?text=No+Photo'}
+                src={(project.photos && project.photos[0]) || 'https://placehold.co/1200x400?text=Project+Image'}
                 alt={project.projectName}
-                className="responsive-photo"
+                className="project-hero-image"
               />
-            </div>
-
-            <h1 className="project-title">{project.projectName}</h1>
-
-            {/* Tabs */}
-            <div className="tabs-row">
-              <button className={`tab-btn${activeTab === 'Discussions' ? ' active' : ''}`} onClick={() => setActiveTab('Discussions')} type="button">
-                <FaRegCommentDots /> Discussions
-              </button>
-              <button className={`tab-btn${activeTab === 'Details' ? ' active' : ''}`} onClick={() => setActiveTab('Details')} type="button">
-                <FaRegListAlt /> Details
-              </button>
-              <button className={`tab-btn${activeTab === 'Files' ? ' active' : ''}`} onClick={() => setActiveTab('Files')} type="button">
-                <FaRegFileAlt /> Files
-              </button>
-              <button className={`tab-btn${activeTab === 'Reports' ? ' active' : ''}`} onClick={() => setActiveTab('Reports')} type="button">
-                <FaRegFileAlt /> Reports
-              </button>
-            </div>
-
-            {/* --- Discussions --- */}
-            {activeTab === 'Discussions' && (
-              <div className="discussions-card" style={{ display: 'flex', flexDirection: 'column', height: 540 }}>
-                <div ref={listScrollRef} style={{ flex: 1, overflowY: 'auto', paddingRight: 4 }}>
-                  {/* ... (unchanged discussions UI) ... */}
-                  {/* Kept exactly as your original for brevity */}
-                  {loadingMsgs ? (
-                    <div style={{ textAlign: "center", color: "#aaa" }}>Loading discussions…</div>
-                  ) : (
-                    <>
-                      {messages.length === 0 ? (
-                        <div style={{ color: '#bbb', fontSize: 18, textAlign: 'center', marginTop: 40, userSelect: 'none' }}>
-                          No messages yet — be the first to post.
-                        </div>
-                      ) : (
-                        messages.map(msg => {
-                          const mentionedMe = isMentioned(msg.text, userName);
-                          return (
-                            <div
-                              key={msg._id}
-                              className="discussion-msg"
-                              style={mentionedMe ? mentionRowStyles.container : undefined}
-                            >
-                              {mentionedMe && <span style={mentionRowStyles.badge}>Mentioned you</span>}
-
-                              <div className="discussion-user">
-                                <div className="discussion-avatar">{msg.userName?.charAt(0) ?? '?'}</div>
-                                <div className="discussion-user-info">
-                                  <span className="discussion-user-name">{msg.userName || 'Unknown'}</span>
-                                  <span className="discussion-timestamp">
-                                    {msg.timestamp ? new Date(msg.timestamp).toLocaleString() : ''}
-                                  </span>
-                                </div>
-                              </div>
-
-                              <div className="discussion-text">
-                                {renderMessageText(msg.text, userName)}
-                              </div>
-
-                              {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
-                                <div style={{ marginTop: 6 }}>
-                                  {msg.attachments.map((att, i) => (
-                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                                      <FaRegFileAlt />
-                                      <a href="#" onClick={(e) => { e.preventDefault(); openSignedPath(att.path); }} title={att.name}>
-                                        {att.name || extractOriginalNameFromPath(att.path)}
-                                      </a>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {/* Replies, input, etc — unchanged */}
-                            </div>
-                          );
-                        })
-                      )}
-                      <div ref={listBottomRef} />
-                    </>
-                  )}
-                </div>
-
-                {/* Composer with drag & drop (unchanged) */}
-                <div style={{ borderTop: '1px solid #eee', paddingTop: 10, marginTop: 10 }}>
-                  <div
-                    onDragOver={onDragOverComposer}
-                    onDragLeave={onDragLeaveComposer}
-                    onDrop={onDropComposer}
-                    style={{
-                      position: 'relative',
-                      marginBottom: 8,
-                      borderRadius: 10,
-                      padding: 8,
-                      transition: 'border-color .15s ease-in-out',
-                      background: isDragOver ? 'rgba(25,118,210,.04)' : 'transparent'
+              {canUploadOrDelete && (
+                <div className="image-upload-overlay">
+                  <input
+                    type="file"
+                    id="pic-project-image-upload"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (!file.type.startsWith('image/')) { alert('Please select an image file.'); e.target.value=''; return; }
+                      if (file.size > 5 * 1024 * 1024) { alert('Image must be < 5MB.'); e.target.value=''; return; }
+                      try {
+                        setImageUploading(true);
+                        setImageUploadProgress(0);
+                        setImageUploadError('');
+                        const formData = new FormData();
+                        formData.append('photo', file);
+                        const resp = await api.post(`/projects/${project._id}/photo`, formData, {
+                          headers: { 'Content-Type': 'multipart/form-data' },
+                          onUploadProgress: (pe) => {
+                            if (pe.total) {
+                              const pct = Math.round((pe.loaded * 100) / pe.total);
+                              setImageUploadProgress(pct);
+                            }
+                          }
+                        });
+                        if (resp.data?.photoUrl) {
+                          setProject(prev => ({ ...prev, photos: [resp.data.photoUrl, ...(prev.photos||[]).slice(1)] }));
+                        }
+                      } catch (err) {
+                        console.error('Image upload failed', err);
+                        setImageUploadError('Upload failed. Try again.');
+                      } finally {
+                        setImageUploading(false);
+                        setTimeout(()=>setImageUploadProgress(0), 800);
+                        e.target.value='';
+                      }
                     }}
-                  >
-                    <textarea
-                      ref={textareaRef}
-                      value={newMessage}
-                      onChange={handleTextareaInput}
-                      onKeyDown={handleKeyDownComposer}
-                      placeholder="Type a message "
-                      style={{
-                        width: '100%',
-                        minHeight: 70,
-                        resize: 'vertical',
-                        padding: 10,
-                        borderRadius: 8,
-                        border: '1px solid #ddd'
-                      }}
-                    />
-                    {mentionDropdown.open && (
-                      <div
-                        className="mention-dropdown"
-                        style={{
-                          position: 'absolute',
-                          left: 8,
-                          bottom: 80,
-                          background: '#fff',
-                          border: '1px solid #e5e5e5',
-                          borderRadius: 8,
-                          padding: 6,
-                          boxShadow: '0 6px 24px rgba(0,0,0,0.12)',
-                          zIndex: 10
-                        }}
-                      >
-                        {mentionDropdown.options.map(u => (
-                          <div
-                            key={u._id}
-                            className="mention-option"
-                            onClick={() => handleMentionSelect(u)}
-                            style={{ padding: '6px 10px', cursor: 'pointer' }}
-                          >
-                            {u.name}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                  />
+                  <label htmlFor="pic-project-image-upload" className="change-image-btn">
+                    <FaCamera />
+                    <span>{imageUploading ? 'Uploading...' : 'Change Image'}</span>
+                  </label>
+                  {imageUploading && (
+                    <div className="image-upload-progress">
+                      <div className="progress-bar"><div className="progress-fill" style={{ width: `${imageUploadProgress}%` }} /></div>
+                      <p className="progress-text">{imageUploadProgress}%</p>
+                    </div>
+                  )}
+                  {imageUploadError && (
+                    <div className="image-upload-error"><p>{imageUploadError}</p></div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="project-title-section">
+              <h1 className="project-title" style={{ wordBreak: 'break-word' }}>{project.projectName}</h1>
+              <div className="project-status-badge">
+                <span className={`status-indicator ${status === 'Completed' ? 'completed' : 'ongoing'}`}>{status || project?.status || 'N/A'}</span>
+              </div>
+            </div>
+          </div>
+          {/* Metrics (restored) */}
+          <div className="pm-overview-grid" style={{ marginTop: 20, marginBottom: 24 }}>
+            {/* Progress */}
+            <div className="pm-overview-card pm-budget-card" style={{ position:'relative' }}>
+              <div className="card-icon"><FaChartBar /></div>
+              <div className="card-content">
+                <h3 className="card-title">Project Progress</h3>
+                <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
+                  <div style={{ fontSize:32, fontWeight:700, background:'linear-gradient(90deg,#3b82f6,#6366f1)', WebkitBackgroundClip:'text', color:'transparent' }}>{Math.round(progress)}%</div>
+                  {progress >= 100 && <span style={{ fontSize:12, background:'#16a34a', color:'#fff', padding:'2px 8px', borderRadius:14, letterSpacing:.5 }}>COMPLETED</span>}
+                </div>
+                <div style={{ marginTop:10 }}>
+                  <div style={{ height:10, background:'#e2e8f0', borderRadius:6, overflow:'hidden' }}>
+                    <div style={{ width:`${progress}%`, height:'100%', background:'linear-gradient(90deg,#3b82f6,#6366f1,#8b5cf6)', transition:'width .5s' }} />
                   </div>
-
-                  {/* Attachment picker row */}
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <label
-                      htmlFor="discussion-attachments"
-                      style={{
-                        cursor: 'pointer',
-                        padding: '6px 10px',
-                        borderRadius: 6,
-                        border: '1px solid #ddd',
-                        background: '#fff',
-                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                        fontSize: 14,
-                        userSelect: 'none',
-                      }}
-                    >
-                      Attach Files
-                    </label>
-                    <input
-                      id="discussion-attachments"
-                      type="file"
-                      multiple
-                      accept={acceptTypes}
-                      style={{ display: 'none' }}
-                      onChange={(e) => {
-                        addComposerFiles(e.target.files);
-                        e.target.value = '';
-                      }}
-                    />
-                    {composerFiles.map((f, i) => (
-                      <div key={i} style={{ background: '#f3f6fb', border: '1px solid #e3e7f0', borderRadius: 999, padding: '6px 10px' }}>
-                        {f.name}
-                        <button onClick={() => setComposerFiles(prev => prev.filter((_, idx) => idx !== i))} style={{ marginLeft: 8 }} title="Remove">×</button>
-                      </div>
-                    ))}
-                    {!!composerFiles.length && (
-                      <button
-                        onClick={() => setComposerFiles([])}
-                        style={{ marginLeft: 'auto', border: '1px solid #ddd', background: '#fff', padding: '6px 10px', borderRadius: 6 }}
-                      >
-                        Clear
-                      </button>
-                    )}
-                    <button
-                      onClick={handlePostMessage}
-                      disabled={disabledPost}
-                      style={{
-                        marginLeft: 'auto',
-                        padding: '8px 16px',
-                        borderRadius: 6,
-                        border: disabledPost ? '1px solid #ccc' : '1px solid #1976d2',
-                        background: disabledPost ? '#e9ecef' : '#1976d2',
-                        color: disabledPost ? '#888' : '#fff',
-                        cursor: disabledPost ? 'not-allowed' : 'pointer'
-                      }}
-                      title={disabledPost ? 'Type a message or attach files' : 'Post'}
-                    >
-                      {posting ? 'Posting…' : 'Post'}
-                    </button>
-                  </div>
+                  <small style={{ opacity:.7 }}>Average PIC contribution</small>
                 </div>
               </div>
-            )}
-
-            {/* --- Details --- */}
+            </div>
+            {/* Status */}
+            <div className="pm-overview-card pm-timeline-card">
+              <div className="card-icon"><FaEye /></div>
+              <div className="card-content">
+                <h3 className="card-title">Status</h3>
+                <div style={{ fontSize:28, fontWeight:600 }}>{status || project?.status || 'N/A'}</div>
+                <small style={{ opacity:.7 }}>Current project state</small>
+              </div>
+            </div>
+            {/* Manpower Count */}
+            <div className="pm-overview-card pm-location-card">
+              <div className="card-icon"><FaUsers /></div>
+              <div className="card-content">
+                <h3 className="card-title">Manpower</h3>
+                <div style={{ fontSize:28, fontWeight:600 }}>{Array.isArray(project?.manpower) ? project.manpower.length : 0}</div>
+                <small style={{ opacity:.7 }}>Assigned workers</small>
+              </div>
+            </div>
+            {/* Documents */}
+            <div className="pm-overview-card pm-contractor-card">
+              <div className="card-icon"><FaRegFileAlt /></div>
+              <div className="card-content">
+                <h3 className="card-title">Documents</h3>
+                <div style={{ fontSize:28, fontWeight:600 }}>{Array.isArray(project?.documents) ? project.documents.length : 0}</div>
+                <small style={{ opacity:.7 }}>Uploaded files</small>
+              </div>
+            </div>
+          </div>
+          {/* Tabs */}
+          <div className="project-tabs">
+            <button className={`project-tab ${activeTab === 'Details' ? 'active' : ''}`} onClick={() => setActiveTab('Details')}><FaRegListAlt /><span>Details</span></button>
+            <button className={`project-tab ${activeTab === 'Discussions' ? 'active' : ''}`} onClick={() => setActiveTab('Discussions')}><FaRegCommentDots /><span>Discussions</span></button>
+            <button className={`project-tab ${activeTab === 'Files' ? 'active' : ''}`} onClick={() => setActiveTab('Files')}><FaRegFileAlt /><span>Files</span></button>
+            <button className={`project-tab ${activeTab === 'Reports' ? 'active' : ''}`} onClick={() => setActiveTab('Reports')}><FaRegFileAlt /><span>Reports</span></button>
+          </div>
+          <div className="tab-content">
+            {/* Details Tab (adapts original PIC details) */}
             {activeTab === 'Details' && (
-              <div>
-                <div className="project-details-grid">
-                  <div className="details-column">
-                    <p className="detail-item">
-                      <span className="detail-label">Location:</span>
-                      {locationLabel}
-                    </p>
-                    <div className="detail-group">
-                      <p className="detail-label">Project Manager:</p>
-                      <p className="detail-value">{project?.projectmanager?.name || 'N/A'}</p>
-                    </div>
-                    <div className="detail-group">
-                      <p className="detail-label">Contractor:</p>
-                      <p className="detail-value">{readContractor(project)}</p>
-                    </div>
-                    <div className="detail-group">
-                      <p className="detail-label">Target Date:</p>
-                      <p className="detail-value">{start} — {end}</p>
+              <div className="project-details-content">
+                <div className="pm-overview-grid">
+                  <div className="pm-overview-card pm-budget-card">
+                    <div className="card-icon"><FaChartBar /></div>
+                    <div className="card-content">
+                      <h3 className="card-title">Overall Progress</h3>
+                      <div className="budget-amount">{Math.round(progress)}%</div>
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ height: 10, background: '#e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+                          <div style={{ width: `${progress}%`, background: 'linear-gradient(90deg,#3b82f6,#6366f1)', height: '100%' }} />
+                        </div>
+                        <small style={{ opacity: .75 }}>Average PIC contribution</small>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="details-column">
-                    <div className="detail-group">
-                      <p className="detail-label">PIC:</p>
-                      <p className="detail-value">
-                        {Array.isArray(project?.pic) && project.pic.length > 0
-                          ? project.pic.map(p => p?.name).filter(Boolean).join(', ')
-                          : 'N/A'}
-                      </p>
+                  <div className="pm-overview-card pm-timeline-card">
+                    <div className="card-icon"><FaCalendarAlt /></div>
+                    <div className="card-content">
+                      <h3 className="card-title">Timeline</h3>
+                      <div className="timeline-dates">
+                        <div className="date-item"><span className="date-label">Start:</span><span className="date-value">{start}</span></div>
+                        <div className="date-item"><span className="date-label">End:</span><span className="date-value">{end}</span></div>
+                      </div>
                     </div>
-                    <div className="detail-group">
-                      <p className="detail-label">HR - Site:</p>
-                      <p className="detail-value">
-                        {Array.isArray(project?.hrsite) && project.hrsite.length > 0
-                          ? project.hrsite.map(h => h?.name).filter(Boolean).join(', ')
-                          : 'N/A'}
-                      </p>
+                  </div>
+                  <div className="pm-overview-card pm-location-card">
+                    <div className="card-icon"><FaEye /></div>
+                    <div className="card-content">
+                      <h3 className="card-title">Status</h3>
+                      <div className="location-value">{status || project?.status || 'N/A'}</div>
+                    </div>
+                  </div>
+                  <div className="pm-overview-card pm-contractor-card">
+                    <div className="card-icon"><FaUsers /></div>
+                    <div className="card-content">
+                      <h3 className="card-title">Manpower Count</h3>
+                      <div className="contractor-value">{Array.isArray(project?.manpower) ? project.manpower.length : 0}</div>
                     </div>
                   </div>
                 </div>
-
-                {purchaseOrders.length > 0 && (
-                  <div style={{ color: 'red', fontSize: 13, marginBottom: 8 }}>
-                    Purchase Orders:
-                    <ul style={{ margin: 0, padding: '0 0 0 16px' }}>
-                      {purchaseOrders.map(po => (
-                        <li key={po._id}>
-                          PO#: <b>{po.purchaseOrder}</b> — ₱{Number(po.totalValue).toLocaleString()}
-                        </li>
-                      ))}
-                    </ul>
+                <div className="team-section" style={{ marginTop: 32 }}>
+                  <h2 className="section-title">Project Team</h2>
+                  <div className="team-grid">
+                    <div className="team-member"><div className="member-avatar"><FaUsers /></div><div className="member-info"><h4 className="member-role">Project Manager</h4><p className="member-name">{project?.projectmanager?.name || 'N/A'}</p></div></div>
+                    <div className="team-member"><div className="member-avatar"><FaUsers /></div><div className="member-info"><h4 className="member-role">PIC</h4><p className="member-name">{Array.isArray(project?.pic) && project.pic.length ? project.pic.map(p=>p?.name).filter(Boolean).join(', ') : 'N/A'}</p></div></div>
+                    <div className="team-member"><div className="member-avatar"><FaUsers /></div><div className="member-info"><h4 className="member-role">HR - Site</h4><p className="member-name">{Array.isArray(project?.hrsite) && project.hrsite.length ? project.hrsite.map(h=>h?.name).filter(Boolean).join(', ') : 'N/A'}</p></div></div>
                   </div>
-                )}
-
-                <div className="manpower-section">
-                  <p className="detail-label">Manpower:</p>
-                  <p className="manpower-list">
-                    {manpowerText}
-                  </p>
                 </div>
-
-                <p><b>Status:</b> {status || project?.status || 'N/A'}</p>
+                <div className="manpower-section" style={{ marginTop: 32 }}>
+                  <h2 className="section-title">Assigned Manpower</h2>
+                  <div className="manpower-content"><p className="manpower-text">{manpowerText}</p></div>
+                </div>
               </div>
             )}
-
-            {/* --- Files --- */}
+            {/* Discussions Tab */}
+            {activeTab === 'Discussions' && (
+              <div className="discussions-container">
+                <div className="messages-list" ref={listScrollRef}>
+                  {loadingMsgs ? (
+                    <div className="loading-messages"><div className="loading-spinner" /><span>Loading discussions...</span></div>
+                  ) : messages.length === 0 ? (
+                    <div className="empty-discussions"><FaRegCommentDots /><h3>No discussions yet</h3><p>Be the first to start a conversation about this project!</p></div>
+                  ) : (
+                    messages.map(msg => {
+                      const mentionedMe = isMentioned(msg.text, userName);
+                      return (
+                        <div key={msg._id} className="message-item" style={mentionedMe ? mentionRowStyles.container : {}}>
+                          {mentionedMe && <div style={mentionRowStyles.badge}>MENTIONED</div>}
+                          <div className="message-header">
+                            <div className="message-avatar">{msg.userName?.charAt(0)?.toUpperCase() || '?'}</div>
+                            <div className="message-info"><span className="message-author">{msg.userName || 'Unknown'}</span><span className="message-time">{msg.timestamp ? new Date(msg.timestamp).toLocaleString() : ''}</span></div>
+                          </div>
+                          <div className="message-content">
+                            {msg.text && <p className="message-text">{renderMessageText(msg.text, userName)}</p>}
+                            {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
+                              <div className="message-attachments">
+                                {msg.attachments.map((att,i)=>(
+                                  <div key={i} className="attachment-item" style={{ display:'flex',alignItems:'center',gap:8 }}>
+                                    <FaRegFileAlt />
+                                    <a href="#" onClick={(e)=>{e.preventDefault();openSignedPath(att.path);}}>{att.name || extractOriginalNameFromPath(att.path)}</a>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={listBottomRef} />
+                </div>
+                <div className="message-composer">
+                  <div className={`composer-area ${isDragOver ? 'drag-over' : ''}`} onDragOver={onDragOverComposer} onDragLeave={onDragLeaveComposer} onDrop={onDropComposer}>
+                    <textarea ref={textareaRef} value={newMessage} onChange={handleTextareaInput} onKeyDown={handleKeyDownComposer} placeholder="Type your message here..." className="composer-textarea" />
+                    {mentionDropdown.open && (
+                      <div className="mention-dropdown">
+                        {mentionDropdown.options.map(u => <div key={u._id} className="mention-option" onClick={()=>handleMentionSelect(u)}>{u.name}</div>)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="composer-actions">
+                    <div className="composer-left">
+                      <label htmlFor="composer-attachments" className="attachment-button"><FaRegFileAlt /><span>Attach Files</span></label>
+                      <input id="composer-attachments" type="file" multiple accept={acceptTypes} style={{ display:'none' }} onChange={(e)=>{addComposerFiles(e.target.files); e.target.value='';}} />
+                      {composerFiles.map((f,i)=>(
+                        <div key={i} className="file-preview"><span>📎 {f.name}</span><button className="remove-file-btn" onClick={()=>setComposerFiles(prev=>prev.filter((_,idx)=>idx!==i))}>×</button></div>
+                      ))}
+                    </div>
+                    <div className="composer-right">
+                      <button onClick={handlePostMessage} disabled={disabledPost} className="send-button">{posting ? 'Sending...' : 'Send Message'}</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* Files Tab */}
             {activeTab === 'Files' && (
-              <div className="project-files-list" style={{ textAlign: 'left', alignItems: 'flex-start' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                  <h3 style={{ marginBottom: 18 }}>Project Documents</h3>
-
+              <div className="files-container">
+                <div className="files-header">
+                  <div className="files-title-section"><h2 className="files-title">Project Files</h2><p className="files-subtitle">Manage project documents</p></div>
                   {canUploadOrDelete && (
-                    <div>
-                      <label
-                        htmlFor="file-uploader"
-                        style={{
-                          cursor: uploading ? 'not-allowed' : 'pointer',
-                          padding: '8px 12px',
-                          borderRadius: 6,
-                          border: '1px solid #ddd',
-                          background: uploading ? '#f3f3f3' : '#fff',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                          fontSize: 14,
-                          userSelect: 'none',
-                        }}
-                        title={uploading ? 'Uploading…' : 'Attach files'}
-                      >
-                        {uploading ? 'Uploading…' : 'Attach Files'}
-                      </label>
-                      <input
-                        id="file-uploader"
-                        type="file"
-                        multiple
-                        style={{ display: 'none' }}
-                        disabled={uploading}
-                        onChange={(e) => {
-                          const files = Array.from(e.target.files || []);
-                          if (!files.length) return;
-                          handlePrepareUpload(files);
-                          e.target.value = '';
-                        }}
-                      />
+                    <div className="files-actions">
+                      <label htmlFor="file-upload" className="upload-btn"><FaRegFileAlt /><span>Upload Files</span></label>
+                      <input id="file-upload" type="file" multiple accept={acceptTypes} style={{ display:'none' }} disabled={uploading} onChange={(e)=>{const files=Array.from(e.target.files||[]); if(files.length) handlePrepareUpload(files); e.target.value='';}} />
                     </div>
                   )}
                 </div>
-
-                {uploadErr && <div style={{ color: '#b00020', marginBottom: 10 }}>{uploadErr}</div>}
-
+                {uploadErr && <div style={{ color:'#b00020', marginBottom:12 }}>{uploadErr}</div>}
                 {project?.documents && project.documents.length > 0 ? (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="files-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>
-                            File
-                          </th>
-                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>
-                            Uploaded By
-                          </th>
-                          <th style={{ textAlign: 'left', padding: '10px 12px',borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>
-                            Uploaded At
-                          </th>
-                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600, width: 220 }}>
-                            Action
-                          </th>
-                        </tr>
-                      </thead>
+                  <div className="files-table-container">
+                    <table className="files-table">
+                      <thead><tr><th>File</th><th>Uploaded By</th><th>Uploaded At</th><th>Action</th></tr></thead>
                       <tbody>
-                        {project.documents.map((docItem, idx) => {
+                        {project.documents.map((docItem,idx)=>{
                           const path = typeof docItem === 'string' ? docItem : docItem?.path;
                           const fileName = extractOriginalNameFromPath(path);
                           const url = docSignedUrls[idx];
                           const uploadedBy = readUploadedBy(typeof docItem === 'object' ? docItem : null);
                           const uploadedAt = readUploadedAt(typeof docItem === 'object' ? docItem : null, path);
-
                           return (
-                            <tr key={idx}>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1', verticalAlign: 'middle' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                  <FaRegFileAlt style={{ marginRight: 6 }} />
-                                  {fileName}
-                                </span>
-                              </td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{uploadedBy || 'Unknown'}</td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{uploadedAt || '—'}</td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1', verticalAlign: 'middle' }}>
-                                {url ? (
-                                  <a
-                                    href={url}
-                                    download={fileName}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{ textDecoration: 'underline', marginRight: 14 }}
-                                  >
-                                    View
-                                  </a>
-                                ) : (
-                                  <span style={{ color: '#aaa', marginRight: 14 }}>Loading link…</span>
-                                )}
-
-                                {canUploadOrDelete && (
-                                  <button
-                                    onClick={() => handleDelete(docItem)}
-                                    style={{
-                                      border: '1px solid #e5e5e5',
-                                      background: '#fff',
-                                      padding: '6px 10px',
-                                      borderRadius: 6,
-                                      cursor: 'pointer',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 6
-                                    }}
-                                    title="Delete file"
-                                  >
-                                    <FaTrash /> Delete
-                                  </button>
-                                )}
+                            <tr key={idx} className="table-row">
+                              <td className="table-cell file-name"><span style={{ display:'inline-flex',alignItems:'center' }}><FaRegFileAlt style={{ marginRight:6 }} />{fileName}</span></td>
+                              <td className="table-cell">{uploadedBy || 'Unknown'}</td>
+                              <td className="table-cell">{uploadedAt || '—'}</td>
+                              <td className="table-cell">
+                                {url ? <a href={url} target="_blank" rel="noopener noreferrer" style={{ marginRight:10 }}>View</a> : <span style={{ color:'#94a3b8', marginRight:10 }}>Link…</span>}
+                                {canUploadOrDelete && <button onClick={()=>handleDelete(docItem)} className="action-btn delete-btn" title="Delete"><FaTrash /></button>}
                               </td>
                             </tr>
                           );
@@ -1833,220 +1381,65 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
                       </tbody>
                     </table>
                   </div>
-                ) : (
-                  <div style={{ color: '#888', fontSize: 20 }}>No documents uploaded for this project.</div>
-                )}
+                ) : <div className="empty-files"><FaRegFileAlt /><h3>No files uploaded yet</h3><p>Upload project documents to get started</p></div>}
               </div>
             )}
-
-            {/* --- Reports --- */}
+            {/* Reports Tab */}
             {activeTab === 'Reports' && (
-              <div className="project-reports" style={{ textAlign: 'left' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                  <h3 style={{ marginBottom: 18 }}>Project Reports</h3>
-
+              <div className="project-reports" style={{ textAlign:'left' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:12 }}>
+                  <h3 style={{ marginBottom:18 }}>Project Reports</h3>
                   {canUploadOrDelete && (
                     <div>
-                      <label
-                        htmlFor="report-uploader"
-                        style={{
-                          cursor: reportUploading ? 'not-allowed' : 'pointer',
-                          padding: '8px 12px',
-                          borderRadius: 6,
-                          border: '1px solid #ddd',
-                          background: reportUploading ? '#f3f3f3' : '#fff',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                          fontSize: 14,
-                          userSelect: 'none',
-                        }}
-                        title={reportUploading ? 'Uploading…' : 'Upload .pptx report'}
-                      >
+                      <label htmlFor="report-uploader" style={{ cursor: reportUploading ? 'not-allowed' : 'pointer', padding:'8px 12px', borderRadius:8, background: reportUploading ? '#f1f5f9' : '#ffffff', border:'1px solid #e2e8f0', fontWeight:600 }}>
                         {reportUploading ? 'Uploading…' : 'Upload Report (.pptx)'}
                       </label>
-                      <input
-                        id="report-uploader"
-                        type="file"
-                        accept=".pptx"
-                        style={{ display: 'none' }}
-                        disabled={reportUploading}
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          e.target.value = '';
-                          if (!f) return;
-                          if (!/\.pptx$/i.test(f.name)) {
-                            alert('Please upload a .pptx file.');
-                            return;
-                          }
-                          handleUploadReport(f);
-                        }}
-                      />
+                      <input id="report-uploader" type="file" accept=".pptx" style={{ display:'none' }} disabled={reportUploading} onChange={(e)=>{const f=e.target.files?.[0]; e.target.value=''; if(!f) return; if(!/\.pptx$/i.test(f.name)){alert('Please upload a .pptx file.'); return;} handleUploadReport(f);}} />
                     </div>
                   )}
                 </div>
-
-                {reports.length === 0 ? (
-                  <div style={{ color: '#888', fontSize: 16 }}>No reports yet.</div>
-                ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="files-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>Name</th>
-                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>Uploaded By</th>
-                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>Uploaded At</th>
-                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600 }}>Status</th>
-                          <th style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid #eee', background: '#fafafa', fontWeight: 600, width: 280 }}>Action</th>
-                        </tr>
-                      </thead>
+                {reports.length === 0 ? <div style={{ color:'#64748b', fontSize:16 }}>No reports yet.</div> : (
+                  <div style={{ overflowX:'auto' }}>
+                    <table className="files-table" style={{ width:'100%' }}>
+                      <thead><tr><th>Name</th><th>Uploaded By</th><th>Uploaded At</th><th>Status</th><th>Action</th></tr></thead>
                       <tbody>
-                        {reports.map((rep) => {
+                        {reports.map(rep=>{
                           const uploadedAt = rep?.uploadedAt ? new Date(rep.uploadedAt).toLocaleString() : '—';
                           return (
                             <tr key={rep._id}>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                  <FaRegFileAlt style={{ marginRight: 6 }} />
-                                  {rep?.name || 'Report.pptx'}
-                                </span>
-                              </td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{rep?.uploadedByName || 'Unknown'}</td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{uploadedAt}</td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1', textTransform: 'capitalize' }}>
-                                {rep?.status || 'pending'}
-                              </td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
-                                {/* View PPT */}
-                                {rep?.path ? (
-                                  <button
-                                    onClick={() => openReportSignedPath(rep.path)}
-                                    style={{ marginRight: 10, border: '1px solid #ddd', background: '#fff', padding: '6px 10px', borderRadius: 6, cursor: 'pointer' }}
-                                  >
-                                    View PPT
-                                  </button>
-                                ) : (
-                                  <span style={{ color: '#aaa', marginRight: 10 }}>No PPT</span>
-                                )}
-
-                            {rep?.pdfPath ? (
-  <button
-    onClick={() =>
-      downloadReportPdf(
-        rep.pdfPath,
-        rep.name?.replace(/\.pptx$/i, '_AI.pdf') || 'AI-Report.pdf'
-      )
-    }
-    style={{ marginRight: 10, border: '1px solid #ddd', background: '#fff',
-             padding: '6px 10px', borderRadius: 6, cursor: 'pointer' }}
-  >
-    Download AI PDF
-  </button>
-) : (
-  <span style={{ color: '#aaa', marginRight: 10 }}>No PDF</span>
-)}
-
-
-                                {/* Delete */}
-                                {canUploadOrDelete && (
-                                  <button
-                                    onClick={() => handleDeleteReport(rep)}
-                                    style={{ border: '1px solid #e5e5e5', background: '#fff', padding: '6px 10px', borderRadius: 6, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                                    title="Delete report"
-                                  >
-                                    <FaTrash /> Delete
-                                  </button>
-                                )}
+                              <td><span style={{ display:'inline-flex',alignItems:'center' }}><FaRegFileAlt style={{ marginRight:6 }} />{rep?.name || 'Report.pptx'}</span></td>
+                              <td>{rep?.uploadedByName || 'Unknown'}</td>
+                              <td>{uploadedAt}</td>
+                              <td style={{ textTransform:'capitalize' }}>{rep?.status || 'pending'}</td>
+                              <td>
+                                {rep?.path ? <button onClick={()=>openReportSignedPath(rep.path)} className="action-btn download-btn" style={{ marginRight:10 }}>View PPT</button> : <span style={{ color:'#94a3b8', marginRight:10 }}>No PPT</span>}
+                                {rep?.pdfPath ? <button onClick={()=>downloadReportPdf(rep.pdfPath, rep.name?.replace(/\.pptx$/i,'_AI.pdf')||'AI-Report.pdf')} className="action-btn download-btn" style={{ marginRight:10 }}>AI PDF</button> : <span style={{ color:'#94a3b8', marginRight:10 }}>No PDF</span>}
+                                {canUploadOrDelete && <button onClick={()=>handleDeleteReport(rep)} className="action-btn delete-btn"><FaTrash /></button>}
                               </td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
-
-                    {/* Optional: quick readout of AI for newest report */}
-    {/* Latest AI Summary (richer view) */}
-{reports[0]?.ai && (
-  <div style={{ marginTop: 16, padding: 16, border: '1px solid #eee', borderRadius: 10 }}>
-    <h4 style={{ marginTop: 0 }}>Latest AI Summary</h4>
-
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: 16
-      }}
-    >
-      <div style={{ minWidth: 0 }}>
-        <b>Summary of Work Done</b>
-        <ul style={{ marginTop: 6 }}>
-          {(reports[0].ai.summary_of_work_done || []).map((x, i) => <li key={i}>{x}</li>)}
-        </ul>
-      </div>
-
-      <div style={{ minWidth: 0 }}>
-        <b>Completed Tasks</b>
-        <ul style={{ marginTop: 6 }}>
-          {(reports[0].ai.completed_tasks || []).map((x, i) => <li key={i}>{x}</li>)}
-        </ul>
-      </div>
-<div style={{ minWidth: 0 }}>
-  <b>Critical Path (3)</b>
-  <div style={{ marginTop: 6 }}>
-  {(reports[0].ai.critical_path_analysis || []).slice(0,3).map((c, i) => {
-  const days = aiEstimatedDays(c);   // << strictly from AI
-
-  if (process.env.NODE_ENV !== 'production') {
-    console.debug('[CPA latest]', { index: i, path_type: c?.path_type, days, item: c });
-  }
-
-  return (
-    <div key={i} style={{ marginBottom: 8 }}>
-      <b>{`${i + 1}. ${cpaLabel(c, i)}`}</b>
-      {Number.isFinite(days) && <span>{` — ${days} days`}</span>}
-
-      <ul style={{ marginTop: 4, marginBottom: 4 }}>
-        {Number.isFinite(days) && <li><b>Duration:</b> {days} days</li>}
-        {c?.risk && <li><b>Risk:</b> {c.risk}</li>}
-        {c?.blockers?.length > 0 && <li><b>Blockers:</b> {c.blockers.join('; ')}</li>}
-        {c?.next?.length > 0 && <li><b>Next:</b> {c.next.join('; ')}</li>}
-      </ul>
-    </div>
-  );
-})}
-
-
-
-  </div>
-</div>
-
-
-
-      <div style={{ minWidth: 0 }}>
-        <b>PiC Performance</b>
-        <p style={{ marginTop: 6 }}>
-          {reports[0].ai.pic_performance_evaluation?.text ||
-            'Progress is steady across scopes with some pending areas; schedule attention noted.'}
-        </p>
-        {typeof reports[0].ai.pic_performance_evaluation?.score === 'number' && (
-          <p>Score: {reports[0].ai.pic_performance_evaluation.score}/100</p>
-        )}
-        <p>PiC Contribution: {Math.round(Number(reports[0].ai.pic_contribution_percent) || 0)}%</p>
-        {typeof reports[0].ai.confidence === 'number' && (
-          <p>Model Confidence: {(reports[0].ai.confidence * 100).toFixed(0)}%</p>
-        )}
-      </div>
-    </div>
-  </div>
-)}
-
+                    {reports[0]?.ai && (
+                      <div style={{ marginTop:16, padding:16, border:'1px solid #e2e8f0', borderRadius:12 }}>
+                        <h4 style={{ marginTop:0 }}>Latest AI Summary</h4>
+                        <div style={{ display:'grid', gap:16, gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))' }}>
+                          <div><b>Summary of Work Done</b><ul style={{ marginTop:6 }}>{(reports[0].ai.summary_of_work_done||[]).map((x,i)=><li key={i}>{x}</li>)}</ul></div>
+                          <div><b>Completed Tasks</b><ul style={{ marginTop:6 }}>{(reports[0].ai.completed_tasks||[]).map((x,i)=><li key={i}>{x}</li>)}</ul></div>
+                          <div><b>Critical Path (3)</b><div style={{ marginTop:6 }}>{(reports[0].ai.critical_path_analysis||[]).slice(0,3).map((c,i)=>{const days=aiEstimatedDays(c);return (<div key={i} style={{ marginBottom:8 }}><b>{`${i+1}. ${cpaLabel(c,i)}`}</b>{Number.isFinite(days)&&<span>{` — ${days} days`}</span>}<ul style={{ marginTop:4, marginBottom:4 }}>{Number.isFinite(days)&&<li><b>Duration:</b> {days} days</li>}{c?.risk&&<li><b>Risk:</b> {c.risk}</li>}{c?.blockers?.length>0&&<li><b>Blockers:</b> {c.blockers.join('; ')}</li>}{c?.next?.length>0&&<li><b>Next:</b> {c.next.join('; ')}</li>}</ul></div>);})}</div></div>
+                          <div><b>PiC Performance</b><p style={{ marginTop:6 }}>{reports[0].ai.pic_performance_evaluation?.text || 'Performance summary unavailable.'}</p>{typeof reports[0].ai.pic_performance_evaluation?.score==='number'&&<p>Score: {reports[0].ai.pic_performance_evaluation.score}/100</p>}<p>PiC Contribution: {Math.round(Number(reports[0].ai.pic_contribution_percent)||0)}%</p>{typeof reports[0].ai.confidence==='number'&&<p>Model Confidence: {(reports[0].ai.confidence*100).toFixed(0)}%</p>}</div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )}
           </div>
-        </main>
-      </div>
-
-      {/* ===== Duplicate Modal (Files) ===== */}
+        </div>
+      </main>
+      {/* Duplicate File Modal */}
       {showDupModal && (
         <div
           style={{

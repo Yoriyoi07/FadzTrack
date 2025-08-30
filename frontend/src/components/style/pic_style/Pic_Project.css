@@ -1,12 +1,11 @@
 /* ===================== MODERN PIC PROJECT STYLES ===================== */
 
-/* CRITICAL SCROLLING FIXES */
-.pic-dashboard html, .pic-dashboard body, .pic-dashboard {
-  overflow: auto !important;
-  height: 100vh !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  width: 100% !important;
+/* Layout root: keep component flexible without forcing nested html/body rules */
+.pic-dashboard {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 html {
@@ -34,16 +33,15 @@ html {
 
 /* Dashboard Container */
 .pic-dashboard .dashboard-container, .pic-dashboard.dashboard-container {
-  height: 100vh;
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   margin: 0;
   padding: 0;
   width: 100%;
-  overflow: hidden;
   position: relative;
   display: flex;
   flex-direction: column;
   max-width: 100vw;
+  flex: 1;
 }
 
 /* ===================== HEADER LAYOUT ===================== */
@@ -272,6 +270,7 @@ html {
 .dashboard-layout {
   display: flex;
   flex: 1;
+  min-height: 0; /* allow children to size */
   overflow: hidden;
 }
 
@@ -355,9 +354,13 @@ html {
 /* Main Content */
 .main1 {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   padding: 2rem;
   background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
 }
 
 /* ===================== PROJECT METRICS ===================== */
@@ -505,12 +508,23 @@ html {
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 2rem;
 }
 
 .project-image-container {
   position: relative;
   height: 300px;
   overflow: hidden;
+}
+
+.project-image-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0) 30%, rgba(0,0,0,.45));
+  pointer-events: none;
 }
 
 .responsive-photo {
@@ -525,6 +539,7 @@ html {
   color: #1e293b;
   margin: 1.5rem 2rem 1rem;
   line-height: 1.2;
+  word-break: break-word;
 }
 
 /* Tabs */
@@ -534,7 +549,9 @@ html {
   padding: 0 2rem 1rem;
   border-bottom: 1px solid #e2e8f0;
   overflow-x: auto;
+  scrollbar-width: none;
 }
+.tabs-row::-webkit-scrollbar { display: none; }
 
 .tab-btn {
   display: flex;
@@ -570,6 +587,8 @@ html {
 .discussions-card {
   padding: 2rem;
   min-height: 500px;
+  display: flex;
+  flex-direction: column;
 }
 
 .discussion-msg {
@@ -578,6 +597,7 @@ html {
   padding: 1rem;
   margin-bottom: 1rem;
   border: 1px solid #e2e8f0;
+  animation: fadeIn .25s ease;
 }
 
 .discussion-user {
@@ -694,6 +714,7 @@ html {
   padding: 1rem;
   border-bottom: 1px solid #e2e8f0;
   vertical-align: middle;
+  word-break: break-word;
 }
 
 .files-table tr:hover {
@@ -750,6 +771,8 @@ html {
     font-size: 1.5rem;
     margin: 1rem;
   }
+  .project-image-container { height: 230px; }
+  .metric-value { font-size: 1.75rem; }
   
   .tabs-row {
     padding: 0 1rem 1rem;
@@ -805,6 +828,7 @@ html {
   .project-image-container {
     height: 200px;
   }
+  .project-title { font-size: 1.35rem; margin: 1rem 1rem .75rem; }
   
   .tabs-row {
     flex-wrap: wrap;
@@ -865,3 +889,7 @@ html {
   color: #16a34a;
   margin: 1rem 0;
 }
+
+/* Utility (lightweight) */
+.fade-in { animation: fadeIn .3s ease; }
+@keyframes fadeIn { from { opacity:0; transform: translateY(4px);} to { opacity:1; transform: translateY(0);} }

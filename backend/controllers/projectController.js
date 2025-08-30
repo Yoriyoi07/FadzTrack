@@ -1662,3 +1662,38 @@ exports.uploadProjectReport = async (req, res) => {
     return res.status(500).json({ message: 'Upload/AI failed', details: err.message });
   }
 };
+
+/* ===================== PROJECT PHOTO (primary) ===================== */
+exports.uploadProjectPhoto = async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    if (!projectId) return res.status(400).json({ message: 'Missing project id' });
+    if (!req.file) return res.status(400).json({ message: 'No photo uploaded' });
+
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+
+    const file = req.file;
+    const filePath = `project-photos/project-${Date.now()}-${file.originalname}`;
+    const { error: uploadError } = await supabase.storage
+      .from('photos')
+      .upload(filePath, file.buffer, { contentType: file.mimetype, upsert: false });
+    if (uploadError) {
+      console.error('uploadProjectPhoto supabase error:', uploadError);
+      return res.status(500).json({ message: 'Failed to store photo' });
+    }
+    const { data: publicUrlData } = supabase.storage.from('photos').getPublicUrl(filePath);
+    const photoUrl = publicUrlData?.publicUrl;
+    if (!photoUrl) return res.status(500).json({ message: 'Failed to get public URL' });
+
+    // Put as first photo; keep others
+    const existing = Array.isArray(project.photos) ? project.photos : [];
+    project.photos = [photoUrl, ...existing.filter(p => p !== photoUrl)].slice(0, 10);
+    await project.save();
+
+    return res.json({ message: 'Photo uploaded', photoUrl });
+  } catch (err) {
+    console.error('uploadProjectPhoto error:', err);
+    return res.status(500).json({ message: 'Server error uploading photo' });
+  }
+};

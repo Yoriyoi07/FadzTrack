@@ -123,17 +123,22 @@ router.post('/:chatId/leave', async (req, res) => {
     if (!chat.isGroup) {
       return res.status(400).json({ error: 'Cannot leave a 1:1 chat' });
     }
-    if (chat.creator?.toString() === userId) {
-      return res.status(400).json({ error: 'Creator cannot leave group' });
-    }
-
+    const wasCreator = chat.creator && chat.creator.toString() === userId;
     chat.users = chat.users.filter(u => u.toString() !== userId);
+    // If creator left, promote first remaining member (if any)
+    if (wasCreator) {
+      if (chat.users.length) {
+        chat.creator = chat.users[0];
+      } else {
+        chat.creator = null; // no members left
+      }
+    }
     await chat.save();
     const io = req.app.get('io');
     if (io) {
       io.emit('chatMembersUpdated', { chatId: chat._id, users: chat.users, name: chat.name });
     }
-    return res.json({ message: 'Left the group' });
+    return res.json({ message: 'Left the group', chatId: chat._id, creatorChanged: wasCreator });
   } catch (err) {
     console.error('❌ POST /api/chats/:chatId/leave error:', err);
     return res.status(500).json({ error: 'Failed to leave group' });

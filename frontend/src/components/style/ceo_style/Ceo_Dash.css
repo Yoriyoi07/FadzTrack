@@ -1041,29 +1041,36 @@ body {
 .ceo-content .dashboard-grid { row-gap: 1rem; }
 .ceo-content .dashboard-card { margin-bottom: 0; }
 .project-metric-item {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-width: 320px;
-  max-width: 360px;
-  min-height: 150px;
-  scroll-snap-align: start;
+  /* enhanced styling */
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  min-width:320px;
+  max-width:360px;
+  min-height:150px;
+  scroll-snap-align:start;
+  background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);
+  border:1px solid #e2e8f0;
+  border-radius:14px;
+  padding:1rem .95rem .9rem;
+  position:relative;
+  transition:box-shadow .25s ease, transform .25s ease, background .25s ease;
 }
-.metric-header { align-items: center; }
-.metric-project-name {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.metric-pics { 
-  color: #64748b; 
-  font-size: 12px; 
-  line-height: 1.3; 
-}
-/* ===================== ROLE SCOPE ISOLATION (CEO) ===================== */
-.ceo-dashboard.dashboard-container { height: auto; min-height: 100vh; overflow: visible; }
-.ceo-dashboard .dashboard-card { background: #fff; }
-.ceo-dashboard .dashboard-card.ceo-welcome-card { background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%) !important; color:#fff; }
-.ceo-dashboard .dashboard-header { position: sticky; top:0; }
-.ceo-dashboard .project-metric-item { min-width:300px; }
-.ceo-dashboard .nav-link.active, .ceo-dashboard .nav-link:hover { text-decoration:none; }
+.project-metric-item::before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,#6366f1 0%,rgba(99,102,241,0) 35%);opacity:0;transition:opacity .35s ease;pointer-events:none;}
+.project-metric-item:hover{background:#fff;box-shadow:0 10px 28px -8px rgba(15,23,42,.18);transform:translateY(-3px);} 
+.project-metric-item:hover::before{opacity:.07;} 
+.project-metric-item:active{transform:translateY(-1px);box-shadow:0 6px 18px -6px rgba(15,23,42,.2);} 
+.project-metric-item:focus-within{outline:2px solid #6366f1;outline-offset:2px;}
+.metric-status{padding:0.2rem 0.5rem;border-radius:999px;font-weight:600;font-size:0.75rem;border:1px solid transparent;box-shadow:0 0 0 1px rgba(255,255,255,.6) inset,0 1px 2px rgba(0,0,0,.04);} 
+.status-ontrack{background:#d1fae5;color:#065f46;border-color:#34d399;} 
+.status-regressing{background:#fee2e2;color:#991b1b;border-color:#f87171;} 
+.status-stale{background:#fef9c3;color:#92400e;border-color:#fde68a;} 
+.status-pending{background:#e0f2fe;color:#0369a1;border-color:#7dd3fc;} 
+.ceo-project-metrics-card input[type="text"],.ceo-project-metrics-card select{background:#ffffff;box-shadow:0 1px 2px rgba(0,0,0,.04);transition:box-shadow .2s ease,border-color .2s ease;} 
+.ceo-project-metrics-card input[type="text"]:focus,.ceo-project-metrics-card select:focus{outline:none;border-color:#6366f1 !important;box-shadow:0 0 0 3px rgba(99,102,241,.25);} 
+.metric-progress-circle .progress-ring svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.08));} 
+.metric-progress-circle .progress-ring circle:last-of-type{transition:stroke-dashoffset .6s ease,stroke .4s ease;} 
+.metric-pics{color:#64748b;font-size:12px;line-height:1.3;display:-webkit-box;line-clamp:2;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;} 
+@media (max-width:1100px){.project-metric-item{min-width:280px;padding:.85rem .85rem .75rem;}.metric-project-name{font-size:.9rem;}.metric-status{font-size:.65rem;}} 
+@media (max-width:800px){.project-metric-item{min-width:240px;}.metric-progress-circle svg{width:52px;height:52px;}}
+/* ...existing code below... */

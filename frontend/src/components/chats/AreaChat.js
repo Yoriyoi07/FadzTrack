@@ -791,6 +791,22 @@ const AreaChat = ({ baseSegment = 'am' }) => {
     }
   };
 
+  // Leave group (reassign creator handled server-side)
+  const handleLeaveGroup = async () => {
+    if (!selectedChat?.isGroup) return;
+    const ok = window.confirm('Leave this group chat?');
+    if (!ok) return;
+    try {
+      await api.post(`/chats/${selectedChat._id}/leave`, {}, { headers });
+      // Remove from local list and clear selection
+      setChatList(list => list.filter(c => c._id !== selectedChat._id));
+      setSelectedChat(null);
+      navigate(`/${baseSegment}/chat`);
+    } catch (e) {
+      alert(e?.response?.data?.error || 'Failed to leave group');
+    }
+  };
+
   const activeList = searchQuery.trim() ? searchResults : chatList;
   // Derive unique members for selected group chat (avoid duplicates / missing _id entries inflating count)
   const uniqueMembers = useMemo(() => {
@@ -1294,10 +1310,9 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                           <FaUsers /><span>Add Members</span>
                         </button>
                         <button className="action-btn share-link-btn"><span>Share Link</span></button>
+                        <button className="action-btn leave-btn" onClick={handleLeaveGroup}><span>Leave Group</span></button>
                       </>
                     )}
-                    <button className="action-btn block-btn"><span>Block</span></button>
-                    <button className="action-btn report-btn"><span>Report</span></button>
                   </div>
 
                   <div className="details-section">

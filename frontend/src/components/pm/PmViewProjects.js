@@ -471,10 +471,25 @@ const Pm_Project = () => {
     }
   };
 
-  // Fetch reports when Reports tab is active
+  // Eagerly fetch reports once project loads (instead of only when Reports tab active)
   useEffect(() => {
-    if (activeTab === 'Reports' && project?._id) fetchReports(project._id);
-  }, [activeTab, project?._id]); // eslint-disable-line
+    if (!project?._id) return;
+    fetchReports(project._id);
+  }, [project?._id]);
+
+  // Keep previous tab-triggered fetch to allow manual refresh when switching (cheap safeguard)
+  useEffect(() => {
+    if (activeTab === 'Reports' && project?._id && reports.length === 0) {
+      fetchReports(project._id);
+    }
+  }, [activeTab, project?._id]);
+
+  // Optional periodic refresh every 2 minutes to reflect new uploads while on Details tab
+  useEffect(() => {
+    if (!project?._id) return;
+    const idInt = setInterval(() => fetchReports(project._id), 120000); // 2 min
+    return () => clearInterval(idInt);
+  }, [project?._id]);
 
   // Auto-scroll to bottom on message change
   useEffect(() => {
@@ -1104,7 +1119,7 @@ const handleDeleteFile = async (doc, index) => {
                       const formData = new FormData();
                       formData.append('photo', file);
                       
-                      const response = await api.post(`/projects/${project._id}/upload-photo`, formData, {
+                      const response = await api.post(`/projects/${project._id}/photo`, formData, {
                         headers: {
                           'Content-Type': 'multipart/form-data',
                         },
@@ -1246,9 +1261,9 @@ const handleDeleteFile = async (doc, index) => {
                 </div>
 
                 {/* Project Overview Cards */}
-                <div className="overview-grid">
+                <div className="pm-overview-grid">
                   {/* Budget Card */}
-                  <div className="overview-card budget-card">
+                  <div className="pm-overview-card pm-budget-card">
                     <div className="card-icon">
                       <FaMoneyBillWave />
                     </div>
@@ -1271,7 +1286,7 @@ const handleDeleteFile = async (doc, index) => {
                   </div>
 
                   {/* Timeline Card */}
-                  <div className="overview-card timeline-card">
+                  <div className="pm-overview-card pm-timeline-card">
                     <div className="card-icon">
                       <FaCalendarAlt />
                     </div>
@@ -1291,7 +1306,7 @@ const handleDeleteFile = async (doc, index) => {
                   </div>
 
                   {/* Location Card */}
-                  <div className="overview-card location-card">
+                  <div className="pm-overview-card pm-location-card">
                     <div className="card-icon">
                       <FaMapMarkerAlt />
                     </div>
@@ -1302,7 +1317,7 @@ const handleDeleteFile = async (doc, index) => {
                   </div>
 
                   {/* Contractor Card */}
-                  <div className="overview-card contractor-card">
+                  <div className="pm-overview-card pm-contractor-card">
                     <div className="card-icon">
                       <FaBuilding />
                     </div>
@@ -1591,7 +1606,7 @@ const handleDeleteFile = async (doc, index) => {
                                 padding: '4px 8px',
                                 borderRadius: '12px',
                                 fontSize: '11px',
-                                fontWeight: '600',
+                                fontWeight: 600,
                                 textTransform: 'uppercase',
                                 letterSpacing: '0.5px',
                                 zIndex: 10,

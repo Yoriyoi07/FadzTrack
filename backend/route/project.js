@@ -54,6 +54,8 @@ router.delete('/:id', verifyToken, controller.deleteProject);
 /* ---------- Files tab ---------- */
 router.post('/:id/documents', verifyToken, upload.array('files', 20), controller.uploadProjectDocuments);
 router.delete('/:id/documents', verifyToken, controller.deleteProjectDocument);
+/* Project primary photo upload */
+router.post('/:id/photo', verifyToken, upload.single('photo'), controller.uploadProjectPhoto);
 
 /* ---------- project by id and others ---------- */
 router.get('/:id', controller.getProjectById);

@@ -309,11 +309,10 @@
 .pm-dashboard .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  /* Stack all secondary cards beneath the hero welcome card full width */
+  /* Side-by-side chats & requests under welcome */
   grid-template-areas:
     "welcome welcome"
-    "chats chats"
-    "requests requests"
+    "chats requests"
     "chart chart";
   gap: 1.75rem;
   align-items: start;
@@ -330,14 +329,11 @@
 
 /* Large screens: allow three middle columns if very wide */
 @media (min-width: 1700px) {
-  /* Maintain vertical stacking even on ultra-wide screens for clarity */
   .pm-dashboard .dashboard-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1.2fr 1fr 1fr; /* wider welcome row then two content cols below */
     grid-template-areas:
       "welcome welcome welcome"
-      "chats chats chats"
-      "requests requests requests"
-      "chart chart chart";
+      "chats requests chart";
   }
   .pm-dashboard .chart-card { align-self: stretch; }
 }
@@ -348,8 +344,7 @@
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "welcome welcome"
-      "chats chats"
-      "requests requests"
+      "chats requests"
       "chart chart";
   }
 }
@@ -752,6 +747,66 @@
   box-shadow:0 4px 14px -6px rgba(0,0,0,.5);
   transition:box-shadow .25s, transform .25s;
 }
+
+/* ===================== RESPONSIVE ENHANCEMENTS (PM DASH) ===================== */
+/* Fluid typography for welcome title/subtitle */
+.pm-dashboard .welcome-title, .pm-dashboard .pm-welcome-card .welcome-title { font-size:clamp(1.6rem,4vw,2.2rem); }
+.pm-dashboard .welcome-subtitle, .pm-dashboard .pm-welcome-card .welcome-subtitle { font-size:clamp(.85rem,1.2vw,1rem); }
+
+/* Slightly tighter gaps on very wide to keep focus centered */
+@media (min-width:1700px){
+  .pm-dashboard .dashboard-grid { gap:1.5rem 1.25rem; }
+}
+
+/* Medium screens: reduce padding & card density */
+@media (max-width:1300px){
+  .pm-dashboard .dashboard-card { padding:1.1rem 1.15rem; }
+  .pm-dashboard .pm-welcome-card .project-stats, .pm-dashboard .welcome-card .project-stats { gap:.75rem; }
+  .pm-dashboard .stat-item { padding:.5rem .4rem; }
+}
+
+/* Tablet: collapse stat grid to two columns, compress header */
+@media (max-width:1000px){
+  .pm-dashboard .pm-welcome-card .project-stats, .pm-dashboard .welcome-card .project-stats { grid-template-columns:repeat(2,minmax(140px,1fr)); }
+  .pm-dashboard .dashboard-main { padding:1.5rem 1.25rem; }
+  .pm-dashboard .dashboard-grid { gap:1.25rem; }
+  .pm-dashboard .project-badge { font-size:.75rem; }
+}
+
+/* Phones: single column already handled; tighten further */
+@media (max-width:700px){
+  .pm-dashboard .dashboard-main { padding:1.25rem 1rem 2.5rem; }
+  .pm-dashboard .dashboard-card { border-radius:14px; }
+  .pm-dashboard .pm-welcome-card, .pm-dashboard .welcome-card { padding:1.25rem 1.25rem 1.75rem; }
+  .pm-dashboard .stat-value { font-size:1.35rem; }
+  .pm-dashboard .stat-label { font-size:.65rem; letter-spacing:.5px; }
+  .pm-dashboard .chats-list, .pm-dashboard .requests-content { max-height:320px; }
+}
+
+/* Ultra small devices */
+@media (max-width:500px){
+  .pm-dashboard .pm-welcome-card .project-stats, .pm-dashboard .welcome-card .project-stats { grid-template-columns:1fr 1fr; }
+  .pm-dashboard .project-badge { display:inline-flex; max-width:100%; }
+  .pm-dashboard .stat-item { flex-direction:row; } /* retain horizontal icon + text */
+}
+
+/* Improve scroll container feel without layout shift */
+.pm-dashboard .chats-list, .pm-dashboard .requests-content { scrollbar-width:thin; }
+.pm-dashboard .chats-list::-webkit-scrollbar, .pm-dashboard .requests-content::-webkit-scrollbar { width:6px; }
+.pm-dashboard .chats-list::-webkit-scrollbar-thumb, .pm-dashboard .requests-content::-webkit-scrollbar-thumb { background:rgba(0,0,0,.15); border-radius:20px; }
+
+/* Ensure stacked full-width cards breathe */
+.pm-dashboard .chats-card, .pm-dashboard .requests-card, .pm-dashboard .chart-card { scroll-margin-top:90px; }
+
+/* Guard: if viewport height is short, prevent welcome card from hiding content below header */
+@media (max-height:760px){
+  .pm-dashboard .pm-welcome-card, .pm-dashboard .welcome-card { margin-bottom:1rem; }
+}
+
+/* Accessibility: enforce min tap area for refresh/view-all buttons on small screens */
+@media (max-width:700px){
+  .pm-dashboard .refresh-btn, .pm-dashboard .view-all-link { min-height:38px; }
+}
 .pm-dashboard .stat-item:hover { transform:translateY(-4px); box-shadow:0 10px 26px -8px rgba(0,0,0,.55); }
 .pm-dashboard .stat-icon { background: linear-gradient(135deg,#3b82f6,#1e40af); box-shadow:0 4px 12px -4px rgba(0,0,0,.55); }
 .pm-dashboard .stat-value { font-size:1.65rem; letter-spacing:.25px; }
@@ -829,8 +884,7 @@
 
 /* ===================== REQUESTS CARD ===================== */
 .pm-dashboard .requests-card {
-  /* Full-width row placement ensured via grid-area definition above */
-  grid-column: 1 / -1;
+  /* In wide layout sits beside chats via grid-area; no forced span */
   background: white !important;
   color: #1e293b !important;
   display: flex;
@@ -923,35 +977,54 @@
 .pm-dashboard .request-item {
   display: flex;
   gap: 1rem;
-  padding: 1rem;
-  background: #f8fafc;
-  border-radius: 12px;
+  padding: .9rem 1rem 1rem;
+  background: linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%);
+  border-radius: 14px;
   text-decoration: none;
   color: inherit;
-  transition: all 0.2s ease;
+  transition: box-shadow .25s ease, transform .25s ease, background .25s ease;
   border: 1px solid #e2e8f0;
-  min-height: 80px;
+  min-height: 82px;
   flex-shrink: 0;
+  position: relative;
+  isolation: isolate; /* so pseudo elements don't bleed */
+  backdrop-filter: saturate(1.2) blur(2px);
 }
-
+.pm-dashboard .request-item::before {
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#6366f1 0%,rgba(99,102,241,0) 35%);
+  opacity:0;
+  transition:opacity .3s ease;
+  pointer-events:none;
+}
+.pm-dashboard .request-item::after {
+  content:"";
+  position:absolute;
+  top:50%;
+  right:.85rem;
+  width:10px;
+  height:10px;
+  border-right:2px solid #64748b;
+  border-top:2px solid #64748b;
+  transform:translateY(-50%) rotate(45deg) translateX(-2px);
+  opacity:.25;
+  transition:opacity .25s ease, transform .25s ease;
+  pointer-events:none;
+}
 .pm-dashboard .request-item:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  transform: translateX(4px);
+  background:#ffffff;
+  border-color:#d1d9e5;
+  box-shadow:0 8px 22px -6px rgba(15,23,42,.15);
+  transform:translateY(-2px);
 }
+.pm-dashboard .request-item:hover::before { opacity:.08; }
+.pm-dashboard .request-item:hover::after { opacity:.55; transform:translateY(-50%) rotate(45deg) translateX(0); }
 
-.pm-dashboard .request-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 8px;
-  background: #e0e7ff;
-  color: #4f46e5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.25rem;
-  flex-shrink: 0;
-}
+.pm-dashboard .request-item:active { transform:translateY(0); box-shadow:0 4px 14px -4px rgba(15,23,42,.18); }
+.pm-dashboard .request-item:focus-visible { outline:2px solid #6366f1; outline-offset:2px; }
 
 .pm-dashboard .request-details {
   flex: 1;
@@ -959,33 +1032,48 @@
 }
 
 .pm-dashboard .request-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #1e293b;
-  margin-bottom: 0.5rem;
-  line-height: 1.4;
+  font-size: .85rem;
+  font-weight:600;
+  color:#1e293b;
+  margin:0 0 .35rem;
+  line-height:1.35;
+  display:-webkit-box;
+  line-clamp:2;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 .pm-dashboard .request-description {
-  font-size: 0.8rem;
-  color: #64748b;
-  margin-bottom: 0.75rem;
-  line-height: 1.4;
+  font-size:.72rem;
+  color:#64748b;
+  margin:0 0 .55rem;
+  line-height:1.35;
+  display:-webkit-box;
+  line-clamp:2;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 .pm-dashboard .request-meta {
-  display: flex;
-  gap: 1rem;
-  font-size: 0.75rem;
-  color: #94a3b8;
+  display:flex;
+  flex-wrap:wrap;
+  gap:.75rem 1rem;
+  font-size:.65rem;
+  color:#64748b;
+  font-weight:500;
+  line-height:1.2;
 }
 
 .pm-dashboard .request-status {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 80px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:.35rem;
+  min-width:78px;
 }
 
 .pm-dashboard .status-icon {
@@ -1005,13 +1093,31 @@
 }
 
 .pm-dashboard .status-text {
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-align: center;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  font-size:.6rem;
+  font-weight:600;
+  text-align:center;
+  padding:.22rem .45rem;
+  border-radius:30px;
+  text-transform:uppercase;
+  letter-spacing:.6px;
+  background:#f1f5f9;
+  border:1px solid #e2e8f0;
+  color:#334155;
+  box-shadow:0 0 0 1px rgba(255,255,255,.6) inset, 0 1px 2px rgba(0,0,0,.06);
+}
+
+/* Status color accents */
+.pm-dashboard .status-text.approved, .pm-dashboard .status-text.completed { background:#dcfce7; border-color:#bbf7d0; color:#166534; }
+.pm-dashboard .status-text.pending { background:#fef3c7; border-color:#fde68a; color:#92400e; }
+.pm-dashboard .status-text.rejected, .pm-dashboard .status-text.denied { background:#fee2e2; border-color:#fecaca; color:#b91c1c; }
+
+/* Responsive material requests adjustments */
+@media (max-width:900px){
+  .pm-dashboard .request-item { flex-direction:column; padding: .9rem .9rem .95rem; }
+  .pm-dashboard .request-status { flex-direction:row; min-width:0; justify-content:flex-start; }
+  .pm-dashboard .status-icon { font-size:1rem; }
+  .pm-dashboard .status-text { font-size:.55rem; }
+  .pm-dashboard .request-meta { gap:.5rem .75rem; }
 }
 
 .pm-dashboard .status-text.completed {
