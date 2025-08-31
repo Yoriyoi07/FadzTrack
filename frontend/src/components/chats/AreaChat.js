@@ -1,5 +1,6 @@
 // src/components/AreaChat.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import AppHeader from '../layout/AppHeader';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   FaUsers, FaPaperPlane, FaCheck, FaTachometerAlt, FaComments, FaBoxes,
@@ -915,49 +916,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
         </div>
       )}
 
-      {/* HEADER */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        <div className="header-top">
-          <div className="logo-section">
-            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'A'}</div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn"><span>Logout</span></button>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="header-bottom">
-          <nav className="header-nav">
-            {(NAV_CONFIG[baseSegment] || NAV_CONFIG['am']).map(item => {
-              // Support dynamic project-based links for PM & PIC
-              let to = item.to;
-              if (!to && item.toDynamic) {
-                const dynamicId = baseSegment === 'pm' ? pmProjectId : baseSegment === 'pic' ? picProjectId : null;
-                to = item.toDynamic(dynamicId);
-              }
-              if (!to) return null; // skip if still null
-              const Icon = item.icon;
-              const active = item.activeMatch ? item.activeMatch.test(window.location.pathname) : false;
-              return (
-                <Link key={to} to={to} className={`nav-item ${active ? 'active' : ''}`}>
-                  <Icon />
-                  <span className={isHeaderCollapsed ? 'hidden' : ''}>{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-          <NotificationBell />
-        </div>
-      </header>
+  <AppHeader roleSegment={baseSegment} />
 
       {/* BODY */}
       <div className="area-chat-content">

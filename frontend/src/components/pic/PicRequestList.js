@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
+import AppHeader from '../layout/AppHeader';
 import '../style/pm_style/PmMatRequest.css';
 import '../style/pm_style/Pm_Dash.css';
 import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram } from 'react-icons/fa';
@@ -124,53 +125,12 @@ export default function PicRequestList() {
 
   return (
     <div>
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        <div className="header-top">
-          <div className="logo-section">
-            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">{user?.name ? user.name.charAt(0).toUpperCase() : 'P'}</div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{user?.name || 'PIC'}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown" onClick={(e) => e.stopPropagation()}>
-                <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="logout-btn"><span>Logout</span></button>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/pic" className="nav-item">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/pic/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/pic/requests" className="nav-item active">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span>
-            </Link>
-            {activeProject && (
-              <Link to={`/pic/${activeProject._id}`} className="nav-item">
-                <FaEye />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
-              </Link>
-            )}
-            <Link to="/pic/projects" className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
-            </Link>
-          </nav>
-          <NotificationBell />
-        </div>
-      </header>
+  <AppHeader roleSegment="pic" />
+
+      <div style={{padding:'1.1rem 1.6rem 0.4rem'}}>
+        <h1 style={{margin:'0 0 4px',fontSize:'1.08rem',fontWeight:600,color:'#1e293b'}}>Material Requests</h1>
+        <p style={{margin:0,fontSize:'.72rem',letterSpacing:.2,color:'#64748b'}}>Your submitted material requests</p>
+      </div>
 
       <main className="dashboard-main">
         <div className="page-container">

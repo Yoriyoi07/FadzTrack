@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import './materialRequestDetail.css';
+import AppHeader from '../layout/AppHeader';
 import { useParams, useNavigate } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import ApproveDenyActions from '../ApproveDenyActions';
 import { getStatusBadge, computeApprovalSteps, canUserActOnRequest } from './materialStatusUtils';
 
-const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', headerTitle='Material Request Detail', headerSubtitle='Full lifecycle view', customHeader=null }) => {
+const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', headerTitle='Material Request Detail', headerSubtitle='Full lifecycle view', customHeader=null, disableHeader=false }) => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [materialRequest, setMaterialRequest] = useState(null);
@@ -41,7 +42,14 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
   };
 
   if(loading||error||!materialRequest){
-    return <div className={`dashboard-container ${rootClass}`}><header className={`dashboard-header ${isHeaderCollapsed?'collapsed':''}`}><div className="header-content"><div className="header-left"><h1 className="header-title">Material Request Detail</h1><p className="header-subtitle">Loading details</p></div><div className="header-right"><button onClick={handleBack} className="btn-secondary"><i className="fas fa-arrow-left"/> Back</button></div></div></header><div className="dashboard-main"><div className="page-container">{loading && <div className="loading-state"><div className="loading-spinner"/><p>Loading...</p></div>}{!loading && error && <div className="error-state"><p>{error}</p></div>}</div></div></div>;
+    return <div className={`dashboard-container ${rootClass}`}>
+      {!disableHeader && <AppHeader roleSegment={(role||'').toLowerCase().includes('project manager')? 'pm' : (role||'').toLowerCase().includes('area manager')? 'am' : (role||'').toLowerCase().includes('person in charge')? 'pic' : (role||'').toLowerCase().includes('ceo')? 'ceo' : (role||'').toLowerCase().includes('it')? 'it':'pic'}
+        below={<div className="header-content" style={{padding:'0.75rem 1.5rem'}}>
+          <div className="header-left"><h1 className="header-title" style={{margin:0,fontSize:'1.15rem'}}>Material Request Detail</h1><p className="header-subtitle" style={{margin:0,fontSize:'0.75rem',opacity:.75}}>Loading details</p></div>
+          <div className="header-right"><button onClick={handleBack} className="btn-secondary"><i className="fas fa-arrow-left"/> Back</button></div>
+        </div>}
+      />}
+      <div className="dashboard-main"><div className="page-container">{loading && <div className="loading-state"><div className="loading-spinner"/><p>Loading...</p></div>}{!loading && error && <div className="error-state"><p>{error}</p></div>}</div></div></div>;
   }
 
   const { steps, meta } = computeApprovalSteps(materialRequest);
@@ -72,24 +80,14 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
 
   return (
     <div className={`dashboard-container ${rootClass}`}>
-      {customHeader ? customHeader : (
-        <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-          <div className="header-content">
-            <div className="header-left"><h1 className="header-title">{headerTitle}</h1><p className="header-subtitle">{headerSubtitle}</p></div>
-            <div className="header-right">
-            <button onClick={handleBack} className="btn-secondary"><i className="fas fa-arrow-left"/> Back</button>
-            <div className="profile-dropdown" ref={profileDropdownRef}>
-              <button className="profile-button" onClick={()=>setIsProfileOpen(v=>!v)}>
-                <div className="profile-avatar"><i className="fas fa-user"/></div>
-                <span className="profile-name">{user?.name||'User'}</span>
-                <i className={`fas fa-chevron-down ${isProfileOpen?'rotated':''}`}></i>
-              </button>
-              {isProfileOpen && <div className="profile-menu"><div className="profile-info"><div className="profile-avatar-large"><i className="fas fa-user"/></div><div className="profile-details"><span className="profile-name-large">{user?.name||'User'}</span><span className="profile-role">{userRole}</span></div></div><div className="profile-actions"><button onClick={handleLogout} className="profile-action logout"><i className="fas fa-sign-out-alt"/> Logout</button></div></div>}
-            </div>
-            </div>
-          </div>
-        </header>
-      )}
+      {!disableHeader && (customHeader ? customHeader : (
+        <AppHeader roleSegment={(role||'').toLowerCase().includes('project manager')? 'pm' : (role||'').toLowerCase().includes('area manager')? 'am' : (role||'').toLowerCase().includes('person in charge')? 'pic' : (role||'').toLowerCase().includes('ceo')? 'ceo' : (role||'').toLowerCase().includes('it')? 'it':'pic'}
+          below={<div className="header-content" style={{padding:'0.75rem 1.5rem'}}>
+            <div className="header-left"><h1 className="header-title" style={{margin:0,fontSize:'1.15rem'}}>{headerTitle}</h1><p className="header-subtitle" style={{margin:0,fontSize:'0.75rem',opacity:.75}}>{headerSubtitle}</p></div>
+            <div className="header-right"><button onClick={handleBack} className="btn-secondary"><i className="fas fa-arrow-left"/> Back</button></div>
+          </div>}
+        />
+      ))}
       <div className="dashboard-main">
         <div className="mrd">
           <div className="mrd-summary">

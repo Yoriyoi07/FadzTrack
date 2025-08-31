@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
+import AppHeader from '../layout/AppHeader';
 import '../style/pm_style/PmManpowerRequest.css';
 // Nav icons
 import { 
@@ -32,9 +33,7 @@ export default function PmManpowerList() {
 
   const [userName, setUserName] = useState(user?.name || 'ALECK');
   const [userRole, setUserRole] = useState(user?.role || '');
-  const [project, setProject] = useState(null);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  const [project, setProject] = useState(null); // still used for linking inside page content if needed
 
   // View mode: 'mine' | 'others'
   const [viewMode, setViewMode] = useState('mine');
@@ -82,37 +81,7 @@ export default function PmManpowerList() {
     fetchData();
   }, [viewMode, userId]);
 
-  // Scroll handler for header collapse
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const shouldCollapse = scrollTop > 50;
-      setIsHeaderCollapsed(shouldCollapse);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".user-profile")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    api.post('/auth/logout', {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).finally(() => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
-    });
-  };
+  // Removed custom header collapse + profile menu logic (handled by AppHeader)
 
   // Fetch assigned project
   useEffect(() => {
@@ -213,83 +182,7 @@ export default function PmManpowerList() {
 
   return (
     <div className="dashboard-container">
-      {/* Modern Header */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo and Profile */}
-        <div className="header-top">
-          <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'P'}
-            </div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-                         <Link to="/pm" className="nav-item">
-               <FaTachometerAlt />
-               <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-             </Link>
-             <Link to="/pm/chat" className="nav-item">
-               <FaComments />
-               <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-             </Link>
-             <Link to="/pm/request/:id" className="nav-item">
-               <FaBoxes />
-               <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
-             </Link>
-            <Link to="/pm/manpower-list" className="nav-item active">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
-            {project && (
-                          <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
-            </Link>
-            )}
-            <Link to="/pm/daily-logs" className="nav-item">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
-            </Link>
-            {project && (
-              <Link to={`/pm/progress-report/${project._id}`} className="nav-item">
-                <FaChartBar />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
-              </Link>
-            )}
-            <Link to="/pm/daily-logs-list" className="nav-item">
-              <FaCalendarAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Daily Logs</span>
-            </Link>
-          </nav>
-          
-          <NotificationBell />
-        </div>
-      </header>
-
-      {/* Main Content */}
+      <AppHeader roleSegment="pm" />
       <main className="dashboard-main">
         <div className="page-container">
                      {/* Page Header */}

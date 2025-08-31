@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './materialRequests.css';
+import AppHeader from '../layout/AppHeader';
 import { Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import { truncateWords, getStatusBadge, computeApprovalSteps } from './materialStatusUtils';
@@ -13,7 +14,8 @@ const MaterialRequestListView = ({
   detailLinkBase = '/material-request',
   headerTitle = 'Material Requests',
   headerSubtitle = 'All material requests',
-  customHeader = null
+  customHeader = null,
+  disableHeader = false
 }) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -151,19 +153,14 @@ const MaterialRequestListView = ({
 
   return (
     <div className={`dashboard-container ${rootClass}`}>
-      {customHeader ? customHeader : (
-        <header className="dashboard-header">
-          <div className="header-content">
-            <div className="header-left">
-              <h1 className="header-title">{headerTitle}</h1>
-              <p className="header-subtitle">{headerSubtitle}</p>
-            </div>
-            <div className="header-right">
-              <div className="header-role-chip">{role}</div>
-            </div>
-          </div>
-        </header>
-      )}
+  {!disableHeader && (customHeader ? customHeader : (
+        <AppHeader roleSegment={(role||'').toLowerCase().includes('project manager')? 'pm' : (role||'').toLowerCase().includes('area manager')? 'am' : (role||'').toLowerCase().includes('person in charge')? 'pic' : (role||'').toLowerCase().includes('ceo')? 'ceo' : (role||'').toLowerCase().includes('it')? 'it':'pic'}
+          below={<div className="header-content" style={{padding:'0.75rem 1.5rem'}}>
+            <div className="header-left"><h1 className="header-title" style={{margin:0,fontSize:'1.15rem'}}>{headerTitle}</h1><p className="header-subtitle" style={{margin:0,fontSize:'0.75rem',opacity:.75}}>{headerSubtitle}</p></div>
+            <div className="header-right"><div className="header-role-chip" style={{background:'#1e293b',padding:'4px 10px',borderRadius:16,fontSize:12}}>{role}</div></div>
+          </div>}
+        />
+  ))}
       <main className="dashboard-main">
         <div className="page-container">
           <div className="controls-bar">

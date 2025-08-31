@@ -1,6 +1,5 @@
 import React from 'react';
 import MaterialRequestListView from '../material/MaterialRequestListView';
-import PicMaterialHeader from './PicMaterialHeader';
 
 const PicMatRequestListWrapper = () => (
   <MaterialRequestListView
@@ -10,7 +9,6 @@ const PicMatRequestListWrapper = () => (
     rootClass="pic-request-list"
     headerTitle="My Material Requests"
     headerSubtitle="Track, create and receive materials"
-    customHeader={<PicMaterialHeader title="My Material Requests" subtitle="Track, create and receive materials" />}
   />
 );
 

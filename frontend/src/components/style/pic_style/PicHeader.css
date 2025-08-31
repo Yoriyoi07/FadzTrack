@@ -1,0 +1,21 @@
+.pp-navbar.pic-header{position:sticky;top:0;z-index:60;background:#121b26;backdrop-filter:blur(10px);padding:.75rem 2rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+/* Reuse tokens from PicAllProjects */
+.pic-header{--bg:#0e141b;--surface:#18222e;--surface-alt:#1f2c3a;--border:rgba(255,255,255,0.08);--primary:#3164ff;--primary-grad:linear-gradient(135deg,#3164ff,#5e89ff);--text:#f5f7fa;--text-dim:#b5c2d1}
+.pic-header .pp-left{display:flex;align-items:center;gap:1.8rem}
+.pic-header .pp-logo{height:38px;width:auto;filter:drop-shadow(0 4px 10px rgba(0,0,0,.35))}
+.pic-header .pp-brand{font-size:1rem;font-weight:700;letter-spacing:.55px;background:linear-gradient(90deg,#3b82f6,#60a5fa);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 2px 6px rgba(0,0,0,.35)}
+.pic-header .pp-nav{display:flex;gap:.4rem;flex-wrap:wrap}
+.pic-header .pp-link{--pad:0.55rem .95rem;display:inline-flex;align-items:center;gap:.55rem;padding:var(--pad);font-size:.85rem;font-weight:600;text-decoration:none;color:var(--text-dim);border-radius:9px;letter-spacing:.3px;position:relative;transition:.18s ease}
+.pic-header .pp-link svg{font-size:.95rem;opacity:.9}
+.pic-header .pp-link:hover{background:var(--surface-alt);color:var(--text)}
+.pic-header .pp-link.active{background:var(--primary-grad);color:#fff;box-shadow:0 4px 18px -4px rgba(64,112,255,.55)}
+.pic-header .pp-right{display:flex;align-items:center;gap:1rem}
+.pic-header .pp-user{display:flex;align-items:center;gap:.6rem;padding:.45rem .9rem;background:var(--surface);border:1px solid var(--border);border-radius:40px;cursor:pointer;position:relative}
+.pic-header .pp-avatar{height:34px;width:34px;border-radius:50%;background:var(--primary-grad);display:grid;place-items:center;font-weight:600;letter-spacing:.5px;color:#ffffff}
+.pic-header .pp-user-text{display:flex;flex-direction:column;line-height:1.1}
+.pic-header .pp-username{font-size:.82rem;font-weight:600;letter-spacing:.4px;color:#ffffff}
+.pic-header .pp-role{font-size:.62rem;font-weight:600;letter-spacing:.65px;text-transform:uppercase;opacity:.72;margin-top:2px;color:var(--text-dim)}
+.pic-header .pp-dropdown{position:absolute;top:115%;right:0;background:var(--surface-alt);border:1px solid var(--border);padding:.4rem .55rem;border-radius:10px;box-shadow:0 12px 32px -10px rgba(0,0,0,.5);animation:fade .15s ease}
+.pic-header .pp-dropdown button{background:transparent;border:none;color:var(--text);font-size:.78rem;padding:.45rem .9rem;width:100%;text-align:left;cursor:pointer;border-radius:6px}
+.pic-header .pp-dropdown button:hover{background:var(--primary)}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}

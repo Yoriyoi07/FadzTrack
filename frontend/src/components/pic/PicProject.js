@@ -20,6 +20,7 @@ import {
   FaCalendarAlt,
   FaBoxes
 } from 'react-icons/fa';
+import AppHeader from '../layout/AppHeader';
 
 /* ---------- Socket endpoint setup ---------- */
 const RAW = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
@@ -1066,36 +1067,11 @@ const downloadReportPdf = async (path, filename = 'AI-Report.pdf') => {
 
   return (
     <div className="dashboard-container pm-view-root">
-      {/* HEADER (mirrors PM styling) */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        <div className="header-top">
-          <div className="logo-section">
-            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'P'}</div>
-            <div className="profile-info">
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/pic" className="nav-item"><FaTachometerAlt /><span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span></Link>
-            <Link to="/pic/chat" className="nav-item"><FaComments /><span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span></Link>
-            <Link to="/pic/requests" className="nav-item"><FaClipboardList /><span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span></Link>
-            <Link to={`/pic/viewprojects/${project._id}`} className="nav-item active"><FaProjectDiagram /><span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span></Link>
-          </nav>
-          <NotificationBell />
-        </div>
-      </header>
+  <AppHeader roleSegment="pic" />
+      <div style={{padding:'1.1rem 1.6rem .4rem'}}>
+        <h1 style={{margin:'0 0 4px',fontSize:'1.07rem',fontWeight:600,color:'#1e293b'}}>Project Overview</h1>
+        <p style={{margin:0,fontSize:'.7rem',letterSpacing:.2,color:'#64748b'}}>{project?.projectName || 'Loading project...'}</p>
+      </div>
       {/* MAIN */}
       <main className="dashboard-main">
         <div className="project-view-container">

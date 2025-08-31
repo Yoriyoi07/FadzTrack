@@ -21,6 +21,7 @@ import PmManpowerList from './pm/PmManpowerList';
 import PM_Manpower_Request_List from './pm/PM_Manpower_Request_List';
 import PmRequestedManpowerDetail from './pm/PmRequestedManpowerDetail';
 import PmViewProjects from './pm/PmViewProjects';
+import PmAllProjects from './pm/PmAllProjects';
 import PmDailyLogs from './pm/PMDailyLogs';
 import PmDailyLogsList from './pm/PmDailyLogsList';
 import PmViewDailyLogs from './pm/PmViewDailyLogs';
@@ -120,7 +121,8 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/pm/request-manpower/edit/:id" element={<PmRequestManpower />} />
         <Route path="/pm/manpower-request/:id" element={<PmRequestedManpowerDetail />} />
         <Route path="/pm/manpower-list" element={<PmManpowerList />} />
-        <Route path="/pm/viewprojects/:id" element={<PmViewProjects />} />
+  <Route path="/pm/viewprojects/:id" element={<PmViewProjects />} />
+  <Route path="/pm/projects" element={<PmAllProjects />} />
         <Route path="/pm/daily-logs" element={<PmDailyLogs />} />
         <Route path="/pm/progress-report/:id" element={<PmProgressReport />} />
         <Route path="/pm/daily-logs-list" element={<PmDailyLogsList />} />

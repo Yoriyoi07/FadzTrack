@@ -1656,3 +1656,16 @@
 .ceo-chat-wrapper .pending-item, .hr-chat-wrapper .pending-item, .it-chat-wrapper .pending-item, .pm-chat-wrapper .pending-item, .pic-chat-wrapper .pending-item, .picchat-wrapper .pending-item { position:relative; width:110px; height:110px; border:1px solid #e2e8f0; border-radius:12px; background:#ffffff; display:flex; align-items:center; justify-content:center; padding:4px; box-shadow:0 2px 4px rgba(0,0,0,.06); }
 .ceo-chat-wrapper .pending-item img.pending-thumb, .hr-chat-wrapper .pending-item img.pending-thumb, .it-chat-wrapper .pending-item img.pending-thumb, .pm-chat-wrapper .pending-item img.pending-thumb, .pic-chat-wrapper .pending-item img.pending-thumb, .picchat-wrapper .pending-item img.pending-thumb,
 .ceo-chat-wrapper .pending-item video.pending-thumb, .hr-chat-wrapper .pending-item video.pending-thumb, .it-chat-wrapper .pending-item video.pending-thumb, .pm-chat-wrapper .pending-item video.pending-thumb, .pic-chat-wrapper .pending-item video.pending-thumb, .picchat-wrapper .pending-item video.pending-thumb { width:100%; height:100%; object-fit:cover; border-radius:8px; }
+
+/* ===================== Unified Chat Typography ===================== */
+:where(.area-chat-wrapper,.pm-chat-wrapper,.pic-chat-wrapper,.hr-chat-wrapper,.it-chat-wrapper,.ceo-chat-wrapper) {
+  font-family:'Inter', system-ui, -apple-system,'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --chat-name-size:.85rem;
+  --chat-preview-size:.7rem;
+  --chat-time-size:.55rem;
+  --chat-line-height:1.25;
+}
+:where(.area-chat-wrapper,.pm-chat-wrapper,.pic-chat-wrapper,.hr-chat-wrapper,.it-chat-wrapper,.ceo-chat-wrapper) .modern-chat-name{font-size:var(--chat-name-size)!important;line-height:var(--chat-line-height);letter-spacing:.3px;}
+:where(.area-chat-wrapper,.pm-chat-wrapper,.pic-chat-wrapper,.hr-chat-wrapper,.it-chat-wrapper,.ceo-chat-wrapper) .modern-chat-preview{font-size:var(--chat-preview-size)!important;line-height:1.3;}
+:where(.area-chat-wrapper,.pm-chat-wrapper,.pic-chat-wrapper,.hr-chat-wrapper,.it-chat-wrapper,.ceo-chat-wrapper) .modern-chat-time{font-size:var(--chat-time-size)!important;letter-spacing:.5px;}
+:where(.area-chat-wrapper,.pm-chat-wrapper,.pic-chat-wrapper,.hr-chat-wrapper,.it-chat-wrapper,.ceo-chat-wrapper) .modern-chat-item{padding:.75rem .9rem;}

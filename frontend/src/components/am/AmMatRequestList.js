@@ -1,6 +1,5 @@
 import React from 'react';
 import MaterialRequestListView from '../material/MaterialRequestListView';
-import AmMaterialHeader from './AmMaterialHeader';
 
 const AmMatRequestList = () => (
   <MaterialRequestListView
@@ -10,7 +9,6 @@ const AmMatRequestList = () => (
     rootClass="am-request-list"
     headerTitle="AM Material Requests"
     headerSubtitle="Approve validated requests and monitor delivery"
-    customHeader={<AmMaterialHeader title="AM Material Requests" subtitle="Approve validated requests and monitor delivery" />}
   />
 );
 

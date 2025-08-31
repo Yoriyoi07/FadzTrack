@@ -7,6 +7,7 @@ import '../style/pm_style/Pm_Dash.css';
 
 // React Icons
 import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram } from 'react-icons/fa';
+import AppHeader from '../layout/AppHeader';
 
 const chats = [
   { id: 1, name: 'Rychea Miralles', initial: 'R', message: 'Hello Good Morning po! As...', color: '#4A6AA5' },
@@ -165,54 +166,12 @@ const PicMatReq = () => {
 
   return (
     <div>
-      {/* IT/PM-style collapsible header */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        <div className="header-top">
-          <div className="logo-section">
-            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
-            <h1 className="header-brand">FadzTrack</h1>
-  </div>
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'P'}</div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-    </div>
-    {profileMenuOpen && (
-              <div className="profile-dropdown" onClick={(e) => e.stopPropagation()}>
-                <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="logout-btn"><span>Logout</span></button>
+  <AppHeader roleSegment="pic" />
+
+      <div style={{padding:'1.05rem 1.6rem .3rem'}}>
+        <h1 style={{margin:'0 0 4px',fontSize:'1.06rem',fontWeight:600,color:'#1e293b'}}>New Material Request</h1>
+        <p style={{margin:0,fontSize:'.7rem',letterSpacing:.2,color:'#64748b'}}>Create a new request for your project</p>
       </div>
-    )}
-          </div>
-        </div>
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/pic" className="nav-item">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/pic/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/pic/requests" className="nav-item active">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span>
-            </Link>
-            {project && (
-              <Link to={`/pic/${project._id}`} className="nav-item">
-                <FaEye />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
-              </Link>
-            )}
-            <Link to="/pic/projects" className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
-            </Link>
-          </nav>
-          <NotificationBell />
-  </div>
-</header>
 
       {/* Main content */}
       <div className="dashboard-layout">

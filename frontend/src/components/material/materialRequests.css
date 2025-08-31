@@ -86,3 +86,19 @@
 /* Large desktop */
 @media (min-width:1500px){:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .page-container {max-width:1720px;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .requests-grid.enhanced-list .request-list {grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:1.25rem 1.4rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row-title {font-size:1rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row-desc {font-size:.72rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step {min-width:75px;}}
 @media (min-width:1800px){:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .page-container {max-width:1840px;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .requests-grid.enhanced-list .request-list {grid-template-columns:repeat(auto-fill,minmax(460px,1fr));} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row {padding:1.1rem 1.25rem 1.15rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-steps {padding:.7rem .9rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step .step-icon {width:30px;height:30px;}}
+
+/* ===================== LAYOUT OVERRIDE (REMOVE NESTED SCROLLBAR) ===================== */
+/* Some legacy PM/AM CSS files define an unscoped .dashboard-main with min-height + overflow-y:auto,
+    which creates an inner scroll bar inside our unified header pages (material list + detail).
+    We neutralize that here by scoping overrides to our root classes so only these views are affected. */
+:is(.mr-request-list,.mr-request-detail,.pm-request-list,.am-request-list,.pic-request-list) .dashboard-main {
+   min-height: auto !important;
+   height: auto !important;
+   overflow: visible !important; /* allow page to use body scroll */
+   padding-top: 0; /* keep spacing consistent with header's own padding */
+}
+
+/* Ensure page container still gets vertical spacing below header */
+:is(.mr-request-list,.mr-request-detail,.pm-request-list,.am-request-list,.pic-request-list) .dashboard-main .page-container {
+   padding-top: 1rem;
+}

@@ -2,18 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
+import AppHeader from '../layout/AppHeader';
 import '../style/am_style/Area_Projects.css';
 
 // React Icons
-import { 
-  FaTachometerAlt, 
-  FaComments, 
-  FaBoxes, 
-  FaUsers, 
-  FaProjectDiagram, 
-  FaClipboardList, 
-  FaChartBar,
+import {
+  FaBoxes,
+  FaUsers,
+  FaProjectDiagram,
   FaMapMarkerAlt,
   FaUserTie,
   FaBuilding,
@@ -22,7 +18,6 @@ import {
   FaMoneyBillWave,
   FaCheckCircle,
   FaClock,
-  FaFilter,
   FaTh,
   FaList,
   FaSearch,
@@ -36,8 +31,7 @@ const AreaProj = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  // Unified header removed collapse/profile local states
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -49,33 +43,7 @@ const AreaProj = () => {
   const userRole = user?.role || 'Area Manager';
   const areaManagerId = user?._id;
 
-  // Scroll handler for header collapse
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const shouldCollapse = scrollTop > 50;
-      setIsHeaderCollapsed(shouldCollapse);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.profile-menu-container')) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
+  // Unified header handles logout & profile interactions
 
   // Fetch projects
   useEffect(() => {
@@ -204,73 +172,7 @@ const AreaProj = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Modern Header - PM Style */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo and Profile */}
-        <div className="header-top">
-          <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-
-          <div className="user-profile profile-menu-container" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'A'}
-            </div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/am" className="nav-item">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/am/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/am/matreq" className="nav-item">
-              <FaBoxes />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
-            </Link>
-            <Link to="/am/manpower-requests" className="nav-item">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
-            <Link to="/am/viewproj" className="nav-item active">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
-            </Link>
-            <Link to="/logs" className="nav-item">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
-            </Link>
-            <Link to="/reports" className="nav-item">
-              <FaChartBar />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
-            </Link>
-          </nav>
-
-          <NotificationBell />
-        </div>
-      </header>
+      <AppHeader roleSegment="am" />
 
       {/* Main Content */}
       <main className="dashboard-main">

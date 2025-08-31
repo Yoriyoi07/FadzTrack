@@ -5,6 +5,7 @@ import api from '../../api/axiosInstance';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import ProgressTracker from '../ProgressTracker';
 import NotificationBell from '../NotificationBell';
+import AppHeader from '../layout/AppHeader';
 // Nav icons
 import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaBoxes, FaArrowRight, FaCheckCircle, FaClock, FaExclamationTriangle } from 'react-icons/fa';
 const formatRemaining = (ts) => {
@@ -193,69 +194,7 @@ const handleLogout = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Modern Header */}
-      <header className="dashboard-header">
-        {/* Top Row: Logo and Profile */}
-        <div className="header-top">
-          <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'P'}
-            </div>
-            <div className="profile-info">
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/pic" className="nav-item active">
-              <FaTachometerAlt />
-              <span>Dashboard</span>
-            </Link>
-            <Link to="/pic/chat" className="nav-item">
-              <FaComments />
-              <span>Chat</span>
-            </Link>
-                  <Link to="/pic/requests" className="nav-item">
-                               <FaClipboardList />
-                               <span >Requests</span>
-                             </Link>
-            {project && (
-              <Link to={`/pic/${project._id}`} className="nav-item">
-                <FaEye />
-                <span>View Project</span>
-              </Link>
-            )}
-            <Link to="/pic/projects" className="nav-item">
-              <FaProjectDiagram />
-              <span>My Projects</span>
-            </Link>
-          </nav>
-          
-          <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
-            <NotificationBell />
-          </div>
-        </div>
-      </header>
+  <AppHeader roleSegment="pic" />
 
              {/* Main Content */}
        <div className="dashboard-layout">

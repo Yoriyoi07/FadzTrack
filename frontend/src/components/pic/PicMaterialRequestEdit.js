@@ -5,6 +5,7 @@ import '../style/pic_style/Pic_MatReq.css';
 import '../style/pm_style/Pm_Dash.css';
 // Nav icons
 import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaArrowLeft, FaInfoCircle, FaUser, FaBoxes as FaMaterials, FaPaperclip, FaTruck, FaCheck, FaClock, FaDownload, FaCalendarAlt, FaMapMarkerAlt, FaPlus, FaTrash, FaSave } from 'react-icons/fa';
+import AppHeader from '../layout/AppHeader';
 
 const PicMaterialRequestEdit = () => {
   const { id } = useParams();
@@ -217,47 +218,12 @@ const PicMaterialRequestEdit = () => {
 
   return (
     <div>
-      {/* PIC-style collapsible header */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        <div className="header-top">
-          <div className="logo-section">
-            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          <div className="user-profile" ref={profileDropdownRef} onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">{user?.name ? user.name.charAt(0).toUpperCase() : 'P'}</div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{user?.name || 'PIC'}</span>
-              <span className="profile-role">{user?.role || 'Person in Charge'}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown" onClick={(e) => e.stopPropagation()}>
-                <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="logout-btn"><span>Logout</span></button>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/pic" className="nav-item">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/pic/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/pic/requests" className="nav-item active">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span>
-            </Link>
-            <Link to="/pic/projects" className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
-            </Link>
-          </nav>
-        </div>
-      </header>
+  <AppHeader roleSegment="pic" />
+
+      <div style={{padding:'1.05rem 1.6rem .3rem'}}>
+        <h1 style={{margin:'0 0 4px',fontSize:'1.06rem',fontWeight:600,color:'#1e293b'}}>Edit Material Request</h1>
+        <p style={{margin:0,fontSize:'.7rem',letterSpacing:.2,color:'#64748b'}}>Update materials and request details</p>
+      </div>
 
       {/* Main content */}
       <div className="dashboard-layout">

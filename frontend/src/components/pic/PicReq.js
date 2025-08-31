@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import axiosInstance from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
+import AppHeader from '../layout/AppHeader';
 import '../../components/style/it_style/ItMaterialRequestDetail.css';
 import '../style/pm_style/Pm_Dash.css';
 
@@ -135,36 +136,47 @@ const MaterialRequestDetail = () => {
     }
   };
 
-  const handleCancelRequest = () => {
-    if (!window.confirm('Are you sure you want to cancel this request?')) return;
-    axiosInstance.delete(`/requests/${id}`)
-      .then(() => {
-        alert('Request cancelled');
-        navigate('/pic');
-      })
-      .catch(err => {
-        alert('Failed to cancel request');
-        console.error(err);
-      });
-  };
+  // Determine if current user (PIC) can still edit the request.
+  // Rules: must be creator (isPIC), not received or cancelled/denied, and no approvals finalized yet.
+  const isEditable = (
+    !!materialRequest &&
+    isPIC &&
+    !materialRequest.receivedByPIC &&
+    !/denied|cancel|received/i.test(materialRequest.status || '') &&
+    !(materialRequest.approvals?.projectManager?.approved || materialRequest.approvals?.areaManager?.approved)
+  );
 
+  // Mark the request as received (PIC acknowledgement after full approval)
   const handleMarkReceived = async () => {
+    if (!materialRequest || materialRequest.receivedByPIC) return;
+    if (!window.confirm('Mark all materials in this request as received?')) return;
     try {
-      await axiosInstance.patch(`/requests/${id}/received`);
-      alert('Request marked as received!');
-      window.location.reload();
-    } catch (err) {
-      alert('Failed to mark as received');
-      console.error(err);
+      await axiosInstance.patch(`/requests/${materialRequest._id}/received`);
+      setMaterialRequest(prev => prev ? ({
+        ...prev,
+        receivedByPIC: true,
+        receivedDate: new Date().toISOString(),
+        status: 'Received'
+      }) : prev);
+      alert('Marked as received.');
+    } catch (e) {
+      alert(e?.response?.data?.message || 'Failed to mark as received');
     }
   };
 
-  const isEditable = [
-    'Pending PM',
-    'Pending AM'
-  ].includes(materialRequest?.status);
+  // Cancel (delete) the material request
+  const handleCancelRequest = async () => {
+    if (!materialRequest) return;
+    if (!window.confirm('Cancel (delete) this material request? This cannot be undone.')) return;
+    try {
+      await axiosInstance.delete(`/requests/${materialRequest._id}`);
+      alert('Request cancelled.');
+      navigate('/pic/requests');
+    } catch (e) {
+      alert(e?.response?.data?.message || 'Failed to cancel request');
+    }
+  };
 
-  // --- Status helpers for uniform UI ---
   const getStatusColor = (status, receivedByPIC) => {
     const s = (status || '').toLowerCase();
     if (receivedByPIC) return '#0ea5e9';
@@ -225,65 +237,36 @@ const MaterialRequestDetail = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Modern Header */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        <div className="header-content">
-          <div className="header-left">
-            <h1 className="header-title">Material Request Details</h1>
-            <p className="header-subtitle">View and manage material request information</p>
-          </div>
-          <div className="header-right">
-            <div className="header-actions">
-              <button 
-                onClick={handleBack}
-                className="btn-secondary"
-              >
-                <i className="fas fa-arrow-left"></i>
-                Back to List
-              </button>
-              <div className="profile-dropdown" ref={profileDropdownRef}>
-                <button 
-                  className="profile-button"
-                  onClick={() => setIsProfileOpen(!isProfileOpen)}
-                >
-                  <div className="profile-avatar">
-                    <i className="fas fa-user"></i>
-                  </div>
-                  <span className="profile-name">{user?.name || 'User'}</span>
-                  <i className={`fas fa-chevron-down ${isProfileOpen ? 'rotated' : ''}`}></i>
-                </button>
-                {isProfileOpen && (
-                  <div className="profile-menu">
-                    <div className="profile-info">
-                      <div className="profile-avatar-large">
-                        <i className="fas fa-user"></i>
-                      </div>
-                      <div className="profile-details">
-                        <span className="profile-name-large">{user?.name || 'User'}</span>
-                        <span className="profile-role">Person in Charge</span>
-                      </div>
-                    </div>
-                    <div className="profile-actions">
-                      <button className="profile-action">
-                        <i className="fas fa-user-cog"></i>
-                        Profile Settings
-                      </button>
-                      <button className="profile-action">
-                        <i className="fas fa-cog"></i>
-                        System Settings
-                      </button>
-                      <button onClick={handleLogout} className="profile-action logout">
-                        <i className="fas fa-sign-out-alt"></i>
-                        Logout
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+  <AppHeader roleSegment="pic" />
+      <div className="header-content" style={{padding:'1.5rem 2rem 0'}}>
+        <div className="header-left">
+          <h1 className="header-title">Material Request Details</h1>
+          <p className="header-subtitle">View and manage material request information</p>
+        </div>
+        <div className="header-right">
+          <div className="header-actions">
+            <button onClick={handleBack} className="btn-secondary">
+              <i className="fas fa-arrow-left"></i>
+              Back to List
+            </button>
+            {!editMode && isEditable && isPIC && (
+              <button onClick={() => setEditMode(true)} className="btn-primary">Edit</button>
+            )}
+            {editMode && (
+              <>
+                <button onClick={handleSaveEdit} className="btn-primary">Save</button>
+                <button onClick={() => setEditMode(false)} className="btn-secondary">Cancel</button>
+              </>
+            )}
+            {!materialRequest.receivedByPIC && materialRequest.status?.includes('Approved') && isPIC && (
+              <button onClick={handleMarkReceived} className="btn-success">Mark Received</button>
+            )}
+            {isPIC && !materialRequest.receivedByPIC && (
+              <button onClick={handleCancelRequest} className="btn-danger">Cancel Request</button>
+            )}
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
       <div className="dashboard-main">

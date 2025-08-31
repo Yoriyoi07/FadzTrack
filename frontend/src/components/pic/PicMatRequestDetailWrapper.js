@@ -1,6 +1,5 @@
 import React from 'react';
 import MaterialRequestDetailView from '../material/MaterialRequestDetailView';
-import PicMaterialHeader from './PicMaterialHeader';
 
 const PicMatRequestDetailWrapper = () => (
   <MaterialRequestDetailView
@@ -8,7 +7,6 @@ const PicMatRequestDetailWrapper = () => (
     rootClass="pic-request-detail"
     headerTitle="Material Request Detail"
     headerSubtitle="View lifecycle and receive materials"
-    customHeader={<PicMaterialHeader title="Material Request Detail" subtitle="View lifecycle and receive materials" />}
   />
 );
 

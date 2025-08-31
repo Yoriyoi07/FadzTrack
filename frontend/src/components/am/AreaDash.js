@@ -3,36 +3,10 @@ import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Dash.css';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
+import AppHeader from '../layout/AppHeader';
 
 // React Icons
-import {
-  FaTachometerAlt,
-  FaComments,
-  FaBoxes,
-  FaUsers,
-  FaProjectDiagram,
-  FaClipboardList,
-  FaChartBar,
-  FaCalendarAlt,
-  FaTasks,
-  FaCheckCircle,
-  FaClock,
-  FaExclamationTriangle,
-  FaArrowRight,
-  FaChevronDown,
-  FaChevronUp,
-  FaFolder,
-  FaFolderOpen,
-  FaBuilding,
-  FaMapMarkerAlt,
-  FaUserTie,
-  FaChartLine,
-  FaBell,
-  FaSearch,
-  FaChevronRight,
-  FaChevronLeft
-} from 'react-icons/fa';
+import { FaCalendarAlt, FaCheckCircle, FaExclamationTriangle, FaArrowRight, FaChevronDown, FaChevronUp, FaBuilding, FaMapMarkerAlt, FaUserTie, FaChevronRight, FaChevronLeft, FaUsers, FaProjectDiagram, FaBoxes, FaChartBar } from 'react-icons/fa';
 
 const AreaDash = () => {
   const navigate = useNavigate();
@@ -50,8 +24,7 @@ const AreaDash = () => {
   const [userRole, setUserRole] = useState(user?.role || '');
 
   // Header state
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  // Header (legacy states removed with unified header)
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Data state
@@ -74,6 +47,8 @@ const AreaDash = () => {
     totalEngineers: 0,
     averageProgress: 0
   });
+  // Cache of PIC contributions per project to avoid double fetching
+  const [projectContribs, setProjectContribs] = useState({}); // { projectId: contributionsData }
 
   // ---------- Data load (production-safe, won't spam) ----------
   useEffect(() => {
@@ -98,68 +73,79 @@ const AreaDash = () => {
 
     const fetchProjects = async (locations) => {
       try {
-        const { data: projectsData } = await api.get('/projects', {
-          signal: controller.signal,
-        });
+        const { data: projectsData } = await api.get('/projects', { signal: controller.signal });
         if (!isActive) return;
         setAllProjects(projectsData);
-
-        const userProjects = projectsData.filter((project) =>
-          locations.some(
-            (loc) => loc._id === (project.location?._id || project.location)
-          )
+        const userProjects = projectsData.filter(project =>
+          locations.some(loc => loc._id === (project.location?._id || project.location))
         );
-
-        const projectsWithProgress = await Promise.all(
-          userProjects.map(async (project) => {
+        const contribMap = {};
+        const projectsWithProgress = await Promise.all(userProjects.map(async (project) => {
+          try {
+            const totalPics = Array.isArray(project.pic) ? project.pic.length : 0;
+            // First: project reports (these contain ai.pic_contribution_percent similar to ProjectView)
+            let avg = 0; let reportingPics = 0; let pendingPics = totalPics; let latestDate = null; let picContributions = [];
             try {
-              const [{ data: progressData }, { data: reports }] = await Promise.all([
-                api.get(`/daily-reports/project/${project._id}/progress`, {
-                  signal: controller.signal,
-                }),
-                api.get(`/daily-reports/project/${project._id}`, {
-                  signal: controller.signal,
-                }),
-              ]);
-
-              let latestDate = null;
-              if (Array.isArray(reports) && reports.length > 0) {
-                latestDate = reports[reports.length - 1].date || null;
+              const { data: repData } = await api.get(`/projects/${project._id}/reports`, { signal: controller.signal });
+              const list = repData?.reports || [];
+              if(list.length){
+                const sorted = [...list].sort((a,b)=> new Date(b.uploadedAt||0)-new Date(a.uploadedAt||0));
+                latestDate = sorted[0]?.uploadedAt || null;
+                const byUser = new Map();
+                for(const r of sorted){
+                  const key = r.uploadedBy || r.uploadedByName || r._id;
+                  if(!byUser.has(key)) byUser.set(key,r);
+                }
+                const distinct = [...byUser.values()];
+                const valsRaw = distinct.map(r=> Number(r?.ai?.pic_contribution_percent)).filter(v=> isFinite(v) && v>=0);
+                let vals = valsRaw;
+                if(!vals.length){
+                  vals = distinct.map(r=>{ const done = r?.ai?.completed_tasks?.length||0; const total = done + (r?.ai?.summary_of_work_done?.length||0); return total>0 ? (done/total)*100 : 0; });
+                }
+                if(vals.length){
+                  const a = vals.reduce((s,v)=> s+v,0)/vals.length; avg = Math.min(100,Math.max(0, a));
+                }
+                reportingPics = distinct.length; pendingPics = totalPics>0 ? Math.max(0,totalPics-reportingPics) : 0;
+                picContributions = distinct.map(r=> ({ picId: r.uploadedBy || r._id, picName: r.uploadedByName || 'Unknown', contribution: Math.round(Number(r?.ai?.pic_contribution_percent)||0), hasReport:true, lastReportDate: r.uploadedAt||null }));
               }
-
-              return {
-                id: project._id,
-                name: project.projectName,
-                engineer: project.projectmanager?.name || 'Not Assigned',
-                progress: progressData.progress,
-                latestDate,
-                location: project.location,
-              };
-            } catch {
-              return null;
+            } catch { /* ignore, fallback below */ }
+            // Fallback: daily reports contributions endpoint if avg still 0
+            if(avg === 0){
+              try {
+                const { data: contrib } = await api.get(`/daily-reports/project/${project._id}/pic-contributions`, { signal: controller.signal });
+                if(contrib){
+                  if(!latestDate){
+                    const ld = (contrib.picContributions||[]).filter(p=>p.lastReportDate).map(p=> new Date(p.lastReportDate)).sort((a,b)=> b-a)[0];
+                    latestDate = ld ? ld.toISOString() : latestDate;
+                  }
+                  if(contrib.averageContribution) avg = contrib.averageContribution;
+                  if(!reportingPics) reportingPics = contrib.reportingPics || 0;
+                  if(totalPics && pendingPics===totalPics) pendingPics = contrib.pendingPics ?? pendingPics;
+                  if(!picContributions.length) picContributions = contrib.picContributions || [];
+                }
+              } catch { /* ignore */ }
             }
-          })
-        );
-
-        if (!isActive) return;
-
-        const filtered = projectsWithProgress.filter(
-          (p) =>
-            p &&
-            p.progress &&
-            Array.isArray(p.progress) &&
-            p.progress[0].name !== 'No Data' &&
-            p.latestDate
-        );
-        filtered.sort(
-          (a, b) => new Date(b.latestDate) - new Date(a.latestDate)
-        );
+            const finalPercent = Math.round(avg);
+            contribMap[project._id] = { averageContribution: finalPercent, totalPics, reportingPics, pendingPics, picContributions };
+            const progressArray = [ { name: 'Completed', value: finalPercent } ];
+            return {
+              id: project._id,
+              name: project.projectName,
+              engineer: project.projectmanager?.name || 'Not Assigned',
+              progress: progressArray,
+              latestDate,
+              location: project.location,
+            };
+          } catch { return null; }
+        }));
+        if(!isActive) return;
+        setProjectContribs(contribMap);
+        const filtered = projectsWithProgress.filter(p=> p && Array.isArray(p.progress) && p.progress.length);
+        filtered.sort((a,b)=> new Date(b.latestDate||0)-new Date(a.latestDate||0));
         setProjects(filtered);
-      } catch (error) {
+      } catch(error){
         console.error('Error fetching projects:', error);
-      } finally {
-        if (isActive) setLoading(false);
-      }
+      } finally { if(isActive) setLoading(false); }
     };
 
     const fetchRequests = async (locations) => {
@@ -255,33 +241,7 @@ const AreaDash = () => {
     }
   }, [enrichedAllProjects, pendingRequests, projects]);
 
-  // Scroll handler for header collapse
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const shouldCollapse = scrollTop > 50;
-      setIsHeaderCollapsed(shouldCollapse);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.profile-menu-container')) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
+  // Unified header handles logout & profile menu
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
@@ -300,103 +260,30 @@ const AreaDash = () => {
     return acc;
   }, {});
 
-  // Project metrics data (CEO logic, scoped to AM's projects)
+  // Project metrics reuse fetched contributions
   const [projectMetrics, setProjectMetrics] = useState([]);
-  const [metricsLoading, setMetricsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchProjectMetrics = async () => {
-      if (!enrichedAllProjects.length) return;
-      setMetricsLoading(true);
-      const metrics = [];
-
-      const getPctFromAi = (ai) => {
-        const v = Number(ai?.pic_contribution_percent);
-        if (Number.isFinite(v) && v >= 0) return Math.max(0, Math.min(100, Math.round(v)));
-        const ct = Array.isArray(ai?.completed_tasks) ? ai.completed_tasks.length : 0;
-        return Math.max(0, Math.min(100, ct * 5));
-      };
-
-      for (const project of enrichedAllProjects) {
-        try {
-          // Use the new averaged PiC contributions endpoint
-          const { data: contributionsData } = await api.get(`/daily-reports/project/${project._id}/pic-contributions`);
-          
-          const avg = contributionsData.averageContribution || 0;
-          const totalPics = contributionsData.totalPics || 0;
-          const reportingPics = contributionsData.reportingPics || 0;
-          const pendingPics = contributionsData.pendingPics || 0;
-
-          // Determine status based on reporting and contribution levels
-          let status = 'ontrack';
-          if (pendingPics > 0 && totalPics > 1) status = 'pending';
-          else if (avg < 50) status = 'regressing';
-          else if (avg >= 70) status = 'ontrack';
-
-          // Get latest report date from individual contributions
-          const latestDate = contributionsData.picContributions
-            .filter(pic => pic.lastReportDate)
-            .map(pic => new Date(pic.lastReportDate))
-            .sort((a, b) => b - a)[0] || null;
-
-          // Check if reports are stale (older than 3 days)
-          if (latestDate && (Date.now() - latestDate.getTime()) > 3 * 24 * 60 * 60 * 1000) {
-            status = 'stale';
-          }
-
-          // Build PiC names list
-          const picNames = contributionsData.picContributions.map(pic => {
-            if (pic.hasReport) {
-              return pic.picName;
-            } else {
-              return `${pic.picName} (pending)`;
-            }
-          });
-
-          metrics.push({
-            projectId: project._id,
-            projectName: project.name,
-            pm: project.engineer,
-            area: project.location?.name || 'Unknown Area',
-            progress: avg,
-            totalPics: totalPics,
-            latestDate: latestDate,
-            status: status,
-            waitingForAll: pendingPics > 0 && totalPics > 1,
-            picNames: picNames,
-            reportingPics: reportingPics,
-            pendingPics: pendingPics
-          });
-        } catch (e) {
-          console.error(`Error fetching contributions for project ${project._id}:`, e);
-          metrics.push({
-            projectId: project._id,
-            projectName: project.name,
-            pm: project.engineer,
-            area: project.location?.name || 'Unknown Area',
-            progress: 0,
-            totalPics: 0,
-            latestDate: null,
-            status: 'stale',
-            waitingForAll: false,
-            picNames: []
-          });
-        }
+  const [metricsLoading, setMetricsLoading] = useState(false); // loading tied to fetchProjects
+  useEffect(()=>{
+    if(!enrichedAllProjects.length){ setProjectMetrics([]); return; }
+  const metrics = enrichedAllProjects.map(project => {
+      const contrib = projectContribs[project._id];
+      if(contrib){
+    const avg = (contrib.averageContribution || contrib.fallbackProgress || 0);
+        const totalPics = contrib.totalPics || 0;
+        const reportingPics = contrib.reportingPics || 0;
+        const pendingPics = contrib.pendingPics || 0;
+        let status='ontrack';
+        if(pendingPics>0 && totalPics>1) status='pending'; else if(avg < 50) status='regressing';
+        const latestDate = (contrib.picContributions||[]).filter(p=>p.lastReportDate).map(p=> new Date(p.lastReportDate)).sort((a,b)=> b-a)[0] || null;
+        if(latestDate && (Date.now()-latestDate.getTime()) > 3*24*60*60*1000) status='stale';
+        const picNames = (contrib.picContributions||[]).map(p=> p.hasReport? p.picName : `${p.picName} (pending)`);
+        return { projectId: project._id, projectName: project.name, pm: project.engineer, area: project.location?.name || 'Unknown Area', progress: avg, totalPics, latestDate, status, waitingForAll: pendingPics>0 && totalPics>1, picNames, reportingPics, pendingPics };
       }
-
-      metrics.sort((a, b) => {
-        if (!a.latestDate && !b.latestDate) return 0;
-        if (!a.latestDate) return 1;
-        if (!b.latestDate) return -1;
-        return new Date(b.latestDate) - new Date(a.latestDate);
-      });
-
-      setProjectMetrics(metrics);
-      setMetricsLoading(false);
-    };
-
-    fetchProjectMetrics();
-  }, [enrichedAllProjects]);
+      return { projectId: project._id, projectName: project.name, pm: project.engineer, area: project.location?.name || 'Unknown Area', progress:0, totalPics:0, latestDate:null, status:'stale', waitingForAll:false, picNames:[], reportingPics:0, pendingPics:0 };
+    });
+    metrics.sort((a,b)=>{ if(!a.latestDate && !b.latestDate) return 0; if(!a.latestDate) return 1; if(!b.latestDate) return -1; return new Date(b.latestDate)-new Date(a.latestDate); });
+    setProjectMetrics(metrics);
+  },[enrichedAllProjects, projectContribs]);
 
   // Sample metrics data for charts
   const progressData = [
@@ -480,73 +367,7 @@ const AreaDash = () => {
 
   return (
     <div className="am-dashboard dashboard-container">
-      {/* Modern Header - PM Style */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo and Profile */}
-        <div className="header-top">
-          <div className="logo-section">
-    <img
-      src={require('../../assets/images/FadzLogo1.png')}
-      alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-
-          <div className="user-profile profile-menu-container" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'A'}
-            </div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/am" className="nav-item active">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/am/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/am/matreq" className="nav-item">
-              <FaBoxes />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
-            </Link>
-            <Link to="/am/manpower-requests" className="nav-item">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
-            <Link to="/am/viewproj" className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
-            </Link>
-            <Link to="/logs" className="nav-item">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
-            </Link>
-            <Link to="/reports" className="nav-item">
-              <FaChartBar />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
-            </Link>
-          </nav>
-
-          <NotificationBell />
-  </div>
-</header>
+      <AppHeader roleSegment="am" />
 
       {/* Main Dashboard Content */}
       <main className="dashboard-main">
@@ -703,7 +524,7 @@ const AreaDash = () => {
                             </span>
                             <span className="metric-stat">
                               <FaCalendarAlt />
-                              {new Date(metric.latestDate).toLocaleDateString()}
+                              {metric.latestDate ? new Date(metric.latestDate).toLocaleDateString() : '\u2014'}
                             </span>
                           </div>
                         </div>

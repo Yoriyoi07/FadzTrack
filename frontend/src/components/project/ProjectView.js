@@ -50,7 +50,7 @@ const peso = new Intl.NumberFormat('en-PH',{ style:'currency', currency:'PHP' })
 const mentionRowStyles={ container:{position:'relative',background:'#fffbe6',border:'1px solid #f6c343',boxShadow:'0 0 0 2px rgba(246,195,67,.25) inset',borderRadius:10}, badge:{position:'absolute',top:6,right:6,fontSize:12,lineHeight:'16px',background:'#f6c343',color:'#3a2f00',borderRadius:999,padding:'2px 8px',fontWeight:700}};
 const roleConfigs={ pm:{ label:'Project Manager', permissions:{ image:true,statusToggle:true,uploadFiles:true,deleteFiles:true,postDiscuss:true }, base:'/pm'}, am:{ label:'Area Manager', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:true }, base:'/am'}, ceo:{ label:'CEO', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/ceo'}, hr:{ label:'HR', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/hr'}, it:{ label:'IT', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/it'} };
 
-export default function ProjectView({ role='pm', navItems, permissionsOverride, navPathOverrides }) {
+export default function ProjectView({ role='pm', navItems, permissionsOverride, navPathOverrides, useUnifiedHeader=false }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
@@ -85,9 +85,12 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
     { to: `${basePath}/request/:id`, icon:<FaBoxes/>, label:'Material' },
     { to: `${basePath}/manpower-list`, icon:<FaUsersNav/>, label:'Manpower' },
     { to: viewProjectPathMap[role] || `${basePath}/viewprojects/${id}`, icon:<FaProjectDiagram/>, label:'View Project', active:true },
-    { to: `${basePath}/daily-logs`, icon:<FaClipboardList/>, label:'Logs' },
-    { to: progressReportPathMap[role] || `${basePath}/progress-report/${id}`, icon:<FaChartBar/>, label:'Reports' },
-    { to: dailyLogsPathMap[role] || `${basePath}/daily-logs-list`, icon:<FaCalendarAltNav/>, label:'Daily Logs' }
+    // Legacy nav items (Logs / Reports / Daily Logs) intentionally omitted for PM when using unified header
+    ...(!useUnifiedHeader ? [
+      { to: `${basePath}/daily-logs`, icon:<FaClipboardList/>, label:'Logs' },
+      { to: progressReportPathMap[role] || `${basePath}/progress-report/${id}`, icon:<FaChartBar/>, label:'Reports' },
+      { to: dailyLogsPathMap[role] || `${basePath}/daily-logs-list`, icon:<FaCalendarAltNav/>, label:'Daily Logs' }
+    ] : [])
   ].map(item => navPathOverrides && navPathOverrides[item.label] ? { ...item, to: navPathOverrides[item.label] } : item);
   const nav = navItems || defaultNav;
   const userRef = useRef(null); if(userRef.current===null){ try { userRef.current = JSON.parse(localStorage.getItem('user')); } catch { userRef.current=null; } }
@@ -178,6 +181,7 @@ const labelColorMap = {
 function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[label]||{bg:'#334155',fg:'#fff'}; return <span className="discussion-label-badge" style={{background:s.bg,color:s.fg,padding:'2px 8px',borderRadius:8,fontSize:11,marginLeft:8,fontWeight:600,letterSpacing:.5,display:'inline-flex',alignItems:'center',gap:4}}>{label}</span>; }
   return (
     <div className="dashboard-container pm-view-root">
+      {!useUnifiedHeader && (
       <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
         <div className="header-top">
           <div className="logo-section">
@@ -208,7 +212,7 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
           </nav>
           <NotificationBell />
         </div>
-      </header>
+  </header>) }
       <main className="dashboard-main">
         <div className="project-view-container">
           {/* Project Header */}

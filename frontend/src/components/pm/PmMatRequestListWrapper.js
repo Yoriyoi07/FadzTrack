@@ -1,17 +1,18 @@
 import React from 'react';
 import MaterialRequestListView from '../material/MaterialRequestListView';
-import PmMaterialHeader from './PmMaterialHeader';
+import AppHeader from '../layout/AppHeader';
 
 const PmMatRequestListWrapper = () => (
-  <MaterialRequestListView
-    role="Project Manager"
-    fetchUrl="/requests/mine"
-    detailLinkBase="/pm/material-request"
-    rootClass="pm-request-list"
-    headerTitle="PM Material Requests"
-    headerSubtitle="Validate and track material requests"
-    customHeader={<PmMaterialHeader title="PM Material Requests" subtitle="Validate and track material requests" />}
-  />
+  <>
+    <AppHeader roleSegment="pm" />
+    <MaterialRequestListView
+      role="Project Manager"
+      fetchUrl="/requests/mine"
+      detailLinkBase="/pm/material-request"
+      rootClass="pm-request-list"
+      disableHeader
+    />
+  </>
 );
 
 export default PmMatRequestListWrapper;
