@@ -237,3 +237,119 @@ export async function exportProjectDetails(project, opts = {}) {
 
   doc.save(`Project-${sanitizeFilename(project?.projectName)}.pdf`);
 }
+
+export const generateProjectPDF = (data) => {
+  const { companyName, companyLogo, exportedBy, exportDate, filters, projects } = data;
+  
+  // Create PDF in landscape mode
+  const pdf = new jsPDF('landscape', 'mm', 'a4');
+  
+  // Set font
+  pdf.setFont('helvetica');
+  
+  // Add company logo and header
+  pdf.setFontSize(24);
+  pdf.setTextColor(30, 41, 59);
+  pdf.text(companyName, 20, 30);
+  
+  pdf.setFontSize(12);
+  pdf.setTextColor(100, 116, 139);
+  pdf.text(`Exported by: ${exportedBy}`, 20, 40);
+  pdf.text(`Export Date: ${exportDate}`, 20, 47);
+  
+  // Add filter information
+  if (filters.status !== 'all' || filters.search || filters.dateFrom || filters.dateTo) {
+    pdf.setFontSize(14);
+    pdf.setTextColor(30, 41, 59);
+    pdf.text('Export Filters:', 20, 60);
+    
+    pdf.setFontSize(10);
+    pdf.setTextColor(100, 116, 139);
+    let filterY = 70;
+    
+    if (filters.status !== 'all') {
+      pdf.text(`Status: ${filters.status.charAt(0).toUpperCase() + filters.status.slice(1)}`, 20, filterY);
+      filterY += 7;
+    }
+    
+    if (filters.search) {
+      pdf.text(`Search: "${filters.search}"`, 20, filterY);
+      filterY += 7;
+    }
+    
+    if (filters.dateFrom || filters.dateTo) {
+      const dateRange = [];
+      if (filters.dateFrom) dateRange.push(`From: ${filters.dateFrom}`);
+      if (filters.dateTo) dateRange.push(`To: ${filters.dateTo}`);
+      pdf.text(`Date Range: ${dateRange.join(' - ')}`, 20, filterY);
+      filterY += 7;
+    }
+  }
+  
+  // Add project count
+  pdf.setFontSize(12);
+  pdf.setTextColor(30, 41, 59);
+  pdf.text(`Total Projects: ${projects.length}`, 20, filters.status !== 'all' || filters.search || filters.dateFrom || filters.dateTo ? 85 : 60);
+  
+  // Create table data
+  const tableData = projects.map(project => [
+    project.name,
+    project.area,
+    project.pm,
+    project.contractor,
+    project.timeline,
+    project.pics,
+    project.budget
+  ]);
+  
+  // Add table
+  pdf.autoTable({
+    head: [['Project Name', 'Area', 'Project Manager', 'Contractor', 'Timeline', 'PICs', 'Budget']],
+    body: tableData,
+    startY: filters.status !== 'all' || filters.search || filters.dateFrom || filters.dateTo ? 95 : 70,
+    margin: { top: 20 },
+    styles: {
+      fontSize: 9,
+      cellPadding: 3,
+      lineColor: [226, 232, 240],
+      lineWidth: 0.1,
+    },
+    headStyles: {
+      fillColor: [30, 41, 59],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    columnStyles: {
+      0: { cellWidth: 40 }, // Project Name
+      1: { cellWidth: 30 }, // Area
+      2: { cellWidth: 35 }, // Project Manager
+      3: { cellWidth: 35 }, // Contractor
+      4: { cellWidth: 35 }, // Timeline
+      5: { cellWidth: 40 }, // PICs
+      6: { cellWidth: 25 }, // Budget
+    },
+    didDrawPage: function (data) {
+      // Add page number
+      pdf.setFontSize(10);
+      pdf.setTextColor(100, 116, 139);
+      pdf.text(`Page ${pdf.internal.getCurrentPageInfo().pageNumber}`, pdf.internal.pageSize.width - 30, pdf.internal.pageSize.height - 10);
+    }
+  });
+  
+  // Add footer
+  const pageCount = pdf.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    pdf.setPage(i);
+    pdf.setFontSize(8);
+    pdf.setTextColor(100, 116, 139);
+    pdf.text(`${companyName} - Project Export`, 20, pdf.internal.pageSize.height - 10);
+    pdf.text(`Generated on ${exportDate}`, pdf.internal.pageSize.width - 60, pdf.internal.pageSize.height - 10);
+  }
+  
+  // Save the PDF
+  const fileName = `projects_export_${exportDate.replace(/\//g, '-')}.pdf`;
+  pdf.save(fileName);
+};

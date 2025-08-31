@@ -272,7 +272,7 @@ const StaffCurrentProject = () => {
     if (!newMessage.trim() && composerFiles.length === 0) return;
     if (!project?._id) return;
     
-    setPosting(true);
+      setPosting(true);
     try {
       const formData = new FormData();
       formData.append('text', newMessage);
@@ -357,7 +357,7 @@ const StaffCurrentProject = () => {
       }
       
       setTimeout(() => {
-        setUploading(false);
+      setUploading(false);
         setUploadProgress(0);
       }, 1000);
       
@@ -476,8 +476,8 @@ const StaffCurrentProject = () => {
           </nav>
           
           <NotificationBell />
-        </div>
-      </header>
+          </div>
+        </header>
 
       {/* MAIN CONTENT */}
       <main className="dashboard-main">
@@ -497,7 +497,7 @@ const StaffCurrentProject = () => {
               </div>
               <div style={{ marginTop: '2rem' }}>
                 <button 
-                  onClick={() => navigate('/staff')}
+                  onClick={() => navigate('/staff/current-project')}
                   style={{
                     background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
                     color: 'white',
@@ -516,10 +516,10 @@ const StaffCurrentProject = () => {
               </div>
             </div>
           </div>
-        </div>
-      </main>
+          </div>
+        </main>
     </div>
-  );
+    );
 
   // Derived values
   const start = project?.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A';
@@ -546,7 +546,7 @@ const StaffCurrentProject = () => {
               className="header-logo"
             />
             <h1 className="header-brand">FadzTrack</h1>
-          </div>
+        </div>
 
           <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
             <div className="profile-avatar">
@@ -555,13 +555,13 @@ const StaffCurrentProject = () => {
             <div className="profile-info">
               <span className="profile-name">{userName}</span>
               <span className="profile-role">Staff</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-menu">
-                <button onClick={handleLogout}>Logout</button>
-              </div>
-            )}
           </div>
+          {profileMenuOpen && (
+            <div className="profile-menu">
+              <button onClick={handleLogout}>Logout</button>
+            </div>
+          )}
+        </div>
         </div>
 
         {/* Bottom Row: Navigation and Notifications */}
@@ -582,10 +582,10 @@ const StaffCurrentProject = () => {
           </nav>
           
           <NotificationBell />
-        </div>
+          </div>
       </header>
 
-      {/* MAIN CONTENT */}
+        {/* MAIN CONTENT */}
       <main className="dashboard-main">
         <div className="project-view-container">
           {/* Project Header */}
@@ -599,7 +599,7 @@ const StaffCurrentProject = () => {
             </div>
 
             <div className="project-title-section">
-              <h1 className="project-title">{project.projectName}</h1>
+            <h1 className="project-title">{project.projectName}</h1>
               <div className="project-status-badge">
                 <span className={`status-indicator ${status === 'Completed' ? 'completed' : 'ongoing'}`}>
                   {status === 'Completed' ? <FaCheckCircle /> : <FaClock />}
@@ -617,7 +617,7 @@ const StaffCurrentProject = () => {
             >
               <FaDownload />
               Export Project Details
-            </button>
+              </button>
           </div>
 
           {/* Project Tabs */}
@@ -628,14 +628,14 @@ const StaffCurrentProject = () => {
             >
               <FaRegListAlt />
               Details
-            </button>
+              </button>
             <button
               className={`project-tab ${activeTab === 'Discussions' ? 'active' : ''}`}
               onClick={() => setActiveTab('Discussions')}
             >
               <FaRegCommentDots />
               Discussions
-            </button>
+              </button>
             <button
               className={`project-tab ${activeTab === 'Files' ? 'active' : ''}`}
               onClick={() => setActiveTab('Files')}
@@ -649,8 +649,8 @@ const StaffCurrentProject = () => {
             >
               <FaRegFileAlt />
               Reports
-            </button>
-          </div>
+              </button>
+            </div>
 
           {/* Tab Content */}
           <div className="tab-content">
@@ -662,7 +662,7 @@ const StaffCurrentProject = () => {
                   <div className="overview-card budget-card">
                     <div className="card-icon">
                       <FaMoneyBillWave />
-                    </div>
+                        </div>
                     <h3 className="card-title">Budget</h3>
                     <div className="budget-amount">{peso.format(project?.budget || 0)}</div>
                   </div>
@@ -670,35 +670,35 @@ const StaffCurrentProject = () => {
                   <div className="overview-card timeline-card">
                     <div className="card-icon">
                       <FaCalendarAlt />
-                    </div>
+                                </div>
                     <h3 className="card-title">Timeline</h3>
                     <div className="timeline-dates">
                       <div className="date-item">
                         <span className="date-label">Start:</span>
                         <span className="date-value">{start}</span>
-                      </div>
+                              </div>
                       <div className="date-item">
                         <span className="date-label">End:</span>
                         <span className="date-value">{end}</span>
-                      </div>
-                    </div>
-                  </div>
+                              </div>
+                                    </div>
+                                </div>
 
                   <div className="overview-card location-card">
                     <div className="card-icon">
                       <FaMapMarkerAlt />
-                    </div>
+                                              </div>
                     <h3 className="card-title">Location</h3>
                     <div className="location-value">{locationLabel}</div>
-                  </div>
+                                          </div>
 
                   <div className="overview-card contractor-card">
                     <div className="card-icon">
                       <FaBuilding />
-                    </div>
+                                      </div>
                     <h3 className="card-title">Contractor</h3>
                     <div className="contractor-value">{contractor}</div>
-                  </div>
+                                    </div>
                 </div>
 
                 {/* Project Progress Section */}
@@ -708,20 +708,20 @@ const StaffCurrentProject = () => {
                     <div className="progress-card overall-progress">
                       <div className="progress-icon">
                         <FaChartBar />
-                      </div>
+                                  </div>
                       <div className="progress-content">
                         <div className="progress-value">{progress}%</div>
                         <div className="progress-label">Overall Progress</div>
-                      </div>
-                    </div>
+                                    </div>
+                                </div>
                     <div className="progress-card pic-contributions">
                       <div className="progress-icon">
                         <FaChartBar />
-                      </div>
+                              </div>
                       <div className="progress-content">
                         <div className="progress-value">85%</div>
                         <div className="progress-label">PiC Contributions</div>
-                      </div>
+                            </div>
                     </div>
                   </div>
                 </div>
@@ -734,7 +734,7 @@ const StaffCurrentProject = () => {
                       <div className="team-member">
                         <div className="member-avatar">
                           {project.projectManager.name?.charAt(0)?.toUpperCase() || 'P'}
-                        </div>
+                          </div>
                         <div className="member-info">
                           <h4 className="member-role">Project Manager</h4>
                           <p className="member-name">{project.projectManager.name || 'N/A'}</p>
@@ -745,11 +745,11 @@ const StaffCurrentProject = () => {
                       <div className="team-member">
                         <div className="member-avatar">
                           {project.pic[0]?.name?.charAt(0)?.toUpperCase() || 'P'}
-                        </div>
+                  </div>
                         <div className="member-info">
                           <h4 className="member-role">Person in Charge</h4>
                           <p className="member-name">{project.pic[0]?.name || 'N/A'}</p>
-                        </div>
+                      </div>
                       </div>
                     )}
                   </div>
@@ -761,9 +761,9 @@ const StaffCurrentProject = () => {
                   <div className="manpower-content">
                     <div className="manpower-card">
                       <p className="manpower-text">{manpowerText}</p>
+                            </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -789,23 +789,23 @@ const StaffCurrentProject = () => {
                           <div className="message-header">
                             <div className="message-avatar">
                               {msg.userName?.charAt(0)?.toUpperCase() || '?'}
-                            </div>
+                    </div>
                             <div className="message-info">
                               <div className="message-author">{msg.userName || 'Unknown User'}</div>
                               <div className="message-timestamp">
                                 {msg.timestamp ? new Date(msg.timestamp).toLocaleString() : ''}
-                              </div>
-                            </div>
-                          </div>
+                  </div>
+                    </div>
+                      </div>
                           <div className="message-content">
                             <div className="message-text">
                               {renderMessageText(msg.text, userName)}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
                     </div>
-                  )}
+                  </div>
+                </div>
+                      ))}
+                  </div>
+                )}
                 </div>
 
                 <div className="message-composer">
@@ -850,16 +850,16 @@ const StaffCurrentProject = () => {
                     <label htmlFor="file-upload" className="upload-btn">
                       <FaRegFileAlt />
                       Upload Files
-                    </label>
-                    <input
+                      </label>
+                      <input
                       id="file-upload"
-                      type="file"
-                      multiple
+                        type="file"
+                        multiple
                       accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf,.csv,image/*"
-                      style={{ display: 'none' }}
+                        style={{ display: 'none' }}
                       onChange={(e) => handleFileUpload(e.target.files)}
-                    />
-                  </div>
+                      />
+                    </div>
                 </div>
 
                 {uploading && (
@@ -875,7 +875,7 @@ const StaffCurrentProject = () => {
                 )}
 
                 <div className="files-table-container">
-                  {project?.documents && project.documents.length > 0 ? (
+                {project?.documents && project.documents.length > 0 ? (
                     <table className="files-table">
                       <thead className="table-header">
                         <tr>
@@ -950,9 +950,9 @@ const StaffCurrentProject = () => {
               </div>
             )}
           </div>
-        </div>
-      </main>
-    </div>
+          </div>
+        </main>
+      </div>
   );
 };
 

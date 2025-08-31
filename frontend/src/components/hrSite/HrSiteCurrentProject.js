@@ -144,7 +144,7 @@ const HrSiteCurrentProject = () => {
           {/* Bottom Row: Navigation */}
           <div className="header-bottom">
             <nav className="header-nav">
-              <Link to="/hr-site" className="nav-item">
+              <Link to="/hr-site/current-project" className="nav-item">
                 <FaProjectDiagram />
                 <span className={isHeaderCollapsed ? 'hidden' : ''}>Project</span>
               </Link>
@@ -152,7 +152,7 @@ const HrSiteCurrentProject = () => {
                 <FaComments />
                 <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
               </Link>
-              <Link to="/hr-site/projects" className="nav-item active">
+              <Link to="/hr-site/all-projects" className="nav-item active">
                 <FaClipboardList />
                 <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
               </Link>
@@ -210,7 +210,7 @@ const HrSiteCurrentProject = () => {
         {/* Bottom Row: Navigation */}
         <div className="header-bottom">
           <nav className="header-nav">
-            <Link to="/hr-site" className="nav-item">
+            <Link to="/hr-site/current-project" className="nav-item">
               <FaProjectDiagram />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Project</span>
             </Link>
@@ -218,7 +218,7 @@ const HrSiteCurrentProject = () => {
               <FaComments />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
             </Link>
-            <Link to="/hr-site/projects" className="nav-item">
+            <Link to="/hr-site/all-projects" className="nav-item">
               <FaClipboardList />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
             </Link>

@@ -66,6 +66,17 @@ const NAV_CONFIG = {
     { to: '/hr/requests', icon: FaClipboardList, label: 'Requests', activeMatch: /^\/hr\/requests/ },
     { to: '/hr/reports', icon: FaChartBar, label: 'Reports', activeMatch: /^\/hr\/reports/ },
   ],
+  staff: [
+    { to: '/staff/current-project', icon: FaProjectDiagram, label: 'Project', activeMatch: /^\/staff\/current-project/ },
+    { to: '/staff/chat', icon: FaComments, label: 'Chat', activeMatch: /^\/staff\/chat/ },
+    { to: '/staff/all-projects', icon: FaProjectDiagram, label: 'My Projects', activeMatch: /^\/staff\/all-projects/ },
+  ],
+  'hr-site': [
+    { to: '/hr-site/current-project', icon: FaProjectDiagram, label: 'Project', activeMatch: /^\/hr-site\/current-project/ },
+    { to: '/hr-site/chat', icon: FaComments, label: 'Chat', activeMatch: /^\/hr-site\/chat/ },
+    { to: '/hr-site/all-projects', icon: FaProjectDiagram, label: 'My Projects', activeMatch: /^\/hr-site\/all-projects/ },
+    { to: '/hr-site/attendance-report', icon: FaClipboardList, label: 'Attendance', activeMatch: /^\/hr-site\/attendance-report/ },
+  ],
 };
 
 const SOCKET_URL  = process.env.REACT_APP_SOCKET_URL  || '/';

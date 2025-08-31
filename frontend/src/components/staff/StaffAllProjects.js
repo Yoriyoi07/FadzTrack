@@ -78,7 +78,7 @@ const StaffAllProjects = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        setLoading(true);
+    setLoading(true);
         // Get projects where this staff is assigned
         const response = await api.get(`/projects/by-user/${staffId}`);
         setProjects(response.data || []);
@@ -236,7 +236,7 @@ const StaffAllProjects = () => {
         {/* Bottom Row: Navigation and Notifications */}
         <div className="header-bottom">
           <nav className="header-nav">
-            <Link to="/staff" className="nav-item">
+            <Link to="/staff/current-project" className="nav-item">
               <FaProjectDiagram />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Project</span>
             </Link>
@@ -244,11 +244,11 @@ const StaffAllProjects = () => {
               <FaComments />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
             </Link>
-            <Link to="/staff/projects" className="nav-item active">
+            <Link to="/staff/all-projects" className="nav-item active">
               <FaClipboardList />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
             </Link>
-          </nav>
+        </nav>
 
           <NotificationBell />
         </div>
@@ -278,7 +278,7 @@ const StaffAllProjects = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="search-input"
                 />
-              </div>
+                  </div>
 
               {/* Status Filter */}
               <div className="filter-group">
@@ -306,8 +306,8 @@ const StaffAllProjects = () => {
                 >
                   Pending ({projects.filter(p => p.status === 'Pending' || p.status === 'Not Started').length})
                 </button>
-              </div>
-            </div>
+                  </div>
+                </div>
 
             <div className="controls-right">
               {/* Sort */}
@@ -346,8 +346,8 @@ const StaffAllProjects = () => {
                   <FaList />
                 </button>
               </div>
-            </div>
           </div>
+        </div>
 
           {/* Error State */}
           {error && (
@@ -465,9 +465,9 @@ const StaffAllProjects = () => {
               )}
             </div>
           )}
-        </div>
-      </main>
-    </div>
+          </div>
+        </main>
+      </div>
   );
 };
 

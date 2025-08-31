@@ -78,7 +78,7 @@ const HrSiteAllProjects = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        setLoading(true);
+    setLoading(true);
         // Get projects where this HR-Site user is assigned
         const response = await api.get(`/projects/by-user/${hrSiteId}`);
         setProjects(response.data || []);
@@ -213,7 +213,7 @@ const HrSiteAllProjects = () => {
               className="header-logo"
             />
             <h1 className="header-brand">FadzTrack</h1>
-          </div>
+        </div>
 
           <div className="user-profile profile-menu-container" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
             <div className="profile-avatar">
@@ -222,21 +222,21 @@ const HrSiteAllProjects = () => {
             <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
               <span className="profile-name">{userName}</span>
               <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
+          </div>
+          {profileMenuOpen && (
               <div className="profile-dropdown">
                 <button onClick={handleLogout} className="logout-btn">
                   <span>Logout</span>
                 </button>
-              </div>
-            )}
+            </div>
+          )}
           </div>
         </div>
 
         {/* Bottom Row: Navigation and Notifications */}
         <div className="header-bottom">
           <nav className="header-nav">
-            <Link to="/hr-site" className="nav-item">
+            <Link to="/hr-site/current-project" className="nav-item">
               <FaProjectDiagram />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Project</span>
             </Link>
@@ -244,7 +244,7 @@ const HrSiteAllProjects = () => {
               <FaComments />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
             </Link>
-            <Link to="/hr-site/projects" className="nav-item active">
+            <Link to="/hr-site/all-projects" className="nav-item active">
               <FaClipboardList />
               <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
             </Link>
@@ -262,8 +262,8 @@ const HrSiteAllProjects = () => {
             <div className="page-title-section">
               <h1 className="page-title">My Projects</h1>
               <p className="page-subtitle">View all projects you are assigned to</p>
-            </div>
-          </div>
+                  </div>
+                </div>
 
           {/* Filters and Controls */}
           <div className="projects-controls">
@@ -306,8 +306,8 @@ const HrSiteAllProjects = () => {
                 >
                   Pending ({projects.filter(p => p.status === 'Pending' || p.status === 'Not Started').length})
                 </button>
-              </div>
             </div>
+          </div>
 
             <div className="controls-right">
               {/* Sort */}
@@ -329,17 +329,17 @@ const HrSiteAllProjects = () => {
                 >
                   {sortOrder === 'asc' ? <FaChevronUp /> : <FaChevronDown />}
                 </button>
-              </div>
+            </div>
 
               {/* View Mode */}
               <div className="view-mode-container">
-                <button
+              <button
                   className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
                   onClick={() => setViewMode('grid')}
-                >
+              >
                   <FaTh />
-                </button>
-                <button
+              </button>
+              <button
                   className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
                   onClick={() => setViewMode('list')}
                 >
@@ -447,7 +447,7 @@ const HrSiteAllProjects = () => {
                               }
                             </span>
                           </div>
-                        </div>
+            </div>
 
                         {project.budget && (
                           <div className="detail-item">
@@ -459,15 +459,15 @@ const HrSiteAllProjects = () => {
                           </div>
                         )}
                       </div>
-                    </div>
+            </div>
                   </div>
                 ))
               )}
             </div>
           )}
-        </div>
-      </main>
-    </div>
+          </div>
+        </main>
+      </div>
   );
 };
 

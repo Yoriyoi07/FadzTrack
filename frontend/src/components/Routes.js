@@ -87,11 +87,13 @@ import HrViewProject from './hr/HrViewProject';
 // STAFF
 import StaffCurrentProject from './staff/StaffCurrentProject';
 import StaffAllProjects from './staff/StaffAllProjects';
+import StaffChat from './chats/StaffChat';
 
 // HR-SITE
 import HrSiteCurrentProject from './hrSite/HrSiteCurrentProject';
 import HrSiteAllProjects from './hrSite/HrSiteAllProjects';
 import HrSiteAttendanceReport from './hrSite/HrSiteAttendanceReport';
+import HrSiteChat from './chats/HrSiteChat';
 
 // SHARED / REUSABLE
 import ProgressTracker from './ProgressTracker';
@@ -208,13 +210,19 @@ const AppRoutes = ({ forceUserUpdate }) => {
 
       {/* Staff-only */}
       <Route element={<PrivateRoute allowedRoles={['Staff']} />}>
+        <Route path="/staff" element={<StaffCurrentProject />} />
         <Route path="/staff/current-project" element={<StaffCurrentProject />} />
+        <Route path="/staff/chat" element={<StaffChat />} />
+        <Route path="/staff/chat/:chatId" element={<StaffChat />} />
         <Route path="/staff/all-projects" element={<StaffAllProjects />} />
       </Route>
 
       {/* HR-Site-only */}
       <Route element={<PrivateRoute allowedRoles={['HR - Site']} />}>
+        <Route path="/hr-site" element={<HrSiteCurrentProject />} />
         <Route path="/hr-site/current-project" element={<HrSiteCurrentProject />} />
+        <Route path="/hr-site/chat" element={<HrSiteChat />} />
+        <Route path="/hr-site/chat/:chatId" element={<HrSiteChat />} />
         <Route path="/hr-site/all-projects" element={<HrSiteAllProjects />} />
         <Route path="/hr-site/attendance-report" element={<HrSiteAttendanceReport />} />
       </Route>
