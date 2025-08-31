@@ -808,13 +808,60 @@ exports.toggleProjectStatus = async (req, res) => {
     const { id } = req.params;
     const project = await Project.findById(id);
     if (!project) return res.status(404).json({ message: 'Project not found' });
+    const goingToComplete = project.status !== 'Completed';
+    // Basic validation: require at least 1 report & 1 document before completion
+    if (goingToComplete) {
+      const docCount = Array.isArray(project.documents) ? project.documents.length : 0;
+      const reportCount = Array.isArray(project.reports) ? project.reports.length : 0;
+      if (docCount === 0 || reportCount === 0) {
+        return res.status(400).json({
+          error: 'PRECONDITION_FAILED',
+          message: 'Cannot complete project until at least one report and one file are uploaded.',
+          details: { documents: docCount, reports: reportCount }
+        });
+      }
+    }
 
-    project.status = (project.status !== 'Completed') ? 'Completed' : 'Ongoing';
+    project.status = goingToComplete ? 'Completed' : 'Ongoing';
     await project.save();
+
+    // Audit log entry
+    try {
+      await logAction({
+        action: goingToComplete ? 'COMPLETE_PROJECT' : 'REOPEN_PROJECT',
+        performedBy: req.user.id,
+        performedByRole: req.user.role,
+        description: `${goingToComplete ? 'Completed' : 'Reopened'} project ${project.projectName}`,
+        meta: { projectId: project._id, projectName: project.projectName, previousStatus: goingToComplete ? 'Ongoing' : 'Completed', newStatus: project.status, context: 'project' }
+      });
+    } catch (logErr) {
+      console.warn('Audit log (toggleProjectStatus) failed:', logErr.message);
+    }
 
     res.json({ status: project.status });
   } catch (err) {
     res.status(500).json({ error: 'Failed to toggle project status', details: err.message });
+  }
+};
+
+// Lightweight project specific audit logs (PM visibility)
+exports.getProjectAuditLogsForPM = async (req, res) => {
+  try {
+    const { id } = req.params; // project id
+    const project = await Project.findById(id).select('_id projectmanager');
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+    // Only allow if requester is the project manager
+    if (String(project.projectmanager) !== String(req.user.id)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const AuditLog = require('../models/AuditLog');
+    const logs = await AuditLog.find({ 'meta.projectId': id, action: { $in: ['COMPLETE_PROJECT', 'REOPEN_PROJECT', 'ADD_PROJECT_DOCUMENTS', 'ADD_PROJECT_REPORT', 'ADD_PROJECT', 'UPDATE_PROJECT', 'DELETE_PROJECT_DOCUMENT'] } })
+      .sort({ timestamp: -1 })
+      .limit(25)
+      .populate('performedBy', 'name role');
+    res.json(logs);
+  } catch (e) {
+    res.status(500).json({ message: 'Failed to fetch audit logs' });
   }
 };
 
@@ -1395,7 +1442,7 @@ function normalizeAi(ai, rawText = '') {
 
   const WANT = ['optimistic', 'realistic', 'pessimistic'];
   const byType = new Map(
-    out.critical_path_analysis.map(c => [x.path_type, x])
+  out.critical_path_analysis.map(c => [c?.path_type, c])
   );
 
   const mk = (type, fallbackName) => {

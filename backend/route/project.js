@@ -61,6 +61,8 @@ router.post('/:id/photo', verifyToken, upload.single('photo'), controller.upload
 router.get('/:id', controller.getProjectById);
 router.patch('/:id/tasks', verifyToken, controller.updateProjectTasks);
 router.patch('/:id/toggle-status', controller.toggleProjectStatus);
+// PM-scoped audit logs (requires verifyToken; controller restricts ownership)
+router.get('/:id/pm-audit-logs', verifyToken, controller.getProjectAuditLogsForPM);
 
 /* ---------- Project Users for Mentions ---------- */
 router.get('/:id/users', verifyToken, controller.getProjectUsers);

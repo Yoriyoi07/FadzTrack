@@ -141,6 +141,8 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   const [mentionDropdown,setMentionDropdown]=useState({open:false,options:[],query:'',position:{top:0,left:0},activeInputId:null});
   const [projectUsers,setProjectUsers]=useState([]); const [fileSignedUrls,setFileSignedUrls]=useState({}); const [fileSearchTerm,setFileSearchTerm]=useState('');
   const [reports,setReports]=useState([]);
+  const [showCompleteConfirm,setShowCompleteConfirm]=useState(false);
+  const [statusUpdating,setStatusUpdating]=useState(false);
   // Realtime socket refs
   const socketRef = useRef(null);
   const joinedProjectRef = useRef(null);
@@ -176,6 +178,33 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   // Initialize collapsed state for messages with 3+ replies (only once per message)
   useEffect(()=>{ if(!messages.length) return; setCollapsedReplies(prev=>{ const next={...prev}; let changed=false; messages.forEach(m=>{ const rc=Array.isArray(m.replies)?m.replies.length:0; if(rc>=3 && typeof next[m._id]==='undefined'){ next[m._id]=true; changed=true; } }); return changed?next:prev; }); },[messages]);
   const fetchReports=async(pid=project?._id)=>{ if(!pid) return; try { const {data}=await api.get(`/projects/${pid}/reports`,{ headers:{Authorization:`Bearer ${token}`}}); const list=data?.reports||[]; setReports(list); if(!list.length){ console.info('[ProjectView] No reports for project', pid, 'role', role); return; } const sorted=[...list].sort((a,b)=> new Date(b.uploadedAt||0)-new Date(a.uploadedAt||0)); const byUser=new Map(); for(const rep of sorted){ const key=rep.uploadedBy||rep.uploadedByName||rep._id; if(!byUser.has(key)) byUser.set(key,rep);} const distinct=[...byUser.values()]; let vals=distinct.map(r=> Number(r?.ai?.pic_contribution_percent)).filter(v=> isFinite(v)&&v>=0); if(!vals.length){ vals=distinct.map(r=>{ const done=r?.ai?.completed_tasks?.length||0; const total=done+(r?.ai?.summary_of_work_done?.length||0); return total>0?(done/total)*100:0; }); } if(vals.length){ const avg=vals.reduce((s,v)=> s+v,0)/vals.length; const avgClamped=Number(Math.min(100,Math.max(0,avg)).toFixed(1)); setProgress(avgClamped); setPicContributions({ averageContribution:Number(avg.toFixed(1)), picContributions:distinct.map(r=> ({ picId:r.uploadedBy||r._id, picName:r.uploadedByName||'Unknown', contribution:Math.round(Number(r?.ai?.pic_contribution_percent)||0), hasReport:true, lastReportDate:r.uploadedAt||null })), totalPics:distinct.length, reportingPics:distinct.length, pendingPics:0 }); } } catch (e){ console.error('[ProjectView] fetchReports failed', e); setReports([]);} };
+  const completionPreconditionsMet = React.useMemo(()=>{
+    if(!project) return false;
+    const docCount = Array.isArray(project.documents)? project.documents.length : 0;
+    const reportCount = Array.isArray(reports)? reports.length : 0;
+    return docCount>0 && reportCount>0;
+  },[project,reports]);
+
+  const handleToggleStatus = async(forceComplete=false)=> {
+    if(!project?._id) return;
+    // If completing, ensure progress is 100 (already checked in UI) and confirmation accepted
+    setStatusUpdating(true);
+    try {
+      const res = await api.patch(`/projects/${project._id}/toggle-status`);
+      const newStatus = res.data?.status || status;
+      setStatus(newStatus);
+      setShowCompleteConfirm(false);
+      // Optional: clear activeProject in header if completed so PM header updates after refresh
+      if(newStatus==='Completed' && role==='pm') {
+        // Mark flag so AppHeader refetches
+        try { localStorage.setItem('activeProjectInvalidated','1'); window.dispatchEvent(new Event('storage')); } catch {}
+      }
+    } catch(e){
+      let msg='Failed to update project status.';
+      if(e?.response?.data?.error==='PRECONDITION_FAILED') msg=e.response.data.message;
+      alert(msg);
+    } finally { setStatusUpdating(false); }
+  };
   useEffect(()=>{ if(!project?._id) return; fetchReports(project._id); },[project?._id]);
   useEffect(()=>{ if(activeTab==='Reports' && project?._id && reports.length===0) fetchReports(project._id); },[activeTab,project?._id]);
   useEffect(()=>{ if(!project?._id) return; const int=setInterval(()=> fetchReports(project._id),120000); return ()=> clearInterval(int); },[project?._id]);
@@ -393,20 +422,29 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                   )}
                 </div>
               )}
-              {perms.statusToggle && progress === 100 && (
-                <button
-                  onClick={async () => {
-                    try {
-                      const res = await api.patch(`/projects/${project._id}/toggle-status`);
-                      setStatus(res.data?.status || status);
-                    } catch {
-                      alert('Failed to toggle project status.');
-                    }
-                  }}
-                  className={`status-toggle-btn ${status === 'Completed' ? 'completed' : 'ongoing'}`}
-                >
-                  {status === 'Completed' ? 'Mark as Ongoing' : 'Mark as Completed'}
-                </button>
+              {perms.statusToggle && (
+                <>
+                  <button
+                    onClick={()=> status==='Completed'? handleToggleStatus() : setShowCompleteConfirm(true)}
+                    disabled={statusUpdating || (status!=='Completed' && !completionPreconditionsMet)}
+                    className={`status-toggle-btn ${status === 'Completed' ? 'completed' : 'ongoing'}`}
+                  >
+                    {statusUpdating ? 'Updating...' : status === 'Completed' ? 'Mark as Ongoing' : 'Complete Project'}
+                  </button>
+                  {showCompleteConfirm && status!=='Completed' && (
+                    <div className="modal-overlay">
+                      <div className="modal small">
+                        <h3>Confirm Completion</h3>
+                        {!completionPreconditionsMet && <p style={{color:'#b91c1c',fontWeight:600}}>Preconditions not met. At least one file and one report are required to complete this project.</p>}
+                        <p>Mark this project as Completed? All members (PM, PIC, Staff, HR-Site) will become available for new assignments.</p>
+                        <div className="modal-actions" style={{display:'flex',gap:'0.5rem',justifyContent:'flex-end'}}>
+                          <button className="btn" onClick={()=> setShowCompleteConfirm(false)}>Cancel</button>
+                          <button className="btn primary" disabled={statusUpdating || !completionPreconditionsMet} onClick={()=> handleToggleStatus(true)}>Yes, Complete</button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
             <div className="project-title-section">

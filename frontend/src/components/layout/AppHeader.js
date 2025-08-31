@@ -92,6 +92,28 @@ const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false
     return ()=>{ ignore=true; };
   },[roleSegment,user?._id]);
 
+  // Listen for completion events (localStorage flag set by ProjectView) and refetch
+  useEffect(()=>{
+    function handleStorage(e){
+      try {
+        if(e && e.key && e.key!=='activeProjectInvalidated') return;
+        const flag = localStorage.getItem('activeProjectInvalidated');
+        if(flag==='1'){
+          // refetch depending on role
+          if(roleSegment==='pm'){
+            api.get(`/projects/by-user-status?userId=${user._id}&role=projectmanager&status=Ongoing`).then(({data})=>{ setActiveProject(data?.[0]||null); localStorage.removeItem('activeProjectInvalidated'); });
+          } else if(roleSegment==='pic'){
+            api.get(`/projects/by-user-status?userId=${user._id}&role=pic&status=Ongoing`).then(({data})=>{ setActiveProject(data?.[0]||null); localStorage.removeItem('activeProjectInvalidated'); });
+          }
+        }
+      } catch {}
+    }
+    window.addEventListener('storage', handleStorage);
+    // Also poll every 60s in case storage event missed
+    const poll = setInterval(()=> handleStorage({key:'activeProjectInvalidated'}),60000);
+    return ()=>{ window.removeEventListener('storage', handleStorage); clearInterval(poll); };
+  },[roleSegment,user?._id]);
+
   useEffect(()=>{ const off=e=>{ if(!e.target.closest('.profile-menu-container')) setProfileMenuOpen(false); }; document.addEventListener('click', off); return ()=>document.removeEventListener('click', off); },[]);
 
   const logout=()=>{ localStorage.removeItem('token'); localStorage.removeItem('user'); navigate('/'); };
