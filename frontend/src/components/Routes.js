@@ -60,6 +60,7 @@ import ItMaterialRequestEdit from './it/ItMaterialRequestEdit';
 import ItManpowerList from './it/ItManpowerList';
 import ItManpowerRequestDetail from './it/ItManpowerRequestDetail';
 import ItProjects from './it/ItProjects';
+import ItViewProject from './it/ItViewProject';
 
 // CEO
 import CeoDash from './ceo/CeoDash';
@@ -171,6 +172,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/it/manpower-list" element={<ItManpowerList />} />
         <Route path="/it/manpower-list/:id" element={<ItManpowerRequestDetail />} />
         <Route path="/it/projects" element={<ItProjects />} />
+        <Route path="/it/projects/:id" element={<ItViewProject />} />
         <Route path="/it/chat" element={<ItChat />} />
         <Route path="/it/chat/:chatId" element={<ItChat />} />
       </Route>

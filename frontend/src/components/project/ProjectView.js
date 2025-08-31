@@ -48,7 +48,7 @@ function isMentioned(text='',me=''){ const slug=(me||'').trim().toLowerCase().re
 function readContractor(p){ const c=p?.contractor; if(!c) return 'N/A'; if(typeof c==='string') return c.trim()||'N/A'; if(Array.isArray(c)){ const names=c.map(x=> typeof x==='string'? x : (x?.name||x?.company||x?.companyName||'')).map(s=> (s||'').trim()).filter(Boolean); return names.length?names.join(', '):'N/A'; } if(typeof c==='object'){ for(const v of [c.name,c.company,c.companyName,c.title,c.fullName]) if(typeof v==='string'&&v.trim()) return v.trim(); } if(typeof p?.contractorName==='string'&&p.contractorName.trim()) return p.contractorName.trim(); return 'N/A'; }
 const peso = new Intl.NumberFormat('en-PH',{ style:'currency', currency:'PHP' });
 const mentionRowStyles={ container:{position:'relative',background:'#fffbe6',border:'1px solid #f6c343',boxShadow:'0 0 0 2px rgba(246,195,67,.25) inset',borderRadius:10}, badge:{position:'absolute',top:6,right:6,fontSize:12,lineHeight:'16px',background:'#f6c343',color:'#3a2f00',borderRadius:999,padding:'2px 8px',fontWeight:700}};
-const roleConfigs={ pm:{ label:'Project Manager', permissions:{ image:true,statusToggle:true,uploadFiles:true,deleteFiles:true,postDiscuss:true }, base:'/pm'}, am:{ label:'Area Manager', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:true }, base:'/am'}, ceo:{ label:'CEO', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/ceo'}, hr:{ label:'HR', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/hr'} };
+const roleConfigs={ pm:{ label:'Project Manager', permissions:{ image:true,statusToggle:true,uploadFiles:true,deleteFiles:true,postDiscuss:true }, base:'/pm'}, am:{ label:'Area Manager', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:true }, base:'/am'}, ceo:{ label:'CEO', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/ceo'}, hr:{ label:'HR', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/hr'}, it:{ label:'IT', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/it'} };
 
 export default function ProjectView({ role='pm', navItems, permissionsOverride, navPathOverrides }) {
   const { id } = useParams();
@@ -62,19 +62,22 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
     pm: `${basePath}/viewprojects/${id}`,
     am: `${basePath}/projects/${id}`, // legacy AM route
     ceo: `${basePath}/proj/${id}`,
-    hr: `${basePath}/project-records/${id}`
+    hr: `${basePath}/project-records/${id}`,
+    it: `${basePath}/projects/${id}`
   };
   const progressReportPathMap = {
     pm: `${basePath}/progress-report/${id}`,
     am: `${basePath}/progress-report/${id}`,
     ceo: `${basePath}/progress-report/${id}`,
-    hr: `${basePath}/progress-report/${id}`
+    hr: `${basePath}/progress-report/${id}`,
+    it: `${basePath}/progress-report/${id}`
   };
   const dailyLogsPathMap = {
     pm: `${basePath}/daily-logs-list`,
     am: `${basePath}/daily-logs-list`,
     ceo: `${basePath}/daily-logs-list`,
-    hr: `${basePath}/daily-logs-list`
+    hr: `${basePath}/daily-logs-list`,
+    it: `${basePath}/daily-logs-list`
   };
   const defaultNav = [
     { to: basePath, icon:<FaTachometerAlt/>, label:'Dashboard' },
