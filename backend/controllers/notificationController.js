@@ -29,6 +29,7 @@ exports.createAndEmitNotification = async ({
         case 'approved': return { title:'Request Fully Approved', severity:'success', icon:'check-circle', actionUrl: requestId?`/pic/material-request/${requestId}`:undefined };
         case 'denied': return { title:'Request Denied', severity:'error', icon:'x-circle', actionUrl: requestId?`/pic/material-request/${requestId}`:undefined };
         case 'nudge': return { title:'Reminder Sent', severity:'info', icon:'bell-ring', actionUrl: requestId?`/pm/material-request/${requestId}`:undefined };
+  case 'project_created': return { title:'New Project Assignment', severity:'info', icon:'folder-plus', actionUrl: projectId?`/pic/${projectId}`:undefined };
         default: return { title: t.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()), severity:'info', icon:'info' };
       }
     };

@@ -1,7 +1,7 @@
 // Reusable ProjectView component with role-based permissions (pm, am, ceo, hr)
 // Extracted and refactored from original PM-specific implementation.
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import NotificationBell from '../NotificationBell';
 import api from '../../api/axiosInstance';
@@ -53,6 +53,7 @@ const roleConfigs={ pm:{ label:'Project Manager', permissions:{ image:true,statu
 export default function ProjectView({ role='pm', navItems, permissionsOverride, navPathOverrides, useUnifiedHeader=false }) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const token = localStorage.getItem('token');
   const roleCfg = roleConfigs[role] || roleConfigs.pm;
   const perms = { ...roleCfg.permissions, ...(permissionsOverride||{}) };
@@ -161,6 +162,11 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   const handleLogout=()=>{ localStorage.removeItem('token'); localStorage.removeItem('user'); navigate(basePath); };
   const handleFileUpload=async(files)=>{ if(!perms.uploadFiles) return; if(!files?.length||!project?._id) return; setUploading(true); setUploadProgress(0); setUploadError(''); try { const fd=new FormData(); files.forEach(f=> fd.append('files',f)); const it=setInterval(()=> setUploadProgress(p=> p>=90? (clearInterval(it),90):p+10),200); const res=await api.post(`/projects/${project._id}/documents`,fd,{ headers:{Authorization:`Bearer ${token}`,'Content-Type':'multipart/form-data'} }); clearInterval(it); setUploadProgress(100); if(res.data?.documents) setProject(pr=> ({...pr,documents:res.data.documents})); setTimeout(()=>{ setUploading(false); setUploadProgress(0); },800); } catch { setUploadError('Upload failed'); setUploading(false); setUploadProgress(0);} };
   const handleDeleteFile=async(doc,i)=>{ if(!perms.deleteFiles) return; if(!project?._id || !window.confirm('Delete this file?')) return; try { const path= typeof doc==='string'? doc : doc.path; await api.delete(`/projects/${project._id}/documents`,{ headers:{Authorization:`Bearer ${token}`}, data:{ path }}); setProject(pr=> ({...pr,documents: pr.documents.filter((_,idx)=> idx!==i)})); } catch { alert('Failed to delete file'); } };
+  // Flash banner (must be declared before any early returns to satisfy hooks rules)
+  const justCreated = !!(location.state && location.state.justCreated);
+  const [showFlash, setShowFlash] = useState(justCreated);
+  useEffect(()=>{ if(justCreated){ const t=setTimeout(()=> setShowFlash(false),6000); return ()=> clearTimeout(t);} },[justCreated]);
+
   if(loading) return <div className="dashboard-container pm-view-root"><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-spinner-container"><div className="loading-spinner"/></div><div className="loading-text"><h2 className="loading-title">Loading Project Details</h2><p className="loading-subtitle">Fetching project information...</p></div><div className="loading-progress"><div className="progress-bar"><div className="progress-fill"/></div></div></div></div></div>;
   if(!project) return <div className="dashboard-container pm-view-root"><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-text"><h2 className="loading-title" style={{color:'#ef4444'}}>Project Not Found</h2><p className="loading-subtitle">Project missing or access denied.</p></div><div style={{marginTop:'2rem'}}><button onClick={()=> navigate(basePath)} style={{background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',border:'none',padding:'12px 24px',borderRadius:8,fontSize:'1rem',fontWeight:600,cursor:'pointer'}}>Return to Dashboard</button></div></div></div></div>;
   const start = project?.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A';
@@ -214,6 +220,37 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
         </div>
   </header>) }
       <main className="dashboard-main">
+        {showFlash && (
+          <div role="status" aria-live="polite" className="project-flash-banner" style={{
+            background: 'linear-gradient(90deg,#15803d,#16a34a)',
+            color: '#fff',
+            padding: '12px 20px',
+            borderRadius: '10px',
+            fontSize: '0.95rem',
+            fontWeight: 500,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            boxShadow: '0 4px 12px -2px rgba(16,185,129,0.35)',
+            margin: '0 24px 18px'
+          }}>
+            <span style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{fontSize:'1.2rem'}}>✅</span>
+              <span>Project <strong>{(location.state && location.state.projectName) || (project && project.projectName)}</strong> created. Team notified.</span>
+            </span>
+            <button onClick={()=> setShowFlash(false)} style={{
+              background:'rgba(255,255,255,0.15)',
+              border:'none',
+              color:'#fff',
+              padding:'4px 10px',
+              borderRadius:6,
+              cursor:'pointer',
+              fontSize:'0.75rem',
+              letterSpacing:'.5px'
+            }}>DISMISS</button>
+          </div>
+        )}
         <div className="project-view-container">
           {/* Project Header */}
           <div className="project-header">

@@ -5,6 +5,7 @@ const Manpower = require('../models/Manpower');
 const supabase = require('../utils/supabaseClient');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const Chat = require('../models/Chats');
 const PDFDocument = require('pdfkit');
 const { Server } = require("socket.io");
 const { createAndEmitNotification } = require('../controllers/notificationController');
@@ -327,6 +328,8 @@ exports.addProject = async (req, res) => {
       startDate, endDate, manpower, areamanager
     } = req.body;
 
+ 
+
     let photos = [];
     let documentsUrls = [];
 
@@ -410,10 +413,88 @@ exports.addProject = async (req, res) => {
       { $set: { assignedProject: savedProject._id } }
     );
 
+    /* ------------------------------------------------------------ */
+    /* Auto-create group chat for project members */
+    try {
+      // Collect unique user ids for chat membership (exclude falsy)
+      const memberIds = [
+        ...(Array.isArray(pic)? pic: pic? [pic]: []),
+        ...(Array.isArray(staff)? staff: staff? [staff]: []),
+        ...(Array.isArray(hrsite)? hrsite: hrsite? [hrsite]: []),
+        projectmanager,
+        areamanager,
+      ].filter(Boolean).map(id=> id.toString());
+      const uniqueMemberIds = Array.from(new Set(memberIds));
+      if (uniqueMemberIds.length) {
+        const existingGroup = await Chat.findOne({ isGroup:true, name: projectName, users: { $all: uniqueMemberIds, $size: uniqueMemberIds.length } });
+        if (!existingGroup) {
+          const groupChat = await Chat.create({
+            isGroup: true,
+            name: projectName,
+            users: uniqueMemberIds,
+            creator: req.user.id
+          });
+          // Emit realtime event
+          const io = req.app.get('io');
+          if (io) io.emit('chatCreated', groupChat);
+        }
+      }
+      // Preload roles for all unique members to derive correct deep-link per role
+      const userDocs = await User.find({ _id: { $in: uniqueMemberIds } }, 'role');
+      const roleById = new Map(userDocs.map(u => [String(u._id), u.role]));
+      const routeFor = (role, pid) => {
+        if (!role) return `/pm/viewprojects/${pid}`; // default fallback
+        const r = role.toLowerCase();
+        if (r.includes('person in charge')) return `/pic/${pid}`;
+        if (r === 'project manager') return `/pm/viewprojects/${pid}`;
+        if (r === 'area manager') return `/am/projects/${pid}`;
+        if (r === 'ceo') return `/ceo/proj/${pid}`;
+        if (r === 'it') return `/it/projects`; // list page (no per-id view currently)
+        if (r === 'hr - site') return `/hr-site/current-project`; // simplified
+        if (r === 'hr') return `/hr/project-records/${pid}`;
+        if (r === 'staff') return `/staff/current-project`;
+        return `/pm/viewprojects/${pid}`;
+      };
+      for (const uid of new Set(uniqueMemberIds)) {
+        if (uid === String(req.user.id)) continue;
+        try {
+          const role = roleById.get(uid);
+            await createAndEmitNotification({
+              type: 'project_created',
+              toUserId: uid,
+              fromUserId: req.user.id,
+              projectId: savedProject._id,
+              message: `You were added to project ${projectName}`,
+              meta: { projectName },
+              title: 'New Project Assignment',
+              icon: 'folder-plus',
+              actionUrl: routeFor(role, savedProject._id),
+              req
+            });
+        } catch (notifErr) {
+          console.warn('Notification failed for user', uid, notifErr.message);
+        }
+      }
+    } catch (chatErr) {
+      console.warn('Project chat/notification setup failed:', chatErr.message);
+    }
+    /* ------------------------------------------------------------ */
+
     res.status(201).json(savedProject);
   } catch (err) {
     console.error('❌ Error adding project:', err);
     res.status(500).json({ error: 'Failed to add project', details: err.message });
+  } finally {
+    // Always release lock
+    try {
+      const app = req.app; if (app?.locals?.projectCreateLocks) {
+        const { projectName, projectmanager, location, startDate, endDate } = req.body || {}; // reuse values if available
+        if (projectName && location && startDate && endDate) {
+          const fp = [projectName.trim().toLowerCase(), location, startDate, endDate, projectmanager].join('|');
+          app.locals.projectCreateLocks.delete(fp);
+        }
+      }
+    } catch (_) {}
   }
 };
 
@@ -1020,7 +1101,7 @@ exports.uploadProjectDocuments = async (req, res) => {
     if (!project) return res.status(404).json({ message: 'Project not found' });
 
     if (!userCanUploadToProject(project, req.user)) {
-      return res.status(403).json({ message: 'Not allowed to upload documents for this project' });
+      return res.status(403).json({ message: 'Not allowed to delete documents for this project' });
     }
 
     const incoming = listIncomingFilesMulter(req);
@@ -1314,7 +1395,7 @@ function normalizeAi(ai, rawText = '') {
 
   const WANT = ['optimistic', 'realistic', 'pessimistic'];
   const byType = new Map(
-    out.critical_path_analysis.map(c => [String(c?.path_type || '').toLowerCase(), c])
+    out.critical_path_analysis.map(c => [x.path_type, x])
   );
 
   const mk = (type, fallbackName) => {

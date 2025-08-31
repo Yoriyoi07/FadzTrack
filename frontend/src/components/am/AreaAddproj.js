@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { toast } from 'react-toastify';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Addproj.css';
 import '../style/am_style/Area_Dash.css';
@@ -274,21 +275,24 @@ const AreaAddproj = () => {
   };
 
   // Submit handler
+  const [submitting, setSubmitting] = useState(false);
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return; // guard double-click
   // Required field validations
-  if (!formData.projectName.trim()) { alert('Project name is required.'); return; }
-  if (!formData.contractor.trim()) { alert('Contractor is required.'); return; }
-  if (!formData.budget) { alert('Budget is required.'); return; }
-  if (!formData.location) { alert('Location is required.'); return; }
-  if (!formData.startDate || !formData.endDate) { alert('Please select both start and end dates.'); return; }
-  if (!formData.projectmanager) { alert('Project Manager is required.'); return; }
-  if (!formData.pic.length) { alert('At least one PIC must be assigned.'); return; }
-  if (!formData.manpower.length) { alert('At least one manpower entry must be assigned.'); return; }
+  if (!formData.projectName.trim()) { toast.error('Project name is required.'); return; }
+  if (!formData.contractor.trim()) { toast.error('Contractor is required.'); return; }
+  if (!formData.budget) { toast.error('Budget is required.'); return; }
+  if (!formData.location) { toast.error('Location is required.'); return; }
+  if (!formData.startDate || !formData.endDate) { toast.error('Please select both start and end dates.'); return; }
+  if (!formData.projectmanager) { toast.error('Project Manager is required.'); return; }
+  if (!formData.pic.length) { toast.error('At least one PIC must be assigned.'); return; }
+  if (!formData.manpower.length) { toast.error('At least one manpower entry must be assigned.'); return; }
     if (new Date(formData.endDate) < new Date(formData.startDate)) {
-      alert("End date cannot be before start date.");
+      toast.error("End date cannot be before start date.");
       return;
     }
+    setSubmitting(true);
     const stored = localStorage.getItem('user');
     const user = stored ? JSON.parse(stored) : null;
     const userId = user?._id;
@@ -305,34 +309,21 @@ const AreaAddproj = () => {
     documents.forEach(file => form.append('documents', file));
 
     try {
-      await api.post('/projects', form, {
+      const { data } = await api.post('/projects', form, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      alert('✅ Project added successfully!');
-      setFormData({
-        projectName: '',
-        pic: [],
-        staff: [],
-        hrsite: [],
-        contractor: '',
-        budget: '',
-        location: '',
-        startDate: '',
-        endDate: '',
-        manpower: '',
-        projectmanager: '',
-        areamanager: userId || ''
-      });
-      setAssignedPICs([]); setAvailablePICs(picUsers);
-      setAssignedStaff([]); setAvailableStaff(staffUsers);
-      setAssignedHR([]); setAvailableHR(hrSiteUsers);
-      setAssignedManpower([]); setAvailableManpower(manpowerList);
-      setPhotos([]);
-      navigate('/am');
+      // Redirect to newly created project detail with flash state; rely on server response _id
+      if (data && data._id) {
+        navigate(`/am/projects/${data._id}`, { state: { justCreated: true, projectName: data.projectName } });
+      } else {
+        navigate('/am');
+      }
     } catch (error) {
       const result = error.response?.data;
-      alert(`❌ Error: ${result?.message || result?.error || 'Failed to add project'}`);
+      toast.error(result?.message || result?.error || 'Failed to add project');
       console.error('❌ Submission error:', error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -734,7 +725,9 @@ const AreaAddproj = () => {
             </div>
 
             <div className="area-addproj-form-row area-addproj-submit-row">
-              <button type="submit" className="area-addproj-submit-button">Add Project</button>
+              <button type="submit" className="area-addproj-submit-button" disabled={submitting}>
+                {submitting ? 'Submitting...' : 'Add Project'}
+              </button>
             </div>
           </form>
         </div>

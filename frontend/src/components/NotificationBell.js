@@ -76,11 +76,11 @@ const NotificationBell = () => {
       // HR rarely receives material request approvals; if so no dedicated route
     }
 
-    const projectTypes = ['discussion','reply','mention','task','system'];
+    const projectTypes = ['discussion','reply','mention','task','system','project_created'];
     if(projectTypes.includes(n.type) && projectId){
       if(isPIC) return `/pic/${projectId}`;
-      if(isPM) return `/pm/viewprojects/${projectId}`;
-      if(isAM) return `/am/viewproj/${projectId}`;
+      if(isPM) return `/pm/viewprojects/${projectId}`; // PM unified view
+      if(isAM) return `/am/projects/${projectId}`; // normalized AM route
       if(isCEO) return `/ceo/proj/${projectId}`;
       if(isIT) return `/it/projects`; // no per-id route defined
       if(isHR) return `/hr/project-records/${projectId}`;
@@ -95,7 +95,20 @@ const NotificationBell = () => {
       // optimistic mark read via context
       if (markAsRead) markAsRead(n._id);
     }
-    const target = n.actionUrl || deriveFallbackUrl(n);
+    let target;
+    if (n.type === 'project_created' && (n.projectId?._id || n.projectId)) {
+      const pid = n.projectId?._id || n.projectId;
+      const role = (userRole||'').toLowerCase();
+      if (role.includes('person in charge') || role === 'pic') target = `/pic/${pid}`;
+      else if (role === 'project manager' || role === 'pm') target = `/pm/viewprojects/${pid}`;
+      else if (role === 'area manager' || role === 'am') target = `/am/projects/${pid}`;
+      else if (role === 'ceo') target = `/ceo/proj/${pid}`;
+      else if (role === 'it') target = `/it/projects`;
+      else if (role === 'hr - site') target = `/hr-site/current-project`;
+      else if (role === 'hr') target = `/hr/project-records/${pid}`;
+      else if (role === 'staff') target = `/staff/current-project`;
+    }
+    if (!target) target = n.actionUrl || deriveFallbackUrl(n);
     if(target){
       if(target.startsWith('http')) window.location.href = target;
       else navigate(target);

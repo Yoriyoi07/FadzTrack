@@ -318,7 +318,7 @@ const AreaProj = () => {
                         src={project.photos && project.photos.length > 0
                           ? project.photos[0]
                           : 'https://placehold.co/400x250?text=No+Photo'}
-                        alt={project.name}
+                        alt={project.projectName}
                         className="project-image"
                       />
                       <div className="project-status-badge" style={{ backgroundColor: getStatusColor(project.status) }}>
@@ -330,7 +330,7 @@ const AreaProj = () => {
                     {/* Project Content */}
                     <div className="project-content">
                       <div className="project-header">
-                        <h3 className="project-name">{project.name}</h3>
+                        <h3 className="project-name">{project.projectName}</h3>
                         <div className="project-location">
                           <FaMapMarkerAlt />
                           <span>{project.location?.name || 'No Location'}</span>
@@ -342,7 +342,7 @@ const AreaProj = () => {
                           <FaUserTie className="detail-icon" />
                           <div className="detail-content">
                             <span className="detail-label">Project Manager</span>
-                            <span className="detail-value">{project.engineer?.name || 'Not Assigned'}</span>
+                            <span className="detail-value">{project.projectmanager?.name || 'Not Assigned'}</span>
                           </div>
                         </div>
 

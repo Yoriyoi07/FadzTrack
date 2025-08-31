@@ -5,8 +5,10 @@ const NotificationSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: [
-      'discussion','reply','mention','manpower','task','system','general',
-      'nudge','material_request_created','pending_approval','approved','denied'
+  'discussion','reply','mention','manpower','task','system','general',
+  'nudge','material_request_created','pending_approval','approved','denied',
+  // project lifecycle
+  'project_created'
     ],
   },
   title: { type: String }, // short heading e.g. "Material Request Approved"
