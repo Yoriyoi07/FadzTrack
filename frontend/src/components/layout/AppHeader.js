@@ -56,6 +56,17 @@ const ROLE_NAV = {
     { to:'/it/material-list', label:'Materials', icon:<FaBoxes/>, match:'/it/material-list' },
     { to:'/it/manpower-list', label:'Manpower', icon:<FaUsers/>, match:'/it/manpower-list' },
     { to:'/it/auditlogs', label:'Audit Logs', icon:<FaClipboardList/>, match:'/it/auditlogs' },
+  ],
+  staff: ()=> [
+    { to:'/staff', label:'Project', icon:<FaEye/>, match:'/staff' },
+    { to:'/staff/chat', label:'Chat', icon:<FaComments/>, match:'/staff/chat' },
+    { to:'/staff/all-projects', label:'My Projects', icon:<FaProjectDiagram/>, match:'/staff/all-projects' }
+  ],
+  hrsite: ()=> [
+    { to:'/hr-site/current-project', label:'Project', icon:<FaEye/>, match:'/hr-site/current-project' },
+    { to:'/hr-site/chat', label:'Chat', icon:<FaComments/>, match:'/hr-site/chat' },
+    { to:'/hr-site/all-projects', label:'My Projects', icon:<FaProjectDiagram/>, match:'/hr-site/all-projects' },
+    { to:'/hr-site/attendance-report', label:'Attendance', icon:<FaClipboardList/>, match:'/hr-site/attendance-report' }
   ]
 };
 
@@ -86,7 +97,9 @@ const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false
   const logout=()=>{ localStorage.removeItem('token'); localStorage.removeItem('user'); navigate('/'); };
 
   const ctx = { activeProject };
-  let navItems = overrideNav || (ROLE_NAV[roleSegment] ? ROLE_NAV[roleSegment](ctx) : []);
+  // Normalize roleSegment (support aliases like 'hr-site' -> 'hrsite')
+  const normalizedRole = ROLE_NAV[roleSegment] ? roleSegment : roleSegment.replace(/-/g,'');
+  let navItems = overrideNav || (ROLE_NAV[normalizedRole] ? ROLE_NAV[normalizedRole](ctx) : []);
 
   return (
     <>
@@ -96,7 +109,7 @@ const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false
           <span className="pp-brand">FadzTrack</span>
           <nav className="pp-nav">
             {navItems.map(item=>{
-              const isRoot = item.match === '/pic' || item.match === '/pm' || item.match === '/am' || item.match === '/ceo' || item.match === '/it';
+              const isRoot = ['/pic','/pm','/am','/ceo','/it','/staff','/hr-site'].includes(item.match);
               const path = location.pathname.replace(/\/$/,'');
               const match = item.match.replace(/\/$/,'');
               const active = path === match || (!isRoot && path.startsWith(match + '/'));

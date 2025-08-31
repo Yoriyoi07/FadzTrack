@@ -14,6 +14,8 @@ import { FaTachometerAlt, FaComments, FaBoxes, FaUsers as FaUsersNav, FaProjectD
 import "../style/pm_style/Pm_Dash.css";
 import "../style/pm_style/Pm_ViewProjects.css";
 import "../style/pm_style/Pm_ViewProjects_Wide.css";
+// Staff style sheet (safe to load globally; selectors are namespaced under .staff-view-root)
+import "../style/staff_style/Staff_ViewProject.css";
 
 const SOCKET_ORIGIN = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '');
 const SOCKET_PATH = '/socket.io';
@@ -45,10 +47,34 @@ async function fetchSignedUrlsForImages(files){ const imgs=files.filter(f=>{ con
 function generateFileThumbnail(fileName,filePath,fileType,signedUrl){ const isImg=['JPG','JPEG','PNG','GIF','BMP','SVG'].includes(fileType); if(isImg){ const src=signedUrl||filePath; return <div className="file-thumbnail image-thumbnail"><img src={src} alt={fileName} onError={(e)=>{e.target.style.display='none'; e.target.nextSibling.style.display='flex';}} /><div className="fallback-icon" style={{display:'none'}}>🖼️</div></div>; } const map={ PDF:['#ff6b6b','#ee5a52','📄'], DOC:['#4ecdc4','#44a08d','📝'], DOCX:['#4ecdc4','#44a08d','📝'], XLS:['#45b7d1','#96c93d','📊'], XLSX:['#45b7d1','#96c93d','📊'], PPT:['#f093fb','#f5576c','📈'], PPTX:['#f093fb','#f5576c','📈'], TXT:['#a8edea','#fed6e3','📄'], RTF:['#a8edea','#fed6e3','📄'], CSV:['#ffecd2','#fcb69f','📊'], FILE:['#667eea','#764ba2','📁'] }; const s=map[fileType]||map.FILE; return <div className="file-thumbnail document-thumbnail" style={{background:`linear-gradient(135deg,${s[0]},${s[1]})`}}><span className="thumbnail-icon">{s[2]}</span><span className="thumbnail-extension">{fileType}</span></div>; }
 function renderMessageText(text='',me=''){ const slug=(me||'').trim().toLowerCase().replace(/\s+/g,''); if(!slug||!text) return text; const re=new RegExp(`@${slug}\\b`,'gi'); const parts=text.split(re); if(parts.length===1) return text; return parts.map((p,i)=> i===0? p : <React.Fragment key={i}><span style={{background:'#f6c343',color:'#3a2f00',padding:'2px 6px',borderRadius:4,fontWeight:'bold',fontSize:'0.9em'}}>@{me}</span>{p}</React.Fragment>); }
 function isMentioned(text='',me=''){ const slug=(me||'').trim().toLowerCase().replace(/\s+/g,''); if(!slug||!text) return false; return text.toLowerCase().replace(/\s+/g,'').includes(`@${slug}`); }
-function readContractor(p){ const c=p?.contractor; if(!c) return 'N/A'; if(typeof c==='string') return c.trim()||'N/A'; if(Array.isArray(c)){ const names=c.map(x=> typeof x==='string'? x : (x?.name||x?.company||x?.companyName||'')).map(s=> (s||'').trim()).filter(Boolean); return names.length?names.join(', '):'N/A'; } if(typeof c==='object'){ for(const v of [c.name,c.company,c.companyName,c.title,c.fullName]) if(typeof v==='string'&&v.trim()) return v.trim(); } if(typeof p?.contractorName==='string'&&p.contractorName.trim()) return p.contractorName.trim(); return 'N/A'; }
+function readContractor(p){
+  if(!p) return 'N/A';
+  const cRaw = p.contractor !== undefined && p.contractor !== null ? p.contractor : p.contractorName;
+  if(!cRaw) return 'N/A';
+  if(typeof cRaw === 'string') return cRaw.trim() || 'N/A';
+  if(Array.isArray(cRaw)){
+    const names = cRaw.map(x=> typeof x==='string'? x : (x?.name||x?.company||x?.companyName||x?.title||x?.fullName||''))
+      .map(s=> (s||'').trim()).filter(Boolean);
+    if(names.length) return names.join(', ');
+  }
+  if(typeof cRaw === 'object'){
+    for(const k of ['name','company','companyName','title','fullName']){
+      if(typeof cRaw[k] === 'string' && cRaw[k].trim()) return cRaw[k].trim();
+    }
+  }
+  return 'N/A';
+}
 const peso = new Intl.NumberFormat('en-PH',{ style:'currency', currency:'PHP' });
 const mentionRowStyles={ container:{position:'relative',background:'#fffbe6',border:'1px solid #f6c343',boxShadow:'0 0 0 2px rgba(246,195,67,.25) inset',borderRadius:10}, badge:{position:'absolute',top:6,right:6,fontSize:12,lineHeight:'16px',background:'#f6c343',color:'#3a2f00',borderRadius:999,padding:'2px 8px',fontWeight:700}};
-const roleConfigs={ pm:{ label:'Project Manager', permissions:{ image:true,statusToggle:true,uploadFiles:true,deleteFiles:true,postDiscuss:true }, base:'/pm'}, am:{ label:'Area Manager', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:true }, base:'/am'}, ceo:{ label:'CEO', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/ceo'}, hr:{ label:'HR', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/hr'}, it:{ label:'IT', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/it'} };
+const roleConfigs={
+  pm:{ label:'Project Manager', permissions:{ image:true,statusToggle:true,uploadFiles:true,deleteFiles:true,postDiscuss:true }, base:'/pm'},
+  am:{ label:'Area Manager', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:true }, base:'/am'},
+  ceo:{ label:'CEO', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/ceo'},
+  hr:{ label:'HR', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/hr'},
+  it:{ label:'IT', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/it'},
+  staff:{ label:'Staff', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:true }, base:'/staff'},
+  hrsite:{ label:'HR-Site', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:true }, base:'/hr-site'}
+};
 
 export default function ProjectView({ role='pm', navItems, permissionsOverride, navPathOverrides, useUnifiedHeader=false }) {
   const { id } = useParams();
@@ -61,24 +87,28 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   // Role-specific route differences (legacy structure mapping)
   const viewProjectPathMap = {
     pm: `${basePath}/viewprojects/${id}`,
-    am: `${basePath}/projects/${id}`, // legacy AM route
+    am: `${basePath}/projects/${id}`,
     ceo: `${basePath}/proj/${id}`,
     hr: `${basePath}/project-records/${id}`,
-    it: `${basePath}/projects/${id}`
+    it: `${basePath}/projects/${id}`,
+  staff: `${basePath}/current-project${id?`/${id}`:''}`,
+  hrsite: `${basePath}/current-project${id?`/${id}`:''}`
   };
   const progressReportPathMap = {
     pm: `${basePath}/progress-report/${id}`,
     am: `${basePath}/progress-report/${id}`,
     ceo: `${basePath}/progress-report/${id}`,
     hr: `${basePath}/progress-report/${id}`,
-    it: `${basePath}/progress-report/${id}`
+  it: `${basePath}/progress-report/${id}`,
+  hrsite: `${basePath}/progress-report/${id}`
   };
   const dailyLogsPathMap = {
     pm: `${basePath}/daily-logs-list`,
     am: `${basePath}/daily-logs-list`,
     ceo: `${basePath}/daily-logs-list`,
     hr: `${basePath}/daily-logs-list`,
-    it: `${basePath}/daily-logs-list`
+  it: `${basePath}/daily-logs-list`,
+  hrsite: `${basePath}/daily-logs-list`
   };
   const defaultNav = [
     { to: basePath, icon:<FaTachometerAlt/>, label:'Dashboard' },
@@ -115,7 +145,32 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   const socketRef = useRef(null);
   const joinedProjectRef = useRef(null);
   useEffect(()=>{ const onScroll=()=> setIsHeaderCollapsed((window.pageYOffset||document.documentElement.scrollTop)>50); window.addEventListener('scroll',onScroll); return ()=> window.removeEventListener('scroll',onScroll); },[]);
-  useEffect(()=>{ let cancelled=false; (async()=>{ try { const {data}=await api.get(`/projects/${id}`); if(cancelled) return; setProject(data); setStatus(data?.status||''); } catch { if(!cancelled) setProject(null); } finally { if(!cancelled) setLoading(false);} })(); return ()=> {cancelled=true;}; },[id]);
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try {
+        if(!id){
+          // Fallback for staff or hrsite roles without explicit project id: pick first assigned project
+            if((role==='staff' || role==='hrsite') && userId){
+              try {
+                const { data } = await api.get(`/projects/assigned/allroles/${userId}`);
+                if(cancelled) return;
+                const list = Array.isArray(data)? data : [];
+                const first = list[0];
+                if(first){ setProject(first); setStatus(first?.status||''); }
+                else { setProject(null); }
+              } catch { if(!cancelled) setProject(null); }
+            } else {
+              setProject(null);
+            }
+            return;
+        }
+        const {data}=await api.get(`/projects/${id}`);
+        if(cancelled) return;
+        setProject(data); setStatus(data?.status||'');
+      } catch { if(!cancelled) setProject(null); } finally { if(!cancelled) setLoading(false);} })();
+    return ()=> {cancelled=true;};
+  },[id,role,userId]);
   useEffect(()=>{ if(!project?._id) return; let cancelled=false; (async()=>{ try { const res=await api.get('/requests'); if(cancelled) return; const approved=(res.data||[]).filter(r=> String(r?.project?._id||'')===String(project._id) && r.status==='Approved' && r.totalValue); setPurchaseOrders(approved); setTotalPO(approved.reduce((s,r)=> s+(Number(r.totalValue)||0),0)); } catch { if(!cancelled){ setPurchaseOrders([]); setTotalPO(0);} } })(); return ()=> {cancelled=true;}; },[project?._id]);
   useEffect(()=>{ if(!project?._id || (activeTab!=='Discussions' && activeTab!=='Reports')) return; const controller=new AbortController(); setLoadingMsgs(true); api.get(`/projects/${project._id}/discussions`,{ headers:{Authorization:`Bearer ${token}`}, signal:controller.signal }).then(res=>{ const list=Array.isArray(res.data)?[...res.data].sort((a,b)=> new Date(a.timestamp||0)-new Date(b.timestamp||0)):[]; setMessages(list); }).catch(()=> setMessages([])).finally(()=> setLoadingMsgs(false)); return ()=> controller.abort(); },[project?._id,activeTab,token]);
   // Initialize collapsed state for messages with 3+ replies (only once per message)
@@ -126,7 +181,8 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   useEffect(()=>{ if(!project?._id) return; const int=setInterval(()=> fetchReports(project._id),120000); return ()=> clearInterval(int); },[project?._id]);
   useEffect(()=>{ if(activeTab!=='Discussions') return; requestAnimationFrame(()=>{ if(listBottomRef.current) listBottomRef.current.scrollIntoView(); else if(listScrollRef.current) listScrollRef.current.scrollTop=listScrollRef.current.scrollHeight; }); },[messages,activeTab]);
   useEffect(()=>{ if(!project?._id) return; let cancelled=false; (async()=>{ try { const all=[]; if(project.documents) all.push(...project.documents); if(messages) messages.forEach(m=>{ if(m.attachments) all.push(...m.attachments); m.replies?.forEach(r=> r.attachments && all.push(...r.attachments)); }); if(all.length){ const signed=await fetchSignedUrlsForImages(all); if(!cancelled) setFileSignedUrls(p=> ({...p,...signed})); } } catch{} })(); return ()=> {cancelled=true;}; },[project?.documents,messages]);
-  useEffect(()=>{ if(!project?._id || activeTab!=='Discussions') return; let cancelled=false; (async()=>{ try { const res=await api.get(`/projects/${project._id}/users`); if(!cancelled) setProjectUsers(res.data||[]); } catch { if(!cancelled) setProjectUsers([]);} })(); return ()=> {cancelled=true;}; },[project?._id,activeTab]);
+  // Fetch project users once project id is available (used for Discussions + resolving HR/Staff names)
+  useEffect(()=>{ if(!project?._id) return; let cancelled=false; (async()=>{ try { const res=await api.get(`/projects/${project._id}/users`); if(!cancelled) setProjectUsers(res.data||[]); } catch { if(!cancelled) setProjectUsers([]);} })(); return ()=> {cancelled=true;}; },[project?._id]);
   useEffect(()=>{ const close=e=>{ if(!e.target.closest('.user-profile')) setProfileMenuOpen(false); }; document.addEventListener('click',close); return ()=> document.removeEventListener('click',close); },[]);
   // Live discussions socket (all roles) - single effect with dedup
   useEffect(()=>{
@@ -167,14 +223,34 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   const [showFlash, setShowFlash] = useState(justCreated);
   useEffect(()=>{ if(justCreated){ const t=setTimeout(()=> setShowFlash(false),6000); return ()=> clearTimeout(t);} },[justCreated]);
 
-  if(loading) return <div className="dashboard-container pm-view-root"><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-spinner-container"><div className="loading-spinner"/></div><div className="loading-text"><h2 className="loading-title">Loading Project Details</h2><p className="loading-subtitle">Fetching project information...</p></div><div className="loading-progress"><div className="progress-bar"><div className="progress-fill"/></div></div></div></div></div>;
-  if(!project) return <div className="dashboard-container pm-view-root"><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-text"><h2 className="loading-title" style={{color:'#ef4444'}}>Project Not Found</h2><p className="loading-subtitle">Project missing or access denied.</p></div><div style={{marginTop:'2rem'}}><button onClick={()=> navigate(basePath)} style={{background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',border:'none',padding:'12px 24px',borderRadius:8,fontSize:'1rem',fontWeight:600,cursor:'pointer'}}>Return to Dashboard</button></div></div></div></div>;
+  // Always include staff-view-root so unified overview card styles apply for every role
+  const rootRoleClass = `pm-view-root staff-view-root ${role==='staff'?'is-staff':''}`;
+  if(loading) return <div className={`dashboard-container ${rootRoleClass}`}><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-spinner-container"><div className="loading-spinner"/></div><div className="loading-text"><h2 className="loading-title">Loading Project Details</h2><p className="loading-subtitle">Fetching project information...</p></div><div className="loading-progress"><div className="progress-bar"><div className="progress-fill"/></div></div></div></div></div>;
+  if(!project) return <div className={`dashboard-container ${rootRoleClass}`}><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-text"><h2 className="loading-title" style={{color:'#ef4444'}}>Project Not Found</h2><p className="loading-subtitle">Project missing or access denied.</p></div><div style={{marginTop:'2rem'}}><button onClick={()=> navigate(basePath)} style={{background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',border:'none',padding:'12px 24px',borderRadius:8,fontSize:'1rem',fontWeight:600,cursor:'pointer'}}>Return to Dashboard</button></div></div></div></div>;
   const start = project?.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A';
   const end = project?.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A';
   const contractor = readContractor(project);
-  const locationLabel = project?.location?.name ? `${project.location.name}${project.location?.region?` (${project.location.region})`:''}` : 'N/A';
+  let locationLabel = 'N/A';
+  if(project?.location){
+    const loc = project.location;
+    if(typeof loc === 'string') locationLabel = loc;
+    else if(loc.name) locationLabel = loc.name + (loc.region?` (${loc.region})`: '');
+    else if(loc.title) locationLabel = loc.title;
+  }
   const manpowerText = Array.isArray(project?.manpower)&&project.manpower.length>0 ? project.manpower.map(mp=> [mp?.name,mp?.position].filter(Boolean).join(' (') + (mp?.position?')':'')).join(', ') : 'No Manpower Assigned';
   const budgetNum = Number(project?.budget||0); const remaining = Math.max(budgetNum - Number(totalPO||0),0);
+  // Resolve HR Site / Staff names even if backend didn't populate (ids only)
+  const resolveUserNames = (arr)=> {
+    if(!Array.isArray(arr) || !arr.length) return [];
+    return arr.map(u=>{
+      if(u && typeof u === 'object' && u.name) return u.name;
+      const id = typeof u === 'string' ? u : (u?._id||'');
+      const match = projectUsers.find(pu=> String(pu._id)===String(id));
+      return match?.name || null;
+    }).filter(Boolean);
+  };
+  const hrSiteNames = resolveUserNames(project?.hrsite);
+  const staffNames = resolveUserNames(project?.staff);
   // Rewritten JSX with proper nesting & explicit wrappers to avoid unclosed tag errors
 // Discussion label style map
 const labelColorMap = {
@@ -186,7 +262,7 @@ const labelColorMap = {
 };
 function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[label]||{bg:'#334155',fg:'#fff'}; return <span className="discussion-label-badge" style={{background:s.bg,color:s.fg,padding:'2px 8px',borderRadius:8,fontSize:11,marginLeft:8,fontWeight:600,letterSpacing:.5,display:'inline-flex',alignItems:'center',gap:4}}>{label}</span>; }
   return (
-    <div className="dashboard-container pm-view-root">
+  <div className={`dashboard-container ${rootRoleClass}`}>
       {!useUnifiedHeader && (
       <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
         <div className="header-top">
@@ -368,80 +444,41 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
               <div className="project-details-content">
                 <div className="action-buttons">
                   <button
-                    onClick={() =>
-                      exportProjectDetails(project, {
-                        contextTitle: `Project Details — ${roleCfg.label}`,
-                        includeBudget: true,
-                        includePM: true,
-                        includeAM: true,
-                        includePIC: true,
-                        includeHrSite: true,
-                        includeStaff: true
-                      })
-                    }
+                    onClick={() => exportProjectDetails(project, { contextTitle: `Project Details — ${roleCfg.label}` })}
                     className="export-btn"
                   >
                     <FaDownload />
-                    <span>Export PDF</span>
+                    <span>Export Project Details</span>
                   </button>
                 </div>
-                <div className="pm-overview-grid">
-                  {/* Budget */}
-                  <div className="pm-overview-card pm-budget-card">
-                    <div className="card-icon">
-                      <FaMoneyBillWave />
-                    </div>
-                    <div className="card-content">
-                      <h3 className="card-title">Budget Overview</h3>
-                      <div className="budget-amount">
-                        {peso.format(budgetNum || 0)}
-                        {totalPO > 0 && (
-                          <span className="po-deduction"> − {peso.format(totalPO)} (POs)</span>
-                        )}
+                <div className="overview-grid">
+                  <div className="overview-card budget-card">
+                    <div className="card-icon"><FaMoneyBillWave /></div>
+                    <h3 className="card-title">Budget</h3>
+                    <div className="budget-amount">{peso.format(budgetNum || 0)}</div>
+                    {totalPO>0 && (
+                      <div className="remaining-budget" style={{marginTop:6,fontSize:12}}>
+                        Remaining: {peso.format(remaining)} (POs: {peso.format(totalPO)})
                       </div>
-                      {totalPO > 0 && (
-                        <div className="remaining-budget">Remaining: {peso.format(remaining)}</div>
-                      )}
+                    )}
+                  </div>
+                  <div className="overview-card timeline-card">
+                    <div className="card-icon"><FaCalendarAlt /></div>
+                    <h3 className="card-title">Timeline</h3>
+                    <div className="timeline-dates">
+                      <div className="date-item"><span className="date-label">Start:</span><span className="date-value">{start}</span></div>
+                      <div className="date-item"><span className="date-label">End:</span><span className="date-value">{end}</span></div>
                     </div>
                   </div>
-                  {/* Timeline */}
-                  <div className="pm-overview-card pm-timeline-card">
-                    <div className="card-icon">
-                      <FaCalendarAlt />
-                    </div>
-                    <div className="card-content">
-                      <h3 className="card-title">Project Timeline</h3>
-                      <div className="timeline-dates">
-                        <div className="date-item">
-                          <span className="date-label">Start:</span>
-                          <span className="date-value">{start}</span>
-                        </div>
-                        <div className="date-item">
-                          <span className="date-label">End:</span>
-                          <span className="date-value">{end}</span>
-                        </div>
-                      </div>
-                    </div>
+                  <div className="overview-card location-card">
+                    <div className="card-icon"><FaMapMarkerAlt /></div>
+                    <h3 className="card-title">Location</h3>
+                    <div className="location-value">{locationLabel}</div>
                   </div>
-                  {/* Location */}
-                  <div className="pm-overview-card pm-location-card">
-                    <div className="card-icon">
-                      <FaMapMarkerAlt />
-                    </div>
-                    <div className="card-content">
-                      <h3 className="card-title">Location</h3>
-                      <div className="location-value">{locationLabel}</div>
-                    </div>
-                  </div>
-                  {/* Contractor */}
-                  <div className="pm-overview-card pm-contractor-card">
-                    <div className="card-icon">
-                      <FaBuilding />
-                    </div>
-                    <div className="card-content">
-                      <h3 className="card-title">Contractor</h3>
-                      <div className="contractor-value">{contractor}</div>
-                    </div>
+                  <div className="overview-card contractor-card">
+                    <div className="card-icon"><FaBuilding /></div>
+                    <h3 className="card-title">Contractor</h3>
+                    <div className="contractor-value">{contractor}</div>
                   </div>
                 </div>
                 {/* Progress Section */}
@@ -466,7 +503,6 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                     className="progress-grid"
                     style={{ display: 'grid', gap: 18, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}
                   >
-                    {/* Overall Progress */}
                     <div
                       className="progress-card overall-progress"
                       style={{ background: '#0f172a', color: '#f1f5f9', borderRadius: 18, padding: 20, position: 'relative' }}
@@ -655,6 +691,28 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                           {Array.isArray(project?.pic) && project.pic.length
                             ? project.pic.map(p => p?.name).filter(Boolean).join(', ')
                             : 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="team-member">
+                      <div className="member-avatar">
+                        <FaUsers />
+                      </div>
+                      <div className="member-info">
+                        <h4 className="member-role">HR Site</h4>
+                        <p className="member-name">
+                            {hrSiteNames.length ? hrSiteNames.join(', ') : (Array.isArray(project?.hrsite) && project.hrsite.length ? `${project.hrsite.length} assigned` : 'N/A')}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="team-member">
+                      <div className="member-avatar">
+                        <FaUsers />
+                      </div>
+                      <div className="member-info">
+                        <h4 className="member-role">Staff</h4>
+                        <p className="member-name">
+                            {staffNames.length ? staffNames.join(', ') : (Array.isArray(project?.staff) && project.staff.length ? `${project.staff.length} assigned` : 'N/A')}
                         </p>
                       </div>
                     </div>

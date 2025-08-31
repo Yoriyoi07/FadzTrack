@@ -75,19 +75,28 @@ const NotificationBell = () => {
       if(isIT) return `/it/material-request/${id}`;
       // HR rarely receives material request approvals; if so no dedicated route
     }
-
-    const projectTypes = ['discussion','reply','mention','task','system','project_created'];
+    // Treat these as project-context types
+    const projectTypes = ['discussion','reply','mention','task','system','general','manpower','project_created'];
     if(projectTypes.includes(n.type) && projectId){
       if(isPIC) return `/pic/${projectId}`;
-      if(isPM) return `/pm/viewprojects/${projectId}`; // PM unified view
-      if(isAM) return `/am/projects/${projectId}`; // normalized AM route
+      if(isPM) return `/pm/viewprojects/${projectId}`;
+      if(isAM) return `/am/projects/${projectId}`;
       if(isCEO) return `/ceo/proj/${projectId}`;
-      if(isIT) return `/it/projects`; // no per-id route defined
+      if(isIT) return `/it/projects`;
       if(isHR) return `/hr/project-records/${projectId}`;
-      if(isHRSite) return `/hr-site/current-project`; // simplified
+      if(isHRSite) return `/hr-site/current-project`;
       if(isStaff) return `/staff/current-project`;
     }
-    return null;
+    // Fallback dashboards by role
+    if(isPIC) return '/pic';
+    if(isPM) return '/pm';
+    if(isAM) return '/am';
+    if(isCEO) return '/ceo/dash';
+    if(isIT) return '/it';
+    if(isHR) return '/hr/dash';
+    if(isHRSite) return '/hr-site';
+    if(isStaff) return '/staff';
+    return '/';
   };
 
   const clickNotification = (n) => {
@@ -96,18 +105,7 @@ const NotificationBell = () => {
       if (markAsRead) markAsRead(n._id);
     }
     let target;
-    if (n.type === 'project_created' && (n.projectId?._id || n.projectId)) {
-      const pid = n.projectId?._id || n.projectId;
-      const role = (userRole||'').toLowerCase();
-      if (role.includes('person in charge') || role === 'pic') target = `/pic/${pid}`;
-      else if (role === 'project manager' || role === 'pm') target = `/pm/viewprojects/${pid}`;
-      else if (role === 'area manager' || role === 'am') target = `/am/projects/${pid}`;
-      else if (role === 'ceo') target = `/ceo/proj/${pid}`;
-      else if (role === 'it') target = `/it/projects`;
-      else if (role === 'hr - site') target = `/hr-site/current-project`;
-      else if (role === 'hr') target = `/hr/project-records/${pid}`;
-      else if (role === 'staff') target = `/staff/current-project`;
-    }
+  // project_created now handled by deriveFallbackUrl; override only if missing actionUrl
     if (!target) target = n.actionUrl || deriveFallbackUrl(n);
     if(target){
       if(target.startsWith('http')) window.location.href = target;

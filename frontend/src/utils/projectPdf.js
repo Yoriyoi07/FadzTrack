@@ -108,6 +108,7 @@ export async function exportProjectDetails(project, opts = {}) {
     includeAM = true,
     includePM = true,
     includeBudget = true,
+  includeManpower = true,
     preferPesoSign = false, // set true only if your font definitely has ₱
   } = opts;
 
@@ -216,6 +217,20 @@ export async function exportProjectDetails(project, opts = {}) {
       body: staffRows,
       styles: { font: bodyFont, fontStyle: 'normal', fontSize: 11, cellPadding: 8, halign: 'left' },
       headStyles: { font: bodyFont, fontStyle: headStyle, fillColor: [76, 175, 80], textColor: 255 },
+      theme: 'grid',
+      margin: { left: marginX, right: marginX },
+    });
+  }
+
+  /* -- assigned manpower list (distinct from Staff / PIC) -- */
+  if (includeManpower && Array.isArray(project?.manpower) && project.manpower.length) {
+    const manpowerRows = project.manpower.map(mp => [mp?.name || mp?.fullName || 'Unnamed', mp?.position || mp?.role || '']);
+    autoTable(doc, {
+      startY: (doc.lastAutoTable?.finalY || detailsStartY) + 18,
+      head: [['Manpower Name', 'Position']],
+      body: manpowerRows,
+      styles: { font: bodyFont, fontStyle: 'normal', fontSize: 11, cellPadding: 8, halign: 'left' },
+      headStyles: { font: bodyFont, fontStyle: headStyle, fillColor: [33, 150, 243], textColor: 255 },
       theme: 'grid',
       margin: { left: marginX, right: marginX },
     });

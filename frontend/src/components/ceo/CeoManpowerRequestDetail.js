@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
+import AppHeader from '../layout/AppHeader';
 import {
   FaTachometerAlt,
   FaComments,
@@ -31,18 +31,13 @@ const CeoManpowerRequestDetail = () => {
   const user = userRef.current;
   const token = localStorage.getItem('token');
 
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  // Header handled by AppHeader
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   // Hooks must always run; gate logic inside
-  useEffect(() => {
-    if (!user || user.role !== 'CEO') return;
-    const handleClickOutside = (e) => { if (!e.target.closest('.user-profile')) setProfileMenuOpen(false); };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
+  // (Profile dropdown logic removed)
 
   useEffect(() => {
     if (!user || user.role !== 'CEO') return;
@@ -63,11 +58,7 @@ const CeoManpowerRequestDetail = () => {
     return () => { active = false; };
   }, [id, token]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
+  // (Logout handled by AppHeader)
 
   const getStatusIcon = (status) => {
     switch(status?.toLowerCase()) {
@@ -99,38 +90,7 @@ const CeoManpowerRequestDetail = () => {
 
   return (
     <div className="dashboard-container">
-      <header className="dashboard-header">
-        <div className="header-top">
-          <div className="logo-section">
-            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">{user?.name ? user.name.charAt(0).toUpperCase() : 'C'}</div>
-            <div className="profile-info">
-              <span className="profile-name">{user?.name}</span>
-              <span className="profile-role">{user?.role}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn"><span>Logout</span></button>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/ceo/dash" className="nav-item"><FaTachometerAlt /><span>Dashboard</span></Link>
-            <Link to="/ceo/chat" className="nav-item"><FaComments /><span>Chat</span></Link>
-            <Link to="/ceo/material-list" className="nav-item"><FaBoxes /><span>Material</span></Link>
-            <Link to="/ceo/proj" className="nav-item"><FaProjectDiagram /><span>Projects</span></Link>
-            <Link to="/ceo/manpower-requests" className="nav-item active"><FaClipboardList /><span>Manpower</span></Link>
-            <Link to="/ceo/audit-logs" className="nav-item"><FaClipboardList /><span>Audit Logs</span></Link>
-            <Link to="/reports" className="nav-item"><FaChartBar /><span>Reports</span></Link>
-          </nav>
-          <NotificationBell />
-        </div>
-      </header>
+      <AppHeader roleSegment="ceo" />
 
       <main className="dashboard-main">
         <div className="content-wrapper">

@@ -1,30 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
 import '../style/staff_style/Staff_Dash.css';
 import '../style/am_style/Area_Projects.css';
-
-// React Icons
+import AppHeader from '../layout/AppHeader';
 import { 
-  FaTachometerAlt, 
-  FaComments, 
-  FaProjectDiagram, 
-  FaClipboardList,
-  FaMapMarkerAlt,
-  FaUserTie,
-  FaBuilding,
-  FaCalendarAlt,
-  FaUsers as FaUsersIcon,
-  FaMoneyBillWave,
-  FaCheckCircle,
-  FaClock,
-  FaFilter,
-  FaTh,
-  FaList,
-  FaSearch,
-  FaChevronDown,
-  FaChevronUp
+  FaMapMarkerAlt, FaUserTie, FaBuilding, FaCalendarAlt, FaUsers as FaUsersIcon,
+  FaMoneyBillWave, FaCheckCircle, FaClock, FaTh, FaList, FaSearch, FaChevronDown, FaChevronUp, FaProjectDiagram
 } from 'react-icons/fa';
 
 const StaffAllProjects = () => {
@@ -33,71 +15,34 @@ const StaffAllProjects = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projects, setProjects] = useState([]);
+  const [allProjects, setAllProjects] = useState([]); // for "All Projects" view
+  const [showAll, setShowAll] = useState(false); // toggle between My Projects and All
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const navigate = useNavigate();
-  const stored = localStorage.getItem('user');
-  const user = stored ? JSON.parse(stored) : null;
-  const userName = user?.name || 'Staff';
-  const userRole = user?.role || 'Staff';
+  const user = useMemo(()=> { try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch { return {}; } }, []);
   const staffId = user?._id;
 
-  // Scroll handler for header collapse
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const shouldCollapse = scrollTop > 50;
-      setIsHeaderCollapsed(shouldCollapse);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.profile-menu-container')) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
-
-  // Fetch projects assigned to this staff
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-    setLoading(true);
-        // Get projects where this staff is assigned
-        const response = await api.get(`/projects/by-user/${staffId}`);
-        setProjects(response.data || []);
-        setError(null);
-      } catch (error) {
-        console.error('Failed to fetch projects:', error);
-        setError('Failed to load projects. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    if (staffId) {
-      fetchProjects();
-    }
-  }, [staffId]);
+  // Fetch my (assigned) projects & all projects
+  useEffect(()=>{
+    if(!staffId) return; let cancelled=false; setLoading(true); setError(null);
+    (async()=>{ try {
+      const [mineRes, allRes] = await Promise.all([
+        api.get(`/projects/assigned/allroles/${staffId}`), // ongoing assigned across roles
+        api.get('/projects') // all projects for global view
+      ]);
+      if(cancelled) return;
+      setProjects(Array.isArray(mineRes.data)? mineRes.data: []);
+      setAllProjects(Array.isArray(allRes.data)? allRes.data: []);
+    } catch(e){ if(!cancelled){ setError('Failed to load projects'); } } finally { if(!cancelled) setLoading(false); } })();
+    return ()=>{ cancelled=true; };
+  },[staffId]);
 
   // Apply filters and search
-  const displayedProjects = projects
+  const sourceProjects = showAll ? allProjects : projects;
+  const displayedProjects = sourceProjects
     .filter(project => {
       // Status filter
       if (filter === 'completed') {
@@ -116,7 +61,7 @@ const StaffAllProjects = () => {
         return (
           project.projectName?.toLowerCase().includes(searchLower) ||
           project.location?.name?.toLowerCase().includes(searchLower) ||
-          project.projectManager?.name?.toLowerCase().includes(searchLower) ||
+          project.projectmanager?.name?.toLowerCase().includes(searchLower) ||
           project.contractor?.toLowerCase().includes(searchLower)
         );
       }
@@ -136,8 +81,8 @@ const StaffAllProjects = () => {
           bValue = b.location?.name || '';
           break;
         case 'manager':
-          aValue = a.projectManager?.name || '';
-          bValue = b.projectManager?.name || '';
+          aValue = a.projectmanager?.name || '';
+          bValue = b.projectmanager?.name || '';
           break;
         case 'status':
           aValue = a.status || '';
@@ -189,70 +134,15 @@ const StaffAllProjects = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="dashboard-container">
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <p>Loading projects...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="dashboard-container"><div className="loading-container"><div className="loading-spinner"/><p>Loading projects...</p></div></div>;
 
   return (
     <div className="dashboard-container">
-      {/* Modern Header - PM Style */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo and Profile */}
-        <div className="header-top">
-          <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-
-          <div className="user-profile profile-menu-container" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'S'}
-            </div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/staff/current-project" className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Project</span>
-            </Link>
-            <Link to="/staff/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/staff/all-projects" className="nav-item active">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
-            </Link>
-        </nav>
-
-          <NotificationBell />
-        </div>
-      </header>
+      <AppHeader roleSegment="pic" overrideNav={[
+        { to:'/staff/current-project', label:'Project', icon:<FaCalendarAlt/>, match:'/staff/current-project' },
+        { to:'/staff/chat', label:'Chat', icon:<FaClock/>, match:'/staff/chat' },
+        { to:'/staff/all-projects', label: showAll? 'All Projects':'My Projects', icon:<FaProjectDiagram/>, match:'/staff/all-projects' }
+      ]} />
 
       {/* Main Content */}
       <main className="dashboard-main">
@@ -260,8 +150,13 @@ const StaffAllProjects = () => {
           {/* Page Header */}
           <div className="page-header">
             <div className="page-title-section">
-              <h1 className="page-title">My Projects</h1>
-              <p className="page-subtitle">View all projects you are assigned to</p>
+              <h1 className="page-title">{showAll? 'All Projects':'My Projects'}</h1>
+              <p className="page-subtitle">{showAll? 'Complete portfolio overview':'Projects you are assigned to'} </p>
+            </div>
+            <div className="page-actions" style={{display:'flex',gap:'0.5rem'}}>
+              <button className="view-mode-btn" style={{minWidth:130}} onClick={()=>setShowAll(s=>!s)}>
+                {showAll? 'Show My Projects':'Show All'}
+              </button>
             </div>
           </div>
 
@@ -286,25 +181,25 @@ const StaffAllProjects = () => {
                   className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
                   onClick={() => setFilter('all')}
                 >
-                  All ({projects.length})
+                  All ({sourceProjects.length})
                 </button>
                 <button
                   className={`filter-btn ${filter === 'ongoing' ? 'active' : ''}`}
                   onClick={() => setFilter('ongoing')}
                 >
-                  Ongoing ({projects.filter(p => p.status === 'Ongoing' || p.status === 'On Going').length})
+                  Ongoing ({sourceProjects.filter(p => p.status === 'Ongoing' || p.status === 'On Going').length})
                 </button>
                 <button
                   className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
                   onClick={() => setFilter('completed')}
                 >
-                  Completed ({projects.filter(p => p.status === 'Completed').length})
+                  Completed ({sourceProjects.filter(p => p.status === 'Completed').length})
                 </button>
                 <button
                   className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
                   onClick={() => setFilter('pending')}
                 >
-                  Pending ({projects.filter(p => p.status === 'Pending' || p.status === 'Not Started').length})
+                  Pending ({sourceProjects.filter(p => p.status === 'Pending' || p.status === 'Not Started').length})
                 </button>
                   </div>
                 </div>
@@ -411,7 +306,7 @@ const StaffAllProjects = () => {
                           <FaUserTie className="detail-icon" />
                           <div className="detail-content">
                             <span className="detail-label">Project Manager</span>
-                            <span className="detail-value">{project.projectManager?.name || 'Not Assigned'}</span>
+                            <span className="detail-value">{project.projectmanager?.name || 'Not Assigned'}</span>
                           </div>
                         </div>
 
@@ -454,7 +349,7 @@ const StaffAllProjects = () => {
                             <FaMoneyBillWave className="detail-icon" />
                             <div className="detail-content">
                               <span className="detail-label">Budget</span>
-                              <span className="detail-value">{project.budget}</span>
+                              <span className="detail-value">{project.budget ? new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(project.budget): 'N/A'}</span>
                             </div>
                           </div>
                         )}

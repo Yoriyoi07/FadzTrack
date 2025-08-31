@@ -1,8 +1,8 @@
 // src/components/hrSite/HrSiteAttendanceReport.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import api from "../../api/axiosInstance";
-import NotificationBell from "../NotificationBell";
+import AppHeader from '../layout/AppHeader';
 import '../style/hr_style/HrSite_Report.css';
 
 /**
@@ -175,28 +175,7 @@ const HrSiteAttendanceReport = () => {
   return (
     <>
       {/* HEADER */}
-      <header className="header">
-        <div className="logo-container">
-          <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-          <h1 className="brand-name">FadzTrack</h1>
-        </div>
-        <nav className="nav-menu">
-          <Link to="/hr-site/current-project" className="nav-link">Dashboard</Link>
-          <Link to="/hr-site/all-projects" className="nav-link">Projects</Link>
-          <Link to="/hr-site/chat" className="nav-link">Chat</Link>
-        </nav>
-        <div className="profile-menu-container" style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <NotificationBell />
-          <div className="profile-circle" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            {(userName?.[0] || 'Z').toUpperCase()}
-          </div>
-          {profileMenuOpen && (
-            <div className="profile-menu">
-              <button onClick={() => { localStorage.removeItem('token'); localStorage.removeItem('user'); navigate('/'); }}>Logout</button>
-            </div>
-          )}
-        </div>
-      </header>
+  <AppHeader roleSegment="hrsite" />
 
       {/* PAGE */}
       <div className="attendance-page">

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
+import AppHeader from '../layout/AppHeader';
 import '../style/hr_style/HrSite_Dash.css';
 import '../style/am_style/Area_Projects.css';
 
@@ -33,46 +33,12 @@ const HrSiteAllProjects = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const navigate = useNavigate();
-  const stored = localStorage.getItem('user');
-  const user = stored ? JSON.parse(stored) : null;
-  const userName = user?.name || 'HR-Site';
-  const userRole = user?.role || 'HR-Site';
+  const user = useMemo(()=> { try { return JSON.parse(localStorage.getItem('user')||'{}'); } catch { return {}; } }, []);
   const hrSiteId = user?._id;
-
-  // Scroll handler for header collapse
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const shouldCollapse = scrollTop > 50;
-      setIsHeaderCollapsed(shouldCollapse);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.profile-menu-container')) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
 
   // Fetch projects assigned to this HR-Site user
   useEffect(() => {
@@ -80,7 +46,7 @@ const HrSiteAllProjects = () => {
       try {
     setLoading(true);
         // Get projects where this HR-Site user is assigned
-        const response = await api.get(`/projects/by-user/${hrSiteId}`);
+  const response = await api.get(`/projects/assigned/allroles/${hrSiteId}`);
         setProjects(response.data || []);
         setError(null);
       } catch (error) {
@@ -116,7 +82,7 @@ const HrSiteAllProjects = () => {
         return (
           project.projectName?.toLowerCase().includes(searchLower) ||
           project.location?.name?.toLowerCase().includes(searchLower) ||
-          project.projectManager?.name?.toLowerCase().includes(searchLower) ||
+          project.projectmanager?.name?.toLowerCase().includes(searchLower) ||
           project.contractor?.toLowerCase().includes(searchLower)
         );
       }
@@ -136,8 +102,8 @@ const HrSiteAllProjects = () => {
           bValue = b.location?.name || '';
           break;
         case 'manager':
-          aValue = a.projectManager?.name || '';
-          bValue = b.projectManager?.name || '';
+          aValue = a.projectmanager?.name || '';
+          bValue = b.projectmanager?.name || '';
           break;
         case 'status':
           aValue = a.status || '';
@@ -202,59 +168,7 @@ const HrSiteAllProjects = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Modern Header - PM Style */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo and Profile */}
-        <div className="header-top">
-          <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-        </div>
-
-          <div className="user-profile profile-menu-container" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'H'}
-            </div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-          </div>
-          {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-            </div>
-          )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/hr-site/current-project" className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Project</span>
-            </Link>
-            <Link to="/hr-site/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/hr-site/all-projects" className="nav-item active">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>My Projects</span>
-            </Link>
-          </nav>
-
-          <NotificationBell />
-        </div>
-      </header>
-
-      {/* Main Content */}
+      <AppHeader roleSegment="hrsite" />
       <main className="dashboard-main">
         <div className="projects-container">
           {/* Page Header */}
@@ -379,7 +293,7 @@ const HrSiteAllProjects = () => {
                   <div
                     key={project._id}
                     className="project-card"
-                    onClick={() => navigate(`/hr-site/current-project/${project._id}`)}
+                    onClick={() => navigate(`/hr-site/current-project`)}
                   >
                     {/* Project Image */}
                     <div className="project-image-container">
@@ -411,7 +325,7 @@ const HrSiteAllProjects = () => {
                           <FaUserTie className="detail-icon" />
                           <div className="detail-content">
                             <span className="detail-label">Project Manager</span>
-                            <span className="detail-value">{project.projectManager?.name || 'Not Assigned'}</span>
+                            <span className="detail-value">{project.projectmanager?.name || 'Not Assigned'}</span>
                           </div>
                         </div>
 

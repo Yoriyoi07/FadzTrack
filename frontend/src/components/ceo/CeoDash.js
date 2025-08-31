@@ -1,19 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
 import CeoAddArea from './CeoAddArea';
+import AppHeader from '../layout/AppHeader';
 
 // Icons (same set used by AM for consistent look)
 import {
-  FaTachometerAlt,
-  FaComments,
   FaUsers,
   FaProjectDiagram,
-  FaClipboardList,
-  FaChartBar,
   FaCalendarAlt,
   FaArrowRight,
   FaChevronDown,
@@ -21,12 +17,11 @@ import {
   FaMapMarkerAlt,
   FaChevronRight,
   FaChevronLeft,
-  FaBoxes
+  FaBoxes,
+  FaChartBar
 } from 'react-icons/fa';
 
 const CeoDash = () => {
-  const navigate = useNavigate();
-
   // Stable user
   const userRef = useRef(null);
   if (userRef.current === null) {
@@ -37,9 +32,7 @@ const CeoDash = () => {
   const [userName] = useState(user?.name || '');
   const [userRole] = useState(user?.role || '');
 
-  // Header/UI state
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  // Header now unified via AppHeader
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Data state
@@ -230,29 +223,6 @@ const CeoDash = () => {
 
   // (no pagination state)
 
-  // Header collapse on scroll and outside click for profile menu
-  useEffect(() => {
-    const onScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      setIsHeaderCollapsed(scrollTop > 50);
-    };
-    const onDocClick = (e) => {
-      if (!e.target.closest('.profile-menu-container')) setProfileMenuOpen(false);
-    };
-    window.addEventListener('scroll', onScroll);
-    document.addEventListener('click', onDocClick);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      document.removeEventListener('click', onDocClick);
-    };
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
-
   const toggleSidebar = () => setSidebarOpen((v) => !v);
 
   // Group projects by location for sidebar
@@ -337,68 +307,8 @@ const CeoDash = () => {
 
   return (
     <div className="ceo-dashboard dashboard-container">
-      {/* Header (AM style) */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        <div className="header-top">
-          <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          <div className="user-profile profile-menu-container" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'U'}</div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn"><span>Logout</span></button>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/ceo/dash" className="nav-item active">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/ceo/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/ceo/manpower-requests" className="nav-item">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
-            <Link to="/ceo/proj" className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
-            </Link>
-            <Link to="/ceo/material-list" className="nav-item">
-              <FaBoxes />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Materials</span>
-            </Link>
-            <Link to="/ceo/audit-logs" className="nav-item">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Audit Logs</span>
-            </Link>
-            <Link to="/reports" className="nav-item">
-              <FaChartBar />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
-            </Link>
-            <button type="button" className="nav-item" onClick={toggleSidebar} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
-              <FaMapMarkerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Areas & Projects</span>
-            </button>
-          </nav>
-          <NotificationBell />
-        </div>
-      </header>
+      {/* Unified AppHeader (reports nav omitted by default) */}
+      <AppHeader roleSegment="ceo" />
 
       {/* Main */}
       <main className="dashboard-main">

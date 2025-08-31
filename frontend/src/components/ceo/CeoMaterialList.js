@@ -3,16 +3,17 @@ import { useNavigate, Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
 import '../style/ceo_style/Ceo_Material_List.css';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
+import AppHeader from '../layout/AppHeader';
 
 // React Icons
-import { FaTachometerAlt, FaComments, FaBoxes, FaProjectDiagram, FaClipboardList, FaChartBar } from 'react-icons/fa';
+// icons retained only within request cards; header icons handled by AppHeader
+import { FaBoxes } from 'react-icons/fa';
 
 const ITEMS_PER_PAGE = 5;
 
 const CeoMaterialList = () => {
   const navigate = useNavigate();
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  // Header/profile handled by AppHeader
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,7 +23,7 @@ const CeoMaterialList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [userName, setUserName] = useState(user?.name || 'CEO');
   const [userRole, setUserRole] = useState(user?.role || 'Chief Executive Officer');
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  // header collapse removed (AppHeader fixed height)
 
   // --- Main requests (for this page)
   useEffect(() => {
@@ -50,31 +51,9 @@ const CeoMaterialList = () => {
       });
   }, []);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".user-profile")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
+  // removed clickOutside/scroll logic
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const shouldCollapse = scrollTop > 50;
-      setIsHeaderCollapsed(shouldCollapse);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/');
-  };
+  // Logout handled by AppHeader
 
   // --- Helpers
   const getStatusColor = (status, receivedByPIC) => {
@@ -154,56 +133,7 @@ const CeoMaterialList = () => {
 
   return (
     <div>
-      {/* IT/PM-style collapsible header */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        <div className="header-top">
-          <div className="logo-section">
-            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
-            <h1 className="header-brand">FadzTrack</h1>
-  </div>
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'C'}</div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-    </div>
-    {profileMenuOpen && (
-              <div className="profile-dropdown" onClick={(e) => e.stopPropagation()}>
-                <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="logout-btn"><span>Logout</span></button>
-      </div>
-    )}
-          </div>
-        </div>
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/ceo/dash" className="nav-item">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/ceo/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/ceo/material-list" className="nav-item active">
-              <FaBoxes />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
-            </Link>
-            <Link to="/ceo/proj" className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
-            </Link>
-            <Link to="/ceo/audit-logs" className="nav-item">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Audit Logs</span>
-            </Link>
-            <Link to="/reports" className="nav-item">
-              <FaChartBar />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
-            </Link>
-          </nav>
-          <NotificationBell />
-  </div>
-</header>
+      <AppHeader roleSegment="ceo" />
 
       {/* Main content */}
       <div className="dashboard-layout">
