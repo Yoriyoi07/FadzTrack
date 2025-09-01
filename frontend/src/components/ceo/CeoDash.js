@@ -58,6 +58,7 @@ const CeoDash = () => {
   const [selectedArea, setSelectedArea] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [locationSearch, setLocationSearch] = useState('');
 
   // Initial load: locations, projects, requests
   useEffect(() => {
@@ -107,126 +108,166 @@ const CeoDash = () => {
     return () => { isActive = false; controller.abort(); };
   }, []);
 
-  // Compute per-project metrics using backend progress endpoint per project (system-wide)
+  // Compute per-project metrics replicating Area Manager dashboard logic (reports first, then fallback to contributions)
   useEffect(() => {
-    const fetchProjectMetrics = async () => {
-      if (!enrichedAllProjects.length) return;
-      setMetricsLoading(true);
-      const metrics = [];
+    if (!enrichedAllProjects.length) { setProjectMetrics([]); return; }
+    let cancelled = false;
+    setMetricsLoading(true);
 
-      const getPctFromAi = (ai) => {
-        const v = Number(ai?.pic_contribution_percent);
-        if (Number.isFinite(v) && v >= 0) return Math.max(0, Math.min(100, Math.round(v)));
-        // Fallback heuristic if contribution is missing: use completed_tasks count
-        const ct = Array.isArray(ai?.completed_tasks) ? ai.completed_tasks.length : 0;
-        return Math.max(0, Math.min(100, ct * 5));
-      };
-
-      for (const project of enrichedAllProjects) {
+    const buildMetrics = async () => {
+    const metrics = await Promise.all(enrichedAllProjects.map(async (project) => {
         try {
-          // Use the new averaged PiC contributions endpoint
-          const { data: contributionsData } = await api.get(`/daily-reports/project/${project._id}/pic-contributions`);
-          
-          const avg = contributionsData.averageContribution || 0;
-          const totalPics = contributionsData.totalPics || 0;
-          const reportingPics = contributionsData.reportingPics || 0;
-          const pendingPics = contributionsData.pendingPics || 0;
+          const totalPics = Array.isArray(project.pic) ? project.pic.length : 0;
+      let avg = 0; // running average (precise)
+      let reportingPics = 0; let pendingPics = totalPics; let latestDate = null; let picContributions = []; let aiRisk = '';
 
-          // Determine status based on reporting and contribution levels
-          let status = 'ontrack';
+          // 1. Fetch project reports (primary source like AM dashboard)
+          try {
+            const { data: repData } = await api.get(`/projects/${project._id}/reports`);
+            const list = repData?.reports || [];
+            if (list.length) {
+              const sorted = [...list].sort((a,b)=> new Date(b.uploadedAt||0) - new Date(a.uploadedAt||0));
+              latestDate = sorted[0]?.uploadedAt || null;
+              const byUser = new Map();
+              for (const r of sorted) {
+                const key = r.uploadedBy || r.uploadedByName || r._id;
+                if (!byUser.has(key)) byUser.set(key, r); // keep newest per user
+              }
+              const distinct = [...byUser.values()];
+              const valsRaw = distinct
+                .map(r => {
+                  const raw = r?.ai?.pic_contribution_percent;
+                  if (raw === undefined || raw === null) return null;
+                  const num = typeof raw === 'string' ? parseFloat(raw.toString().replace(/[^0-9.]+/g, '')) : Number(raw);
+                  return isFinite(num) ? num : null;
+                })
+                .filter(v => v !== null && v >= 0 && v <= 100);
+              let vals = valsRaw;
+              if (!vals.length) {
+                // heuristic fallback from completed_tasks vs summary_of_work_done
+                vals = distinct.map(r => {
+                  const done = r?.ai?.completed_tasks?.length || 0;
+                  const total = done + (r?.ai?.summary_of_work_done?.length || 0);
+                  return total > 0 ? (done / total) * 100 : 0;
+                });
+              }
+              if (vals.length) {
+                const a = vals.reduce((s,v)=> s+v,0) / vals.length;
+                avg = Math.min(100, Math.max(0, a));
+              }
+              reportingPics = distinct.length; pendingPics = totalPics > 0 ? Math.max(0, totalPics - reportingPics) : 0;
+              picContributions = distinct.map(r => {
+                const raw = r?.ai?.pic_contribution_percent;
+                const num = raw == null ? 0 : (typeof raw === 'string' ? parseFloat(raw.toString().replace(/[^0-9.]+/g,'')) : Number(raw));
+                return { picId: r.uploadedBy || r._id, picName: r.uploadedByName || 'Unknown', contribution: Math.round(isFinite(num) ? num : 0), hasReport: true, lastReportDate: r.uploadedAt || null };
+              });
+
+              // Risk extraction (prefer realistic critical path analysis first report that contains it)
+              for (const rep of distinct) {
+                const ai = rep?.ai;
+                const cpa = Array.isArray(ai?.critical_path_analysis) ? ai.critical_path_analysis : [];
+                const realistic = cpa.find(c => (c?.path_type || '').toLowerCase() === 'realistic');
+                aiRisk = (realistic?.risk || ai?.risk || '').toString();
+                if (aiRisk) break;
+              }
+            }
+          } catch { /* ignore, fallback below */ }
+
+          // 2. Fallback to aggregated contributions endpoint if avg still 0
+          if (avg === 0) {
+            try {
+              const { data: contrib } = await api.get(`/daily-reports/project/${project._id}/pic-contributions`);
+              if (contrib) {
+                if (!latestDate) {
+                  const ld = (contrib.picContributions || []).filter(p => p.lastReportDate).map(p => new Date(p.lastReportDate)).sort((a,b)=> b-a)[0];
+                  latestDate = ld ? ld.toISOString() : latestDate;
+                }
+                if (contrib.averageContribution) avg = contrib.averageContribution;
+                if (!reportingPics) reportingPics = contrib.reportingPics || 0;
+                if (totalPics && pendingPics === totalPics) pendingPics = contrib.pendingPics ?? pendingPics;
+                if (!picContributions.length) picContributions = contrib.picContributions || [];
+              }
+            } catch { /* ignore */ }
+          }
+
+          // 3. (Optional) Legacy progress endpoint fallback if still 0 (additional safety)
+          if (Math.round(avg) === 0 && reportingPics === 0) {
+            try {
+              const { data: legacy } = await api.get(`/daily-reports/project/${project._id}/progress`);
+              const segs = Array.isArray(legacy?.progress) ? legacy.progress : [];
+              const completed = segs.find(s => /completed/i.test(s.name))?.value || 0;
+              const inProg = segs.find(s => /in progress/i.test(s.name))?.value || 0;
+              const approx = Math.round(Math.min(100, Math.max(0, completed + inProg * 0.5)));
+              if (approx > 0) avg = approx;
+            } catch { /* ignore */ }
+          }
+
+            let status = 'ontrack';
           if (pendingPics > 0 && totalPics > 1) status = 'pending';
           else if (avg < 50) status = 'regressing';
-          else if (avg >= 70) status = 'ontrack';
+          const latestDateObj = latestDate ? new Date(latestDate) : null;
+          if (latestDateObj && (Date.now() - latestDateObj.getTime()) > 3 * 24 * 60 * 60 * 1000) status = 'stale';
+          const picNames = (picContributions || []).map(p => p.hasReport ? p.picName : `${p.picName} (pending)`);
 
-          // Get latest report date from individual contributions
-          const latestDate = contributionsData.picContributions
-            .filter(pic => pic.lastReportDate)
-            .map(pic => new Date(pic.lastReportDate))
-            .sort((a, b) => b - a)[0] || null;
-
-          // Check if reports are stale (older than 3 days)
-          if (latestDate && (Date.now() - latestDate.getTime()) > 3 * 24 * 60 * 60 * 1000) {
-            status = 'stale';
-          }
-
-          // Build PiC names list
-          const picNames = contributionsData.picContributions.map(pic => {
-            if (pic.hasReport) {
-              return pic.picName;
-            } else {
-              return `${pic.picName} (pending)`;
-            }
-          });
-
-          // Extract a risk string from any PIC's latest AI (prefer realistic CPA's risk)
-          let aiRisk = '';
-          try {
-            // Fetch AI reports to get risk information
-            const { data: reportsData } = await api.get(`/projects/${project._id}/reports`);
-            const all = Array.isArray(reportsData?.reports) ? reportsData.reports : [];
-            
-            for (const rep of all) {
-              const ai = rep?.ai;
-              const cpa = Array.isArray(ai?.critical_path_analysis) ? ai.critical_path_analysis : [];
-              const realistic = cpa.find(c => (c?.path_type || '').toLowerCase() === 'realistic');
-              aiRisk = (realistic?.risk || ai?.risk || '').toString();
-              if (aiRisk) break;
-            }
-          } catch (e) {
-            console.error(`Error fetching AI reports for risk assessment:`, e);
-          }
-
-          metrics.push({
+          return {
             projectId: project._id,
             projectName: project.name,
             pm: project.engineer,
             area: project.location?.name || 'Unknown Area',
-            progress: avg,
-            totalPics: totalPics,
-            latestDate,
+            progressPrecise: Number(avg.toFixed(2)),
+            progress: Math.round(avg),
+            totalPics,
+            latestDate: latestDateObj,
             status,
             waitingForAll: pendingPics > 0 && totalPics > 1,
-            picNames: picNames,
+            picNames,
             aiRisk,
-            reportingPics: reportingPics,
-            pendingPics: pendingPics
-          });
-        } catch (e) {
-          metrics.push({
+            reportingPics,
+            pendingPics
+          };
+        } catch (err) {
+          return {
             projectId: project._id,
             projectName: project.name,
             pm: project.engineer,
             area: project.location?.name || 'Unknown Area',
+            progressPrecise: 0,
             progress: 0,
             totalPics: 0,
             latestDate: null,
             status: 'stale',
             waitingForAll: false,
             picNames: []
-          });
+          };
         }
-      }
+      }));
 
-      metrics.sort((a, b) => {
+      metrics.sort((a,b)=> {
         if (!a.latestDate && !b.latestDate) return 0;
         if (!a.latestDate) return 1;
         if (!b.latestDate) return -1;
         return new Date(b.latestDate) - new Date(a.latestDate);
       });
 
-      setProjectMetrics(metrics);
-      setMetricsLoading(false);
+      if (!cancelled) {
+        setProjectMetrics(metrics);
+        setMetricsLoading(false);
+      }
     };
 
-    fetchProjectMetrics();
+    buildMetrics();
+    return () => { cancelled = true; };
   }, [enrichedAllProjects]);
 
   // (no pagination state)
 
   const toggleSidebar = () => setSidebarOpen((v) => !v);
 
-  // Group projects by location for sidebar
+  // Group ONLY ongoing/active projects by location for sidebar (exclude completed)
   const projectsByLocation = enrichedAllProjects.reduce((acc, project) => {
+    const statusStr = String(project.status || '').toLowerCase();
+    const isCompleted = statusStr === 'completed' || /\bcompleted\b/.test(statusStr);
+    if (isCompleted) return acc; // skip completed in sidebar list
     const locationId = project.location?._id || 'unknown';
     if (!acc[locationId]) {
       acc[locationId] = {
@@ -238,6 +279,7 @@ const CeoDash = () => {
     acc[locationId].projects.push(project);
     return acc;
   }, {});
+  const sidebarProjectCount = Object.values(projectsByLocation).reduce((sum, l) => sum + l.projects.length, 0);
 
   // (Heatmap removed)
 
@@ -319,78 +361,68 @@ const CeoDash = () => {
 
         {/* Areas & Projects Sidebar (portal) */}
         {createPortal(
-          <div
-            className={`areas-projects-sidebar ${sidebarOpen ? 'open' : ''}`}
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: sidebarOpen ? 0 : -400,
-              height: '100vh',
-              width: 400,
-              background: '#ffffff',
-              zIndex: 20010,
-              boxShadow: '4px 0 20px rgba(0,0,0,0.1)'
-            }}
-          >
-            <div className="sidebar-header">
-              <h3>Areas & Projects</h3>
-              <button className="close-sidebar-btn" onClick={toggleSidebar}>
-                <FaChevronLeft />
-              </button>
+          <aside className={`areas-projects-sidebar ceo-sidepanel ${sidebarOpen ? 'open' : ''}`} aria-label="Areas and Projects" role="complementary">
+            <div className="sidepanel-header">
+              <button className="icon-btn ghost" onClick={toggleSidebar} aria-label="Close sidebar"><FaChevronLeft /></button>
+              <h3 className="panel-title">Areas & Projects</h3>
+              <button className="icon-btn primary" onClick={() => setShowAddAreaModal(true)}>Add</button>
             </div>
-            <div className="areas-projects-card">
-              <div className="card-header">
-                <button className="add-project-btn" onClick={() => setShowAddAreaModal(true)}>
-                  Add Project
-                </button>
-              </div>
-              <div className="areas-list">
-                {Object.keys(projectsByLocation).length === 0 ? (
-                  <div className="empty-state" style={{ padding: '1rem' }}>
-                    <span>No areas or projects found</span>
-                    <p>Projects will appear here once available.</p>
-                  </div>
-                ) : (
-                  Object.entries(projectsByLocation).map(([locationId, locationData]) => (
-                    <div key={locationId} className="area-item">
-                      <div className="area-header">
-                        <div className="area-info">
-                          <FaMapMarkerAlt className="area-icon" />
-                          <div>
-                            <h4>{locationData.name}</h4>
-                            <p>{locationData.region}</p>
+            <div className="sidepanel-search-row">
+              <input
+                type="text"
+                className="sidepanel-search"
+                placeholder="Search area or region..."
+                value={locationSearch}
+                onChange={(e)=> setLocationSearch(e.target.value)}
+              />
+            </div>
+            <div className="sidepanel-scroll">
+              {Object.keys(projectsByLocation).length === 0 ? (
+                <div className="empty-state small pad-1rem">
+                  <span>No areas or projects found</span>
+                  <p>Projects will appear here once available.</p>
+                </div>
+              ) : (
+                Object.entries(projectsByLocation)
+                  .filter(([,loc])=> !locationSearch || loc.name.toLowerCase().includes(locationSearch.toLowerCase()) || loc.region.toLowerCase().includes(locationSearch.toLowerCase()))
+                  .map(([locationId, locationData]) => {
+                    const expanded = !!expandedLocations[locationId];
+                    return (
+                      <div key={locationId} className={`area-block ${expanded ? 'expanded' : ''}`}>
+                        <button
+                          className="area-summary"
+                          onClick={() => setExpandedLocations(prev => ({ ...prev, [locationId]: !prev[locationId] }))}
+                          aria-expanded={expanded}
+                        >
+                          <span className="marker"><FaMapMarkerAlt /></span>
+                          <span className="area-texts">
+                            <span className="area-name">{locationData.name}</span>
+                            <span className="area-region">{locationData.region}</span>
+                          </span>
+                          <span className="count-pill" title="Projects">{locationData.projects.length}</span>
+                          <span className="chevron">{expanded ? <FaChevronUp /> : <FaChevronDown />}</span>
+                        </button>
+                        {expanded && (
+                          <div className="projects-collapsible">
+                            {locationData.projects.map(project => (
+                              <Link to={`/ceo/proj/${project._id}`} key={project._id} className="project-link" onClick={toggleSidebar}>
+                                <FaProjectDiagram className="pj-ic" />
+                                <span className="pj-name" title={project.name}>{project.name}</span>
+                                <span className="pj-pm" title={project.engineer}>{project.engineer}</span>
+                                <FaArrowRight className="arrow" />
+                              </Link>
+                            ))}
                           </div>
-                        </div>
-                        <div className="area-stats">
-                          <span className="project-count">{locationData.projects.length} projects</span>
-                          <button
-                            className="expand-btn"
-                            onClick={() => setExpandedLocations((prev) => ({ ...prev, [locationId]: !prev[locationId] }))}
-                          >
-                            {expandedLocations[locationId] ? <FaChevronUp /> : <FaChevronDown />}
-                          </button>
-                        </div>
+                        )}
                       </div>
-                      {expandedLocations[locationId] && (
-                        <div className="projects-list">
-                          {locationData.projects.map((project) => (
-                            <Link to={`/ceo/proj/${project._id}`} key={project._id} className="project-item">
-                              <FaProjectDiagram className="project-icon" />
-                              <div className="project-info">
-                                <h5>{project.name}</h5>
-                                <p>{project.engineer}</p>
-                              </div>
-                              <FaArrowRight className="arrow-icon" />
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
+                    );
+                  })
+              )}
             </div>
-          </div>,
+            <div className="sidepanel-footer">
+              <span>{sidebarProjectCount} ongoing projects</span>
+            </div>
+          </aside>,
           document.body
         )}
 
@@ -400,10 +432,10 @@ const CeoDash = () => {
           document.body
         )}
 
-        {/* Content grid (AM style) */}
+        {/* Content area */}
         <div className="dashboard-content ceo-content">
-          {/* Welcome (row 1) */}
-          <div className="dashboard-card ceo-welcome-card" style={{ paddingBottom: '0.5rem', marginBottom: '5rem' }}>
+          {/* Welcome */}
+          <div className="dashboard-card ceo-welcome-card ceo-welcome">
             <div className="welcome-content">
               <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>
               <p className="welcome-subtitle">Here's the status of all company projects</p>
@@ -431,8 +463,8 @@ const CeoDash = () => {
                       <span className="stat-label">Completed</span>
                     </div>
                     <div className="stat-item">
-                      <Link to="/ceo/material-list" style={{ textDecoration: 'none', color: 'inherit' }}>
-                        <span className="stat-number" style={{ color: '#3b82f6', cursor: 'pointer' }}>{materialRequests.length}</span>
+                      <Link to="/ceo/material-list" className="no-decoration inherit-color">
+                        <span className="stat-number link-accent pointer">{materialRequests.length}</span>
                         <span className="stat-label">Material Requests</span>
                       </Link>
                     </div>
@@ -443,22 +475,21 @@ const CeoDash = () => {
             </div>
           </div>
 
-          {/* Project Metrics (row 2) */}
-          <div style={{ height: '24px' }} />
-          <div className="dashboard-grid" style={{ marginTop: '0rem' }}>
-            <div className="dashboard-card ceo-project-metrics-card" style={{ marginBottom: '0.5rem' }}>
-              <div className="card-header" style={{ alignItems: 'center' }}>
+          {/* Progress Metrics */}
+          <div className="dashboard-grid single-col">
+            <div className="dashboard-card ceo-project-metrics-card">
+              <div className="card-header ceo-metrics-header">
                 <h3>Project Progress</h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <span className="metrics-subtitle">Based on latest PIC reports</span>
+                <div className="metrics-filters-row">
+                  <span className="metrics-subtitle subtle-text">Based on latest PIC reports</span>
                   <input
                     type="text"
                     placeholder="Search projects..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 10px' }}
+                    className="input text-input"
                   />
-                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: '6px 10px' }}>
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input select-input">
                     <option value="">All statuses</option>
                     <option value="ontrack">On Track</option>
                     <option value="regressing">Regressing</option>
@@ -469,12 +500,12 @@ const CeoDash = () => {
               </div>
               <div className="project-metrics-container">
                 {metricsLoading ? (
-                  <div className="metrics-loading">
+                  <div className="metrics-loading fade-in">
                     <div className="loading-spinner"></div>
                     <span>Loading project metrics...</span>
                   </div>
                 ) : visibleMetrics.length === 0 ? (
-                  <div className="metrics-empty">
+                  <div className="metrics-empty fade-in">
                     <FaChartBar />
                     <span>No project metrics available</span>
                     <p>Reports need to be submitted to see progress</p>
@@ -482,12 +513,12 @@ const CeoDash = () => {
                 ) : (
                   <div className="project-metrics-scroll">
                     {selectedArea && (
-                      <div style={{ alignSelf: 'center', marginRight: 12, color: '#64748b', fontSize: 12 }}>
-                        Filter: <b>{selectedArea}</b> <button onClick={() => setSelectedArea(null)} style={{ marginLeft: 6, background: '#e2e8f0', border: '1px solid #cbd5e1', borderRadius: 6, padding: '2px 6px', cursor: 'pointer' }}>Clear</button>
+                      <div className="active-filter-pill">
+                        Filter: <b>{selectedArea}</b> <button onClick={() => setSelectedArea(null)} className="btn-light-xs">Clear</button>
                       </div>
                     )}
                     {visibleMetrics.map((metric) => (
-                      <div key={metric.projectId} className="project-metric-item" style={{ minWidth: 320 }}>
+                      <Link to={`/ceo/proj/${metric.projectId}`} key={metric.projectId} className="project-metric-item metric-card metric-card-link">
                         <div className="metric-header">
                           <div className="metric-project-info">
                             <h4 className="metric-project-name">{metric.projectName}</h4>
@@ -508,12 +539,12 @@ const CeoDash = () => {
                                   strokeWidth="4"
                                   fill="transparent"
                                   strokeDasharray={`${2 * Math.PI * 25}`}
-                                  strokeDashoffset={`${2 * Math.PI * 25 * (1 - metric.progress / 100)}`}
+                                  strokeDashoffset={`${2 * Math.PI * 25 * (1 - (metric.progressPrecise ?? metric.progress) / 100)}`}
                                   strokeLinecap="round"
                                   transform="rotate(-90 30 30)"
                                 />
                               </svg>
-                              <div className="progress-text">
+                              <div className="progress-text" title={`${metric.progressPrecise?.toFixed(2) || metric.progress}% exact`}>
                                 <span className="progress-percentage">{metric.progress}%</span>
                               </div>
                             </div>
@@ -534,12 +565,12 @@ const CeoDash = () => {
                             </span>
                           </div>
                           {metric.picNames?.length > 0 && (
-                            <div className="metric-pics" style={{ marginTop: 6, color: '#64748b', fontSize: 12 }}>
+                            <div className="metric-pics">
                               <b>PICs:</b> {metric.picNames.join(', ')}
                             </div>
                           )}
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 )}
@@ -547,348 +578,144 @@ const CeoDash = () => {
             </div>
           </div>
 
-          {/* Material Requests Section */}
-          <div className="dashboard-grid" style={{ marginTop: '0.5rem' }}>
-            <div className="dashboard-card" style={{ minHeight: 60 }}>
+          {/* Material Requests + Risks Row */}
+          <div className="dashboard-grid two-col compact-row">
+            <div className="dashboard-card material-requests-card stretch-card">
               <div className="card-header">
                 <h3>Material Request Tracking</h3>
-                <Link to="/ceo/material-list" style={{ fontSize: '14px', color: '#3b82f6', textDecoration: 'none' }}>
+                <Link to="/ceo/material-list" className="inline-link">
                   View All →
                 </Link>
               </div>
-              <div style={{ padding: '0 18px 12px 18px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '13px', color: '#64748b' }}>
+              <div className="card-body compact-padding">
+                <div className="helper-row">
+                  <span className="helper-text">
                     📋 Quick access to material request management
                   </span>
                 </div>
                 {materialRequestsLoading ? (
-                  <div style={{ color: '#64748b', fontSize: '13px' }}>Loading material requests...</div>
+                  <div className="muted">Loading material requests...</div>
                 ) : materialRequests.length === 0 ? (
-                  <div style={{ color: '#64748b', fontSize: '13px' }}>No material requests found</div>
+                  <div className="muted">No material requests found</div>
                 ) : (
-                  <div style={{ marginBottom: '12px' }}>
-                    <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '6px', fontWeight: '500' }}>
+                  <div className="mr-list-wrapper">
+                    <div className="mr-list-label">
                       Recent Requests with Tracking:
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {materialRequests.slice(0, 3).map((request) => (
-                        <div key={request._id} style={{ 
-                          background: '#f8fafc', 
-                          border: '1px solid #e2e8f0', 
-                          borderRadius: '6px', 
-                          padding: '8px',
-                          fontSize: '12px'
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
-                            <span style={{ fontWeight: '500', color: '#1f2937', flex: 1 }}>
+                    <div className="mr-items">
+                      {materialRequests.slice(0, 3).map((request) => {
+                        const approvals = Array.isArray(request.approvals) ? request.approvals : [];
+                        const pmApproval = approvals.find(a => /project manager/i.test(a.role) && a.decision === 'approved');
+                        const amApproval = approvals.find(a => /area manager/i.test(a.role) && a.decision === 'approved');
+                        const pmApprovedAt = pmApproval?.timestamp;
+                        const amApprovedAt = amApproval?.timestamp;
+                        return (
+                        <Link to={`/ceo/material-request/${request._id}`} key={request._id} className="mr-item mr-item-link">
+                          <div className="mr-item-head">
+                            <span className="mr-item-title">
                               {request.description?.substring(0, 40) || 'No description'}...
                             </span>
-                            <span style={{ 
-                              background: request.status?.includes('approved') ? '#dcfce7' : 
-                                        request.status?.includes('denied') ? '#fef2f2' : '#fef3c7',
-                              color: request.status?.includes('approved') ? '#16a34a' : 
-                                     request.status?.includes('denied') ? '#dc2626' : '#d97706',
-                              padding: '1px 6px',
-                              borderRadius: '10px',
-                              fontSize: '10px',
-                              fontWeight: '500',
-                              marginLeft: '6px'
-                            }}>
-                              {request.status || 'Pending'}
-                            </span>
+                            <span className={`status-chip ${request.status?.includes('approved') ? 'status-approved' : request.status?.includes('denied') ? 'status-denied' : 'status-pending'}`}>{request.status || 'Pending'}</span>
                           </div>
                           
                           {/* Tracking Progress */}
-                          <div style={{ marginBottom: '6px' }}>
-                            <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '6px', fontWeight: '500' }}>
+                          <div className="mr-tracking">
+                            <div className="mr-tracking-label">
                               Tracking Progress:
                             </div>
-                            <div style={{ 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '0px',
-                              background: '#f8fafc',
-                              padding: '6px',
-                              borderRadius: '6px',
-                              border: '1px solid #e2e8f0'
-                            }}>
+                            <div className="mr-tracking-rail">
                               {/* Placed Stage */}
-                              <div style={{ 
-                                display: 'flex', 
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '3px',
-                                minWidth: '70px'
-                              }}>
-                                <div style={{ 
-                                  width: '28px',
-                                  height: '28px',
-                                  borderRadius: '50%',
-                                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: 'white',
-                                  fontSize: '12px',
-                                  fontWeight: 'bold'
-                                }}>
+                              <div className="track-stage completed">
+                                <div className="stage-icon">
                                   ✓
                                 </div>
-                                <span style={{ 
-                                  fontSize: '10px', 
-                                  fontWeight: '600',
-                                  color: '#1f2937',
-                                  textAlign: 'center'
-                                }}>
-                                  Placed
-                                </span>
-                                <span style={{ 
-                                  fontSize: '9px', 
-                                  color: '#10b981',
-                                  fontWeight: '500'
-                                }}>
-                                  Completed
-                                </span>
-                                <span style={{ 
-                                  fontSize: '8px', 
-                                  color: '#6b7280'
-                                }}>
-                                  {new Date(request.createdAt).toLocaleDateString()}
-                                </span>
+                                <span className="stage-label">Placed</span>
+                                <span className="stage-status success">Completed</span>
+                                <span className="stage-date">{new Date(request.createdAt).toLocaleDateString()}</span>
                               </div>
                               
                               {/* Connector 1 */}
-                              <div style={{ 
-                                width: '16px',
-                                height: '2px',
-                                background: 'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)',
-                                margin: '0 3px'
-                              }}></div>
+                              <div className="track-connector completed" />
                               
                               {/* PM Stage */}
-                              <div style={{ 
-                                display: 'flex', 
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '3px',
-                                minWidth: '70px'
-                              }}>
-                                <div style={{ 
-                                  width: '28px',
-                                  height: '28px',
-                                  borderRadius: '50%',
-                                  background: (request.status?.includes('pm') || request.status?.includes('project manager')) ? 
-                                            (request.status?.includes('denied') ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)') : 
-                                            'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: 'white',
-                                  fontSize: '12px',
-                                  fontWeight: 'bold'
-                                }}>
-                                  {(request.status?.includes('pm') || request.status?.includes('project manager')) ? 
-                                    (request.status?.includes('denied') ? '✗' : '✓') : '○'}
+                              <div className={`track-stage ${ pmApprovedAt ? 'completed' : (request.status?.includes('Denied by Project Manager') ? 'rejected' : 'pending') }`}>
+                                <div className="stage-icon">
+                                  {pmApprovedAt ? '✓' : (request.status?.includes('Denied by Project Manager') ? '✗' : '○')}
                                 </div>
-                                <span style={{ 
-                                  fontSize: '10px', 
-                                  fontWeight: '600',
-                                  color: '#1f2937',
-                                  textAlign: 'center'
-                                }}>
-                                  Project Manager
+                                <span className="stage-label">Project Manager</span>
+                                <span className={`stage-status ${ pmApprovedAt ? 'success' : (request.status?.includes('Denied by Project Manager') ? 'error' : 'pending') }`}>
+                                  {pmApprovedAt ? 'Approved' : (request.status?.includes('Denied by Project Manager') ? 'Rejected' : 'Pending')}
                                 </span>
-                                <span style={{ 
-                                  fontSize: '9px', 
-                                  color: (request.status?.includes('pm') || request.status?.includes('project manager')) ? 
-                                         (request.status?.includes('denied') ? '#ef4444' : '#10b981') : '#6b7280',
-                                  fontWeight: '500'
-                                }}>
-                                  {(request.status?.includes('pm') || request.status?.includes('project manager')) ? 
-                                    (request.status?.includes('denied') ? 'Rejected' : 'Approved') : 'Pending'}
-                                </span>
-                                <span style={{ 
-                                  fontSize: '8px', 
-                                  color: '#6b7280'
-                                }}>
-                                  {request.pmApprovedAt ? new Date(request.pmApprovedAt).toLocaleDateString() : 'N/A'}
-                                </span>
+                                <span className="stage-date">{pmApprovedAt ? new Date(pmApprovedAt).toLocaleDateString() : 'N/A'}</span>
                               </div>
                               
                               {/* Connector 2 */}
-                              <div style={{ 
-                                width: '16px',
-                                height: '2px',
-                                background: (request.status?.includes('pm') || request.status?.includes('project manager')) && !request.status?.includes('denied') ? 
-                                          'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)' : 
-                                          'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 100%)',
-                                margin: '0 3px'
-                              }}></div>
+                              <div className={`track-connector ${ (request.status?.includes('pm') || request.status?.includes('project manager')) && !request.status?.includes('denied') ? 'completed' : '' }`} />
                               
                               {/* AM Stage */}
-                              <div style={{ 
-                                display: 'flex', 
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '3px',
-                                minWidth: '70px'
-                              }}>
-                                <div style={{ 
-                                  width: '28px',
-                                  height: '28px',
-                                  borderRadius: '50%',
-                                  background: (request.status?.includes('am') || request.status?.includes('area manager')) ? 
-                                            (request.status?.includes('denied') ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)') : 
-                                            'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: 'white',
-                                  fontSize: '12px',
-                                  fontWeight: 'bold'
-                                }}>
-                                  {(request.status?.includes('am') || request.status?.includes('area manager')) ? 
-                                    (request.status?.includes('denied') ? '✗' : '✓') : '○'}
+                              <div className={`track-stage ${ amApprovedAt ? 'completed' : (request.status?.includes('Denied by Area Manager') ? 'rejected' : 'pending') }`}>
+                                <div className="stage-icon">
+                                  {amApprovedAt ? '✓' : (request.status?.includes('Denied by Area Manager') ? '✗' : '○')}
                                 </div>
-                                <span style={{ 
-                                  fontSize: '10px', 
-                                  fontWeight: '600',
-                                  color: '#1f2937',
-                                  textAlign: 'center'
-                                }}>
-                                  Area Manager
+                                <span className="stage-label">Area Manager</span>
+                                <span className={`stage-status ${ amApprovedAt ? 'success' : (request.status?.includes('Denied by Area Manager') ? 'error' : 'pending') }`}>
+                                  {amApprovedAt ? 'Approved' : (request.status?.includes('Denied by Area Manager') ? 'Rejected' : 'Pending')}
                                 </span>
-                                <span style={{ 
-                                  fontSize: '9px', 
-                                  color: (request.status?.includes('am') || request.status?.includes('area manager')) ? 
-                                         (request.status?.includes('denied') ? '#ef4444' : '#10b981') : '#6b7280',
-                                  fontWeight: '500'
-                                }}>
-                                  {(request.status?.includes('am') || request.status?.includes('area manager')) ? 
-                                    (request.status?.includes('denied') ? 'Rejected' : 'Approved') : 'Pending'}
-                                </span>
-                                <span style={{ 
-                                  fontSize: '8px', 
-                                  color: '#6b7280'
-                                }}>
-                                  {request.amApprovedAt ? new Date(request.amApprovedAt).toLocaleDateString() : 'N/A'}
-                                </span>
+                                <span className="stage-date">{amApprovedAt ? new Date(amApprovedAt).toLocaleDateString() : 'N/A'}</span>
                               </div>
                               
                               {/* Connector 3 */}
-                              <div style={{ 
-                                width: '16px',
-                                height: '2px',
-                                background: (request.status?.includes('am') || request.status?.includes('area manager')) && !request.status?.includes('denied') ? 
-                                          'linear-gradient(90deg, #10b981 0%, #d1fae5 100%)' : 
-                                          'linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 100%)',
-                                margin: '0 3px'
-                              }}></div>
+                              <div className={`track-connector ${ (request.status?.includes('am') || request.status?.includes('area manager')) && !request.status?.includes('denied') ? 'completed' : '' }`} />
                               
                               {/* Received Stage */}
-                              <div style={{ 
-                                display: 'flex', 
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: '3px',
-                                minWidth: '70px'
-                              }}>
-                                <div style={{ 
-                                  width: '28px',
-                                  height: '28px',
-                                  borderRadius: '50%',
-                                  background: request.receivedByPIC ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  color: 'white',
-                                  fontSize: '12px',
-                                  fontWeight: 'bold'
-                                }}>
+                              <div className={`track-stage ${ request.receivedByPIC ? 'completed' : 'pending' }`}>
+                                <div className="stage-icon">
                                   {request.receivedByPIC ? '✓' : '○'}
                                 </div>
-                                <span style={{ 
-                                  fontSize: '10px', 
-                                  fontWeight: '600',
-                                  color: '#1f2937',
-                                  textAlign: 'center'
-                                }}>
-                                  Received
-                                </span>
-                                <span style={{ 
-                                  fontSize: '9px', 
-                                  color: request.receivedByPIC ? '#10b981' : '#6b7280',
-                                  fontWeight: '500'
-                                }}>
+                                <span className="stage-label">Received</span>
+                                <span className={`stage-status ${ request.receivedByPIC ? 'success' : 'pending' }`}>
                                   {request.receivedByPIC ? 'Received' : 'Pending'}
                                 </span>
-                                <span style={{ 
-                                  fontSize: '8px', 
-                                  color: '#6b7280'
-                                }}>
-                                  {request.receivedByPIC ? new Date(request.receivedByPIC).toLocaleDateString() : 'N/A'}
-                                </span>
+                                <span className="stage-date">{request.receivedByPIC ? new Date(request.receivedByPIC).toLocaleDateString() : 'N/A'}</span>
                               </div>
                             </div>
                           </div>
-                          
-                          <div style={{ fontSize: '11px', color: '#64748b' }}>
-                            <span style={{ fontWeight: '500' }}>{request.createdBy?.name || 'Unknown'}</span> • {new Date(request.createdAt).toLocaleDateString()}
-                            {request.project?.projectName && (
-                              <span> • Project: {request.project.projectName}</span>
-                            )}
+                          <div className="mr-meta muted">
+                            <span className="strong">{request.createdBy?.name || 'Unknown'}</span> • {new Date(request.createdAt).toLocaleDateString()}
+                            {request.project?.projectName && (<span> • Project: {request.project.projectName}</span>)}
                           </div>
-                        </div>
-                      ))}
+                        </Link>
+                      );})}
                     </div>
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                  <Link to="/ceo/material-list" style={{ 
-                    background: '#f0f9ff', 
-                    border: '1px solid #0ea5e9', 
-                    borderRadius: '8px', 
-                    padding: '8px 16px', 
-                    textDecoration: 'none', 
-                    color: '#0ea5e9',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s ease'
-                  }}>
-                    📋 View All Requests
-                  </Link>
+                <div className="actions-row">
+                  <Link to="/ceo/material-list" className="btn-outline-primary sm">📋 View All Requests</Link>
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Top Risks from AI */}
-          <div className="dashboard-grid" style={{ marginTop: '0.5rem' }}>
-            <div className="dashboard-card" style={{ minHeight: 80 }}>
-              <div className="card-header">
-                <h3>Top Risks from AI</h3>
-              </div>
-              {(() => {
-                const risks = projectMetrics
-                  .map(m => ({ projectId: m.projectId, projectName: m.projectName, risk: (m.aiRisk || '').toString() }))
-                  .filter(x => x.risk)
-                  .slice(0, 8);
-                if (risks.length === 0) {
+            <div className="dashboard-card risks-card stretch-card">
+                <div className="card-header">
+                  <h3>Top Risks from AI</h3>
+                </div>
+                {(() => {
+                  const risks = projectMetrics
+                    .map(m => ({ projectId: m.projectId, projectName: m.projectName, risk: (m.aiRisk || '').toString() }))
+                    .filter(x => x.risk)
+                    .slice(0, 10);
+                  if (risks.length === 0) {
+                    return (<div className="muted pad-l">No risks extracted from AI reports</div>);
+                  }
                   return (
-                    <div style={{ color: '#64748b', paddingLeft: 18 }}>No risks extracted from AI reports</div>
+                    <ul className="risk-list">
+                      {risks.map(x => (
+                        <li key={x.projectId}>
+                          <b>{x.projectName}</b> — {x.risk}
+                        </li>
+                      ))}
+                    </ul>
                   );
-                }
-                return (
-                  <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {risks.map(x => (
-                      <li key={x.projectId}>
-                        <b>{x.projectName}</b> — {x.risk}
-                      </li>
-                    ))}
-                  </ul>
-                );
-              })()}
+                })()}
             </div>
           </div>
 
@@ -899,9 +726,8 @@ const CeoDash = () => {
 
       {/* Modal for Add Area */}
       {showAddAreaModal && (
-        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-          <div className="modal-content" style={{ background: '#fff', padding: 0, borderRadius: 16, minWidth: 380, maxWidth: '95vw', maxHeight: '95vh', overflowY: 'auto', position: 'relative', boxShadow: '0 2px 24px rgba(0,0,0,0.18)' }}>
-            <button className="modal-close-btn" onClick={() => setShowAddAreaModal(false)} style={{ position: 'absolute', right: 12, top: 8, fontSize: 24, background: 'none', border: 'none', color: '#888', cursor: 'pointer' }}>&times;</button>
+        <div className="modal-overlay modal-centered">
+          <div className="modal-content modal-standard ceo-narrow-modal">
             <CeoAddArea onSuccess={() => setShowAddAreaModal(false)} onCancel={() => setShowAddAreaModal(false)} />
           </div>
         </div>
