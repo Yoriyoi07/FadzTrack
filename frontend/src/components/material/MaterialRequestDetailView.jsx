@@ -14,6 +14,8 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
   const [error, setError] = useState('');
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState({});
+  const [copied, setCopied] = useState(false);
   // PIC receiving action state must be declared before any early return to satisfy hooks rules
   const [receiving, setReceiving] = useState(false);
   const profileDropdownRef = useRef(null);
@@ -30,6 +32,7 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
   useEffect(()=>{ const onScroll=()=>{ const st=window.pageYOffset||document.documentElement.scrollTop; setIsHeaderCollapsed(st>50); }; const onClick=(e)=>{ if(profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) setIsProfileOpen(false); }; window.addEventListener('scroll',onScroll); document.addEventListener('click',onClick); return ()=>{ window.removeEventListener('scroll',onScroll); document.removeEventListener('click',onClick); }; },[]);
 
   const handleBack = useCallback(()=> navigate(-1),[navigate]);
+  const toggleSection = (key)=> setCollapsedSections(prev=>({...prev,[key]:!prev[key]}));
   const handleLogout = () => { localStorage.removeItem('token'); localStorage.removeItem('user'); navigate('/'); };
 
   const renderAttachmentIcon = (filename='') => {
@@ -53,6 +56,9 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
   }
 
   const { steps, meta } = computeApprovalSteps(materialRequest);
+  const completedCount = steps.filter(s=>s.state==='completed').length;
+  const totalCount = steps.length;
+  const progressPct = Math.min(100, Math.round((completedCount/(totalCount||1))*100));
   const statusBadge = getStatusBadge(materialRequest.status, meta.isReceived);
   const canAct = canUserActOnRequest(materialRequest, userRole);
   // PIC role specific capabilities
@@ -92,7 +98,7 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
         <div className="mrd">
           <div className="mrd-summary">
             <div className="mrd-summary-main">
-              <div className="mrd-id-line"><span className="mrd-id-label">ID:</span><span className="mrd-id-value">{materialRequest._id}</span><button className="mrd-copy" onClick={()=>navigator.clipboard?.writeText(materialRequest._id)} title="Copy ID"><i className="fas fa-copy"/></button></div>
+              <div id="summary" className="mrd-id-line"><span className="mrd-id-label">ID:</span><span className="mrd-id-value">{materialRequest._id}</span><button className="mrd-copy" onClick={()=>{navigator.clipboard?.writeText(materialRequest._id); setCopied(true); setTimeout(()=>setCopied(false),1600);}} title="Copy ID"><i className="fas fa-copy"/></button>{copied && <span className="mrd-copied">Copied!</span>}</div>
               <h2 className="mrd-title">{materialRequest.requestNumber || 'Material Request'}</h2>
               <p className="mrd-desc">{materialRequest.description || 'No description provided.'}</p>
               <div className="mrd-meta-row">
@@ -102,6 +108,10 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
                   <span className="mrd-meta">Location: {materialRequest.project.location?.name || materialRequest.project.location?.toString?.() || '—'}</span>
                 )}
               </div>
+              <div className="mrd-progress" aria-label="Approval progress">
+                <div className="mrd-progress-bar"><div className="mrd-progress-fill" style={{width:progressPct+'%'}}/></div>
+                <span className="mrd-progress-meta">{progressPct}% complete • {completedCount}/{totalCount} steps</span>
+              </div>
             </div>
             <div className="mrd-summary-side">
               <div className={`mrd-status-badge status-${statusBadge.toLowerCase()}`}>{statusBadge}</div>
@@ -109,11 +119,41 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
             </div>
           </div>
           <div className="mrd-grid">
-            <section className="mrd-section" aria-labelledby="info-h"><h3 id="info-h" className="mrd-section-title"><i className="fas fa-info-circle"/> Request Information</h3><dl className="mrd-fields"><div className="mrd-field"><dt>Request Number</dt><dd>{materialRequest.requestNumber||'—'}</dd></div><div className="mrd-field"><dt>Priority</dt><dd><span className={`mrd-chip priority-${(materialRequest.priority||'').toLowerCase()}`}>{materialRequest.priority||'—'}</span></dd></div><div className="mrd-field"><dt>Created</dt><dd>{new Date(materialRequest.createdAt).toLocaleString()}</dd></div>{meta.isReceived && <div className="mrd-field"><dt>Received</dt><dd>{new Date(materialRequest.receivedAt || materialRequest.receivedDate).toLocaleString()}</dd></div>}<div className="mrd-field"><dt>Status</dt><dd>{statusBadge}</dd></div></dl></section>
-            <section className="mrd-section" aria-labelledby="req-h"><h3 id="req-h" className="mrd-section-title"><i className="fas fa-user"/> Requester</h3><dl className="mrd-fields"><div className="mrd-field"><dt>Name</dt><dd>{materialRequest.createdBy?.name||'—'}</dd></div><div className="mrd-field"><dt>Email</dt><dd>{materialRequest.createdBy?.email||'—'}</dd></div><div className="mrd-field"><dt>Role</dt><dd>{materialRequest.createdBy?.role||'—'}</dd></div><div className="mrd-field"><dt>Project</dt><dd>{materialRequest.project?.projectName||'—'}</dd></div><div className="mrd-field"><dt>Location</dt><dd>{materialRequest.project?.location?.name || materialRequest.project?.location?.toString?.() || '—'}</dd></div></dl></section>
-            <section className="mrd-section" aria-labelledby="mat-h"><h3 id="mat-h" className="mrd-section-title"><i className="fas fa-boxes"/> Materials</h3>{materialRequest.materials?.length ? <ul className="mrd-material-list">{materialRequest.materials.map((m,i)=>(<li key={i} className="mrd-material-item"><div className="mrd-material-head"><span className="mrd-material-name">{m.materialName}</span><span className="mrd-qty">{m.quantity}{m.unit?` ${m.unit}`:''}</span></div>{m.specifications && <div className="mrd-spec">{m.specifications}</div>}</li>))}</ul> : <p className="mrd-empty">No materials specified.</p>}</section>
-            <section className="mrd-section" aria-labelledby="att-h"><h3 id="att-h" className="mrd-section-title"><i className="fas fa-paperclip"/> Attachments</h3>{materialRequest.attachments?.length ? <ul className="mrd-attach-list">{materialRequest.attachments.map((a,i)=>(<li key={i} className="mrd-attach-item"><div className="mrd-attach-icon">{renderAttachmentIcon(a)}</div><span className="mrd-attach-name">{a}</span><a href={a.startsWith('http')?a:`http://localhost:5000/uploads/${a}`} target="_blank" rel="noopener noreferrer" className="mrd-attach-link">Download</a></li>))}</ul> : <p className="mrd-empty">No attachments.</p>}</section>
-            <section className="mrd-section" aria-labelledby="flow-h"><h3 id="flow-h" className="mrd-section-title"><i className="fas fa-tasks"/> Approval Flow</h3><ol className="mrd-flow">{steps.map(step => {const waitingForReceipt = step.key==='received' && step.state==='pending' && meta.pmApproved && meta.amApproved && !meta.isReceived && !meta.anyDenied; const metaText = step.date? new Date(step.date).toLocaleString() : step.state==='blocked' ? 'Waiting' : waitingForReceipt ? 'Awaiting PIC receipt' : 'Pending'; return (<li key={step.key} className={`mrd-flow-step ${step.state}`}><div className="mrd-step-icon"><i className={`fas ${step.state==='completed'?'fa-check':step.state==='denied'?'fa-times':step.state==='blocked'?'fa-pause':'fa-clock'}`}/></div><div className="mrd-step-body"><span className="mrd-step-title">{step.label}</span><span className="mrd-step-meta">{metaText}</span></div></li>);})}</ol></section>
+            <section className={`mrd-section ${collapsedSections.info?'collapsed':''}`} aria-labelledby="info-h">
+              <div className="mrd-section-head" onClick={()=>toggleSection('info')} role="button" tabIndex={0} onKeyDown={e=>e.key==='Enter'&&toggleSection('info')}>
+                <h3 id="info-h" className="mrd-section-title"><i className="fas fa-info-circle"/> Request Information</h3>
+                <button className="mrd-collapse-btn" aria-label="Toggle section">{collapsedSections.info? <i className="fas fa-plus"/>:<i className="fas fa-minus"/>}</button>
+              </div>
+              {!collapsedSections.info && <dl className="mrd-fields"><div className="mrd-field"><dt>Request Number</dt><dd>{materialRequest.requestNumber||'—'}</dd></div><div className="mrd-field"><dt>Priority</dt><dd><span className={`mrd-chip priority-${(materialRequest.priority||'').toLowerCase()}`}>{materialRequest.priority||'—'}</span></dd></div><div className="mrd-field"><dt>Created</dt><dd>{new Date(materialRequest.createdAt).toLocaleString()}</dd></div>{meta.isReceived && <div className="mrd-field"><dt>Received</dt><dd>{new Date(materialRequest.receivedAt || materialRequest.receivedDate).toLocaleString()}</dd></div>}<div className="mrd-field"><dt>Status</dt><dd>{statusBadge}</dd></div></dl>}
+            </section>
+            <section className={`mrd-section ${collapsedSections.req?'collapsed':''}`} aria-labelledby="req-h">
+              <div className="mrd-section-head" onClick={()=>toggleSection('req')} role="button" tabIndex={0} onKeyDown={e=>e.key==='Enter'&&toggleSection('req')}>
+                <h3 id="req-h" className="mrd-section-title"><i className="fas fa-user"/> Requester</h3>
+                <button className="mrd-collapse-btn" aria-label="Toggle section">{collapsedSections.req? <i className="fas fa-plus"/>:<i className="fas fa-minus"/>}</button>
+              </div>
+              {!collapsedSections.req && <dl className="mrd-fields"><div className="mrd-field"><dt>Name</dt><dd>{materialRequest.createdBy?.name||'—'}</dd></div><div className="mrd-field"><dt>Email</dt><dd>{materialRequest.createdBy?.email||'—'}</dd></div><div className="mrd-field"><dt>Role</dt><dd>{materialRequest.createdBy?.role||'—'}</dd></div><div className="mrd-field"><dt>Project</dt><dd>{materialRequest.project?.projectName||'—'}</dd></div><div className="mrd-field"><dt>Location</dt><dd>{materialRequest.project?.location?.name || materialRequest.project?.location?.toString?.() || '—'}</dd></div></dl>}
+            </section>
+            <section className={`mrd-section ${collapsedSections.mat?'collapsed':''}`} aria-labelledby="mat-h">
+              <div className="mrd-section-head" onClick={()=>toggleSection('mat')} role="button" tabIndex={0} onKeyDown={e=>e.key==='Enter'&&toggleSection('mat')}>
+                <h3 id="mat-h" className="mrd-section-title"><i className="fas fa-boxes"/> Materials</h3>
+                <button className="mrd-collapse-btn" aria-label="Toggle section">{collapsedSections.mat? <i className="fas fa-plus"/>:<i className="fas fa-minus"/>}</button>
+              </div>
+              {!collapsedSections.mat && (materialRequest.materials?.length ? <ul className="mrd-material-list">{materialRequest.materials.map((m,i)=>(<li key={i} className="mrd-material-item"><div className="mrd-material-head"><span className="mrd-material-name">{m.materialName}</span><span className="mrd-qty">{m.quantity}{m.unit?` ${m.unit}`:''}</span></div>{m.specifications && <div className="mrd-spec">{m.specifications}</div>}</li>))}</ul> : <p className="mrd-empty">No materials specified.</p>)}
+            </section>
+            <section className={`mrd-section ${collapsedSections.att?'collapsed':''}`} aria-labelledby="att-h">
+              <div className="mrd-section-head" onClick={()=>toggleSection('att')} role="button" tabIndex={0} onKeyDown={e=>e.key==='Enter'&&toggleSection('att')}>
+                <h3 id="att-h" className="mrd-section-title"><i className="fas fa-paperclip"/> Attachments</h3>
+                <button className="mrd-collapse-btn" aria-label="Toggle section">{collapsedSections.att? <i className="fas fa-plus"/>:<i className="fas fa-minus"/>}</button>
+              </div>
+              {!collapsedSections.att && (materialRequest.attachments?.length ? <ul className="mrd-attach-list">{materialRequest.attachments.map((a,i)=>(<li key={i} className="mrd-attach-item"><div className="mrd-attach-icon">{renderAttachmentIcon(a)}</div><span className="mrd-attach-name">{a}</span><a href={a.startsWith('http')?a:`http://localhost:5000/uploads/${a}`} target="_blank" rel="noopener noreferrer" className="mrd-attach-link">Download</a></li>))}</ul> : <p className="mrd-empty">No attachments.</p>)}
+            </section>
+            <section className={`mrd-section ${collapsedSections.flow?'collapsed':''}`} aria-labelledby="flow-h">
+              <div className="mrd-section-head" onClick={()=>toggleSection('flow')} role="button" tabIndex={0} onKeyDown={e=>e.key==='Enter'&&toggleSection('flow')}>
+                <h3 id="flow-h" className="mrd-section-title"><i className="fas fa-tasks"/> Approval Flow</h3>
+                <button className="mrd-collapse-btn" aria-label="Toggle section">{collapsedSections.flow? <i className="fas fa-plus"/>:<i className="fas fa-minus"/>}</button>
+              </div>
+              {!collapsedSections.flow && <ol className="mrd-flow">{steps.map(step => {const waitingForReceipt = step.key==='received' && step.state==='pending' && meta.pmApproved && meta.amApproved && !meta.isReceived && !meta.anyDenied; const metaText = step.date? new Date(step.date).toLocaleString() : step.state==='blocked' ? 'Waiting' : waitingForReceipt ? 'Awaiting PIC receipt' : 'Pending'; return (<li key={step.key} className={`mrd-flow-step ${step.state}`}><div className="mrd-step-icon"><i className={`fas ${step.state==='completed'?'fa-check':step.state==='denied'?'fa-times':step.state==='blocked'?'fa-pause':'fa-clock'}`}/></div><div className="mrd-step-body"><span className="mrd-step-title">{step.label}</span><span className="mrd-step-meta">{metaText}</span></div></li>);})}</ol>}
+            </section>
             {canAct && <section className="mrd-section mrd-actions" aria-labelledby="act-h"><h3 id="act-h" className="mrd-section-title"><i className="fas fa-gavel"/> Actions</h3><ApproveDenyActions requestData={materialRequest} userId={userId} userRole={userRole} onBack={handleBack} /></section>}
       {(canEditPIC || canMarkReceived) && (
               <section className="mrd-section mrd-actions" aria-labelledby="pic-act-h">

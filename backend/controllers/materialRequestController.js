@@ -293,6 +293,11 @@ exports.approveMaterialRequest = async (req, res) => {
     const request = await MaterialRequest.findById(req.params.id).populate('project');
     if (!request) return res.status(404).json({ message: 'Request not found' });
 
+    // CEO no longer participates in approvals
+    if (userRole === 'CEO') {
+      return res.status(403).json({ message: 'CEO cannot approve material requests. View only.' });
+    }
+
     const { project } = request;
     if (!project) return res.status(500).json({ message: 'No linked project.' });
     if (!project.projectmanager) return res.status(500).json({ message: 'Project has no projectmanager assigned.' });
@@ -312,9 +317,8 @@ exports.approveMaterialRequest = async (req, res) => {
     if (Array.isArray(pmId)) pmId = pmId[0];
     if (Array.isArray(amId)) amId = amId[0];
 
-    const isPM = idsEqual(pmId, userId);
-    const isAM = idsEqual(amId, userId);
-    const isCEO = false; // CEO step removed from workflow
+  const isPM = idsEqual(pmId, userId);
+  const isAM = idsEqual(amId, userId);
 
     let nextStatus = '';
     let currentStatus = request.status;
@@ -326,7 +330,7 @@ exports.approveMaterialRequest = async (req, res) => {
       // After AM approval, directly mark as Approved (CEO removed)
       nextStatus = decision === 'approved' ? 'Approved' : 'Denied by Area Manager';
     } else {
-      console.log('403: Unauthorized or invalid state', {currentStatus, isPM, isAM, isCEO});
+      console.log('403: Unauthorized or invalid state', {currentStatus, isPM, isAM});
       return res.status(403).json({ message: 'Unauthorized or invalid state' });
     }
 
@@ -401,16 +405,6 @@ exports.approveMaterialRequest = async (req, res) => {
       description: `Approved material request for project ${project.projectName}`,
       meta: { requestId: request._id }
     });
-
-    if (userRole === 'CEO') {
-      await logAction({
-        action: 'CEO_APPROVE_MATERIAL_REQUEST',
-        performedBy: req.user.id,
-        performedByRole: req.user.role,
-        description: `CEO approved material request for project ${project.projectName}`,
-        meta: { requestId: request._id }
-      });
-    }
 
     res.status(200).json({ message: `Request ${decision} by ${userRole}` });
   } catch (error) {

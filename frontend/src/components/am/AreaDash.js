@@ -72,99 +72,131 @@ const AreaDash = () => {
     };
 
     const fetchProjects = async (locations) => {
-      try {
-        const { data: projectsData } = await api.get('/projects', { signal: controller.signal });
-        if (!isActive) return;
-        setAllProjects(projectsData);
-        const userProjects = projectsData.filter(project =>
-          locations.some(loc => loc._id === (project.location?._id || project.location))
-        );
-        const contribMap = {};
-        const projectsWithProgress = await Promise.all(userProjects.map(async (project) => {
-          try {
-            const totalPics = Array.isArray(project.pic) ? project.pic.length : 0;
-            // First: project reports (these contain ai.pic_contribution_percent similar to ProjectView)
-            let avg = 0; let reportingPics = 0; let pendingPics = totalPics; let latestDate = null; let picContributions = [];
-            try {
-              const { data: repData } = await api.get(`/projects/${project._id}/reports`, { signal: controller.signal });
-              const list = repData?.reports || [];
-              if(list.length){
-                const sorted = [...list].sort((a,b)=> new Date(b.uploadedAt||0)-new Date(a.uploadedAt||0));
-                latestDate = sorted[0]?.uploadedAt || null;
-                const byUser = new Map();
-                for(const r of sorted){
-                  const key = r.uploadedBy || r.uploadedByName || r._id;
-                  if(!byUser.has(key)) byUser.set(key,r);
-                }
-                const distinct = [...byUser.values()];
-                const valsRaw = distinct.map(r=> Number(r?.ai?.pic_contribution_percent)).filter(v=> isFinite(v) && v>=0);
-                let vals = valsRaw;
-                if(!vals.length){
-                  vals = distinct.map(r=>{ const done = r?.ai?.completed_tasks?.length||0; const total = done + (r?.ai?.summary_of_work_done?.length||0); return total>0 ? (done/total)*100 : 0; });
-                }
-                if(vals.length){
-                  const a = vals.reduce((s,v)=> s+v,0)/vals.length; avg = Math.min(100,Math.max(0, a));
-                }
-                reportingPics = distinct.length; pendingPics = totalPics>0 ? Math.max(0,totalPics-reportingPics) : 0;
-                picContributions = distinct.map(r=> ({ picId: r.uploadedBy || r._id, picName: r.uploadedByName || 'Unknown', contribution: Math.round(Number(r?.ai?.pic_contribution_percent)||0), hasReport:true, lastReportDate: r.uploadedAt||null }));
-              }
-            } catch { /* ignore, fallback below */ }
-            // Fallback: daily reports contributions endpoint if avg still 0
-            if(avg === 0){
+        try {
+          setMetricsLoading(true);
+          const { data: projectsData } = await api.get('/projects', { signal: controller.signal });
+          if (!isActive) return;
+          setAllProjects(projectsData);
+          const userProjects = projectsData.filter(project =>
+            locations.some(loc => loc._id === (project.location?._id || project.location))
+          );
+
+          const contribMap = {};
+
+          const projectsWithProgress = await Promise.all(
+            userProjects.map(async (project) => {
               try {
-                const { data: contrib } = await api.get(`/daily-reports/project/${project._id}/pic-contributions`, { signal: controller.signal });
-                if(contrib){
-                  if(!latestDate){
-                    const ld = (contrib.picContributions||[]).filter(p=>p.lastReportDate).map(p=> new Date(p.lastReportDate)).sort((a,b)=> b-a)[0];
-                    latestDate = ld ? ld.toISOString() : latestDate;
+                const totalPics = Array.isArray(project.pic) ? project.pic.length : 0;
+                let avg = 0;
+                let latestDate = null;
+                let reportingPics = 0;
+                let pendingPics = totalPics;
+                let picContributions = [];
+
+                // Primary source: project reports
+                try {
+                  const { data: repData } = await api.get(`/projects/${project._id}/reports`, { signal: controller.signal });
+                  const list = repData?.reports || [];
+                  if (list.length) {
+                    const sorted = [...list].sort((a,b)=> new Date(b.uploadedAt||0)-new Date(a.uploadedAt||0));
+                    latestDate = sorted[0]?.uploadedAt || null;
+                    const byUploader = new Map();
+                    for (const r of sorted) {
+                      const key = r.uploadedBy || r.uploadedByName || r._id;
+                      if (!byUploader.has(key)) byUploader.set(key, r); // keep latest per uploader
+                    }
+                    const distinct = [...byUploader.values()];
+                    const percents = distinct
+                      .map(r => Number(r?.ai?.pic_contribution_percent))
+                      .filter(v => isFinite(v) && v >= 0);
+                    if (percents.length) {
+                      avg = percents.reduce((s,v)=>s+v,0) / percents.length;
+                    }
+                    reportingPics = distinct.length;
+                    pendingPics = totalPics > 0 ? Math.max(0, totalPics - reportingPics) : 0;
+                    picContributions = distinct.map(r => ({
+                      picId: r.uploadedBy || r._id,
+                      picName: r.uploadedByName || 'Unknown',
+                      contribution: Math.round(Number(r?.ai?.pic_contribution_percent) || 0),
+                      hasReport: true,
+                      lastReportDate: r.uploadedAt || null
+                    }));
                   }
-                  if(contrib.averageContribution) avg = contrib.averageContribution;
-                  if(!reportingPics) reportingPics = contrib.reportingPics || 0;
-                  if(totalPics && pendingPics===totalPics) pendingPics = contrib.pendingPics ?? pendingPics;
-                  if(!picContributions.length) picContributions = contrib.picContributions || [];
+                } catch { /* ignore reports errors */ }
+
+                // Fallback: aggregated daily-report contributions if still zero
+                if (avg === 0) {
+                  try {
+                    const { data: contrib } = await api.get(`/daily-reports/project/${project._id}/pic-contributions`, { signal: controller.signal });
+                    if (contrib) {
+                      if (!latestDate) {
+                        const ld = (contrib.picContributions||[])
+                          .filter(p=>p.lastReportDate)
+                          .map(p=> new Date(p.lastReportDate))
+                          .sort((a,b)=> b-a)[0];
+                        latestDate = ld ? ld.toISOString() : latestDate;
+                      }
+                      if (contrib.averageContribution) avg = contrib.averageContribution;
+                      if (!reportingPics) reportingPics = contrib.reportingPics || 0;
+                      if (totalPics && pendingPics === totalPics) pendingPics = contrib.pendingPics ?? pendingPics;
+                      if (!picContributions.length) picContributions = (contrib.picContributions || []).map(p => ({
+                        picId: p.picId,
+                        picName: p.picName,
+                        contribution: Math.round(p.contribution || 0),
+                        hasReport: !!p.lastReportDate,
+                        lastReportDate: p.lastReportDate || null
+                      }));
+                    }
+                  } catch { /* ignore fallback errors */ }
                 }
-              } catch { /* ignore */ }
-            }
-            const finalPercent = Math.round(avg);
-            contribMap[project._id] = { averageContribution: finalPercent, totalPics, reportingPics, pendingPics, picContributions };
-            const progressArray = [ { name: 'Completed', value: finalPercent } ];
-            return {
-              id: project._id,
-              name: project.projectName,
-              engineer: project.projectmanager?.name || 'Not Assigned',
-              progress: progressArray,
-              latestDate,
-              location: project.location,
-            };
-          } catch { return null; }
-        }));
-        if(!isActive) return;
-        setProjectContribs(contribMap);
-        const filtered = projectsWithProgress.filter(p=> p && Array.isArray(p.progress) && p.progress.length);
-        filtered.sort((a,b)=> new Date(b.latestDate||0)-new Date(a.latestDate||0));
-        setProjects(filtered);
-      } catch(error){
-        console.error('Error fetching projects:', error);
-      } finally { if(isActive) setLoading(false); }
+
+                const finalPercent = Math.min(100, Math.max(0, Math.round(avg)));
+                contribMap[project._id] = {
+                  averageContribution: finalPercent,
+                  totalPics,
+                  reportingPics,
+                  pendingPics,
+                  picContributions
+                };
+                return {
+                  ...project,
+                  progress: [{ name: 'Completed', value: finalPercent }],
+                  latestDate,
+                };
+              } catch (e) {
+                return { ...project, progress: [{ name: 'Completed', value: 0 }], latestDate: null };
+              }
+            })
+          );
+
+          if (!isActive) return;
+          setProjectContribs(contribMap);
+          setProjects(projectsWithProgress);
+        } catch (error) {
+          console.error('Error fetching projects:', error);
+        } finally {
+          if (isActive) {
+            setMetricsLoading(false);
+            setLoading(false);
+          }
+        }
     };
+
+    const normalizeStatus = (s='') => s.replace(/\s+/g,' ').trim().toUpperCase();
 
     const fetchRequests = async (locations) => {
       try {
         const { data } = await api.get('/requests', { signal: controller.signal });
         if (!isActive) return;
-
-        const pending = data.filter(
-          (request) =>
-             (request.status === 'Pending AM' || request.status === 'PENDING AREA MANAGER') &&
-            request.project &&
-            locations.some(
-              (loc) =>
-                loc._id ===
-                (request.project.location?._id || request.project.location)
-            )
-        );
-
-        setPendingRequests(pending);
+        // Count only those pending AREA MANAGER action for badge
+        const pendingForAM = data.filter(request => {
+          if (!request || !request.project) return false;
+          const statusNorm = normalizeStatus(request.status||'');
+          const isPendingAM = statusNorm === 'PENDING AM' || statusNorm === 'PENDING AREA MANAGER';
+          if (!isPendingAM) return false;
+          return locations.some(loc => loc._id === (request.project.location?._id || request.project.location));
+        });
+        setPendingRequests(pendingForAM);
         setMaterialRequests(data);
         setRequestsError(null);
       } catch (error) {
@@ -562,21 +594,20 @@ const AreaDash = () => {
                   <div className="requests-list">
                     {materialRequests
                       .sort((a, b) => {
-                        // Prioritize pending requests for current user
-                        const aIsPendingForUser = a.status === 'Pending AM' || a.status === 'PENDING AREA MANAGER';
-                        const bIsPendingForUser = b.status === 'Pending AM' || b.status === 'PENDING AREA MANAGER';
-                        
-                        if (aIsPendingForUser && !bIsPendingForUser) return -1;
-                        if (!aIsPendingForUser && bIsPendingForUser) return 1;
-                        
-                        // Then sort by date (newest first)
+                        const normA = (a.status||'').replace(/\s+/g,' ').trim().toUpperCase();
+                        const normB = (b.status||'').replace(/\s+/g,' ').trim().toUpperCase();
+                        const aPendingAM = normA==='PENDING AM' || normA==='PENDING AREA MANAGER';
+                        const bPendingAM = normB==='PENDING AM' || normB==='PENDING AREA MANAGER';
+                        if (aPendingAM && !bPendingAM) return -1;
+                        if (!aPendingAM && bPendingAM) return 1;
                         return new Date(b.createdAt) - new Date(a.createdAt);
                       })
-                      .slice(0, 3)
+                      // Removed slice(0,3) so list is no longer cut off
                       .map(request => {
-                        console.log('Request status:', request.status); // Debug log
+                        const statusNorm = (request.status||'').replace(/\s+/g,' ').trim().toUpperCase();
+                        const pendingAM = statusNorm==='PENDING AM' || statusNorm==='PENDING AREA MANAGER';
                         return (
-                          <div key={request._id} className={`request-item-compact ${request.status === 'Pending AM' || request.status === 'PENDING AREA MANAGER' ? 'pending-for-user' : ''}`}>
+                          <Link to={`/am/material-request/${request._id}`} key={request._id} className={`request-item-compact ${pendingAM? 'pending-for-user':''}`} style={{textDecoration:'none'}}>
                             <div className="request-main-info">
                               <div className="request-icon-small">
                                 <FaBoxes />
@@ -643,7 +674,7 @@ const AreaDash = () => {
                                 <span className="timeline-label-compact">Done</span>
                               </div>
                             </div>
-                          </div>
+                          </Link>
                         );
                       })}
                   </div>

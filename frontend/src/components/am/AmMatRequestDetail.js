@@ -6,9 +6,9 @@ const AmMatRequestDetail = () => (
   <MaterialRequestDetailView
     role="Area Manager"
     rootClass="am-request-detail"
-    headerTitle="AM Material Request Detail"
+    headerTitle="Material Request Detail"
     headerSubtitle="Approve or review final status"
-    customHeader={<AmMaterialHeader title="AM Material Request Detail" subtitle="Approve or review final status" />}
+    /* Removed customHeader to use unified AppHeader */
   />
 );
 

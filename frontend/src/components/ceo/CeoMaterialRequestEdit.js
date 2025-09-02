@@ -1,18 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import AppHeader from '../layout/AppHeader';
 import '../style/ceo_style/CeoMaterialRequestDetail.css';
-// Nav icons
-import { FaArrowLeft, FaInfoCircle, FaBoxes as FaMaterials, FaPaperclip, FaDownload, FaPlus, FaTrash, FaSave } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaSave, FaPaperclip, FaDownload } from 'react-icons/fa';
 
 const CeoMaterialRequestEdit = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [materialRequest, setMaterialRequest] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   // Header/profile removed (AppHeader used)
   
   const [user, setUser] = useState(() => {
@@ -20,17 +19,10 @@ const CeoMaterialRequestEdit = () => {
     return stored ? JSON.parse(stored) : null;
   });
 
-  // Form state
-  const [formData, setFormData] = useState({
-    description: '',
-    materials: [{ id: 1, materialName: '', quantity: '', unit: '' }],
-    attachments: []
-  });
-
-  // File handling
-  const [uploadedFiles, setUploadedFiles] = useState([]);
-  const [previewImages, setPreviewImages] = useState([]);
+  // Editable form state
+  const [formData, setFormData] = useState({ description: '', materials: [], attachments: [] });
   const [newFiles, setNewFiles] = useState([]);
+  const [previewURLs, setPreviewURLs] = useState([]);
 
   useEffect(() => {
     // Fetch the material request data
@@ -43,14 +35,12 @@ const CeoMaterialRequestEdit = () => {
         // Initialize form data
         setFormData({
           description: data.description || '',
-          materials: data.materials && data.materials.length > 0 
-            ? data.materials.map((mat, idx) => ({
-                id: mat.id || Date.now() + idx,
-                materialName: mat.materialName || '',
-                quantity: mat.quantity || '',
-                unit: mat.unit || ''
-              }))
-            : [{ id: 1, materialName: '', quantity: '', unit: '' }],
+          materials: (data.materials || []).map((m, idx) => ({
+            id: idx + 1,
+            materialName: m.materialName || '',
+            quantity: m.quantity || '',
+            unit: m.unit || ''
+          })),
           attachments: data.attachments || []
         });
         
@@ -63,402 +53,224 @@ const CeoMaterialRequestEdit = () => {
       .finally(() => setLoading(false));
   }, [id]);
 
-  useEffect(()=>{},[]); // removed scroll/profile listeners
+  useEffect(()=>{},[]); // placeholder
 
-  useEffect(() => {
-    return () => previewImages.forEach(url => URL.revokeObjectURL(url));
-  }, [previewImages.length]);
-
-  const handleLogout = () => {
-    const token = localStorage.getItem('token');
-    api.post('/auth/logout', {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).finally(() => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
-    });
-  };
+  // Cleanup preview URLs
+  useEffect(()=>{
+    return ()=>{ previewURLs.forEach(url=> URL.revokeObjectURL(url)); };
+  },[previewURLs]);
 
   const handleBack = () => navigate(`/ceo/material-request/${id}`);
-  const handleCancel = () => navigate(`/ceo/material-request/${id}`);
 
-  // Form handlers
-  const handleChange = (e) => {
+  // Handlers
+  const handleChange = e => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev=>({...prev,[name]:value}));
   };
 
-  const handleMaterialChange = (id, field, value) => {
-    setFormData(prev => ({
+  const handleMaterialChange = (rowId, field, value) => {
+    setFormData(prev=>({
       ...prev,
-      materials: prev.materials.map(m => {
-        if (m.id === id) {
-          if (field === 'quantity') {
-            // Allow only numbers for quantity
-            let filtered = value.replace(/\D/g, '').slice(0, 7);
-            return { ...m, [field]: filtered };
-          }
-          return { ...m, [field]: value };
-        }
-        return m;
-      })
+      materials: prev.materials.map(m=> m.id===rowId ? { ...m, [field]: field==='quantity' ? value.replace(/[^0-9.]/g,'').slice(0,10) : value } : m )
     }));
   };
 
-  const addMaterial = () => {
-    const newId = formData.materials.length ? Math.max(...formData.materials.map(m => m.id)) + 1 : 1;
-    setFormData(prev => ({
+  const addMaterialRow = () => {
+    setFormData(prev=>({
       ...prev,
-      materials: [...prev.materials, { id: newId, materialName: '', quantity: '', unit: '' }]
+      materials:[...prev.materials, { id: (prev.materials.at(-1)?.id || 0)+1, materialName:'', quantity:'', unit:'' }]
     }));
   };
 
-  const removeMaterial = (id) => {
-    if (formData.materials.length > 1) {
-      setFormData(prev => ({
-        ...prev,
-        materials: prev.materials.filter(m => m.id !== id)
-      }));
-    }
+  const removeMaterialRow = (rowId) => {
+    setFormData(prev=>({
+      ...prev,
+      materials: prev.materials.length>1 ? prev.materials.filter(m=>m.id!==rowId) : prev.materials
+    }));
   };
 
-  // File handling
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
-    setNewFiles(prev => [...prev, ...files]);
-    const previews = files.map(file => URL.createObjectURL(file));
-    setPreviewImages(prev => [...prev, ...previews]);
+  const onFilesSelected = (e) => {
+    const files = Array.from(e.target.files||[]);
+    if(!files.length) return;
+    const previews = files.map(f=> URL.createObjectURL(f));
+    setNewFiles(prev=>[...prev,...files]);
+    setPreviewURLs(prev=>[...prev,...previews]);
   };
 
-  const removeFile = (index) => {
-    setNewFiles(prev => prev.filter((_, i) => i !== index));
-    setPreviewImages(prev => {
-      URL.revokeObjectURL(prev[index]);
-      return prev.filter((_, i) => i !== index);
+  const removeNewFile = (idx) => {
+    setNewFiles(prev=> prev.filter((_,i)=> i!==idx));
+    setPreviewURLs(prev=> {
+      URL.revokeObjectURL(prev[idx]);
+      return prev.filter((_,i)=> i!==idx);
     });
   };
 
-  const removeExistingAttachment = (index) => {
-    setFormData(prev => ({
+  const removeExistingAttachment = (idx) => {
+    setFormData(prev=>({
       ...prev,
-      attachments: prev.attachments.filter((_, i) => i !== index)
+      attachments: prev.attachments.filter((_,i)=> i!==idx)
     }));
   };
 
-  // Form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validation
-    if (!formData.description.trim()) {
-      setError('Description is required');
-      return;
-    }
-
-    const validMaterials = formData.materials.filter(m => 
-      m.materialName.trim() && m.quantity.trim() && m.unit.trim()
-    );
-
-    if (validMaterials.length === 0) {
-      setError('At least one material is required');
-      return;
-    }
-
-    setSaving(true);
     setError('');
-
+    const cleanMaterials = formData.materials.filter(m=> m.materialName.trim() && m.quantity.trim() && m.unit.trim());
+    if(!formData.description.trim()) return setError('Description required');
+    if(!cleanMaterials.length) return setError('At least one material entry complete');
+    setSaving(true);
     try {
-      // Prepare form data
-      const submitData = new FormData();
-      submitData.append('description', formData.description);
-      submitData.append('materials', JSON.stringify(validMaterials));
-      submitData.append('attachments', JSON.stringify(formData.attachments));
-
-      // Add new files
-      newFiles.forEach(file => {
-        submitData.append('files', file);
-      });
-
-      // Update the request
-      const response = await api.put(`/requests/${id}`, submitData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        }
-      });
-
-      console.log('Request updated successfully:', response.data);
-      alert('Material request updated successfully!');
+      const fd = new FormData();
+      fd.append('description', formData.description.trim());
+      fd.append('materials', JSON.stringify(cleanMaterials.map(({materialName,quantity,unit})=>({materialName,quantity,unit}))));
+      fd.append('attachments', JSON.stringify(formData.attachments));
+      newFiles.forEach(f=> fd.append('newAttachments', f));
+      await api.put(`/requests/${id}`, fd, { headers: { 'Content-Type':'multipart/form-data' } });
       navigate(`/ceo/material-request/${id}`);
-      
-    } catch (err) {
-      console.error('Error updating request:', err);
-      setError(err.response?.data?.message || 'Failed to update request');
+    } catch(err){
+      console.error(err);
+      setError(err.response?.data?.message || 'Update failed');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="fadztrack-app-CEO">
-        <div className="loading-container-CEO">
-          <div className="loading-spinner-CEO"></div>
-          <p>Loading request details...</p>
-        </div>
-      </div>
-    );
-  }
+  // Loading & missing states (minimal, reused styles)
+  if (loading) return <div className="mr-loading"><div className="mr-spinner"/><p>Loading request…</p></div>;
+  if (!materialRequest) return <div className="mr-loading"><p>{error||'Request not found'}</p><button onClick={handleBack} className="mr-btn ghost" type="button">Back</button></div>;
 
-  if (!materialRequest) {
-    return (
-      <div className="fadztrack-app-CEO">
-        <div className="error-container-CEO">
-          <p>{error || 'Request not found.'}</p>
-          <button onClick={handleBack} className="back-button-CEO">Go Back</button>
-        </div>
-      </div>
-    );
-  }
+  const statusClass = `priority-badge-CEO priority-${(materialRequest.status || 'pending').toLowerCase().replace(/\s+/g,'-')}`;
 
   return (
-    <div className="fadztrack-app-CEO">
+    <div className="mr-edit-page">
       <AppHeader roleSegment="ceo" />
-      <div className="main-content-CEO no-sidebar-CEO">
-        <main className="dashboard-content-CEO">
-          <div className="dashboard-card-CEO">
-            <div className="welcome-header-CEO">
-              <div className="header-left-CEO">
-                <h2>Edit Material Request</h2>
-                <p style={{ fontSize: '14px', color: '#666', marginTop: '4px' }}>
-                  Request ID: {materialRequest._id}
-                </p>
+      <div className="mr-container">
+        <div className="mr-page-head">
+          <div className="mr-head-text">
+            <h1>Edit Material Request</h1>
+            <div className="mr-meta-line">
+              <span className="mr-id">ID: {materialRequest._id}</span>
+              <span className={statusClass}>{materialRequest.status}</span>
+              <span className="mr-project">Project: <strong>{materialRequest.project?.projectName||'—'}</strong></span>
+            </div>
+          </div>
+          <div className="mr-head-actions">
+            <button type="button" onClick={handleBack} className="mr-btn ghost">Cancel</button>
+            <button type="submit" form="mr-form" className="mr-btn primary" disabled={saving}>{saving? 'Saving…':'Save Changes'}</button>
+          </div>
+        </div>
+
+        {error && <div className="mr-alert error">{error}</div>}
+
+        <form id="mr-form" onSubmit={handleSubmit} className="mr-form" autoComplete="off">
+          <div className="mr-grid">
+            <section className="mr-section">
+              <header><h2>Request Information</h2></header>
+              <div className="mr-field">
+                <label htmlFor="mr-desc">Description</label>
+                <textarea id="mr-desc" name="description" value={formData.description} onChange={handleChange} rows={5} placeholder="Describe the requested materials, purpose, urgency…" />
+                <div className="mr-hint">Provide enough context for approvers.</div>
               </div>
-              <div className="header-right-CEO">
-                <div className="action-buttons-header-CEO">
-                  <button className="back-btn-header-CEO" onClick={handleCancel}>
-                    <FaArrowLeft style={{ marginRight: 8 }} />
-                    Cancel
-                  </button>
+              <div className="mr-inline-info">
+                <div><span className="lbl">Current Status</span><span className={statusClass}>{materialRequest.status}</span></div>
+                <div><span className="lbl">Project</span><span className="val">{materialRequest.project?.projectName||'—'}</span></div>
+              </div>
+            </section>
+
+            <section className="mr-section">
+              <header><h2>Materials</h2></header>
+              <div className="mr-materials-wrap">
+                <table className="mr-materials-table">
+                  <thead>
+                    <tr>
+                      <th style={{width:'55%'}}>Name</th>
+                      <th style={{width:'15%'}}>Qty</th>
+                      <th style={{width:'20%'}}>Unit</th>
+                      <th style={{width:'10%'}}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formData.materials.map(row=> (
+                      <tr key={row.id}>
+                        <td>
+                          <input type="text" value={row.materialName} onChange={e=>handleMaterialChange(row.id,'materialName',e.target.value)} placeholder="e.g. Cement Type 1" />
+                        </td>
+                        <td>
+                          <input type="text" value={row.quantity} onChange={e=>handleMaterialChange(row.id,'quantity',e.target.value)} placeholder="0" />
+                        </td>
+                        <td>
+                          <select value={row.unit} onChange={e=>handleMaterialChange(row.id,'unit',e.target.value)}>
+                            <option value="">Select</option>
+                            <option value="pcs">pcs</option>
+                            <option value="kg">kg</option>
+                            <option value="m">m</option>
+                            <option value="l">l</option>
+                            <option value="box">box</option>
+                            <option value="roll">roll</option>
+                            <option value="set">set</option>
+                            <option value="pair">pair</option>
+                            <option value="unit">unit</option>
+                            <option value="bundle">bundle</option>
+                          </select>
+                        </td>
+                        <td className="mr-actions-cell">
+                          <button type="button" className="mr-icon-btn danger" onClick={()=>removeMaterialRow(row.id)} disabled={formData.materials.length===1} title="Remove">
+                            <FaTrash />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <button type="button" onClick={addMaterialRow} className="mr-btn subtle" style={{marginTop:12}}><FaPlus/> Add Material</button>
+              </div>
+            </section>
+
+            <section className="mr-section full">
+              <header><h2>Attachments</h2></header>
+              <div className="mr-attachments">
+                {formData.attachments.length===0 && <div className="mr-empty">No attachments.</div>}
+                {formData.attachments.length>0 && (
+                  <ul className="mr-attachment-list">
+                    {formData.attachments.map((att,idx)=>(
+                      <li key={idx} className="mr-attachment-item">
+                        <a href={`${process.env.REACT_APP_API_BASE_URL||''}/uploads/${att}`} target="_blank" rel="noopener noreferrer" className="file">
+                          <FaDownload/> <span>{att}</span>
+                        </a>
+                        <button type="button" className="mr-icon-btn danger" onClick={()=>removeExistingAttachment(idx)} title="Remove"><FaTrash/></button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mr-file-add">
+                  <label className="mr-file-drop">
+                    <FaPaperclip/> <span>Select Files</span>
+                    <input type="file" multiple onChange={onFilesSelected} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt" />
+                  </label>
+                  {newFiles.length>0 && (
+                    <ul className="mr-attachment-list new">
+                      {newFiles.map((f,i)=>(
+                        <li key={i} className="mr-attachment-item">
+                          <span className="file"><FaPaperclip/> {f.name}</span>
+                          <button type="button" className="mr-icon-btn danger" onClick={()=>removeNewFile(i)}><FaTrash/></button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
+              </div>
+            </section>
+          </div>
+          <div className="mr-floating-bar">
+            <div className="inner">
+              <span className="hint">Review before saving.</span>
+              <div className="actions">
+                <button type="button" onClick={handleBack} className="mr-btn ghost">Cancel</button>
+                <button type="submit" className="mr-btn primary" disabled={saving}><FaSave/>{saving? 'Saving…':'Save Changes'}</button>
               </div>
             </div>
-
-            {error && (
-              <div className="error-message-CEO">
-                <i className="fas fa-exclamation-triangle"></i>
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit}>
-              <div className="detail-grid-CEO">
-                <div className="detail-column-CEO">
-                  <div className="detail-card-CEO">
-                    <div className="card-header-CEO">
-                      <h3><FaInfoCircle /> Request Information</h3>
-                    </div>
-                    <div className="card-content-CEO">
-                      <div className="info-row-CEO">
-                        <span className="info-label-CEO">Description:</span>
-                        <div className="info-value-CEO" style={{ textAlign: 'left', marginLeft: 0 }}>
-                          <textarea
-                            name="description"
-                            value={formData.description}
-                            onChange={handleChange}
-                            className="description-input-CEO"
-                            placeholder="Enter request description..."
-                            rows="4"
-                            required
-                          />
-                        </div>
-                      </div>
-                       
-                      <div className="info-row-CEO">
-                        <span className="info-label-CEO">Project:</span>
-                        <span className="info-value-CEO">
-                          {materialRequest.project?.projectName || 'No project specified'}
-                        </span>
-                      </div>
-                       
-                      <div className="info-row-CEO">
-                        <span className="info-label-CEO">Status:</span>
-                        <span className="info-value-CEO">
-                          <span className={`priority-badge-CEO priority-${(materialRequest.status || 'pending').toLowerCase().replace(/\s+/g, '-')}`}>
-                            {materialRequest.status || 'Pending'}
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="detail-column-CEO">
-                  <div className="detail-card-CEO">
-                    <div className="card-header-CEO">
-                      <h3><FaMaterials /> Requested Materials</h3>
-                    </div>
-                    <div className="card-content-CEO">
-                      {formData.materials.map((material, index) => (
-                        <div key={material.id} className="material-edit-item-CEO">
-                          <div className="material-edit-row-CEO">
-                            <div className="material-edit-field-CEO">
-                              <label>Material Name:</label>
-                              <input
-                                type="text"
-                                value={material.materialName}
-                                onChange={(e) => handleMaterialChange(material.id, 'materialName', e.target.value)}
-                                placeholder="Enter material name"
-                                required
-                              />
-                            </div>
-                            <div className="material-edit-field-CEO">
-                              <label>Quantity:</label>
-                              <input
-                                type="text"
-                                value={material.quantity}
-                                onChange={(e) => handleMaterialChange(material.id, 'quantity', e.target.value)}
-                                placeholder="Enter quantity"
-                                required
-                              />
-                            </div>
-                            <div className="material-edit-field-CEO">
-                              <label>Unit:</label>
-                              <select
-                                value={material.unit}
-                                onChange={(e) => handleMaterialChange(material.id, 'unit', e.target.value)}
-                                required
-                              >
-                                <option value="">Select unit</option>
-                                <option value="pcs">Pieces</option>
-                                <option value="kg">Kilograms</option>
-                                <option value="m">Meters</option>
-                                <option value="l">Liters</option>
-                                <option value="box">Boxes</option>
-                                <option value="roll">Rolls</option>
-                                <option value="set">Sets</option>
-                                <option value="pair">Pairs</option>
-                                <option value="unit">Units</option>
-                                <option value="bundle">Bundles</option>
-                              </select>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeMaterial(material.id)}
-                              className="remove-material-btn-CEO"
-                              disabled={formData.materials.length === 1}
-                            >
-                              <FaTrash />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                       
-                      <button
-                        type="button"
-                        onClick={addMaterial}
-                        className="add-material-btn-CEO"
-                      >
-                        <FaPlus style={{ marginRight: 8 }} />
-                        Add Material
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="detail-card-CEO full-width-CEO">
-                <div className="card-header-CEO">
-                  <h3><FaPaperclip /> Attachments</h3>
-                </div>
-                <div className="card-content-CEO">
-                  {/* Existing Attachments */}
-                  {formData.attachments.length > 0 && (
-                    <div className="existing-attachments-CEO">
-                      <h4>Current Attachments:</h4>
-                      <div className="attachments-list-CEO">
-                        {formData.attachments.map((attachment, index) => (
-                          <div key={index} className="attachment-item-CEO">
-                            <div className="attachment-icon-CEO">
-                              <FaDownload />
-                            </div>
-                            <div className="attachment-info-CEO">
-                              <span className="attachment-name-CEO">{attachment}</span>
-                              <button
-                                type="button"
-                                onClick={() => removeExistingAttachment(index)}
-                                className="remove-attachment-btn-CEO"
-                              >
-                                <FaTrash />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* New File Upload */}
-                  <div className="file-upload-section-CEO">
-                    <h4>Add New Files:</h4>
-                    <input
-                      type="file"
-                      multiple
-                      onChange={handleFileUpload}
-                      className="file-input-CEO"
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
-                    />
-                     
-                    {/* Preview of new files */}
-                    {newFiles.length > 0 && (
-                      <div className="new-files-preview-CEO">
-                        <h5>New Files to Upload:</h5>
-                        <div className="attachments-list-CEO">
-                          {newFiles.map((file, index) => (
-                            <div key={index} className="attachment-item-CEO">
-                              <div className="attachment-icon-CEO">
-                                <FaPaperclip />
-                              </div>
-                              <div className="attachment-info-CEO">
-                                <span className="attachment-name-CEO">{file.name}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => removeFile(index)}
-                                  className="remove-attachment-btn-CEO"
-                                >
-                                  <FaTrash />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Submit Buttons */}
-              <div className="submit-actions-CEO">
-                <button
-                  type="submit"
-                  className="save-btn-CEO"
-                  disabled={saving}
-                >
-                  <FaSave style={{ marginRight: 8 }} />
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="cancel-btn-CEO"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
           </div>
-        </main>
+        </form>
       </div>
     </div>
   );

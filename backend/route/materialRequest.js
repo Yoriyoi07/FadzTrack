@@ -41,12 +41,7 @@ router.put('/:id', verifyToken, upload.array('newAttachments'), controller.updat
 router.delete('/:id', verifyToken, controller.deleteMaterialRequest);
 
 // APPROVE
-router.post(
-  '/:id/approve',
-  verifyToken,
-  upload.single('ceoApprovalPDF'),
-  controller.approveMaterialRequest
-);
+router.post('/:id/approve', verifyToken, controller.approveMaterialRequest);
 
 
 // MARK AS RECEIVED

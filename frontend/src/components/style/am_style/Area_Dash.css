@@ -630,7 +630,15 @@
 
 /* Material Requests Card - force full-width stacking below welcome & metrics */
 .am-dashboard .requests-card { grid-column: 1 / -1; order: 3; }
-
+/* Make requests card stretch and internal list auto-grow without double scroll */
+.am-dashboard .requests-card { display:flex; flex-direction:column; }
+.am-dashboard .requests-card .card-header { flex-shrink:0; }
+.am-dashboard .requests-content { flex:1; display:flex; flex-direction:column; }
+.am-dashboard .requests-list { flex:1; overflow-y:auto; padding-right:2px; }
+/* Hide second scrollbar if parent also scrolls */
+.am-dashboard .requests-list::-webkit-scrollbar { width:6px; }
+.am-dashboard .requests-list::-webkit-scrollbar-track { background:transparent; }
+.am-dashboard .requests-list::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
 /* Project Metrics card full-width just after welcome */
 .am-dashboard .project-metrics-card { grid-column: 1 / -1; order: 2; margin-top:0; position:relative; z-index:0; }
 
