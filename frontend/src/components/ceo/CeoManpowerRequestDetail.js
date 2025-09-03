@@ -18,7 +18,7 @@ import {
   FaExclamationTriangle,
   FaHourglassHalf
 } from 'react-icons/fa';
-import '../style/hr_style/Hr_ManpowerRequestDetail.css'; // reuse existing detail styles
+import '../style/ceo_style/Ceo_ManpowerRequestDetail.css';
 
 const CeoManpowerRequestDetail = () => {
   const { id } = useParams();
@@ -89,7 +89,7 @@ const CeoManpowerRequestDetail = () => {
   if (error || !request) return (<div className="dashboard-container"><div className="error-container"><FaExclamationTriangle className="error-icon" /><p>{error || 'Request not found.'}</p></div></div>);
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container ceo-mr-detail">
       <AppHeader roleSegment="ceo" />
 
       <main className="dashboard-main">
@@ -104,49 +104,36 @@ const CeoManpowerRequestDetail = () => {
             </div>
           </div>
 
-          <div className={`status-banner ${request.status?.toLowerCase()}`}> 
-            {request.status?.toLowerCase() === 'pending' && request.acquisitionDate && new Date(request.acquisitionDate) < new Date() && (
-              <div className="overdue-ribbon"><span>OVERDUE</span></div>
-            )}
-            <div className="status-content">
-              {getStatusIcon(request.status)}
-              <div className="status-info">
-                <h3 className="status-title">{request.status || 'Pending'} Request</h3>
-                <p className="status-description">{request.description || 'No description provided'}</p>
+          <div className={`status-metrics-card ${request.status?.toLowerCase()}`}>
+            <div className="smc-header">
+              <div className="smc-status-icon">{getStatusIcon(request.status)}</div>
+              <div className="smc-texts">
+                <h3>{(request.status || 'Pending')} Request</h3>
+                <p>{request.description || 'No description provided'}</p>
               </div>
+              {request.status?.toLowerCase() === 'pending' && request.acquisitionDate && new Date(request.acquisitionDate) < new Date() && (
+                <span className="badge-overdue">Overdue</span>
+              )}
             </div>
-          </div>
-
-          {/* Executive Key Metrics */}
-          <div style={{ display:'flex', flexWrap:'wrap', gap:'12px', marginBottom:'22px' }}>
-            {(() => {
-              const badge = getStatusBadge();
-              const manpowerTotal = Array.isArray(request.manpowers) ? request.manpowers.reduce((acc,m)=>acc + (Number(m.quantity)||0),0) : 0;
-              const cards = [
-                { label:'Status', value:badge.label, color:badge.color },
-                { label:'Total Types', value: Array.isArray(request.manpowers) ? request.manpowers.length : 0, color:'#6366f1' },
-                { label:'Total Quantity', value: manpowerTotal, color:'#0ea5e9' },
-                { label:'Duration (days)', value: request.duration || 0, color:'#f59e0b' },
-                { label:'Has Return Date', value: request.returnDate ? 'Yes' : 'No', color: request.returnDate ? '#059669' : '#6b7280' }
-              ];
-              return cards.map(c => (
-                <div key={c.label} style={{
-                  flex:'1 1 140px',
-                  minWidth:'120px',
-                  background:'#ffffff',
-                  border:'1px solid #e2e8f0',
-                  borderRadius:'8px',
-                  padding:'12px 14px',
-                  display:'flex',
-                  flexDirection:'column',
-                  gap:'4px'
-                }}>
-                  <span style={{ fontSize:'11px', letterSpacing:'.5px', fontWeight:600, color:'#64748b', textTransform:'uppercase' }}>{c.label}</span>
-                  <span style={{ fontSize:'20px', fontWeight:700, color:c.color }}>{c.value}</span>
-                  <div style={{ height:'4px', background:c.color, borderRadius:'2px', opacity:.85 }} />
-                </div>
-              ));
-            })()}
+            <div className="smc-metrics">
+              {(() => {
+                const badge = getStatusBadge();
+                const manpowerTotal = Array.isArray(request.manpowers) ? request.manpowers.reduce((acc,m)=>acc + (Number(m.quantity)||0),0) : 0;
+                const metrics = [
+                  { label:'Status', value:badge.label },
+                  { label:'Types', value: Array.isArray(request.manpowers) ? request.manpowers.length : 0 },
+                  { label:'Quantity', value: manpowerTotal },
+                  { label:'Duration', value: `${request.duration || 0}d` },
+                  { label:'Return', value: request.returnDate ? 'Yes' : 'No' }
+                ];
+                return metrics.map(m => (
+                  <div key={m.label} className="smc-metric">
+                    <span className="m-label">{m.label}</span>
+                    <span className="m-value">{m.value}</span>
+                  </div>
+                ));
+              })()}
+            </div>
           </div>
 
           <div className="info-grid">

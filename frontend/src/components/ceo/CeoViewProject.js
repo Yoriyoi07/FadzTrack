@@ -8,5 +8,5 @@ export default function CeoViewProject(){
 		'View Project': `/ceo/proj/${id}`,
 		'Reports': `/ceo/progress-report/${id}`
 	};
-	return <ProjectView role="ceo" navPathOverrides={overrides} />;
+	return <ProjectView role="ceo" navPathOverrides={overrides} useUnifiedHeader={true} />;
 }

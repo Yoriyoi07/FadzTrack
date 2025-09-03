@@ -7,6 +7,21 @@
   padding: 2rem;
 }
 
+/* CEO variant: remove internal scrollbars / rely on page scroll */
+.ceo .project-view-container, .ceo-view-root .project-view-container, .pm-view-root.ceo .project-view-container {
+  max-height: none !important;
+  overflow: visible !important;
+  padding-bottom: 1.25rem;
+}
+
+/* Remove overflow on tab-content for CEO */
+.ceo .tab-content, .ceo-view-root .tab-content { overflow: visible !important; min-height: unset; }
+
+/* Ensure only window scrolls when inside CEO project view */
+.ceo-view-root.dashboard-container { overflow: visible !important; }
+.ceo-view-root .dashboard-main { overflow: visible !important; height: auto !important; max-height: none !important; }
+.ceo-view-root .project-view-container { overflow: visible !important; }
+
 /* Project Header */
 .project-header {
   margin-bottom: 2rem;

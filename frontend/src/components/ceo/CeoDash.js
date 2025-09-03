@@ -18,7 +18,8 @@ import {
   FaChevronRight,
   FaChevronLeft,
   FaBoxes,
-  FaChartBar
+  FaChartBar,
+  FaBars
 } from 'react-icons/fa';
 
 const CeoDash = () => {
@@ -288,7 +289,10 @@ const CeoDash = () => {
     ? projectMetrics.filter(m => (m.area || 'Unknown Area') === selectedArea)
     : projectMetrics)
     .filter(m => !statusFilter || m.status === statusFilter)
-    .filter(m => !searchTerm || m.projectName.toLowerCase().includes(searchTerm.toLowerCase()));
+    .filter(m => !searchTerm ||
+      m.projectName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (m.area || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
   // Prepare widget datasets (use overall metrics so widgets always show data)
   const widgetStuck = projectMetrics.filter(m => m.status === 'stale' || m.waitingForAll).slice(0, 5);
@@ -355,8 +359,8 @@ const CeoDash = () => {
       {/* Main */}
       <main className="dashboard-main">
         {/* Sidebar toggle */}
-        <button className="sidebar-toggle-btn" onClick={toggleSidebar}>
-          <FaChevronRight />
+        <button className="sidebar-toggle-btn" onClick={toggleSidebar} aria-label={sidebarOpen ? 'Close areas & projects panel' : 'Open areas & projects panel'}>
+          <FaBars />
         </button>
 
         {/* Areas & Projects Sidebar (portal) */}
@@ -464,7 +468,7 @@ const CeoDash = () => {
                     </div>
                     <div className="stat-item">
                       <Link to="/ceo/material-list" className="no-decoration inherit-color">
-                        <span className="stat-number link-accent pointer">{materialRequests.length}</span>
+                        <span className="stat-number pointer">{materialRequests.length}</span>
                         <span className="stat-label">Material Requests</span>
                       </Link>
                     </div>
@@ -484,10 +488,11 @@ const CeoDash = () => {
                   <span className="metrics-subtitle subtle-text">Based on latest PIC reports</span>
                   <input
                     type="text"
-                    placeholder="Search projects..."
+                    placeholder="Search projects or area..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="input text-input"
+                    aria-label="Search projects or by area name"
                   />
                   <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input select-input">
                     <option value="">All statuses</option>
@@ -689,9 +694,6 @@ const CeoDash = () => {
                     </div>
                   </div>
                 )}
-                <div className="actions-row">
-                  <Link to="/ceo/material-list" className="btn-outline-primary sm">📋 View All Requests</Link>
-                </div>
               </div>
             </div>
             <div className="dashboard-card risks-card stretch-card">

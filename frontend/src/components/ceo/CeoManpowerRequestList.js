@@ -1,18 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
-import '../style/pm_style/PmManpowerRequest.css'; // reuse existing request styles
+import '../style/ceo_style/Ceo_ManpowerRequest.css';
 import api from '../../api/axiosInstance';
 import { FaSearch } from 'react-icons/fa';
 import AppHeader from '../layout/AppHeader';
 
 const ITEMS_PER_PAGE = 8;
 
-// CEO view: read-only list of every manpower request in the system with filtering/search
 const CeoManpowerRequestList = () => {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
-  // Stabilize user object so effects don't re-run every render
   const userRef = useRef(null);
   if (userRef.current === null) {
     const stored = localStorage.getItem('user');
@@ -20,7 +17,6 @@ const CeoManpowerRequestList = () => {
   }
   const user = userRef.current;
 
-  // Header handled by AppHeader
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -28,10 +24,6 @@ const CeoManpowerRequestList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [layoutView, setLayoutView] = useState('cards');
-
-  // Note: Do NOT early-return before hooks (react-hooks/rules-of-hooks). We'll gate content later.
-
-  // (Scroll collapse & profile menu no longer needed)
 
   useEffect(() => {
     if (!user || user.role !== 'CEO') return;
@@ -60,9 +52,7 @@ const CeoManpowerRequestList = () => {
     };
     fetchAll();
     return () => { active = false; };
-  }, []);
-
-  // (Logout handled in AppHeader)
+  }, [user]);
 
   const filteredRequests = useMemo(() => {
     let items = requests;
@@ -90,7 +80,7 @@ const CeoManpowerRequestList = () => {
   const getRequestBackgroundColor = (request) => {
     const statusLower = request.status?.toLowerCase() || '';
     if (statusLower.includes('pending') && request.acquisitionDate && new Date(request.acquisitionDate) < new Date()) {
-      return '#fef3c7'; // overdue pending
+      return '#fef3c7';
     }
     if (statusLower.includes('pending')) return '#ffffff';
     if (statusLower.includes('approved')) return '#fef3c7';
@@ -123,7 +113,6 @@ const CeoManpowerRequestList = () => {
     return '#6b7280';
   };
 
-  // Executive summary counts
   const summaryCounts = useMemo(() => {
     let pending = 0, approved = 0, completed = 0, rejected = 0, overdue = 0;
     requests.forEach(r => {
@@ -133,6 +122,15 @@ const CeoManpowerRequestList = () => {
     });
     return { total: requests.length, pending, approved, rejected, overdue, completed };
   }, [requests]);
+
+  const statusCounts = useMemo(() => ({
+    All: summaryCounts.total,
+    Pending: summaryCounts.pending,
+    Overdue: summaryCounts.overdue,
+    Approved: summaryCounts.approved,
+    Completed: summaryCounts.completed,
+    Rejected: summaryCounts.rejected
+  }), [summaryCounts]);
 
   if (!user || user.role !== 'CEO') {
     return (
@@ -144,139 +142,147 @@ const CeoManpowerRequestList = () => {
   }
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container ceo-manpower-requests-page">
       <AppHeader roleSegment="ceo" />
-
       <main className="dashboard-main">
         <div className="page-container">
-          <div className="page-header">
-            <div className="page-title-section">
-              <h1 className="page-title">Manpower Requests</h1>
-              <p className="page-subtitle">Organization-wide manpower requests overview</p>
-            </div>
-          </div>
-
-          {/* Executive Summary */}
-          <div style={{ display:'flex', flexWrap:'wrap', gap:'12px', marginBottom:'20px' }}>
-            {[
-              { label:'Total', value: summaryCounts.total, color:'#334155' },
-              { label:'Pending', value: summaryCounts.pending, color:'#f59e0b' },
-              { label:'Overdue', value: summaryCounts.overdue, color:'#d97706' },
-              { label:'Approved', value: summaryCounts.approved, color:'#10b981' },
-              { label:'Completed', value: summaryCounts.completed, color:'#059669' },
-              { label:'Rejected', value: summaryCounts.rejected, color:'#ef4444' }
-            ].map(c => (
-              <div key={c.label} style={{
-                flex:'1 1 140px',
-                minWidth:'120px',
-                background:'#ffffff',
-                border:'1px solid #e2e8f0',
-                borderRadius:'8px',
-                padding:'12px 14px',
-                display:'flex',
-                flexDirection:'column',
-                gap:'4px'
-              }}>
-                <span style={{ fontSize:'12px', letterSpacing:'.5px', fontWeight:600, color:'#64748b', textTransform:'uppercase' }}>{c.label}</span>
-                <span style={{ fontSize:'22px', fontWeight:700, color:c.color }}>{c.value}</span>
-                <div style={{ height:'4px', background:c.color, borderRadius:'2px', opacity:.8 }} />
+          <div className="dashboard-card ceo-mr-header-card">
+            <div className="card-header mr-header-row">
+              <div className="mr-header-texts">
+                <h1 className="card-title">Manpower Requests</h1>
+                <p className="card-subtitle">Organization-wide manpower requests overview</p>
               </div>
-            ))}
-          </div>
-
-          <div className="controls-bar">
-            <div className="filter-tabs">
-              {['All','Pending','Approved','Overdue','Completed'].map(tab => (
-                <button key={tab} className={`filter-tab ${status === tab ? 'active' : ''}`} onClick={() => setStatus(tab)}>{tab}</button>
-              ))}
-            </div>
-            <div className="search-sort-section">
-              <div className="search-wrapper">
-                <FaSearch className="search-icon" />
-                <input type="text" placeholder="Search requests..." value={searchTerm} onChange={(e)=>setSearchTerm(e.target.value)} className="search-input" />
-              </div>
-              <div style={{ display:'flex', gap:8 }}>
-                <button onClick={()=>setLayoutView(v=> v==='cards' ? 'table' : 'cards')} className="btn-secondary">
+              <div className="layout-toggle-wrapper">
+                <button onClick={()=>setLayoutView(v=> v==='cards' ? 'table' : 'cards')} className="btn-secondary toggle-layout-btn">
                   {layoutView === 'cards' ? 'Table View' : 'Card View'}
                 </button>
               </div>
             </div>
+            <div className="card-body mr-filters-row">
+              <div className="filter-tabs compact">
+                {['All','Pending','Overdue','Approved','Completed','Rejected'].map(tab => (
+                  <button key={tab} className={`filter-tab ${status === tab ? 'active' : ''}`} onClick={() => {setStatus(tab); setCurrentPage(1);}}>
+                    <span>{tab}</span>
+                    <span className="count">{statusCounts[tab] ?? 0}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="search-wrapper stretch">
+                <FaSearch className="search-icon" />
+                <input type="text" placeholder="Search requests..." value={searchTerm} onChange={(e)=>{setSearchTerm(e.target.value); setCurrentPage(1);}} className="search-input" />
+              </div>
+            </div>
           </div>
 
-          <div className={`requests-grid ${layoutView === 'table' ? 'table-view' : ''}`}>
-            {loading ? (
-              <div className="loading-state"><div className="loading-spinner"></div><p>Loading manpower requests...</p></div>
-            ) : error ? (
-              <div className="error-state"><p>{error}</p></div>
-            ) : pageRows.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">👥</div>
-                <h3>No manpower requests found</h3>
-                <p>No requests match your current filters. Try adjusting your search criteria.</p>
-              </div>
-            ) : (
-              <>
-                {pageRows.map(request => {
-                  const summary = (request.manpowers || []).map(m=>`${m.quantity} ${m.type}`).join(', ');
-                  const badgeLabel = getStatusBadge(request);
-                  const badgeColor = getStatusColor(request);
-                  if (layoutView === 'table') {
-                    return (
-                      <div className={`request-card status-${(request.status || 'pending').toLowerCase()}`} key={request._id} style={{ backgroundColor: getRequestBackgroundColor(request) }}>
-                        <div className="card-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                          <h3 className="request-title">{request.project?.projectName || '(No Project Name)'}</h3>
-                          <span style={{ background:badgeColor, color:'#fff', padding:'2px 8px', borderRadius:'12px', fontSize:'11px', fontWeight:600 }}>{badgeLabel}</span>
+          <div className="dashboard-card ceo-mr-summary-card">
+            <div className="card-header"><h3 className="card-title-sm">Summary</h3></div>
+            <div className="mr-summary-grid">
+              {[{ label:'Total', value: summaryCounts.total, color:'#334155' },
+                { label:'Pending', value: summaryCounts.pending, color:'#f59e0b' },
+                { label:'Overdue', value: summaryCounts.overdue, color:'#d97706' },
+                { label:'Approved', value: summaryCounts.approved, color:'#10b981' },
+                { label:'Completed', value: summaryCounts.completed, color:'#059669' },
+                { label:'Rejected', value: summaryCounts.rejected, color:'#ef4444' }
+              ].map(c => (
+                <div key={c.label} className="mr-summary-item">
+                  <span className="mr-summary-label">{c.label}</span>
+                  <span className="mr-summary-value" style={{ color:c.color }}>{c.value}</span>
+                  <div className="mr-summary-bar" style={{ background:c.color }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="dashboard-card ceo-mr-list-card">
+            <div className="card-header list-header"><h3 className="card-title-sm">Requests <span className="muted">({filteredRequests.length})</span></h3></div>
+            <div className={`requests-grid ceo-mr-grid ${layoutView === 'table' ? 'table-view' : ''}`}>            
+              {loading ? (
+                <div className="loading-state"><div className="loading-spinner"></div><p>Loading manpower requests...</p></div>
+              ) : error ? (
+                <div className="error-state"><p>{error}</p></div>
+              ) : pageRows.length === 0 ? (
+                <div className="empty-state">
+                  <div className="empty-icon">👥</div>
+                  <h3>No manpower requests found</h3>
+                  <p>No requests match your current filters. Try adjusting your search criteria.</p>
+                </div>
+              ) : (
+                <>
+                  {layoutView === 'table' && (
+                    <div className="mr-table-header" role="row" aria-label="Table Header">
+                      <div>Project</div>
+                      <div>Requester</div>
+                      <div>Description</div>
+                      <div>Manpower</div>
+                      <div>Target</div>
+                      <div>Dur</div>
+                      <div>Created</div>
+                      <div>Status</div>
+                    </div>
+                  )}
+                  {pageRows.map(request => {
+                    const summary = (request.manpowers || []).map(m=>`${m.quantity} ${m.type}`).join(', ');
+                    const badgeLabel = getStatusBadge(request);
+                    const badgeColor = getStatusColor(request);
+                    if (layoutView === 'table') {
+                      return (
+                        <div
+                          key={request._id}
+                          className="mr-table-row"
+                          role="row"
+                          onClick={() => navigate(`/ceo/manpower-request/${request._id}`)}
+                          style={{ cursor: 'pointer' }}
+                          title="View details"
+                        >
+                          <div className="rt-title" title={request.project?.projectName || '(No Project Name)'}>{request.project?.projectName || '(No Project Name)'}</div>
+                          <div className="rt-req" title={request.createdBy?.name || 'Unknown'}>{request.createdBy?.name || 'Unknown'}</div>
+                          <div className="rt-desc" title={request.description || 'No description'}>{request.description || 'No description'}</div>
+                          <div className="rt-man" title={summary || '—'}>{summary || '—'}</div>
+                          <div className="rt-date" title="Target Date">{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</div>
+                          <div className="rt-date" title="Duration">{request.duration || '—'}d</div>
+                          <div className="rt-date" title="Created">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</div>
+                          <div className="rt-btn"><span className={`status-chip ${badgeLabel.toLowerCase()}`}>{badgeLabel}</span></div>
                         </div>
-                        <div className="card-body"><div className="requester-info">{request.createdBy?.name || 'Unknown'}</div></div>
-                        <div className="request-details"><div className="details-info">{request.description || 'No description'}</div></div>
-                        <div className="request-meta"><div className="manpower-info">{summary || '—'}</div></div>
-                        <div className="target-date-info">{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</div>
-                        <div className="duration-info">{request.duration || '—'} day(s)</div>
-                        <div className="date-posted-info">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</div>
+                      );
+                    }
+                    return (
+                      <div className={`request-card ceo-mr-card`} key={request._id}>
+                        <div className="card-body">
+                          <div className="mr-card-top-row">
+                            <h3 className="request-title" title={request.project?.projectName || '(No Project Name)'}>{request.project?.projectName || '(No Project Name)'}</h3>
+                            <span className={`status-chip ${badgeLabel.toLowerCase()}`}>{badgeLabel}</span>
+                          </div>
+                          <p className="request-description" title={request.description || 'No description provided'}>{request.description || 'No description provided'}</p>
+                          <div className="request-meta">
+                            <div className="meta-item"><span className="meta-label">Requested by:</span><span className="meta-value" title={request.createdBy?.name || 'Unknown'}>{request.createdBy?.name || 'Unknown'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Manpower:</span><span className="meta-value" title={summary || '—'}>{summary || '—'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Date:</span><span className="meta-value">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Target:</span><span className="meta-value">{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Duration:</span><span className="meta-value">{request.duration || '—'} d</span></div>
+                          </div>
+                        </div>
                         <div className="card-footer">
-                          <Link to={`/ceo/manpower-request/${request._id}`} className="view-details-btn">View Request</Link>
+                          <Link to={`/ceo/manpower-request/${request._id}`} className="view-details-btn">View Details</Link>
                         </div>
                       </div>
                     );
-                  }
-                  return (
-                    <div className={`request-card status-${(request.status || 'pending').toLowerCase()}`} key={request._id} style={{ backgroundColor: getRequestBackgroundColor(request) }}>
-                      <div className="card-body">
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:'8px' }}>
-                          <h3 className="request-title">{request.project?.projectName || '(No Project Name)'}</h3>
-                          <span style={{ background:badgeColor, color:'#fff', padding:'4px 10px', borderRadius:'14px', fontSize:'11px', fontWeight:600, whiteSpace:'nowrap' }}>{badgeLabel}</span>
-                        </div>
-                        <p className="request-description">{request.description || 'No description provided'}</p>
-                        <div className="request-meta">
-                          <div className="meta-item"><span className="meta-label">Requested by:</span><span className="meta-value">{request.createdBy?.name || 'Unknown'}</span></div>
-                          <div className="meta-item"><span className="meta-label">Manpower needed:</span><span className="meta-value">{summary || '—'}</span></div>
-                          <div className="meta-item"><span className="meta-label">Date:</span><span className="meta-value">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</span></div>
-                          <div className="meta-item"><span className="meta-label">Target Date:</span><span className="meta-value">{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</span></div>
-                          <div className="meta-item"><span className="meta-label">Duration:</span><span className="meta-value">{request.duration || '—'} day(s)</span></div>
-                        </div>
-                      </div>
-                      <div className="card-footer">
-                        <Link to={`/ceo/manpower-request/${request._id}`} className="view-details-btn">View Details</Link>
-                      </div>
-                    </div>
-                  );
-                })}
-              </>
+                  })}
+                </>
+              )}
+            </div>
+            {filteredRequests.length > 0 && (
+              <div className="pagination-section inside-card">
+                <div className="pagination-info">Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries</div>
+                <div className="pagination-controls">
+                  <button onClick={()=>setCurrentPage(p=>Math.max(p-1,1))} disabled={currentPage===1} className="pagination-btn">Previous</button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button key={page} className={`pagination-btn ${page === currentPage ? 'active' : ''}`} onClick={()=>setCurrentPage(page)}>{page}</button>
+                  ))}
+                  <button onClick={()=>setCurrentPage(p=>Math.min(p+1,totalPages))} disabled={currentPage===totalPages} className="pagination-btn">Next</button>
+                </div>
+              </div>
             )}
           </div>
-
-          {filteredRequests.length > 0 && (
-            <div className="pagination-section">
-              <div className="pagination-info">Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries</div>
-              <div className="pagination-controls">
-                <button onClick={()=>setCurrentPage(p=>Math.max(p-1,1))} disabled={currentPage===1} className="pagination-btn">Previous</button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button key={page} className={`pagination-btn ${page === currentPage ? 'active' : ''}`} onClick={()=>setCurrentPage(page)}>{page}</button>
-                ))}
-                <button onClick={()=>setCurrentPage(p=>Math.min(p+1,totalPages))} disabled={currentPage===totalPages} className="pagination-btn">Next</button>
-              </div>
-            </div>
-          )}
         </div>
       </main>
     </div>

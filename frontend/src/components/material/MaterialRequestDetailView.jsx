@@ -14,7 +14,8 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
   const [error, setError] = useState('');
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [collapsedSections, setCollapsedSections] = useState({});
+  const isCEO = (role||'').toLowerCase()==='ceo';
+  const [collapsedSections, setCollapsedSections] = useState(()=> isCEO ? { att:true } : {});
   const [copied, setCopied] = useState(false);
   // PIC receiving action state must be declared before any early return to satisfy hooks rules
   const [receiving, setReceiving] = useState(false);
@@ -95,7 +96,7 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
         />
       ))}
       <div className="dashboard-main">
-        <div className="mrd">
+  <div className={`mrd ${isCEO? 'mrd--bar':''}`}>
           <div className="mrd-summary">
             <div className="mrd-summary-main">
               <div id="summary" className="mrd-id-line"><span className="mrd-id-label">ID:</span><span className="mrd-id-value">{materialRequest._id}</span><button className="mrd-copy" onClick={()=>{navigator.clipboard?.writeText(materialRequest._id); setCopied(true); setTimeout(()=>setCopied(false),1600);}} title="Copy ID"><i className="fas fa-copy"/></button>{copied && <span className="mrd-copied">Copied!</span>}</div>

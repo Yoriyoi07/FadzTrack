@@ -1,6 +1,39 @@
 /* Shared Material Request Detail Styles (mrd-*) */
 .mrd { --mrd-bg:#f5f7fb; --mrd-card:#ffffff; --mrd-border:#e2e8f0; --mrd-text:#1e293b; --mrd-muted:#64748b; --mrd-accent:#2563eb; --mrd-accent-grad:linear-gradient(135deg,#1d4ed8,#2563eb); --mrd-radius:18px; --mrd-shadow:0 4px 22px -6px rgba(30,41,59,.15); --mrd-shadow-hover:0 10px 38px -8px rgba(30,41,59,.28); }
 .mrd { max-width:1280px; margin:0 auto; padding:2rem 1.4rem 4rem; display:flex; flex-direction:column; gap:2.4rem; font-family:'Inter', system-ui, -apple-system,'Segoe UI', Roboto, sans-serif; }
+/* Compact variant (e.g. CEO view) */
+.ceo-mr-request-detail .mrd { max-width:1100px; padding:1.25rem 1rem 2.5rem; gap:1.4rem; }
+.ceo-mr-request-detail .mrd-summary { padding:1.05rem 1.1rem; gap:1.1rem; border-radius:14px; }
+.ceo-mr-request-detail .mrd-title { font-size:1.05rem; }
+.ceo-mr-request-detail .mrd-desc { font-size:.72rem; }
+.ceo-mr-request-detail .mrd-meta { font-size:.55rem; padding:.3rem .55rem; }
+.ceo-mr-request-detail .mrd-summary-side { gap:.4rem; }
+.ceo-mr-request-detail .mrd-status-badge { padding:.45rem .7rem; font-size:.55rem; }
+.ceo-mr-request-detail .mrd-chip { padding:.35rem .55rem; font-size:.5rem; }
+.ceo-mr-request-detail .mrd-progress { margin-top:.6rem; }
+.ceo-mr-request-detail .mrd-grid { gap:1rem; }
+.ceo-mr-request-detail .mrd-section { padding:.85rem .9rem .95rem; border-radius:12px; gap:.65rem; }
+.ceo-mr-request-detail .mrd-section-title { font-size:.7rem; }
+.ceo-mr-request-detail .mrd-field { padding:.35rem .4rem .4rem; font-size:.6rem; border-radius:8px; }
+.ceo-mr-request-detail .mrd-field dt { min-width:90px; }
+.ceo-mr-request-detail .mrd-material-item { padding:.55rem .6rem; border-radius:9px; }
+.ceo-mr-request-detail .mrd-material-name { font-size:.65rem; }
+.ceo-mr-request-detail .mrd-qty { font-size:.5rem; padding:.3rem .5rem; }
+.ceo-mr-request-detail .mrd-spec { font-size:.55rem; }
+.ceo-mr-request-detail .mrd-attach-item { padding:.5rem .6rem; }
+.ceo-mr-request-detail .mrd-attach-icon { width:30px; height:30px; font-size:.75rem; }
+.ceo-mr-request-detail .mrd-attach-name { font-size:.55rem; }
+.ceo-mr-request-detail .mrd-attach-link { font-size:.5rem; padding:.35rem .5rem; }
+.ceo-mr-request-detail .mrd-flow-step { padding:.55rem .65rem; border-radius:10px; }
+.ceo-mr-request-detail .mrd-step-icon { width:28px; height:28px; font-size:.7rem; }
+.ceo-mr-request-detail .mrd-step-title { font-size:.55rem; }
+.ceo-mr-request-detail .mrd-step-meta { font-size:.48rem; }
+.ceo-mr-request-detail .mrd-progress-bar { height:5px; }
+.ceo-mr-request-detail .mrd-progress-meta { font-size:.48rem; }
+.ceo-mr-request-detail .mrd-actions { gap:.55rem; }
+.ceo-mr-request-detail .mrd-section-head .mrd-collapse-btn { padding:.3rem .45rem; font-size:.55rem; }
+.ceo-mr-request-detail .mrd-section.collapsed { padding:.6rem .7rem; }
+.ceo-mr-request-detail .mrd { font-size:14px; }
 .mrd-summary { background:var(--mrd-card); border:1px solid var(--mrd-border); border-radius:var(--mrd-radius); padding:1.5rem 1.75rem; display:flex; justify-content:space-between; gap:2rem; position:relative; overflow:hidden; box-shadow:var(--mrd-shadow); }
 .mrd-summary:before { content:""; position:absolute; inset:0; background:radial-gradient(circle at 85% 15%,rgba(37,99,235,.18),transparent 60%),linear-gradient(120deg,rgba(29,78,216,.12),transparent); pointer-events:none; }
 .mrd-summary-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:.75rem; }
@@ -73,3 +106,52 @@
 
 @media (max-width:860px){ .mrd-grid {grid-template-columns:1fr;} }
 @media (max-width:520px){ .mrd {padding:1.5rem 1rem 3rem;} .mrd-fields .mrd-field {flex-direction:column;align-items:flex-start;} }
+
+/* ================== BAR / COMPACT REDESIGN VARIANT ================== */
+/* Apply by adding class mrd--bar to .mrd container (done in component) */
+.mrd--bar { max-width:1000px; padding:1rem .85rem 2rem; gap:1.15rem; }
+.mrd--bar .mrd-summary { padding:.85rem 1rem .9rem; gap:1rem; border-radius:12px; min-height:unset; box-shadow:0 3px 14px -4px rgba(30,41,59,.12); }
+.mrd--bar .mrd-summary-main { gap:.55rem; }
+.mrd--bar .mrd-title { font-size:1.05rem; }
+.mrd--bar .mrd-desc { font-size:.7rem; line-height:1.35; max-width:60ch; }
+.mrd--bar .mrd-meta-row { margin-top:.35rem; gap:.45rem .7rem; }
+.mrd--bar .mrd-meta { font-size:.5rem; padding:.3rem .55rem; background:#eef2f7; }
+.mrd--bar .mrd-progress { margin-top:.4rem; }
+.mrd--bar .mrd-progress-bar { height:4px; }
+.mrd--bar .mrd-progress-meta { font-size:.48rem; }
+.mrd--bar .mrd-summary-side { position:absolute; top:.55rem; right:.7rem; align-items:flex-end; }
+.mrd--bar .mrd-status-badge { padding:.4rem .65rem; font-size:.5rem; box-shadow:none; }
+.mrd--bar .mrd-chip { padding:.3rem .55rem; font-size:.45rem; }
+
+/* Sections */
+.mrd--bar .mrd-grid { gap:.85rem; }
+.mrd--bar .mrd-section { padding:.75rem .8rem .85rem; border-radius:10px; gap:.55rem; box-shadow:0 2px 8px -3px rgba(30,41,59,.12); }
+.mrd--bar .mrd-section-title { font-size:.7rem; }
+.mrd--bar .mrd-field { padding:.3rem .35rem .35rem; font-size:.58rem; border-radius:7px; }
+.mrd--bar .mrd-field dt { min-width:80px; }
+.mrd--bar .mrd-material-item { padding:.5rem .55rem; border-radius:8px; }
+.mrd--bar .mrd-material-name { font-size:.62rem; }
+.mrd--bar .mrd-qty { font-size:.5rem; padding:.25rem .45rem; }
+.mrd--bar .mrd-attach-item { padding:.45rem .55rem; }
+.mrd--bar .mrd-attach-icon { width:28px; height:28px; font-size:.7rem; }
+.mrd--bar .mrd-attach-name { font-size:.5rem; }
+.mrd--bar .mrd-attach-link { font-size:.48rem; padding:.3rem .45rem; }
+.mrd--bar .mrd-flow-step { padding:.5rem .6rem; border-radius:9px; }
+.mrd--bar .mrd-step-icon { width:26px; height:26px; font-size:.65rem; }
+.mrd--bar .mrd-step-title { font-size:.52rem; }
+.mrd--bar .mrd-step-meta { font-size:.45rem; }
+.mrd--bar .mrd-actions { gap:.5rem; }
+.mrd--bar .mrd-section-head .mrd-collapse-btn { padding:.25rem .4rem; font-size:.5rem; }
+.mrd--bar .mrd-section.collapsed { padding:.55rem .6rem; }
+
+/* Reduce overall scroll by collapsing less critical sections by default (handled in component JS if desired) */
+
+/* ================== BOTTOM WHITESPACE TRIM ================== */
+.ceo-mr-request-detail .dashboard-main { padding-bottom:12px !important; }
+.ceo-mr-request-detail .mrd { padding-bottom:1rem; }
+.mrd--bar { padding-bottom:1rem; }
+.mrd--bar .mrd-grid { margin-bottom:0; }
+.mrd--bar .mrd-section:last-of-type { margin-bottom:0; }
+.mrd--bar { gap:.9rem; }
+.ceo-mr-request-detail .mrd-summary { margin-bottom:.4rem; }
+

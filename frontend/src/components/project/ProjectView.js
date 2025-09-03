@@ -1,6 +1,7 @@
 // Reusable ProjectView component with role-based permissions (pm, am, ceo, hr)
 // Extracted and refactored from original PM-specific implementation.
 import React, { useEffect, useRef, useState } from 'react';
+import AppHeader from '../layout/AppHeader';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import NotificationBell from '../NotificationBell';
@@ -253,7 +254,7 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   useEffect(()=>{ if(justCreated){ const t=setTimeout(()=> setShowFlash(false),6000); return ()=> clearTimeout(t);} },[justCreated]);
 
   // Always include staff-view-root so unified overview card styles apply for every role
-  const rootRoleClass = `pm-view-root staff-view-root ${role==='staff'?'is-staff':''}`;
+  const rootRoleClass = `pm-view-root staff-view-root ${role==='staff'?'is-staff':''} ${role==='ceo'?'ceo-view-root':''}`;
   if(loading) return <div className={`dashboard-container ${rootRoleClass}`}><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-spinner-container"><div className="loading-spinner"/></div><div className="loading-text"><h2 className="loading-title">Loading Project Details</h2><p className="loading-subtitle">Fetching project information...</p></div><div className="loading-progress"><div className="progress-bar"><div className="progress-fill"/></div></div></div></div></div>;
   if(!project) return <div className={`dashboard-container ${rootRoleClass}`}><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-text"><h2 className="loading-title" style={{color:'#ef4444'}}>Project Not Found</h2><p className="loading-subtitle">Project missing or access denied.</p></div><div style={{marginTop:'2rem'}}><button onClick={()=> navigate(basePath)} style={{background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',border:'none',padding:'12px 24px',borderRadius:8,fontSize:'1rem',fontWeight:600,cursor:'pointer'}}>Return to Dashboard</button></div></div></div></div>;
   const start = project?.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A';
@@ -292,7 +293,9 @@ const labelColorMap = {
 function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[label]||{bg:'#334155',fg:'#fff'}; return <span className="discussion-label-badge" style={{background:s.bg,color:s.fg,padding:'2px 8px',borderRadius:8,fontSize:11,marginLeft:8,fontWeight:600,letterSpacing:.5,display:'inline-flex',alignItems:'center',gap:4}}>{label}</span>; }
   return (
   <div className={`dashboard-container ${rootRoleClass}`}>
-      {!useUnifiedHeader && (
+      {useUnifiedHeader ? (
+        <AppHeader roleSegment={role} />
+      ) : (
       <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
         <div className="header-top">
           <div className="logo-section">

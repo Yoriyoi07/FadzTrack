@@ -3,15 +3,13 @@
 import React from 'react';
 import MaterialRequestDetailView from '../material/MaterialRequestDetailView';
 
-const CeoMaterialRequestDetail = () => {
-  return (
-    <MaterialRequestDetailView
-      role="CEO"
-      headerTitle="Material Request Detail"
-      headerSubtitle="Full lifecycle view"
-      rootClass="ceo-mr-request-detail"
-    />
-  );
-};
+const CeoMaterialRequestDetail = () => (
+  <MaterialRequestDetailView
+    role="CEO"
+    headerTitle="Material Request Detail"
+    headerSubtitle="Full lifecycle view"
+    rootClass="ceo-mr-request-detail"
+  />
+);
 
 export default CeoMaterialRequestDetail;
