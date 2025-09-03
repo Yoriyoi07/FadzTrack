@@ -4,6 +4,7 @@ import '../style/pm_style/PmMatRequest.css';
 import '../style/pm_style/Pm_Dash.css';
 import NotificationBell from '../NotificationBell';
 import api from '../../api/axiosInstance';
+import AppHeader from '../layout/AppHeader';
 // Nav icons
 import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaClipboardList } from 'react-icons/fa';
 import { exportMaterialRequestsPdf } from '../../utils/materialRequestsPdf';
@@ -230,54 +231,9 @@ const ItMaterialList = () => {
 
   return (
     <div>
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        <div className="header-top">
-          <div className="logo-section">
-            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'I'}</div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown" onClick={(e) => e.stopPropagation()}>
-                <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} className="logout-btn"><span>Logout</span></button>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/it" className="nav-item">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/it/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/it/material-list" className="nav-item active">
-              <FaBoxes />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
-            </Link>
-            <Link to="/it/manpower-list" className="nav-item">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
-            <Link to="/it/auditlogs" className="nav-item">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
-            </Link>
-          </nav>
-          <NotificationBell />
-        </div>
-      </header>
-
-
-      <main className="dashboard-main">
+      <AppHeader roleSegment="it" />
+      {/* Main Content */}
+      <main className="dashboard-main" style={{marginTop:'1rem'}}>
         <div className="page-container">
           <div className="controls-bar">
             <div className="filter-tabs">

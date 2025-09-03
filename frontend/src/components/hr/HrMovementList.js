@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AppHeader from '../layout/AppHeader';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, Filter, Download, Upload, Plus, RefreshCw, Calendar, MapPin, X, FileText, FileDown } from 'lucide-react';
 import { jsPDF } from 'jspdf';
@@ -34,8 +35,7 @@ export default function HrMovementList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  // Removed local header state (handled by AppHeader)
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportFilters, setExportFilters] = useState({
     user: 'all',
@@ -81,17 +81,7 @@ export default function HrMovementList() {
     }
   }, [token, userId, navigate]);
 
-  // Scroll handler for header collapse
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const shouldCollapse = scrollTop > 50;
-      setIsHeaderCollapsed(shouldCollapse);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isHeaderCollapsed]);
+  // Removed scroll collapse effect
 
   // Fetch movement data
   useEffect(() => {
@@ -185,16 +175,7 @@ export default function HrMovementList() {
     });
   };
 
-  // Close profile menu on outside click
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".user-profile")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
+  // Removed legacy profile dropdown outside click
 
   // Format date
   const formatDate = (dateString) => {
@@ -653,71 +634,18 @@ export default function HrMovementList() {
 
   return (
     <div className="dashboard-container">
-      {/* Header */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo, User Info, and Profile */}
-        <div className="header-top">
-          <div className="header-left">
-        <div className="logo-container">
-              <img src="/images/Fadz-logo.png" alt="FadzTrack Logo" className="logo-img" />
-              <span className="brand-name">FadzTrack</span>
-            </div>
-          </div>
-
-          <div className="header-right">
-            <div className="user-profile">
-              <div className="profile-info">
-                <span className="user-name">{userName}</span>
-                <span className="user-role">{userRole}</span>
-              </div>
-              <div className="profile-avatar" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-                {userName ? userName.charAt(0).toUpperCase() : 'H'}
-        </div>
-          {profileMenuOpen && (
-                <div className="profile-dropdown">
-                  <button onClick={handleLogout} className="dropdown-item">
-                    <span>Logout</span>
-                  </button>
-            </div>
-          )}
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/hr" className="nav-item">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/hr/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/hr/mlist" className="nav-item">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
-            <Link to="/hr/movement" className="nav-item active">
-              <FaExchangeAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Movement</span>
-            </Link>
-            <Link to="/hr/project-records" className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
-            </Link>
-            <Link to="/hr/requests" className="nav-item">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span>
-            </Link>
-            <Link to="/hr/reports" className="nav-item">
-              <FaChartBar />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <AppHeader
+        roleSegment="hr"
+        onLogout={handleLogout}
+        overrideNav={[
+          { to:'/hr', label:'Dashboard', icon:<FaTachometerAlt/>, match:'/hr' },
+          { to:'/hr/chat', label:'Chat', icon:<FaComments/>, match:'/hr/chat' },
+          { to:'/hr/mlist', label:'Manpower', icon:<FaUsers/>, match:'/hr/mlist' },
+          { to:'/hr/movement', label:'Movement', icon:<FaExchangeAlt/>, match:'/hr/movement' },
+          { to:'/hr/project-records', label:'Projects', icon:<FaProjectDiagram/>, match:'/hr/project-records' },
+          // Requests & Reports removed
+        ]}
+      />
 
       {/* Main Content */}
       <main className="dashboard-main">

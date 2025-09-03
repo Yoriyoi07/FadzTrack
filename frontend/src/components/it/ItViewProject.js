@@ -1,5 +1,6 @@
 import ProjectView from '../project/ProjectView';
 import { FaTachometerAlt, FaComments, FaProjectDiagram, FaClipboardList } from 'react-icons/fa';
+import AppHeader from '../layout/AppHeader';
 
 // IT role wrapper pointing to the reusable ProjectView component
 const ItViewProject = () => {
@@ -12,15 +13,8 @@ const ItViewProject = () => {
     audit: '/it/auditlogs'
   };
 
-  // Custom navigation items for IT users (simplified)
-  const navItems = [
-    { to: '/it', icon: <FaTachometerAlt />, label: 'Dashboard' },
-    { to: '/it/chat', icon: <FaComments />, label: 'Chat' },
-    { to: '/it/material-list', icon: <FaClipboardList />, label: 'Materials' },
-    { to: '/it/projects', icon: <FaProjectDiagram />, label: 'Projects', active: true }
-  ];
-
-  return <ProjectView role="it" navItems={navItems} navPathOverrides={overrides} />;
+  // Use unified header; let ProjectView build default nav with useUnifiedHeader flag
+  return <ProjectView role="it" useUnifiedHeader={true} navPathOverrides={overrides} customHeader={<AppHeader roleSegment="it" />} />;
 };
 
 export default ItViewProject;

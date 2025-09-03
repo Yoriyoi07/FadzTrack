@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
-import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaClipboardList, FaPlus, FaTrash, FaSave, FaTimes, FaEdit } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaSave, FaTimes, FaEdit } from 'react-icons/fa';
+import AppHeader from '../layout/AppHeader';
 
 const inputStyle = { width:'100%', padding:'10px 12px', border:'1px solid #d1d5db', borderRadius:6, fontSize:14 };
 const pill = (bg, color='#111827') => ({ background:bg, color, padding:'4px 10px', borderRadius:20, fontSize:12, fontWeight:600, display:'inline-flex', alignItems:'center', gap:6 });
@@ -19,7 +20,7 @@ const ItManpowerRequestDetail = () => {
   const [error, setError] = useState('');
   const [request, setRequest] = useState(null);
   const [editMode, setEditMode] = useState(() => new URLSearchParams(location.search).get('edit') === '1');
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  // Unified header handles profile menu
 
   const [formData, setFormData] = useState({
     acquisitionDate:'', duration:'', project:'', projectName:'', manpowers:[{ type:'', quantity:'' }], description:''
@@ -46,11 +47,7 @@ const ItManpowerRequestDetail = () => {
     fetchData();
   }, [id, token]);
 
-  // Close profile dropdown on outside click
-  useEffect(() => {
-    const handler = e => { if (!e.target.closest('.user-profile')) setProfileMenuOpen(false); };
-    document.addEventListener('click', handler); return () => document.removeEventListener('click', handler);
-  }, []);
+  // Removed legacy profile dropdown listener
 
   const handleLogout = () => {
     api.post('/auth/logout', {}, { headers:{ Authorization:`Bearer ${token}` }}).finally(() => {
@@ -122,36 +119,7 @@ const ItManpowerRequestDetail = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Header matches IT dashboard styling */}
-      <header className="dashboard-header">
-        <div className="header-top">
-          <div className="logo-container">
-            <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="logo-img" />
-            <span className="brand-name">FadzTrack</span>
-          </div>
-          <div className="user-profile" onClick={() => setProfileMenuOpen(p=>!p)}>
-            <div className="profile-avatar">{user?.name ? user.name.charAt(0).toUpperCase() : 'I'}</div>
-            <div className="profile-info">
-              <span className="user-name">{user?.name}</span>
-              <span className="user-role">{user?.role}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="dropdown-item">Logout</button>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/it" className="nav-item"><FaTachometerAlt /><span>Dashboard</span></Link>
-            <Link to="/it/chat" className="nav-item"><FaComments /><span>Chat</span></Link>
-            <Link to="/it/material-list" className="nav-item"><FaBoxes /><span>Materials</span></Link>
-            <Link to="/it/manpower-list" className="nav-item active"><FaUsers /><span>Manpower</span></Link>
-            <Link to="/it/auditlogs" className="nav-item"><FaClipboardList /><span>Audit Logs</span></Link>
-          </nav>
-        </div>
-      </header>
+      <AppHeader roleSegment="it" onLogout={handleLogout} />
 
       <main className="dashboard-main">
         <div className="form-container" style={{ maxWidth:900, margin:'40px auto', background:'#fff', borderRadius:16, padding:'32px 40px', boxShadow:'0 4px 16px rgba(0,0,0,0.06)' }}>

@@ -64,8 +64,6 @@ const NAV_CONFIG = {
     { to: '/hr/mlist', icon: FaUsers, label: 'Manpower', activeMatch: /^\/hr\/mlist/ },
     { to: '/hr/movement', icon: FaExchangeAlt, label: 'Movement', activeMatch: /^\/hr\/movement/ },
     { to: '/hr/project-records', icon: FaProjectDiagram, label: 'Projects', activeMatch: /^\/hr\/project-records/ },
-    { to: '/hr/requests', icon: FaClipboardList, label: 'Requests', activeMatch: /^\/hr\/requests/ },
-    { to: '/hr/reports', icon: FaChartBar, label: 'Reports', activeMatch: /^\/hr\/reports/ },
   ],
   staff: [
     { to: '/staff/current-project', icon: FaProjectDiagram, label: 'Project', activeMatch: /^\/staff\/current-project/ },
@@ -916,7 +914,17 @@ const AreaChat = ({ baseSegment = 'am' }) => {
         </div>
       )}
 
-  <AppHeader roleSegment={baseSegment} />
+  {/* Unified header; for HR pass explicit nav to avoid blanks during migration */}
+  <AppHeader 
+    roleSegment={baseSegment === 'hr' ? 'hr' : baseSegment}
+    overrideNav={baseSegment === 'hr' ? [
+      { to: '/hr/dash', label: 'Dashboard', icon: <FaTachometerAlt/>, match: '/hr/dash' },
+      { to: '/hr/chat', label: 'Chat', icon: <FaComments/>, match: '/hr/chat' },
+      { to: '/hr/mlist', label: 'Manpower', icon: <FaUsers/>, match: '/hr/mlist' },
+      { to: '/hr/movement', label: 'Movement', icon: <FaExchangeAlt/>, match: '/hr/movement' },
+  { to: '/hr/project-records', label: 'Projects', icon: <FaProjectDiagram/>, match: '/hr/project-records' }
+    ] : undefined}
+  />
 
       {/* BODY */}
       <div className="area-chat-content">

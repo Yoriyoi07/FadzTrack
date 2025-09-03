@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import NotificationBell from '../NotificationBell';
-import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaBoxes, FaUsers, FaClipboardList as FaLogs, FaChartBar } from 'react-icons/fa';
+import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaBoxes, FaUsers, FaClipboardList as FaLogs, FaChartBar, FaExchangeAlt } from 'react-icons/fa';
 import '../style/pic_style/PicHeader.css'; // reuse base styles
 import api from '../../api/axiosInstance';
 
@@ -56,6 +56,7 @@ const ROLE_NAV = {
     { to:'/it/material-list', label:'Materials', icon:<FaBoxes/>, match:'/it/material-list' },
     { to:'/it/manpower-list', label:'Manpower', icon:<FaUsers/>, match:'/it/manpower-list' },
     { to:'/it/auditlogs', label:'Audit Logs', icon:<FaClipboardList/>, match:'/it/auditlogs' },
+  { to:'/it/projects', label:'Projects', icon:<FaProjectDiagram/>, match:'/it/projects' },
   ],
   staff: ()=> [
     { to:'/staff', label:'Project', icon:<FaEye/>, match:'/staff' },
@@ -67,10 +68,18 @@ const ROLE_NAV = {
     { to:'/hr-site/chat', label:'Chat', icon:<FaComments/>, match:'/hr-site/chat' },
     { to:'/hr-site/all-projects', label:'My Projects', icon:<FaProjectDiagram/>, match:'/hr-site/all-projects' },
     { to:'/hr-site/attendance-report', label:'Attendance', icon:<FaClipboardList/>, match:'/hr-site/attendance-report' }
+  ],
+  hr: ()=> [
+    { to:'/hr/dash', label:'Dashboard', icon:<FaTachometerAlt/>, match:'/hr/dash' },
+    { to:'/hr/chat', label:'Chat', icon:<FaComments/>, match:'/hr/chat' },
+    { to:'/hr/mlist', label:'Manpower', icon:<FaUsers/>, match:'/hr/mlist' },
+    { to:'/hr/movement', label:'Movement', icon:<FaExchangeAlt/>, match:'/hr/movement' },
+    { to:'/hr/project-records', label:'Projects', icon:<FaProjectDiagram/>, match:'/hr/project-records' },
+  // Requests & Reports removed per latest requirement
   ]
 };
 
-const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false, below }) => {
+const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false, below, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const stored = localStorage.getItem('user');
@@ -116,7 +125,13 @@ const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false
 
   useEffect(()=>{ const off=e=>{ if(!e.target.closest('.profile-menu-container')) setProfileMenuOpen(false); }; document.addEventListener('click', off); return ()=>document.removeEventListener('click', off); },[]);
 
-  const logout=()=>{ localStorage.removeItem('token'); localStorage.removeItem('user'); navigate('/'); };
+  const logout=()=>{ 
+    if(onLogout){ onLogout(); return; }
+    localStorage.removeItem('token'); 
+    localStorage.removeItem('user'); 
+    window.dispatchEvent(new Event('storage'));
+    navigate('/'); 
+  };
 
   const ctx = { activeProject };
   // Normalize roleSegment (support aliases like 'hr-site' -> 'hrsite')

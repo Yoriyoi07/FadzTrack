@@ -3,7 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import '../style/hr_style/Hr_Dash.css';
 import api from '../../api/axiosInstance';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
-import NotificationBell from '../NotificationBell';
+import NotificationBell from '../NotificationBell'; // retained for any future usage in cards
+import AppHeader from '../layout/AppHeader';
 // Nav icons
 import {
   FaTachometerAlt,
@@ -56,8 +57,7 @@ const HrDash = ({ forceUserUpdate }) => {
     }, [user]);
 
   // --- 4. Page data state ---
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  // Header state no longer needed with AppHeader
 
   const [chats, setChats] = useState([]);
   const [loadingChats, setLoadingChats] = useState(true);
@@ -103,17 +103,7 @@ const HrDash = ({ forceUserUpdate }) => {
     }
   }, [token, userId, navigate]);
 
-  // --- 6. Scroll handler for header collapse ---
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const shouldCollapse = scrollTop > 50;
-      setIsHeaderCollapsed(shouldCollapse);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isHeaderCollapsed]);
+  // --- 6. Header collapse handled internally by generic AppHeader (no-op retained for clarity) ---
 
   // --- 7. Fetch HR statistics ---
   const fetchHRStats = useCallback(async () => {
@@ -357,32 +347,21 @@ const HrDash = ({ forceUserUpdate }) => {
     return '📝';
   };
 
-  // --- 12. Close profile menu on outside click ---
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".user-profile")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
+  // --- 12. Legacy profile menu logic removed (handled by AppHeader) ---
 
-  // --- 13. Logout handler ---
-  const handleLogout = () => {
-    api.post('/auth/logout', {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).finally(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  // --- 13. Logout handler passed to AppHeader ---
+  const handleLogout = useCallback(() => {
+    api.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${token}` } }).finally(() => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       setUser(null);
       setUserId(undefined);
       setToken("");
       if (forceUserUpdate) forceUserUpdate();
       window.dispatchEvent(new Event('storage'));
-    navigate('/');
+      navigate('/');
     });
-  };
+  }, [token, forceUserUpdate, navigate]);
 
   // --- 14. KPI data for charts ---
   const workforceData = React.useMemo(() => {
@@ -484,75 +463,17 @@ const HrDash = ({ forceUserUpdate }) => {
 
   return (
     <div className="hr-dashboard dashboard-container">
-      {/* Header */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo, User Info, and Profile */}
-        <div className="header-top">
-          <div className="header-left">
-  <div className="logo-container">
-              <img src="/images/Fadz-logo.png" alt="FadzTrack Logo" className="logo-img" />
-              <span className="brand-name">FadzTrack</span>
-            </div>
-  </div>
-
-          <div className="header-right">
-            <div className="user-profile">
-              <div className="profile-info">
-                <span className="user-name">{userName}</span>
-                <span className="user-role">{userRole}</span>
-              </div>
-              <div className="profile-avatar" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-                {userName ? userName.charAt(0).toUpperCase() : 'H'}
-    </div>
-    {profileMenuOpen && (
-                <div className="profile-dropdown">
-                  <button onClick={handleLogout} className="dropdown-item">
-                    <span>Logout</span>
-                  </button>
-      </div>
-    )}
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/hr" className="nav-item active">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/hr/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/hr/mlist" className="nav-item">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
-            <Link to="/hr/movement" className="nav-item">
-              <FaExchangeAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Movement</span>
-            </Link>
-            <Link to="/hr/project-records" className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
-            </Link>
-            <Link to="/hr/requests" className="nav-item">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span>
-            </Link>
-            <Link to="/hr/reports" className="nav-item">
-              <FaChartBar />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
-            </Link>
-          </nav>
-
-          <NotificationBell />
-  </div>
-</header>
-
-      {/* Main Dashboard Content */}
+      <AppHeader 
+        roleSegment="hr"
+        onLogout={handleLogout}
+        overrideNav={[
+          { to:'/hr', label:'Dashboard', icon:<FaTachometerAlt/>, match:'/hr' },
+          { to:'/hr/chat', label:'Chat', icon:<FaComments/>, match:'/hr/chat' },
+            { to:'/hr/mlist', label:'Manpower', icon:<FaUsers/>, match:'/hr/mlist' },
+          { to:'/hr/movement', label:'Movement', icon:<FaExchangeAlt/>, match:'/hr/movement' },
+          { to:'/hr/project-records', label:'Projects', icon:<FaProjectDiagram/>, match:'/hr/project-records' }
+        ]}
+      />
       <main className="dashboard-main">
         <div className="dashboard-grid">
           {/* Welcome & Overview Card */}
@@ -563,33 +484,7 @@ const HrDash = ({ forceUserUpdate }) => {
                 <p className="welcome-subtitle">Manage your workforce and track manpower activities</p>
               </div>
               
-              {/* Quick Actions - Compact buttons in top right */}
-              <div className="quick-actions-compact">
-                <Link to="/hr/mlist" className="hr-action-btn" data-tooltip="Manage Staff & Personnel">
-                  <div className="hr-action-icon">
-                    <FaUsers size={16} color="white" style={{ color: 'white', fill: 'white', stroke: 'white', opacity: 1, visibility: 'visible' }} />
-          </div>
-                  <span>Staff</span>
-                </Link>
-                <Link to="/hr/requests" className="hr-action-btn" data-tooltip="Review & Process Requests">
-                  <div className="hr-action-icon">
-                    <FaClipboardList size={16} color="white" style={{ color: 'white', fill: 'white', stroke: 'white', opacity: 1, visibility: 'visible' }} />
-            </div>
-                  <span>Requests</span>
-                </Link>
-                <Link to="/hr/movement" className="hr-action-btn" data-tooltip="Track Staff Movements">
-                  <div className="hr-action-icon">
-                    <FaExchangeAlt size={16} color="white" style={{ color: 'white', fill: 'white', stroke: 'white', opacity: 1, visibility: 'visible' }} />
-            </div>
-                  <span>Movement</span>
-                </Link>
-                <Link to="/hr/reports" className="hr-action-btn" data-tooltip="Generate HR Reports">
-                  <div className="hr-action-icon">
-                    <FaChartBar size={16} color="white" style={{ color: 'white', fill: 'white', stroke: 'white', opacity: 1, visibility: 'visible' }} />
-            </div>
-                  <span>Reports</span>
-                </Link>
-          </div>
+          
         </div>
 
             <div className="overview-stats">

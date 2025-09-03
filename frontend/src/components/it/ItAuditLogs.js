@@ -7,6 +7,7 @@ import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaClipboardList, FaFileE
 // PDF export
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import AppHeader from '../layout/AppHeader';
 
 const ItAuditLog = () => {
   const navigate = useNavigate();
@@ -410,66 +411,8 @@ const ItAuditLog = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Header */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo, User Info, and Profile */}
-        <div className="header-top">
-          <div className="header-left">
-            <div className="logo-container">
-              <img src="/images/Fadz-logo.png" alt="FadzTrack Logo" className="logo-img" />
-              <span className="brand-name">FadzTrack</span>
-            </div>
-          </div>
-
-          <div className="header-right">
-            <div className="user-profile">
-              <div className="profile-info">
-                <span className="user-name">{userName}</span>
-                <span className="user-role">{userRole}</span>
-              </div>
-              <div className="profile-avatar" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-                {userName ? userName.charAt(0).toUpperCase() : 'I'}
-              </div>
-              {profileMenuOpen && (
-                <div className="profile-dropdown">
-                  <button onClick={handleLogout} className="dropdown-item">
-                    <span>Logout</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/it" className="nav-item">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/it/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/it/material-list" className="nav-item">
-              <FaBoxes />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Materials</span>
-            </Link>
-            <Link to="/it/manpower-list" className="nav-item">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
-            <Link to="/it/auditlogs" className="nav-item active">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Audit Logs</span>
-            </Link>
-          </nav>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="dashboard-main">
+      <AppHeader roleSegment="it" />
+      <main className="dashboard-main" style={{marginTop:'1rem'}}>
         <div style={{ maxWidth: 1200, margin: "30px auto", padding: 24, background: "#fff", borderRadius: 12, boxShadow: "0 2px 16px #0001" }}>
           {/* Page Header */}
           <div style={{ 

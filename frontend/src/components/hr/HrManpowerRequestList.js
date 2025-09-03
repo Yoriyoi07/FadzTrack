@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
+import AppHeader from '../layout/AppHeader';
 import '../style/pm_style/PmManpowerRequest.css';
 // Nav icons
 import { 
@@ -21,7 +21,8 @@ import {
   FaTimes,
   FaEllipsisV,
   FaComments,
-  FaPlus
+  FaPlus,
+  FaExchangeAlt
 } from 'react-icons/fa';
 
 const ITEMS_PER_PAGE = 8;
@@ -37,8 +38,7 @@ export default function HrManpowerRequestList() {
 
   const [userName, setUserName] = useState(user?.name || 'HR');
   const [userRole, setUserRole] = useState(user?.role || '');
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  // Removed local header UI state (AppHeader handles)
 
   // View mode: 'mine' | 'others'
   const [viewMode, setViewMode] = useState('mine');
@@ -89,26 +89,9 @@ export default function HrManpowerRequestList() {
     fetchData();
   }, [viewMode]);
 
-  // Scroll handler for header collapse
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const shouldCollapse = scrollTop > 50;
-      setIsHeaderCollapsed(shouldCollapse);
-    };
+  // Removed scroll collapse logic
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".user-profile")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener('click', handleClickOutside);
-  }, []);
+  // Removed profile dropdown outside click logic
 
   const handleLogout = () => {
     api.post('/auth/logout', {}, {
@@ -202,64 +185,18 @@ export default function HrManpowerRequestList() {
 
   return (
     <div className="dashboard-container">
-      {/* Modern Header */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo and Profile */}
-        <div className="header-top">
-          <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'H'}
-            </div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/hr" className="nav-item">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/hr/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/hr/manpower-list" className="nav-item">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
-            <Link to="/hr/manpower-requests" className="nav-item active">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Requests</span>
-            </Link>
-            <Link to="/hr/projects" className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
-            </Link>
-          </nav>
-          <NotificationBell />
-        </div>
-      </header>
+      <AppHeader
+        roleSegment="hr"
+        onLogout={handleLogout}
+        overrideNav={[
+          { to:'/hr', label:'Dashboard', icon:<FaTachometerAlt/>, match:'/hr' },
+          { to:'/hr/chat', label:'Chat', icon:<FaComments/>, match:'/hr/chat' },
+          { to:'/hr/mlist', label:'Manpower', icon:<FaUsers/>, match:'/hr/mlist' },
+          { to:'/hr/movement', label:'Movement', icon:<FaExchangeAlt/>, match:'/hr/movement' },
+          { to:'/hr/project-records', label:'Projects', icon:<FaProjectDiagram/>, match:'/hr/project-records' },
+          // Requests & Reports removed
+        ]}
+      />
 
       <main className="dashboard-main">
         <div className="page-container">

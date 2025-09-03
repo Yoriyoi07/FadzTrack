@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
+import AppHeader from '../layout/AppHeader';
 import {
   FaTachometerAlt,
   FaComments,
@@ -34,7 +34,7 @@ const HrManpowerRequestDetail = () => {
   const userRole = user?.role;
   const [userName] = useState(() => user?.name || 'HR Manager');
 
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  // Profile dropdown handled by AppHeader
 
   // Request data
   const [request, setRequest] = useState(null);
@@ -47,13 +47,7 @@ const HrManpowerRequestDetail = () => {
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (!e.target.closest('.user-profile')) setProfileMenuOpen(false);
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
+  // Removed outside click listener (unified header)
 
   const handleLogout = () => {
     api.post('/auth/logout', {}, {
@@ -181,73 +175,18 @@ const HrManpowerRequestDetail = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Modern Header - Same as PM Dashboard */}
-      <header className="dashboard-header">
-        {/* Top Row: Logo and Profile */}
-        <div className="header-top">
-          <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'H'}
-            </div>
-            <div className="profile-info">
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/hr/dash" className="nav-item">
-              <FaTachometerAlt />
-              <span>Dashboard</span>
-            </Link>
-            <Link to="/hr/chat" className="nav-item">
-              <FaComments />
-              <span>Chat</span>
-            </Link>
-            <Link to="/hr/mlist" className="nav-item">
-              <FaUsers />
-              <span>Manpower</span>
-            </Link>
-            <Link to="/hr/movement" className="nav-item active">
-              <FaExchangeAlt />
-              <span>Movement</span>
-            </Link>
-            <Link to="/hr/project-records" className="nav-item">
-              <FaProjectDiagram />
-              <span>Projects</span>
-            </Link>
-            <Link to="/hr/requests" className="nav-item">
-              <FaClipboardList />
-              <span>Requests</span>
-            </Link>
-            <Link to="/hr/reports" className="nav-item">
-              <FaChartBar />
-              <span>Reports</span>
-            </Link>
-          </nav>
-          
-          <NotificationBell />
-        </div>
-      </header>
+      <AppHeader
+        roleSegment="hr"
+        onLogout={handleLogout}
+        overrideNav={[
+          { to:'/hr', label:'Dashboard', icon:<FaTachometerAlt/>, match:'/hr' },
+          { to:'/hr/chat', label:'Chat', icon:<FaComments/>, match:'/hr/chat' },
+          { to:'/hr/mlist', label:'Manpower', icon:<FaUsers/>, match:'/hr/mlist' },
+          { to:'/hr/movement', label:'Movement', icon:<FaExchangeAlt/>, match:'/hr/movement' },
+          { to:'/hr/project-records', label:'Projects', icon:<FaProjectDiagram/>, match:'/hr/project-records' },
+          // Requests & Reports removed
+        ]}
+      />
 
       {/* Main Content Area */}
       <main className="dashboard-main">

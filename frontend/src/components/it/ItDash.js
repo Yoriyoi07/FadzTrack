@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import api from '../../api/axiosInstance'; // Use Axios instance!
+import { useNavigate } from 'react-router-dom';
+import api from '../../api/axiosInstance';
 import { exportAccountsPdf } from '../../utils/accountsPdf';
 import '../style/it_style/It_Dash.css';
-// Nav icons
-import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaClipboardList, FaFilePdf } from 'react-icons/fa';
+import { FaFilePdf } from 'react-icons/fa';
+import AppHeader from '../layout/AppHeader';
 
 const ItDash = () => {
   const [user, setUser] = useState(() => {
@@ -26,8 +26,7 @@ const ItDash = () => {
   const [resendError, setResendError] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
   const navigate = useNavigate();
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  // Unified header removes need for local profile menu / collapse state
 
   const itemsPerPage = 10;
 
@@ -69,28 +68,7 @@ const ItDash = () => {
     setErrors((prev) => ({ ...prev, [name]: errorMsg }));
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.user-profile')) {
-        setProfileMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('click', handleClickOutside);
-
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      setIsHeaderCollapsed(scrollTop > 50);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  // Removed legacy header scroll/click handlers (handled by AppHeader styling if needed)
 
 const handleLogout = () => {
   const token = localStorage.getItem('token');
@@ -435,67 +413,7 @@ const handleLogout = () => {
 
   return (
     <div className="fadztrack-app-IT">
-      <div className="head-IT">
-        {/* Modern Header (PM-style) */}
-        <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-          <div className="header-top">
-            <div className="logo-section">
-              <img
-                src={require('../../assets/images/FadzLogo1.png')}
-                alt="FadzTrack Logo"
-                className="header-logo"
-              />
-              <h1 className="header-brand">FadzTrack</h1>
-            </div>
-
-            <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-              <div className="profile-avatar">
-                {userName ? userName.charAt(0).toUpperCase() : 'I'}
-              </div>
-              <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-                <span className="profile-name">{userName}</span>
-                <span className="profile-role">{userRole}</span>
-              </div>
-              {profileMenuOpen && (
-                <div className="profile-dropdown">
-                  <button onClick={handleLogout} className="logout-btn">
-                    <span>Logout</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="header-bottom">
-            <nav className="header-nav">
-              <Link to="/it" className="nav-item active">
-                <FaTachometerAlt />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-              </Link>
-              <Link to="/it/chat" className="nav-item">
-                <FaComments />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-              </Link>
-              <Link to="/it/material-list" className="nav-item">
-                <FaBoxes />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Materials</span>
-              </Link>
-              <Link to="/it/manpower-list" className="nav-item">
-                <FaUsers />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-              </Link>
-              <Link to="/it/auditlogs" className="nav-item">
-                <FaClipboardList />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Audit Logs</span>
-              </Link>
-              <Link to="/it/projects" className="nav-item">
-                <FaClipboardList />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
-              </Link>
-            </nav>
-          </div>
-        </header>
-      </div>
+      <AppHeader roleSegment="it" onLogout={handleLogout} />
       <div className="main-content-IT">
         <aside className="sidebar-IT">
           {renderSidebar()}

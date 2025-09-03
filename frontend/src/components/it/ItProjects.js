@@ -6,6 +6,7 @@ import '../style/it_style/It_Projects.css';
 import '../style/am_style/Area_Projects.css';
 import NotificationBell from '../NotificationBell';
 import { generateProjectPDF } from '../../utils/projectPdf';
+import AppHeader from '../layout/AppHeader';
 import { 
   FaTachometerAlt, 
   FaComments, 
@@ -77,6 +78,32 @@ export default function ItProjects(){
     dateFrom: '',
     dateTo: ''
   });
+  // Live preview list of projects matching export filters
+  const exportPreview = useMemo(()=>{
+    return projects.filter(project => {
+      if (exportFilters.status !== 'all') {
+        const st = (project.status || '').toLowerCase();
+        if (exportFilters.status === 'completed' && st !== 'completed') return false;
+        if (exportFilters.status === 'ongoing' && !['ongoing','on going'].includes(st)) return false;
+        if (exportFilters.status === 'pending' && !['pending','not started'].includes(st)) return false;
+      }
+      if (exportFilters.search) {
+        const q = exportFilters.search.toLowerCase();
+        const match = [project.projectName, project.location?.name, project.projectmanager?.name, project.contractor]
+          .some(v => (v || '').toLowerCase().includes(q));
+        if (!match) return false;
+      }
+      if (exportFilters.dateFrom) {
+        const sd = project.startDate ? new Date(project.startDate) : null;
+        if (sd && sd < new Date(exportFilters.dateFrom)) return false;
+      }
+      if (exportFilters.dateTo) {
+        const sd = project.startDate ? new Date(project.startDate) : null;
+        if (sd && sd > new Date(exportFilters.dateTo)) return false;
+      }
+      return true;
+    });
+  }, [projects, exportFilters]);
   
   // New state for AM-style layout
   const [filter, setFilter] = useState('all');
@@ -251,45 +278,13 @@ export default function ItProjects(){
 
   // Export function
   const exportProjects = () => {
-    // Filter projects based on export filters
-    const filteredProjects = projects.filter(project => {
-      // Status filter
-      if (exportFilters.status !== 'all') {
-        if (exportFilters.status === 'completed' && project.status !== 'Completed') return false;
-        if (exportFilters.status === 'ongoing' && !['Ongoing', 'On Going'].includes(project.status)) return false;
-        if (exportFilters.status === 'pending' && !['Pending', 'Not Started'].includes(project.status)) return false;
-      }
-      
-      // Search filter
-      if (exportFilters.search) {
-        const searchLower = exportFilters.search.toLowerCase();
-        const matches = (
-          project.projectName?.toLowerCase().includes(searchLower) ||
-          project.location?.name?.toLowerCase().includes(searchLower) ||
-          project.projectmanager?.name?.toLowerCase().includes(searchLower) ||
-          project.contractor?.toLowerCase().includes(searchLower)
-        );
-        if (!matches) return false;
-      }
-      
-      // Date range filter
-      if (exportFilters.dateFrom || exportFilters.dateTo) {
-        const startDate = project.startDate ? new Date(project.startDate) : null;
-        if (exportFilters.dateFrom && startDate && startDate < new Date(exportFilters.dateFrom)) return false;
-        if (exportFilters.dateTo && startDate && startDate > new Date(exportFilters.dateTo)) return false;
-      }
-      
-      return true;
-    });
-
-    // Generate PDF content
     const pdfContent = {
       companyName: 'FadzTrack',
       companyLogo: require('../../assets/images/FadzLogo1.png'),
       exportedBy: userName,
       exportDate: new Date().toLocaleDateString(),
       filters: exportFilters,
-      projects: filteredProjects.map(project => ({
+      projects: exportPreview.map(project => ({
         name: project.projectName,
         area: project.location?.name || 'N/A',
         pm: project.projectmanager?.name || 'N/A',
@@ -300,8 +295,12 @@ export default function ItProjects(){
       }))
     };
 
-    // Create and download PDF
-    generateProjectPDF(pdfContent);
+    try {
+      generateProjectPDF(pdfContent);
+    } catch (e) {
+      console.error('PDF generation failed', e);
+      alert('PDF generation failed. See console for details.');
+    }
     setShowExportModal(false);
   };
 
@@ -409,72 +408,9 @@ export default function ItProjects(){
 
   return (
     <div className="dashboard-container">
-      {/* Modern Header */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo and Profile */}
-        <div className="header-top">
-          <div className="logo-section" onClick={() => navigate('/it')} style={{ cursor: 'pointer' }}>
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'I'}
-            </div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/it" className="nav-item">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/it/chat" className="nav-item">
-              <FaComments />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span>
-            </Link>
-            <Link to="/it/material-list" className="nav-item">
-              <FaBoxes />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Materials</span>
-            </Link>
-            <Link to="/it/manpower-list" className="nav-item">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
-            <Link to="/it/auditlogs" className="nav-item">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Audit Logs</span>
-            </Link>
-            <Link to="/it/projects" className="nav-item active">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span>
-            </Link>
-          </nav>
-
-          <NotificationBell />
-        </div>
-      </header>
-
-             {/* Main Content */}
-       <main className="dashboard-main">
+      <AppHeader roleSegment="it" />
+      {/* Main Content */}
+      <main className="dashboard-main">
          {/* Success Message */}
          {showSuccessMessage && (
            <div className="success-message" style={{
@@ -912,12 +848,24 @@ export default function ItProjects(){
                 {exportFilters.search && <p>Search: "{exportFilters.search}"</p>}
                 {exportFilters.dateFrom && <p>From Date: {exportFilters.dateFrom}</p>}
                 {exportFilters.dateTo && <p>To Date: {exportFilters.dateTo}</p>}
+                <p>Matching Projects: {exportPreview.length}</p>
+                {exportPreview.length>0 && (
+                  <div style={{ maxHeight:120, overflowY:'auto', border:'1px solid #e5e7eb', borderRadius:4, padding:6, background:'#f9fafb', fontSize:12 }}>
+                    {exportPreview.slice(0,8).map(p => (
+                      <div key={p._id} style={{ display:'flex', justifyContent:'space-between', gap:8 }}>
+                        <span style={{ flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{p.projectName}</span>
+                        <span style={{ opacity:.7 }}>{p.status}</span>
+                      </div>
+                    ))}
+                    {exportPreview.length>8 && <div style={{ textAlign:'center', fontStyle:'italic', marginTop:4 }}>+ {exportPreview.length-8} more…</div>}
+                  </div>
+                )}
               </div>
             </div>
             
             <div style={{display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem'}}>
               <button onClick={() => setShowExportModal(false)}>Cancel</button>
-              <button onClick={exportProjects} style={{background: '#3b82f6', color: 'white'}}>
+              <button onClick={exportProjects} disabled={exportPreview.length===0} style={{background: exportPreview.length? '#3b82f6':'#94a3b8', color: 'white'}}>
                 Export to PDF
               </button>
             </div>
