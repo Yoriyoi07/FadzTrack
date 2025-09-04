@@ -142,8 +142,15 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   const [mentionDropdown,setMentionDropdown]=useState({open:false,options:[],query:'',position:{top:0,left:0},activeInputId:null});
   const [projectUsers,setProjectUsers]=useState([]); const [fileSignedUrls,setFileSignedUrls]=useState({}); const [fileSearchTerm,setFileSearchTerm]=useState('');
   const [reports,setReports]=useState([]);
+  const [attendanceReports,setAttendanceReports]=useState([]);
+  const [attUploading,setAttUploading]=useState(false);
+  const [attError,setAttError]=useState('');
+  const [attendanceAI,setAttendanceAI]=useState(null);
   const [showCompleteConfirm,setShowCompleteConfirm]=useState(false);
   const [statusUpdating,setStatusUpdating]=useState(false);
+  // Load attendance reports when Attendance tab selected
+  useEffect(()=>{ if(activeTab!=='Attendance' || !project?._id) return; (async()=>{ try { const list=await api.get(`/projects/${project._id}/attendance`,{ headers:{Authorization:`Bearer ${token}`}}); const reps=list.data?.reports||[]; setAttendanceReports(reps); // pick latest AI summary
+    if(reps.length){ const latest = reps[reps.length-1]; setAttendanceAI(latest.ai||null);} else setAttendanceAI(null); } catch { setAttendanceReports([]); } })(); },[activeTab,project?._id,token]);
   // Realtime socket refs
   const socketRef = useRef(null);
   const joinedProjectRef = useRef(null);
@@ -478,6 +485,10 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
               <FaRegFileAlt />
               <span>Reports</span>
             </button>
+            <button className={`project-tab ${activeTab === 'Attendance' ? 'active' : ''}`} onClick={() => setActiveTab('Attendance')}>
+              <FaRegFileAlt />
+              <span>Attendance</span>
+            </button>
           </div>
           <div className="tab-content">
             {/* DETAILS TAB */}
@@ -742,7 +753,11 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                       <div className="member-info">
                         <h4 className="member-role">HR Site</h4>
                         <p className="member-name">
-                            {hrSiteNames.length ? hrSiteNames.join(', ') : (Array.isArray(project?.hrsite) && project.hrsite.length ? `${project.hrsite.length} assigned` : 'N/A')}
+                          {hrSiteNames.length
+                            ? hrSiteNames.join(', ')
+                            : (Array.isArray(project?.hrsite) && project.hrsite.length
+                                ? `${project.hrsite.length} assigned`
+                                : (role==='hrsite' ? (userName || 'You') : 'N/A'))}
                         </p>
                       </div>
                     </div>
@@ -753,7 +768,11 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                       <div className="member-info">
                         <h4 className="member-role">Staff</h4>
                         <p className="member-name">
-                            {staffNames.length ? staffNames.join(', ') : (Array.isArray(project?.staff) && project.staff.length ? `${project.staff.length} assigned` : 'N/A')}
+                          {staffNames.length
+                            ? staffNames.join(', ')
+                            : (Array.isArray(project?.staff) && project.staff.length
+                                ? `${project.staff.length} assigned`
+                                : (role==='staff' ? (userName || 'You') : 'N/A'))}
                         </p>
                       </div>
                     </div>
@@ -1360,6 +1379,66 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                           </div>
                         </div>
                       </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            {activeTab === 'Attendance' && (
+              <div className="attendance-tab" style={{textAlign:'left'}}>
+                <h3 style={{margin:'0 0 16px'}}>Attendance Reports</h3>
+                <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',marginBottom:16}}>
+                  <label style={{background:'#0f172a',color:'#fff',padding:'8px 14px',borderRadius:8,fontSize:14,cursor: attUploading? 'not-allowed':'pointer',opacity: attUploading? .6:1}}>
+                    {attUploading? 'Uploading...' : 'Upload Schedule (.xlsx)'}
+                    <input type="file" accept=".xls,.xlsx" style={{display:'none'}} disabled={attUploading} onChange={async e=>{ const f=e.target.files?.[0]; if(!f||!project?._id) return; setAttError(''); setAttUploading(true); try { const fd=new FormData(); fd.append('schedule',f); await api.post(`/projects/${project._id}/attendance/upload`,fd,{ headers:{Authorization:`Bearer ${token}`}}); // refresh list
+                      const list=await api.get(`/projects/${project._id}/attendance`,{ headers:{Authorization:`Bearer ${token}`}}); setAttendanceReports(list.data?.reports||[]); } catch(err){ setAttError('Upload failed'); } finally { setAttUploading(false); e.target.value=''; } }} />
+                  </label>
+                  <button onClick={async()=>{ if(!project?._id) return; try { const list=await api.get(`/projects/${project._id}/attendance`,{ headers:{Authorization:`Bearer ${token}`}}); setAttendanceReports(list.data?.reports||[]); } catch { setAttError('Refresh failed'); } }} style={{background:'#334155',color:'#fff',border:'none',padding:'8px 14px',borderRadius:8,cursor:'pointer'}}>Refresh</button>
+                  {attError && <span style={{color:'#b91c1c',fontWeight:600}}>{attError}</span>}
+                </div>
+                {attendanceReports.length===0 ? (
+                  <div style={{color:'#666'}}>No attendance reports yet.</div>
+                ) : (
+                  <table className="files-table" style={{width:'100%',borderCollapse:'collapse'}}>
+                    <thead>
+                      <tr>
+                        <th style={{textAlign:'left',padding:'8px'}}>Original File</th>
+                        <th style={{textAlign:'left',padding:'8px'}}>Generated At</th>
+                        <th style={{textAlign:'left',padding:'8px'}}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {attendanceReports.slice().reverse().map((r,i)=>(
+                        <tr key={i} style={{borderTop:'1px solid #eee'}}>
+                          <td style={{padding:'8px'}}>{r.originalName}</td>
+                          <td style={{padding:'8px'}}>{r.generatedAt? new Date(r.generatedAt).toLocaleString(): 'N/A'}</td>
+                          <td style={{padding:'8px',display:'flex',gap:8}}>
+                            <button onClick={async()=>{ try { const {data}=await api.get(`/projects/${project._id}/attendance-signed-url`,{ params:{ path:r.inputPath}, headers:{Authorization:`Bearer ${token}`}}); if(data?.signedUrl) window.open(data.signedUrl,'_blank'); } catch {} }} className="btn small">Input</button>
+                            <button onClick={async()=>{ try { const {data}=await api.get(`/projects/${project._id}/attendance-signed-url`,{ params:{ path:r.outputPath}, headers:{Authorization:`Bearer ${token}`}}); if(data?.signedUrl) window.open(data.signedUrl,'_blank'); } catch {} }} className="btn small primary">Output</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {attendanceAI && (
+                  <div style={{marginTop:24,background:'#f8fafc',padding:16,border:'1px solid #e2e8f0',borderRadius:12}}>
+                    <h4 style={{marginTop:0}}>AI Attendance Summary</h4>
+                    {attendanceAI.insights && attendanceAI.insights.length>0 && (
+                      <ul style={{marginTop:8}}>
+                        {attendanceAI.insights.map((i,idx)=> <li key={idx}>{i}</li>)}
+                      </ul>
+                    )}
+                    {attendanceAI.top_absent && attendanceAI.top_absent.length>0 && (
+                      <div style={{marginTop:12}}>
+                        <b>Most Absent:</b>
+                        <ol style={{marginTop:6}}>
+                          {attendanceAI.top_absent.map((t,idx)=> <li key={idx}>{t.name}: {t.absent}</li>)}
+                        </ol>
+                      </div>
+                    )}
+                    {attendanceAI.average_attendance && (
+                      <p style={{marginTop:12}}><b>Average Attendance:</b> {attendanceAI.average_attendance}%</p>
                     )}
                   </div>
                 )}

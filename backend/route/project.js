@@ -79,4 +79,9 @@ router.get('/:id/reports', verifyToken, controller.getProjectReports);
 router.get('/:id/reports-signed-url', verifyToken, controller.getReportSignedUrl);
 router.delete('/:id/reports/:reportId', verifyToken, controller.deleteProjectReport);
 
+/* ---------- Attendance (Excel) ---------- */
+router.post('/:id/attendance/upload', verifyToken, upload.single('schedule'), controller.uploadAttendanceSchedule);
+router.get('/:id/attendance', verifyToken, controller.listAttendanceReports);
+router.get('/:id/attendance-signed-url', verifyToken, controller.getAttendanceSignedUrl);
+
 module.exports = router;

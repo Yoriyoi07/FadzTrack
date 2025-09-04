@@ -89,6 +89,15 @@ const projectSchema = new mongoose.Schema({
 
   // Reports tab (AI)
   reports: [reportSchema],
+  // Attendance generated Excel outputs
+  attendanceReports: [{
+    originalName: String,
+    inputPath: String,     // stored raw uploaded schedule file path
+    outputPath: String,    // generated attendance workbook path
+    generatedAt: Date,
+  generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  ai: mongoose.Schema.Types.Mixed
+  }],
 
   location: { type: mongoose.Schema.Types.ObjectId, ref: 'Location', required: true },
   startDate: { type: Date, required: true },

@@ -9,6 +9,11 @@ const Chat = require('../models/Chats');
 const PDFDocument = require('pdfkit');
 const { Server } = require("socket.io");
 const { createAndEmitNotification } = require('../controllers/notificationController');
+const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
+// Reuse axios for AI summary of attendance
+// (Gemini key pulled from env like other AI usage in file)
+const GEMINI_API_KEY_ATT = process.env.GEMINI_API_KEY;
 
 
 
@@ -773,9 +778,13 @@ exports.getAssignedProjectsAllRoles = async (req, res) => {
       status: 'Ongoing',
       isDeleted: { $ne: true } // Exclude soft-deleted projects
     })
-      .select('projectName photos budget startDate endDate status location pic projectmanager manpower documents')
-      .populate('projectmanager', 'name')
-      .populate('pic', 'name')
+      // Include staff / hrsite / areamanager so caller (e.g. Area Manager header, staff/hrsite fallback) can resolve names
+      .select('projectName photos budget startDate endDate status location pic staff hrsite projectmanager areamanager manpower documents')
+      .populate('projectmanager', 'name email')
+      .populate('areamanager', 'name email')
+      .populate('pic', 'name email')
+      .populate('staff', 'name email')
+      .populate('hrsite', 'name email')
       .populate('location', 'name region')
       .populate('manpower', 'name position')
       .populate('contractor', 'name company companyName displayName');
@@ -791,7 +800,8 @@ exports.getAssignedProjectsAllRoles = async (req, res) => {
 exports.getUnassignedPICs = async (req, res) => {
   try {
     const candidates = await User.find({ role: 'Person in Charge' }, 'name role');
-    const projects = await Project.find({ isDeleted: { $ne: true } }, 'pic'); // Exclude soft-deleted projects
+    // Only treat users as "busy" if they are on an ongoing project (completed projects free them up)
+    const projects = await Project.find({ isDeleted: { $ne: true }, status: 'Ongoing' }, 'pic status');
     const assigned = new Set();
     projects.forEach(p => Array.isArray(p.pic) && p.pic.forEach(id => assigned.add(id.toString())));
     const unassigned = candidates.filter(u => !assigned.has(u._id.toString()));
@@ -803,7 +813,7 @@ exports.getUnassignedPICs = async (req, res) => {
 exports.getUnassignedStaff = async (req, res) => {
   try {
     const candidates = await User.find({ role: 'Staff' }, 'name role');
-    const projects = await Project.find({ isDeleted: { $ne: true } }, 'staff'); // Exclude soft-deleted projects
+    const projects = await Project.find({ isDeleted: { $ne: true }, status: 'Ongoing' }, 'staff status');
     const assigned = new Set();
     projects.forEach(p => Array.isArray(p.staff) && p.staff.forEach(id => assigned.add(id.toString())));
     const unassigned = candidates.filter(u => !assigned.has(u._id.toString()));
@@ -815,7 +825,7 @@ exports.getUnassignedStaff = async (req, res) => {
 exports.getUnassignedHR = async (req, res) => {
   try {
     const candidates = await User.find({ role: 'HR - Site' }, 'name role');
-    const projects = await Project.find({ isDeleted: { $ne: true } }, 'hrsite'); // Exclude soft-deleted projects
+    const projects = await Project.find({ isDeleted: { $ne: true }, status: 'Ongoing' }, 'hrsite status');
     const assigned = new Set();
     projects.forEach(p => Array.isArray(p.hrsite) && p.hrsite.forEach(id => assigned.add(id.toString())));
     const unassigned = candidates.filter(u => !assigned.has(u._id.toString()));
@@ -1884,6 +1894,195 @@ exports.uploadProjectReport = async (req, res) => {
   } catch (err) {
     console.error('uploadProjectReport error:', err);
     return res.status(500).json({ message: 'Upload/AI failed', details: err.message });
+  }
+};
+
+/* ====================== ATTENDANCE (Excel) ====================== */
+// Helper: parse schedule sheet -> normalized attendance rows
+function parseScheduleWorkbook(buf){
+  const wb = XLSX.read(buf, { type:'buffer' });
+  const sheetName = wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const json = XLSX.utils.sheet_to_json(ws, { header:1, blankrows:false });
+  let headerIdx = json.findIndex(r => Array.isArray(r) && r.some(c=> String(c).toLowerCase()==='id') && r.some(c=> String(c).toLowerCase().includes('name')));
+  if(headerIdx===-1) headerIdx=0;
+  const header = json[headerIdx];
+  const dayCols = header.map((c,i)=> ({ name:String(c||'').trim(), idx:i })).filter(h=> /^\d+$/.test(h.name));
+  const rows = [];
+  for(let i=headerIdx+1;i<json.length;i++){
+    const row = json[i]; if(!row || !row.length) continue;
+    const id = row[0]; const name = row[1];
+    if(!name) continue;
+    const daysRaw = {};
+    dayCols.forEach(dc=> { const v=row[dc.idx]; if(v!=null && v!=='') daysRaw[dc.name]=String(v); });
+    rows.push({ id, name, daysRaw });
+  }
+  return { rows, dayCols: dayCols.map(d=> d.name) };
+}
+
+// Normalize raw cell value -> status code and optional time
+function interpretCell(val){
+  if(val==null) return { code:'', time:null };
+  const v = String(val).trim();
+  if(!v) return { code:'', time:null };
+  // Direct status letters (case-insensitive)
+  const upper = v.toUpperCase();
+  const direct = ['A','P','L','EO','SE','AL','R','HD'];
+  if(direct.includes(upper)) return { code: upper, time:null };
+  // Time like 7:03 or 07:27 -> Present, tardy if >=7:01
+  const tm = v.match(/^(\d{1,2}):(\d{2})$/);
+  if(tm){
+    const hh = parseInt(tm[1],10); const mm = parseInt(tm[2],10);
+    const mins = hh*60+mm;
+    // Assume 7:00 (420 mins) is on-time threshold
+    const tardy = mins>420; // >7:00
+    return { code: tardy? 'L':'P', time:v };
+  }
+  // Hyphen or 00 treat as absent
+  if(/^(--|00|0)$/.test(v)) return { code:'A', time:null };
+  return { code: upper.slice(0,3), time:null };
+}
+
+function enrichRows(parsed){
+  const { rows, dayCols } = parsed;
+  const enriched = rows.map(r=>{
+    const days = {};
+    let totals = { P:0, A:0, L:0, EO:0, SE:0, AL:0, R:0, HD:0 };
+    let tardyTimes = [];
+    dayCols.forEach(d=>{
+      const cell = r.daysRaw[d];
+      if(cell==null) return;
+      const { code, time } = interpretCell(cell);
+      if(code){
+        days[d] = { code, time };
+        if(totals[code]!==undefined) totals[code]++;
+        if(code==='L' && time) tardyTimes.push(time);
+      }
+    });
+    const totalDays = dayCols.length;
+    const attendanceRate = totalDays? ((totals.P + totals.L + totals.HD)/(totalDays - totals.AL - totals.SE)).toFixed(2):'0.00';
+    return { ...r, days, totals, attendanceRate };
+  });
+  // Project-level analytics
+  const summary = { totalEmployees: enriched.length, avgAttendance:0, totalAbsent:0 };
+  if(enriched.length){
+    summary.totalAbsent = enriched.reduce((s,e)=> s+e.totals.A,0);
+    summary.avgAttendance = (enriched.reduce((s,e)=> s+Number(e.attendanceRate),0)/enriched.length).toFixed(2);
+  }
+  return { enriched, summary };
+}
+
+// Generate simplified output workbook similar to attendance monitor (AI placeholder rule-based now)
+async function buildAttendanceWorkbook(parsed, aiSummary){
+  const dayCols = parsed.dayCols;
+  const { enriched, summary } = enrichRows(parsed);
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Attendance');
+  const header = ['Name','Position','P','L','A','AL','EO','SE','R','HD','Attendance%', ...dayCols];
+  ws.addRow(header);
+  const headerStyle = { bold:true, color:{ argb:'FFFFFFFF' }, fgColor:{ argb:'FF1E293B' } };
+  ws.getRow(1).eachCell(c=>{ c.font={ bold:true, color:{argb:'FFFFFFFF'} }; c.fill={ type:'pattern', pattern:'solid', fgColor:{argb:'FF1E293B'} }; c.alignment={ vertical:'middle', horizontal:'center' }; });
+  const colorMap = {
+    P:'FFDCFCE7', // green tint
+    L:'FFFDE68A', // yellow
+    A:'FFFCA5A5', // red
+    AL:'FFDDD6FE',
+    EO:'FFE0F2FE',
+    SE:'FFF5D0FE',
+    R:'FFD1FAE5',
+    HD:'FFFAE8B4'
+  };
+  enriched.forEach(r=>{
+    const position='';
+    const base = [r.name, position, r.totals.P, r.totals.L, r.totals.A, r.totals.AL, r.totals.EO, r.totals.SE, r.totals.R, r.totals.HD, r.attendanceRate];
+    const dayVals = dayCols.map(d=>{ const cell=r.days[d]; return cell? (cell.time || cell.code):''; });
+    const row = ws.addRow([...base, ...dayVals]);
+    // Apply fill colors for daily cells
+    dayCols.forEach((d,idx)=>{
+      const cellObj = r.days[d];
+      const excelCell = row.getCell(header.length - dayCols.length + idx);
+      const code = cellObj?.code;
+      if(code && colorMap[code]){
+        excelCell.fill={ type:'pattern', pattern:'solid', fgColor:{argb:colorMap[code]} };
+      }
+    });
+  });
+  ws.addRow([]);
+  ws.addRow(['Summary','',`Employees: ${summary.totalEmployees}`,`Avg Attendance: ${summary.avgAttendance}%`,`Total Absent Marks: ${summary.totalAbsent}`]);
+  if(aiSummary){
+    const aiSheet = wb.addWorksheet('AI Summary');
+    aiSheet.addRow(['Insights']);
+    (aiSummary.insights||[]).forEach(i=> aiSheet.addRow([i]));
+    aiSheet.addRow([]);
+    aiSheet.addRow(['Top Absent']);
+    (aiSummary.top_absent||[]).forEach(t=> aiSheet.addRow([`${t.name}: ${t.absent}`]));
+    aiSheet.addRow([]); aiSheet.addRow(['Average Attendance', aiSummary.average_attendance]);
+    aiSheet.getColumn(1).width = 60;
+  }
+  return await wb.xlsx.writeBuffer();
+}
+
+exports.uploadAttendanceSchedule = async (req,res)=>{
+  try {
+    const { id } = req.params;
+    const project = await Project.findById(id);
+    if(!project) return res.status(404).json({ message:'Project not found' });
+    if(!req.file) return res.status(400).json({ message:'Missing file' });
+    const buf = req.file.buffer;
+    const parsed = parseScheduleWorkbook(buf);
+  // AI Summary created further below; generate after AI call so workbook can include it
+    // Re-run enrichRows to derive summary JSON for AI explanation
+  const { enriched, summary } = enrichRows(parsed);
+    let aiSummary = null;
+    if(GEMINI_API_KEY_ATT){
+      try {
+        const plain = enriched.slice(0,50).map(e=> ({ name:e.name, totals:e.totals, rate:e.attendanceRate })).slice(0,50); // cap prompt size
+      const prompt = `You are an attendance analyst. Given this JSON of attendance counts per worker and overall summary, produce:\n- 3 key insights\n- top 3 most absent employees (name & absent days)\n- average attendance percentage stated clearly\nReturn JSON with keys insights (array of short sentences), top_absent (array of {name, absent}), average_attendance (number).\nDATA:\nSummary: ${JSON.stringify(summary)}\nRows: ${JSON.stringify(plain)}`;
+        const aiRes = await axios.post(`https://generativelanguage.googleapis.com/v1/models/gemini-1.0-pro-latest:generateContent?key=${GEMINI_API_KEY_ATT}`,{ contents:[{ parts:[{ text: prompt }]}]});
+        const raw = aiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        try { aiSummary = JSON.parse(raw); } catch { aiSummary = { raw }; }
+      } catch(aiErr){ console.warn('Attendance AI summary failed:', aiErr.message); }
+    }
+    // Store to supabase
+    const ts = Date.now();
+    const baseName = req.file.originalname.replace(/[^a-zA-Z0-9._-]/g,'_');
+    const inputPath = `attendance/${project._id}/input-${ts}-${baseName}`;
+    const outputPath = `attendance/${project._id}/output-${ts}-${baseName}`;
+    const up1 = await supabase.storage.from('documents').upload(inputPath, buf, { upsert:true, contentType:req.file.mimetype });
+  // Build workbook (after AI summary) with color & AI sheet
+  const styledBuf = await buildAttendanceWorkbook(parsed, aiSummary);
+  const up2 = await supabase.storage.from('documents').upload(outputPath, Buffer.from(styledBuf), { upsert:true, contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    if(up1.error||up2.error) return res.status(500).json({ message:'Failed to store files' });
+    project.attendanceReports = project.attendanceReports || [];
+  project.attendanceReports.push({ originalName:req.file.originalname, inputPath, outputPath, generatedAt:new Date(), generatedBy:req.user?.id, ai: aiSummary });
+    await project.save();
+    res.json({ message:'Attendance processed', report: project.attendanceReports.at(-1) });
+  } catch(e){
+    console.error('Attendance upload failed', e);
+    res.status(500).json({ message:'Failed to process attendance' });
+  }
+};
+
+exports.listAttendanceReports = async (req,res)=>{
+  try {
+    const { id } = req.params;
+    const project = await Project.findById(id).select('attendanceReports');
+    if(!project) return res.status(404).json({ message:'Project not found' });
+    res.json({ reports: project.attendanceReports||[] });
+  } catch(e){
+    res.status(500).json({ message:'Failed to list attendance reports' });
+  }
+};
+
+exports.getAttendanceSignedUrl = async (req,res)=>{
+  try {
+    const { path } = req.query;
+    if(!path) return res.status(400).json({ message:'Missing path' });
+    const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, 60*10);
+    if(error||!data?.signedUrl) return res.status(500).json({ message:'Failed to sign url' });
+    res.json({ signedUrl: data.signedUrl });
+  } catch(e){
+    res.status(500).json({ message:'Failed to sign attendance url' });
   }
 };
 

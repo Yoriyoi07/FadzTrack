@@ -124,9 +124,16 @@ router.get('/assigned/:userId', async (req, res) => {
     const projects = await Project.find({
       $or: [
         { projectmanager: userId },
-        { pic: userId }
+        { pic: userId },
+        { staff: userId },
+        { hrsite: userId },
+        { areamanager: userId }
       ]
-    });
+    })
+      .populate('projectmanager','name')
+      .populate('pic','name')
+      .populate('staff','name')
+      .populate('hrsite','name');
     return res.json(projects);
   } catch (err) {
     console.error('❌ GET /api/users/assigned/:userId error:', err);

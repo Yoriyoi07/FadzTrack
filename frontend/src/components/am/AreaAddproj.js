@@ -1,14 +1,12 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import '../style/am_style/Area_Addproj.css';
 import '../style/am_style/Area_Dash.css';
 import Papa from 'papaparse';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
-
-// React Icons
-import { FaTachometerAlt, FaComments, FaBoxes, FaUsers, FaProjectDiagram, FaClipboardList, FaChartBar } from 'react-icons/fa';
+import AppHeader from '../layout/AppHeader';
 
 const AreaAddproj = () => {
   const navigate = useNavigate();
@@ -17,8 +15,7 @@ const AreaAddproj = () => {
   const userId = user?._id;
   const [documents, setDocuments] = useState([]);
   const [userName, setUserName] = useState(user?.name || 'ALECK');
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+  // Unified header: remove local profile menu/collapse state
   const [eligiblePMs, setEligiblePMs] = useState([]);
 
   // For PIC/Staff/HR panels
@@ -436,24 +433,7 @@ const AreaAddproj = () => {
     }
   };
 
-  // Collapse header on scroll (reuse dashboard behavior)
-  useEffect(()=>{
-    const onScroll = () => {
-      const st = window.pageYOffset || document.documentElement.scrollTop;
-      setIsHeaderCollapsed(st>50);
-    };
-    window.addEventListener('scroll', onScroll, { passive:true });
-    return () => window.removeEventListener('scroll', onScroll);
-  },[]);
-
-  // Logout
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".profile-menu-container")) setProfileMenuOpen(false);
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
+  // Unified header: logout handler for AppHeader
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -462,146 +442,107 @@ const AreaAddproj = () => {
 
   return (
     <div>
-      {/* Modern Unified Header (matching dashboard) */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        <div className="header-top">
-          <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          <div className="user-profile profile-menu-container" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">{userName ? userName.charAt(0).toUpperCase() : 'A'}</div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">Area Manager</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/am" className="nav-item"><FaTachometerAlt /><span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span></Link>
-            <Link to="/am/chat" className="nav-item"><FaComments /><span className={isHeaderCollapsed ? 'hidden' : ''}>Chat</span></Link>
-            <Link to="/am/matreq" className="nav-item"><FaBoxes /><span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span></Link>
-            <Link to="/am/manpower-requests" className="nav-item"><FaUsers /><span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span></Link>
-            <Link to="/am/viewproj" className="nav-item"><FaProjectDiagram /><span className={isHeaderCollapsed ? 'hidden' : ''}>Projects</span></Link>
-            <Link to="/logs" className="nav-item"><FaClipboardList /><span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span></Link>
-            <Link to="/reports" className="nav-item"><FaChartBar /><span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span></Link>
-          </nav>
-          <NotificationBell />
-        </div>
-      </header>
-
+      {/* Unified AppHeader for Area Manager */}
+      <AppHeader roleSegment="am" onLogout={handleLogout} />
 
       {/* Main Form */}
       <main className="area-addproj-main-content">
         <div className="area-addproj-form-container">
           <h2 className="area-addproj-page-title">Add New Project</h2>
           <form onSubmit={handleSubmit} className="area-addproj-project-form">
-
             {/* Project Details Card */}
             <div className="section-card meta-card">
               <div className="section-card-header"><h3>Project Details</h3><span className="section-hint">Core information</span></div>
               <div className="area-addproj-field-grid">
-              <div className="area-addproj-form-group grid-span-2">
-                <label htmlFor="projectName">Project Name</label>
-                <input
-                  type="text"
-                  id="projectName"
-                  name="projectName"
-                  placeholder="Enter project name"
-                  value={formData.projectName}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="area-addproj-form-group">
-                <label htmlFor="contractor">Contractor</label>
-                <input
-                  type="text"
-                  id="contractor"
-                  name="contractor"
-                  placeholder="Enter contractor details"
-                  value={formData.contractor}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="area-addproj-form-group">
-                <label htmlFor="projectmanager">Project Manager</label>
-                <select
-                  id="projectmanager"
-                  name="projectmanager"
-                  value={formData.projectmanager}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="">-- Select Project Manager --</option>
-                  {eligiblePMs.map((user) => (
-                    <option key={user._id} value={user._id}>{user.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="area-addproj-form-group">
-                <label htmlFor="budget">Budget</label>
-                <input
-                  type="number"
-                  id="budget"
-                  name="budget"
-                  placeholder="Enter Budget Details"
-                  value={formData.budget}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="area-addproj-form-group">
-                <label htmlFor="location">Location</label>
-                <select
-                  id="location"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="">-- Select Location --</option>
-                  {assignedLocations.map(loc => (
-                    <option key={loc._id} value={loc._id}>{loc.name} ({loc.region})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="area-addproj-form-group">
-                <label htmlFor="startDate">Start Date</label>
-                <input
-                  type="date"
-                  id="startDate"
-                  name="startDate"
-                  value={formData.startDate}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div className="area-addproj-form-group">
-                <label htmlFor="endDate">End Date</label>
-                <input
-                  type="date"
-                  id="endDate"
-                  name="endDate"
-                  value={formData.endDate}
-                  onChange={handleChange}
-                  required
-                  min={formData.startDate}
-                />
-              </div>
+                <div className="area-addproj-form-group grid-span-2">
+                  <label htmlFor="projectName">Project Name</label>
+                  <input
+                    type="text"
+                    id="projectName"
+                    name="projectName"
+                    placeholder="Enter project name"
+                    value={formData.projectName}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="area-addproj-form-group">
+                  <label htmlFor="contractor">Contractor</label>
+                  <input
+                    type="text"
+                    id="contractor"
+                    name="contractor"
+                    placeholder="Enter contractor details"
+                    value={formData.contractor}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="area-addproj-form-group">
+                  <label htmlFor="projectmanager">Project Manager</label>
+                  <select
+                    id="projectmanager"
+                    name="projectmanager"
+                    value={formData.projectmanager}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">-- Select Project Manager --</option>
+                    {eligiblePMs.map((user) => (
+                      <option key={user._id} value={user._id}>{user.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="area-addproj-form-group">
+                  <label htmlFor="budget">Budget</label>
+                  <input
+                    type="number"
+                    id="budget"
+                    name="budget"
+                    placeholder="Enter Budget Details"
+                    value={formData.budget}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="area-addproj-form-group">
+                  <label htmlFor="location">Location</label>
+                  <select
+                    id="location"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="">-- Select Location --</option>
+                    {assignedLocations.map(loc => (
+                      <option key={loc._id} value={loc._id}>{loc.name} ({loc.region})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="area-addproj-form-group">
+                  <label htmlFor="startDate">Start Date</label>
+                  <input
+                    type="date"
+                    id="startDate"
+                    name="startDate"
+                    value={formData.startDate}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+                <div className="area-addproj-form-group">
+                  <label htmlFor="endDate">End Date</label>
+                  <input
+                    type="date"
+                    id="endDate"
+                    name="endDate"
+                    value={formData.endDate}
+                    onChange={handleChange}
+                    required
+                    min={formData.startDate}
+                  />
+                </div>
               </div>
             </div>
 
@@ -729,7 +670,6 @@ const AreaAddproj = () => {
                 <p className="summary-note">Review assigned people before submitting.</p>
               </aside>
             </div>
-
 
             {/* Manpower Section */}
             <section className="manpower-section section-card" aria-labelledby="manpower-heading">
