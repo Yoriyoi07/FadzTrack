@@ -68,8 +68,9 @@ function readContractor(p){
 const peso = new Intl.NumberFormat('en-PH',{ style:'currency', currency:'PHP' });
 const mentionRowStyles={ container:{position:'relative',background:'#fffbe6',border:'1px solid #f6c343',boxShadow:'0 0 0 2px rgba(246,195,67,.25) inset',borderRadius:10}, badge:{position:'absolute',top:6,right:6,fontSize:12,lineHeight:'16px',background:'#f6c343',color:'#3a2f00',borderRadius:999,padding:'2px 8px',fontWeight:700}};
 const roleConfigs={
+  pic:{ label:'Person in Charge', permissions:{ image:false,statusToggle:false,uploadFiles:true,deleteFiles:true,postDiscuss:true }, base:'/pic'},
   pm:{ label:'Project Manager', permissions:{ image:true,statusToggle:true,uploadFiles:true,deleteFiles:true,postDiscuss:true }, base:'/pm'},
-  am:{ label:'Area Manager', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:true }, base:'/am'},
+  am:{ label:'Area Manager', permissions:{ image:true,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:true }, base:'/am'},
   ceo:{ label:'CEO', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/ceo'},
   hr:{ label:'HR', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/hr'},
   it:{ label:'IT', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/it'},
@@ -87,6 +88,7 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   const basePath = roleCfg.base;
   // Role-specific route differences (legacy structure mapping)
   const viewProjectPathMap = {
+  pic: `${basePath}/current-project${id?`/${id}`:''}`,
     pm: `${basePath}/viewprojects/${id}`,
     am: `${basePath}/projects/${id}`,
     ceo: `${basePath}/proj/${id}`,
@@ -96,6 +98,7 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   hrsite: `${basePath}/current-project${id?`/${id}`:''}`
   };
   const progressReportPathMap = {
+  pic: `${basePath}/progress-report/${id}`,
     pm: `${basePath}/progress-report/${id}`,
     am: `${basePath}/progress-report/${id}`,
     ceo: `${basePath}/progress-report/${id}`,
@@ -104,6 +107,7 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   hrsite: `${basePath}/progress-report/${id}`
   };
   const dailyLogsPathMap = {
+  pic: `${basePath}/daily-logs-list`,
     pm: `${basePath}/daily-logs-list`,
     am: `${basePath}/daily-logs-list`,
     ceo: `${basePath}/daily-logs-list`,
@@ -142,6 +146,10 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   const [mentionDropdown,setMentionDropdown]=useState({open:false,options:[],query:'',position:{top:0,left:0},activeInputId:null});
   const [projectUsers,setProjectUsers]=useState([]); const [fileSignedUrls,setFileSignedUrls]=useState({}); const [fileSearchTerm,setFileSearchTerm]=useState('');
   const [reports,setReports]=useState([]);
+  // Reports upload (PPTX) for PM & PIC
+  const [reportUploading,setReportUploading]=useState(false);
+  const [reportUploadProgress,setReportUploadProgress]=useState(0);
+  const [reportUploadError,setReportUploadError]=useState('');
   const [attendanceReports,setAttendanceReports]=useState([]);
   const [attUploading,setAttUploading]=useState(false);
   const [attError,setAttError]=useState('');
@@ -160,8 +168,8 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
     (async()=>{
       try {
         if(!id){
-          // Fallback for staff or hrsite roles without explicit project id: pick first assigned project
-            if((role==='staff' || role==='hrsite') && userId){
+          // Fallback for staff/hrsite/pic roles without explicit project id: pick first assigned project
+            if((role==='staff' || role==='hrsite' || role==='pic') && userId){
               try {
                 const { data } = await api.get(`/projects/assigned/allroles/${userId}`);
                 if(cancelled) return;
@@ -223,7 +231,7 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   useEffect(()=>{ const close=e=>{ if(!e.target.closest('.user-profile')) setProfileMenuOpen(false); }; document.addEventListener('click',close); return ()=> document.removeEventListener('click',close); },[]);
   // Live discussions socket (all roles) - single effect with dedup
   useEffect(()=>{
-    if(activeTab !== 'Discussions' || !project?._id){
+    if((activeTab !== 'Discussions' && activeTab !== 'Reports') || !project?._id){
       if(socketRef.current){
         try { socketRef.current.emit('leaveProject', joinedProjectRef.current); } catch {}
         try { socketRef.current.disconnect(); } catch {}
@@ -255,6 +263,39 @@ export default function ProjectView({ role='pm', navItems, permissionsOverride, 
   const handleLogout=()=>{ localStorage.removeItem('token'); localStorage.removeItem('user'); navigate(basePath); };
   const handleFileUpload=async(files)=>{ if(!perms.uploadFiles) return; if(!files?.length||!project?._id) return; setUploading(true); setUploadProgress(0); setUploadError(''); try { const fd=new FormData(); files.forEach(f=> fd.append('files',f)); const it=setInterval(()=> setUploadProgress(p=> p>=90? (clearInterval(it),90):p+10),200); const res=await api.post(`/projects/${project._id}/documents`,fd,{ headers:{Authorization:`Bearer ${token}`,'Content-Type':'multipart/form-data'} }); clearInterval(it); setUploadProgress(100); if(res.data?.documents) setProject(pr=> ({...pr,documents:res.data.documents})); setTimeout(()=>{ setUploading(false); setUploadProgress(0); },800); } catch { setUploadError('Upload failed'); setUploading(false); setUploadProgress(0);} };
   const handleDeleteFile=async(doc,i)=>{ if(!perms.deleteFiles) return; if(!project?._id || !window.confirm('Delete this file?')) return; try { const path= typeof doc==='string'? doc : doc.path; await api.delete(`/projects/${project._id}/documents`,{ headers:{Authorization:`Bearer ${token}`}, data:{ path }}); setProject(pr=> ({...pr,documents: pr.documents.filter((_,idx)=> idx!==i)})); } catch { alert('Failed to delete file'); } };
+  const canUploadReport = role==='pic' || role==='pm';
+  const handleReportUpload = async(file)=>{
+    if(!file || !project?._id) return;
+    if(!/\.pptx?$/i.test(file.name)) { alert('Please select a .pptx file'); return; }
+    try {
+      setReportUploading(true); setReportUploadError(''); setReportUploadProgress(0);
+      const fd=new FormData(); fd.append('report', file);
+      // fake progress (since axios onUploadProgress with FormData & fetch may vary)
+      const tick = setInterval(()=> setReportUploadProgress(p=> p>=85?85:p+7),180);
+      const { data } = await api.post(`/projects/${project._id}/reports`, fd, { headers:{ Authorization:`Bearer ${token}` } });
+      clearInterval(tick); setReportUploadProgress(100);
+      // Prepend new report for immediate feedback
+      if(data?.report){ setReports(prev=> [data.report, ...prev]); }
+      // refresh to ensure AI / pdfPath etc.
+      fetchReports(project._id);
+      setTimeout(()=> { setReportUploading(false); setReportUploadProgress(0); },600);
+    } catch(e){
+      setReportUploading(false);
+      setReportUploadProgress(0);
+      setReportUploadError(e?.response?.data?.message || 'Report upload failed');
+    }
+  };
+  const canDeleteReport = role==='pic' || role==='pm';
+  const handleDeleteReport = async(reportId)=>{
+    if(!project?._id || !reportId || !canDeleteReport) return;
+    if(!window.confirm('Delete this report (PPT + AI outputs)?')) return;
+    try {
+      const { data } = await api.delete(`/projects/${project._id}/reports/${reportId}`, { headers:{ Authorization:`Bearer ${token}` } });
+      if(data?.reports) setReports(data.reports); else setReports(prev=> prev.filter(r=> String(r._id)!==String(reportId)));
+    } catch(e){
+      alert(e?.response?.data?.message || 'Failed to delete report');
+    }
+  };
   // Flash banner (must be declared before any early returns to satisfy hooks rules)
   const justCreated = !!(location.state && location.state.justCreated);
   const [showFlash, setShowFlash] = useState(justCreated);
@@ -1204,7 +1245,24 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
               <div className="project-reports" style={{ textAlign: 'left' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                   <h3 style={{ marginBottom: 18 }}>Project Reports</h3>
+                  {canUploadReport && (
+                    <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                      <label htmlFor="pptx-report-uploader" style={{ cursor: reportUploading? 'not-allowed':'pointer', padding:'8px 14px', borderRadius:8, background: reportUploading? '#e2e8f0':'#ffffff', border:'1px solid #cbd5e1', fontWeight:600, fontSize:13, display:'inline-flex', alignItems:'center', gap:6 }}>
+                        {reportUploading ? 'Uploading…' : 'Upload Report (.pptx)'}
+                      </label>
+                      <input id="pptx-report-uploader" type="file" accept=".ppt,.pptx" style={{ display:'none' }} disabled={reportUploading} onChange={e=>{ const f=e.target.files?.[0]; e.target.value=''; if(f) handleReportUpload(f); }} />
+                      {reportUploading && (
+                        <div style={{ minWidth:140 }}>
+                          <div style={{ height:6, background:'#e2e8f0', borderRadius:4, overflow:'hidden', marginBottom:4 }}>
+                            <div style={{ width: reportUploadProgress+'%', height:'100%', background:'linear-gradient(90deg,#3b82f6,#6366f1)', transition:'width .25s' }} />
+                          </div>
+                          <span style={{ fontSize:11, color:'#475569' }}>{reportUploadProgress}%</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+                {reportUploadError && <div style={{ color:'#b91c1c', fontSize:12, marginBottom:10 }}>{reportUploadError}</div>}
                 {reports.length === 0 ? (
                   <div style={{ color: '#888', fontSize: 16 }}>No reports yet.</div>
                 ) : (
@@ -1301,6 +1359,23 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                                 ) : (
                                   <span style={{ color: '#94a3b8', marginRight: 10, fontSize: 12 }}>No PDF</span>
                                 )}
+                                {canDeleteReport && (
+                                  <button
+                                    onClick={() => handleDeleteReport(r._id)}
+                                    style={{
+                                      border: '1px solid #dc2626',
+                                      background: '#fee2e2',
+                                      padding: '6px 12px',
+                                      borderRadius: 8,
+                                      cursor: 'pointer',
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      color: '#b91c1c'
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           );
@@ -1360,6 +1435,68 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                                     </ul>
                                   </div>
                                 ))}
+                            </div>
+                          </div>
+                          {/* Task Priorities */}
+                          <div>
+                            <b>Task Priorities</b>
+                            <div style={{ marginTop: 6 }}>
+                              {Array.isArray(reports[0].ai.task_priorities) && reports[0].ai.task_priorities.length > 0 ? (
+                                <ol style={{ margin: 0, paddingLeft: 18 }}>
+                                  {reports[0].ai.task_priorities.slice(0,5).map((t, i) => {
+                                    const pr = (t.priority || '').toString();
+                                    const color = /high/i.test(pr)
+                                      ? '#dc2626'
+                                      : /medium|med/i.test(pr)
+                                      ? '#ea580c'
+                                      : /low/i.test(pr)
+                                      ? '#0d9488'
+                                      : '#334155';
+                                    return (
+                                      <li key={i} style={{ marginBottom: 8 }}>
+                                        <div
+                                          style={{
+                                            fontWeight: 600,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 6,
+                                            flexWrap: 'wrap'
+                                          }}
+                                        >
+                                          <span
+                                            style={{
+                                              background: color,
+                                              color: '#fff',
+                                              fontSize: 11,
+                                              padding: '2px 6px',
+                                              borderRadius: 12
+                                            }}
+                                          >
+                                            {pr || 'Priority'}
+                                          </span>
+                                          <span>{t.task || t.title || 'Untitled Task'}</span>
+                                        </div>
+                                        {(t.impact || t.justification) && (
+                                          <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
+                                            {t.impact && (
+                                              <li>
+                                                <b>Impact:</b> {t.impact}
+                                              </li>
+                                            )}
+                                            {t.justification && (
+                                              <li>
+                                                <b>Reason:</b> {t.justification}
+                                              </li>
+                                            )}
+                                          </ul>
+                                        )}
+                                      </li>
+                                    );
+                                  })}
+                                </ol>
+                              ) : (
+                                <p style={{ margin: 0, color: '#64748b' }}>No prioritized tasks.</p>
+                              )}
                             </div>
                           </div>
                           <div>
