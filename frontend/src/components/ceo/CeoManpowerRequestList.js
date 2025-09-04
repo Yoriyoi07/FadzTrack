@@ -57,7 +57,14 @@ const CeoManpowerRequestList = () => {
   const filteredRequests = useMemo(() => {
     let items = requests;
     if (status !== 'All') {
-      items = items.filter(r => (r.status || 'Pending').toLowerCase().includes(status.toLowerCase()));
+      if (status === 'Archived') {
+        items = items.filter(r => (r.status || 'Pending').toLowerCase().includes('archived'));
+      } else {
+        items = items.filter(r => (r.status || 'Pending').toLowerCase().includes(status.toLowerCase()));
+      }
+    } else {
+      // For 'All' filter, exclude archived items by default
+      items = items.filter(r => !(r.status || 'Pending').toLowerCase().includes('archived'));
     }
     if (searchTerm) {
       const s = searchTerm.toLowerCase();
@@ -93,6 +100,7 @@ const CeoManpowerRequestList = () => {
     const s = (request.status || 'Pending').toLowerCase();
     const isOverdue = s === 'pending' && request.acquisitionDate && new Date(request.acquisitionDate) < new Date();
     if (isOverdue) return 'Overdue';
+    if (s.includes('archived')) return 'Archived';
     if (s.includes('completed')) return 'Completed';
     if (s.includes('approved')) return 'Approved';
     if (s.includes('pending')) return 'Pending';
@@ -105,6 +113,7 @@ const CeoManpowerRequestList = () => {
     const s = (request.status || 'Pending').toLowerCase();
     const isOverdue = s === 'pending' && request.acquisitionDate && new Date(request.acquisitionDate) < new Date();
     if (isOverdue) return '#d97706';
+    if (s.includes('archived')) return '#8b5cf6';
     if (s.includes('completed')) return '#059669';
     if (s.includes('approved')) return '#10b981';
     if (s.includes('pending')) return '#f59e0b';
@@ -114,22 +123,23 @@ const CeoManpowerRequestList = () => {
   };
 
   const summaryCounts = useMemo(() => {
-    let pending = 0, approved = 0, completed = 0, rejected = 0, overdue = 0;
+    let pending = 0, approved = 0, completed = 0, rejected = 0, overdue = 0, archived = 0;
     requests.forEach(r => {
       const s = (r.status || 'Pending').toLowerCase();
       const isOver = s === 'pending' && r.acquisitionDate && new Date(r.acquisitionDate) < new Date();
-      if (s.includes('completed')) completed++; else if (s.includes('approved')) approved++; else if (s.includes('reject') || s.includes('denied') || s.includes('cancel')) rejected++; else if (isOver || s.includes('overdue')) overdue++; else pending++;
+      if (s.includes('archived')) archived++; else if (s.includes('completed')) completed++; else if (s.includes('approved')) approved++; else if (s.includes('reject') || s.includes('denied') || s.includes('cancel')) rejected++; else if (isOver || s.includes('overdue')) overdue++; else pending++;
     });
-    return { total: requests.length, pending, approved, rejected, overdue, completed };
+    return { total: requests.length, pending, approved, rejected, overdue, completed, archived };
   }, [requests]);
 
   const statusCounts = useMemo(() => ({
-    All: summaryCounts.total,
+    All: summaryCounts.total - summaryCounts.archived, // Exclude archived from All count
     Pending: summaryCounts.pending,
     Overdue: summaryCounts.overdue,
     Approved: summaryCounts.approved,
     Completed: summaryCounts.completed,
-    Rejected: summaryCounts.rejected
+    Rejected: summaryCounts.rejected,
+    Archived: summaryCounts.archived
   }), [summaryCounts]);
 
   if (!user || user.role !== 'CEO') {
@@ -160,7 +170,7 @@ const CeoManpowerRequestList = () => {
             </div>
             <div className="card-body mr-filters-row">
               <div className="filter-tabs compact">
-                {['All','Pending','Overdue','Approved','Completed','Rejected'].map(tab => (
+                {['All','Pending','Overdue','Approved','Completed','Rejected','Archived'].map(tab => (
                   <button key={tab} className={`filter-tab ${status === tab ? 'active' : ''}`} onClick={() => {setStatus(tab); setCurrentPage(1);}}>
                     <span>{tab}</span>
                     <span className="count">{statusCounts[tab] ?? 0}</span>
@@ -182,7 +192,8 @@ const CeoManpowerRequestList = () => {
                 { label:'Overdue', value: summaryCounts.overdue, color:'#d97706' },
                 { label:'Approved', value: summaryCounts.approved, color:'#10b981' },
                 { label:'Completed', value: summaryCounts.completed, color:'#059669' },
-                { label:'Rejected', value: summaryCounts.rejected, color:'#ef4444' }
+                { label:'Rejected', value: summaryCounts.rejected, color:'#ef4444' },
+                { label:'Archived', value: summaryCounts.archived, color:'#8b5cf6' }
               ].map(c => (
                 <div key={c.label} className="mr-summary-item">
                   <span className="mr-summary-label">{c.label}</span>

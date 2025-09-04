@@ -1,5 +1,27 @@
 const Manpower = require('../models/Manpower');
 
+exports.createManpower = async (req, res) => {
+  try {
+    const { name, position, status, assignedProject } = req.body;
+    
+    if (!name || !position) {
+      return res.status(400).json({ error: 'Name and position are required' });
+    }
+
+    const newManpower = new Manpower({
+      name,
+      position,
+      status: status || 'Active',
+      assignedProject: assignedProject || null
+    });
+
+    const savedManpower = await newManpower.save();
+    res.status(201).json(savedManpower);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 exports.getAllManpower = async (req, res) => {
   try {
     const manpower = await Manpower.find()
@@ -26,7 +48,27 @@ exports.uploadManpowerFromCSV = async (req, res) => {
       return res.status(400).json({ error: 'Invalid CSV format' });
     }
 
-    const newManpower = await Manpower.insertMany(csvData);
+    // Process each manpower entry with proper defaults
+    const processedData = csvData.map(entry => {
+      const processed = {
+        name: entry.name,
+        position: entry.position,
+        status: entry.status || 'Active', // Default to Active if not provided
+        avatar: entry.avatar || '',
+        assignedProject: null // Default to null (unassigned)
+      };
+
+      // If project is provided, we'll need to find the project ID
+      if (entry.project && entry.project.trim() !== '') {
+        // For now, we'll set assignedProject to null and handle project assignment separately
+        // This can be enhanced later to automatically assign projects by name
+        processed.assignedProject = null;
+      }
+
+      return processed;
+    });
+
+    const newManpower = await Manpower.insertMany(processedData);
     res.status(201).json(newManpower);
   } catch (err) {
     res.status(500).json({ error: err.message });

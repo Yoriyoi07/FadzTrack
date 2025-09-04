@@ -6,6 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import AppHeader from '../layout/AppHeader';
 import { Search, Filter, Download, Upload, Plus, RefreshCw, X } from 'lucide-react';
 import api from '../../api/axiosInstance';
+import Papa from 'papaparse';
 import '../style/hr_style/Hr_ManpowerList.css';
 // Nav icons
 import {
@@ -425,9 +426,88 @@ export default function HrManpowerList() {
   const handleCSVUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
-      // Implementation for CSV upload
-      console.log('CSV upload:', file);
-      alert('CSV upload feature coming soon!');
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async function(results) {
+          const parsedData = results.data;
+          const errors = results.errors;
+
+          if (errors.length > 0) {
+            alert(`CSV Upload Error: ${errors[0].message}`);
+            return;
+          }
+
+          if (parsedData.length === 0) {
+            alert('No data found in CSV file.');
+            return;
+          }
+
+          const newManpowers = [];
+          const invalidRows = [];
+
+          parsedData.forEach(row => {
+            const name = row['Name'] || row['name'] || '';
+            const position = row['Position'] || row['position'] || '';
+            const status = row['Status'] || row['status'] || 'Active';
+            const project = row['Project'] || row['project'] || '';
+
+            if (!name || !position) {
+              invalidRows.push(row);
+              return;
+            }
+
+            newManpowers.push({
+              name: name,
+              position: position,
+              status: status,
+              project: project,
+              location: '', // Default to empty for now
+              employeeId: '', // Default to empty for now
+              assignedProject: project, // Assign project as default
+              currentLoan: null, // No loan information for new manpowers
+            });
+          });
+
+          if (invalidRows.length > 0) {
+            alert(`Skipped ${invalidRows.length} rows due to missing 'Name' or 'Position':\n${invalidRows.map(row => JSON.stringify(row)).join('\n')}`);
+          }
+
+          if (newManpowers.length > 0) {
+            setLoading(true);
+            setError(null);
+            try {
+              // Create manpower entries individually
+              const createdManpowers = [];
+              for (const mp of newManpowers) {
+                const { data } = await api.post('/manpower', {
+                  name: mp.name,
+                  position: mp.position,
+                  status: mp.status || 'Active',
+                  assignedProject: null // Will be handled separately if project assignment is needed
+                }, {
+                  headers: { Authorization: `Bearer ${token}` }
+                });
+                createdManpowers.push(data);
+              }
+              
+              alert(`Successfully imported ${createdManpowers.length} manpowers.`);
+              window.location.reload(); // Refresh the page to show updated data
+            } catch (err) {
+              console.error('Error importing manpowers:', err);
+              setError('Failed to import manpowers. Please try again.');
+            } finally {
+              setLoading(false);
+            }
+          } else {
+            alert('No valid manpower data found in CSV file.');
+          }
+        },
+        error: function(err) {
+          console.error('CSV Parsing Error:', err);
+          alert('Error parsing CSV file. Please ensure it is a valid CSV and try again.');
+        }
+      });
     }
   };
 
@@ -472,15 +552,11 @@ export default function HrManpowerList() {
               <h1 className="page-title">Manpower Management</h1>
               <p className="page-subtitle">Manage and track all staff members across projects</p>
             </div>
-            <div className="page-actions">
-              <button className="action-button primary" onClick={() => alert('Add new staff feature coming soon!')}>
-                <FaUserPlus />
-                <span>Add Staff</span>
-              </button>
-              <button className="action-button secondary" onClick={() => fileInputRef.current?.click()}>
-                <Upload />
-                <span>Import CSV</span>
-              </button>
+                         <div className="page-actions">
+               <button className="action-button secondary" onClick={() => fileInputRef.current?.click()}>
+                 <Upload />
+                 <span>Import CSV</span>
+               </button>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -488,6 +564,13 @@ export default function HrManpowerList() {
                 onChange={handleCSVUpload}
                 style={{ display: 'none' }}
               />
+              <button 
+                className="action-button info" 
+                onClick={() => alert('CSV Format:\n\nRequired columns:\n- Name (required)\n- Position (required)\n\nOptional columns:\n- Status (defaults to "Active" if empty)\n- Project (defaults to "Unassigned" if empty)\n\nExample:\nName,Position,Status,Project\nJohn Doe,Engineer,Active,Project A\nJane Smith,Manager,,Project B')}
+                style={{ marginLeft: '10px', backgroundColor: '#17a2b8', borderColor: '#17a2b8' }}
+              >
+                <span>CSV Format</span>
+              </button>
             </div>
           </div>
 

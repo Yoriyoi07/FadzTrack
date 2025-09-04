@@ -254,23 +254,132 @@ const AreaAddproj = () => {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
+      complete: async (results) => {
         const csvData = results.data;
-        let notFound = [];
-        let foundList = [];
-        csvData.forEach(row => {
-          const found = availableManpower.find(mp =>
-            mp.name.trim().toLowerCase() === (row.name || '').trim().toLowerCase() &&
-            mp.position.trim().toLowerCase() === (row.position || '').trim().toLowerCase()
+        const errors = results.errors;
+
+        if (errors.length > 0) {
+          setCsvError(`CSV Upload Error: ${errors[0].message}`);
+          return;
+        }
+
+        if (csvData.length === 0) {
+          setCsvError('No data found in CSV file.');
+          return;
+        }
+
+        const newManpowers = [];
+        const invalidRows = [];
+        const validationErrors = [];
+        const duplicateNames = [];
+
+        csvData.forEach((row, index) => {
+          const name = row['Name'] || row['name'] || '';
+          const position = row['Position'] || row['position'] || '';
+          const status = row['Status'] || row['status'] || '';
+          const project = row['Project'] || row['project'] || '';
+
+          // Validate required fields
+          if (!name || !position) {
+            invalidRows.push(`Row ${index + 1}: Missing name or position`);
+            return;
+          }
+
+          // Check for duplicates in CSV file itself
+          const duplicateInCSV = csvData.slice(0, index).some((prevRow, prevIndex) => {
+            const prevName = (prevRow['Name'] || prevRow['name'] || '').trim().toLowerCase();
+            const prevPosition = (prevRow['Position'] || prevRow['position'] || '').trim().toLowerCase();
+            return prevName === name.trim().toLowerCase() && prevPosition === position.trim().toLowerCase();
+          });
+          
+          if (duplicateInCSV) {
+            duplicateNames.push(`Row ${index + 1}: Duplicate entry (${name} - ${position})`);
+            return;
+          }
+
+          // Check for duplicates in existing manpower
+          const existingManpower = availableManpower.find(mp => 
+            mp.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+            mp.position.trim().toLowerCase() === position.trim().toLowerCase()
           );
-          if (found) foundList.push(found);
-          else notFound.push(`${row.name || ''} (${row.position || ''})`);
+          
+          if (existingManpower) {
+            duplicateNames.push(`Row ${index + 1}: Already exists in system (${name} - ${position})`);
+            return;
+          }
+
+          // Validate no project assignment
+          if (project && project.trim() !== '') {
+            validationErrors.push(`Row ${index + 1}: Project should be empty (${name})`);
+            return;
+          }
+
+          // Validate status is unassigned
+          if (status && status.trim().toLowerCase() !== 'unassigned') {
+            validationErrors.push(`Row ${index + 1}: Status should be 'unassigned' (${name})`);
+            return;
+          }
+
+          newManpowers.push({
+            name: name.trim(),
+            position: position.trim(),
+            status: 'unassigned',
+            project: '',
+            isNew: true // Flag to identify newly created manpower
+          });
         });
-        if (notFound.length) setCsvError('Not found: ' + notFound.join(', '));
-        setAssignedManpower(prev => [...prev, ...foundList]);
-        setAvailableManpower(prev => prev.filter(mp => !foundList.some(f => f._id === mp._id)));
+
+        if (invalidRows.length > 0) {
+          setCsvError(`Invalid rows: ${invalidRows.join(', ')}`);
+          return;
+        }
+
+        if (duplicateNames.length > 0) {
+          setCsvError(`Duplicate entries: ${duplicateNames.join(', ')}`);
+          return;
+        }
+
+        if (validationErrors.length > 0) {
+          setCsvError(`Validation errors: ${validationErrors.join(', ')}`);
+          return;
+        }
+
+        if (newManpowers.length > 0) {
+          try {
+            // Create manpower entries individually
+            const createdManpowers = [];
+            for (const mp of newManpowers) {
+              const { data } = await api.post('/manpower', {
+                name: mp.name,
+                position: mp.position,
+                status: 'unassigned',
+                assignedProject: null
+              }, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+              });
+              createdManpowers.push(data);
+            }
+
+            // Add created manpower to assigned list
+            setAssignedManpower(prev => [...prev, ...createdManpowers]);
+            
+            // Clear any previous errors
+            setCsvError('');
+            
+            // Show success message
+            toast.success(`Successfully imported ${createdManpowers.length} manpower entries.`);
+          } catch (err) {
+            console.error('Error importing manpower:', err);
+            setCsvError('Failed to import manpower. Please try again.');
+          }
+        } else {
+          setCsvError('No valid manpower data found in CSV file.');
+        }
       },
-      error: () => setCsvError('Invalid CSV format'),
+      error: (err) => {
+        console.error('CSV Parsing Error:', err);
+        setCsvError('Error parsing CSV file. Please ensure it is a valid CSV and try again.');
+      }
     });
   };
 
@@ -636,6 +745,15 @@ const AreaAddproj = () => {
                   <div className="csv-uploader">
                     <input id="csvUpload" type="file" accept=".csv" style={{display:'none'}} onChange={handleCSVUpload} />
                     <button type="button" onClick={()=>document.getElementById('csvUpload').click()} className="area-addproj-csv-upload-btn small">CSV</button>
+                    <button 
+                      type="button" 
+                      onClick={() => alert('CSV Format for Create Project:\n\nRequired columns:\n- Name (required)\n- Position (required)\n\nOptional columns:\n- Status (must be "unassigned" or empty)\n- Project (must be empty)\n\nRules:\n• All persons must have status "unassigned"\n• No project assignments allowed\n• New manpower will be created and assigned to this project\n\nExample:\nName,Position,Status,Project\nJohn Doe,Engineer,unassigned,\nJane Smith,Manager,,\nMike Johnson,Technician,unassigned,')}
+                      className="area-addproj-csv-upload-btn small"
+                      style={{ marginLeft: '5px', backgroundColor: '#17a2b8', borderColor: '#17a2b8' }}
+                      title="CSV Format Guide"
+                    >
+                      ?
+                    </button>
                   </div>
                 </div>
               </header>

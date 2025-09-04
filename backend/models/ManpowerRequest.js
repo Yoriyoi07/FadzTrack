@@ -12,7 +12,7 @@ const manpowerRequestSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   status: { 
     type: String, 
-    enum: ['Pending', 'Approved', 'Overdue', 'Completed', 'Archived'], 
+    enum: ['Pending', 'Approved', 'Overdue', 'Completed', 'Archived', 'Rejected'], 
     default: 'Pending' 
   },
   isArchived: { type: Boolean, default: false },
@@ -22,6 +22,14 @@ const manpowerRequestSchema = new mongoose.Schema({
   returnDate: { type: Date },
   manpowerProvided: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Manpower' }],
   area: { type: String, default: '' },
+  
+  // Rejection tracking fields
+  rejectedBy: [{ 
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    userName: { type: String },
+    rejectedAt: { type: Date, default: Date.now }
+  }],
+  rejectionReason: { type: String, default: '' },
   
   // Fields to preserve original information when archived
   originalProjectName: { type: String, default: '' },

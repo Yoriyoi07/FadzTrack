@@ -1,174 +1,162 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import '../style/ceo_style/Ceo_Dash.css';
+import '../style/ceo_style/Ceo_ManpowerRequest.css';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
-import ProgressTracker from '../ProgressTracker';
-import '../style/pm_style/PmManpowerRequest.css';
-// Nav icons
-import { 
-  FaTachometerAlt, 
-  FaBoxes, 
-  FaUsers, 
-  FaProjectDiagram, 
-  FaClipboardList, 
-  FaChartBar, 
-  FaCalendarAlt,
-  FaUserCircle,
-  FaSearch,
-  FaFilter,
-  FaSortAmountDown,
-  FaSortAmountUp,
-  FaCheck,
-  FaTimes,
-  FaEllipsisV
-} from 'react-icons/fa';
+import { FaSearch, FaCheck, FaTimes } from 'react-icons/fa';
+import AppHeader from '../layout/AppHeader';
+
+const ITEMS_PER_PAGE = 8;
 
 const PmManpowerRequestList = () => {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
+  const userRef = useRef(null);
+  if (userRef.current === null) {
   const stored = localStorage.getItem('user');
-  const user = stored ? JSON.parse(stored) : null;
-  const userId = user?._id;
-
-  const [userName, setUserName] = useState(user?.name || 'ALECK');
-  const [userRole, setUserRole] = useState(user?.role || '');
-  const [project, setProject] = useState(null);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
+    userRef.current = stored ? JSON.parse(stored) : null;
+  }
+  const user = userRef.current;
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState('Pending');
+  const [status, setStatus] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [layoutView, setLayoutView] = useState('cards');
   const [sortDesc, setSortDesc] = useState(true);
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 8;
-
-  // Inline approval
+  // PM-specific approval functionality
   const [manpowerInput, setManpowerInput] = useState({});
   const [busyId, setBusyId] = useState(null);
 
-  // Filter and search logic
-  const filteredRequests = requests.filter(request => {
-    const status = (request.status || 'Pending').toLowerCase();
-    const matchesFilter =
-      (filter === 'All' && !status.includes('rejected') && !status.includes('archived')) ||
-      (filter === 'Pending' && status.includes('pending')) ||
-      (filter === 'Approved' && status.includes('approved')) ||
-      (filter === 'Rejected' && status.includes('rejected')) ||
-      (filter === 'Archived' && status.includes('archived'));
-    
-    const searchTarget = [
-      request.project?.projectName || '',
-      request.createdBy?.name || '',
-      request.description || '',
-      (request.manpowers || []).map(m => `${m.quantity} ${m.type}`).join(', ') || '',
-    ].join(' ').toLowerCase();
-    
-    return matchesFilter && searchTarget.includes(searchTerm.toLowerCase());
-  });
-
-  // Sorting logic
-  const sortedRequests = [...filteredRequests].sort((a, b) => {
-    const aTime = new Date(a.createdAt || 0).getTime();
-    const bTime = new Date(b.createdAt || 0).getTime();
-    return sortDesc ? bTime - aTime : aTime - bTime;
-  });
-
-  const totalPages = Math.ceil(sortedRequests.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedRequests = sortedRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
   useEffect(() => {
-    fetchRequests();
-  }, []);
-
-  // Scroll handler for header collapse
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-      const shouldCollapse = scrollTop > 50;
-      setIsHeaderCollapsed(shouldCollapse);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".user-profile")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
-
-  const fetchRequests = async () => {
+    if (!user || user.role !== 'Project Manager') return;
+    let active = true;
+    const fetchAll = async () => {
     setLoading(true);
     setError('');
     try {
       const { data } = await api.get('/manpower-requests/pm');
+        if (!active) return;
       setRequests(Array.isArray(data) ? data : []);
     } catch (err) {
-      if (err.response && (err.response.status === 403 || err.response.status === 401)) {
+        if (!active) return;
+        console.error('Failed to load manpower requests:', err);
+        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
         setError('Session expired or unauthorized. Please login.');
       } else {
-        setError('Failed to load requests');
+          setError('Failed to load manpower requests');
       }
-      setRequests([]);
-      console.error(err);
     } finally {
+        if (active) {
       setLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    api.post('/auth/logout', {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).finally(() => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
-    });
-  };
-
-  useEffect(() => {
-    if (!token || !userId) return;
-    const fetchAssignedPMProject = async () => {
-      try {
-        const { data } = await api.get(`/projects/assigned/projectmanager/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setProject(data);
-      } catch (err) {
-        setProject(null);
+          setCurrentPage(1);
+        }
       }
     };
-    fetchAssignedPMProject();
-  }, [token, userId]);
+    fetchAll();
+    return () => { active = false; };
+  }, [user]);
 
-  const getStatusColor = (status) => {
-    const statusLower = status?.toLowerCase() || '';
-    if (statusLower.includes('approved')) return '#10b981';
-    if (statusLower.includes('pending')) return '#f59e0b';
-    if (statusLower.includes('rejected')) return '#ef4444';
-    if (statusLower.includes('archived')) return '#8b5cf6';
-    return '#6b7280';
+  const filteredRequests = useMemo(() => {
+    let items = requests;
+    if (status !== 'All') {
+      if (status === 'Archived') {
+        items = items.filter(r => (r.status || 'Pending').toLowerCase().includes('archived'));
+      } else {
+        items = items.filter(r => (r.status || 'Pending').toLowerCase().includes(status.toLowerCase()));
+      }
+    } else {
+      // For 'All' filter, exclude archived items by default
+      items = items.filter(r => !(r.status || 'Pending').toLowerCase().includes('archived'));
+    }
+    if (searchTerm) {
+      const s = searchTerm.toLowerCase();
+      items = items.filter(r => {
+        const proj = r.project?.projectName || '';
+        const by = r.createdBy?.name || '';
+        const summary = (r.manpowers || []).map(m => `${m.quantity} ${m.type}`).join(', ');
+        return proj.toLowerCase().includes(s) || by.toLowerCase().includes(s) || summary.toLowerCase().includes(s) || (r.description || '').toLowerCase().includes(s);
+      });
+    }
+    return items;
+  }, [requests, status, searchTerm]);
+
+  // Sorting logic
+  const sortedRequests = useMemo(() => {
+    return [...filteredRequests].sort((a, b) => {
+      const aTime = new Date(a.createdAt || 0).getTime();
+      const bTime = new Date(b.createdAt || 0).getTime();
+      return sortDesc ? bTime - aTime : aTime - bTime;
+    });
+  }, [filteredRequests, sortDesc]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedRequests.length / ITEMS_PER_PAGE));
+  const pageRows = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return sortedRequests.slice(start, start + ITEMS_PER_PAGE);
+  }, [sortedRequests, currentPage]);
+
+  const getRequestBackgroundColor = (request) => {
+    const statusLower = request.status?.toLowerCase() || '';
+    if (statusLower.includes('pending') && request.acquisitionDate && new Date(request.acquisitionDate) < new Date()) {
+      return '#fef3c7';
+    }
+    if (statusLower.includes('pending')) return '#ffffff';
+    if (statusLower.includes('approved')) return '#fef3c7';
+    if (statusLower.includes('rejected') || statusLower.includes('cancel') || statusLower.includes('denied')) return '#fef2f2';
+    if (statusLower.includes('completed')) return '#ecfdf5';
+    return '#f9fafb';
   };
 
-  const getStatusBadge = (status) => {
-    const statusLower = status?.toLowerCase() || '';
-    if (statusLower.includes('approved')) return 'Approved';
-    if (statusLower.includes('pending')) return 'Pending';
-    if (statusLower.includes('rejected')) return 'Rejected';
-    if (statusLower.includes('archived')) return 'Archived';
+  const getStatusBadge = (request) => {
+    const s = (request.status || 'Pending').toLowerCase();
+    const isOverdue = s === 'pending' && request.acquisitionDate && new Date(request.acquisitionDate) < new Date();
+    if (isOverdue) return 'Overdue';
+    if (s.includes('archived')) return 'Archived';
+    if (s.includes('completed')) return 'Completed';
+    if (s.includes('approved')) return 'Approved';
+    if (s.includes('pending')) return 'Pending';
+    if (s.includes('reject') || s.includes('denied') || s.includes('cancel')) return 'Rejected';
+    if (s.includes('overdue')) return 'Overdue';
     return 'Unknown';
   };
 
+  const getStatusColor = (request) => {
+    const s = (request.status || 'Pending').toLowerCase();
+    const isOverdue = s === 'pending' && request.acquisitionDate && new Date(request.acquisitionDate) < new Date();
+    if (isOverdue) return '#d97706';
+    if (s.includes('archived')) return '#8b5cf6';
+    if (s.includes('completed')) return '#059669';
+    if (s.includes('approved')) return '#10b981';
+    if (s.includes('pending')) return '#f59e0b';
+    if (s.includes('reject') || s.includes('denied') || s.includes('cancel')) return '#ef4444';
+    if (s.includes('overdue')) return '#d97706';
+    return '#6b7280';
+  };
+
+  const summaryCounts = useMemo(() => {
+    let pending = 0, approved = 0, completed = 0, rejected = 0, overdue = 0, archived = 0;
+    requests.forEach(r => {
+      const s = (r.status || 'Pending').toLowerCase();
+      const isOver = s === 'pending' && r.acquisitionDate && new Date(r.acquisitionDate) < new Date();
+      if (s.includes('archived')) archived++; else if (s.includes('completed')) completed++; else if (s.includes('approved')) approved++; else if (s.includes('reject') || s.includes('denied') || s.includes('cancel')) rejected++; else if (isOver || s.includes('overdue')) overdue++; else pending++;
+    });
+    return { total: requests.length, pending, approved, rejected, overdue, completed, archived };
+  }, [requests]);
+
+  const statusCounts = useMemo(() => ({
+    All: summaryCounts.total - summaryCounts.archived, // Exclude archived from All count
+    Pending: summaryCounts.pending,
+    Overdue: summaryCounts.overdue,
+    Approved: summaryCounts.approved,
+    Completed: summaryCounts.completed,
+    Rejected: summaryCounts.rejected,
+    Archived: summaryCounts.archived
+  }), [summaryCounts]);
+
+  // PM-specific approval functions
   const onApprove = async (item) => {
     const raw = manpowerInput[item._id] || '';
     const ids = raw
@@ -188,7 +176,9 @@ const PmManpowerRequestList = () => {
         area: item.project?.location,
       });
       alert('✅ Approved');
-      await fetchRequests();
+      // Refresh the requests
+      const { data } = await api.get('/manpower-requests/pm');
+      setRequests(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
       alert(e?.response?.data?.message || 'Approval failed.');
@@ -198,6 +188,9 @@ const PmManpowerRequestList = () => {
   };
 
   const onDeny = async (item) => {
+    const reason = prompt('Please provide a reason for rejection (optional):');
+    if (reason === null) return; // User cancelled
+    
     const confirmed = window.confirm(
       'Confirm Rejection?\n\nRejecting this request will remove this from your list of Other\'s Request.'
     );
@@ -206,9 +199,11 @@ const PmManpowerRequestList = () => {
     
     setBusyId(item._id);
     try {
-      await api.put(`/manpower-requests/${item._id}`, { status: 'Rejected' });
-      alert('Request rejected successfully. It has been removed from your list.');
-      await fetchRequests();
+      const response = await api.put(`/manpower-requests/${item._id}/reject`, { reason });
+      alert(response.data.message);
+      // Refresh the requests
+      const { data } = await api.get('/manpower-requests/pm');
+      setRequests(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error(e);
       alert(e?.response?.data?.message || 'Failed to reject request.');
@@ -227,210 +222,193 @@ const PmManpowerRequestList = () => {
   }
 
   return (
-    <div className="dashboard-container">
-      {/* Modern Header */}
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
-        {/* Top Row: Logo and Profile */}
-        <div className="header-top">
-          <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              <FaUserCircle />
-            </div>
-            <div className={`profile-info ${isHeaderCollapsed ? 'hidden' : ''}`}>
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/pm" className="nav-item">
-              <FaTachometerAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Dashboard</span>
-            </Link>
-            <Link to="/pm/request/:id" className="nav-item">
-              <FaBoxes />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Material</span>
-            </Link>
-            <Link to="/pm/manpower-list" className="nav-item active">
-              <FaUsers />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Manpower</span>
-            </Link>
-            {project && (
-                          <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-item">
-              <FaProjectDiagram />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>View Project</span>
-            </Link>
-            )}
-            <Link to="/pm/daily-logs" className="nav-item">
-              <FaClipboardList />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Logs</span>
-            </Link>
-            {project && (
-              <Link to={`/pm/progress-report/${project._id}`} className="nav-item">
-                <FaChartBar />
-                <span className={isHeaderCollapsed ? 'hidden' : ''}>Reports</span>
-              </Link>
-            )}
-            <Link to="/pm/daily-logs-list" className="nav-item">
-              <FaCalendarAlt />
-              <span className={isHeaderCollapsed ? 'hidden' : ''}>Daily Logs</span>
-            </Link>
-          </nav>
-          
-          <NotificationBell />
-        </div>
-      </header>
-
-      {/* Main Content */}
+    <div className="dashboard-container ceo-manpower-requests-page">
+      <AppHeader roleSegment="pm" />
       <main className="dashboard-main">
         <div className="page-container">
-          {/* Page Header */}
-          <div className="page-header">
-            <div className="page-title-section">
-              <p className="page-subtitle">Manage and track manpower requests for your project</p>
+          <div className="dashboard-card ceo-mr-header-card">
+            <div className="card-header mr-header-row">
+              <div className="mr-header-texts">
+                <h1 className="card-title">Manpower Requests</h1>
+                <p className="card-subtitle">Manage and track manpower requests for your project</p>
+              </div>
+              <div className="layout-toggle-wrapper">
+                <button onClick={()=>setLayoutView(v=> v==='cards' ? 'table' : 'cards')} className="btn-secondary toggle-layout-btn">
+                  {layoutView === 'cards' ? 'Table View' : 'Card View'}
+                </button>
+                <button
+                  onClick={() => setSortDesc(!sortDesc)}
+                  className="btn-secondary sort-btn"
+                  title="Toggle sort by Created date"
+                >
+                  {sortDesc ? '↓ Newest' : '↑ Oldest'}
+                </button>
             </div>
           </div>
-
-          {/* Controls Bar */}
-          <div className="controls-bar">
-                         {/* Filter Tabs */}
-             <div className="filter-tabs">
-               {['Pending', 'Approved', 'Rejected', 'Archived', 'All'].map(tab => (
-                 <button
-                   key={tab}
-                   className={`filter-tab ${filter === tab ? 'active' : ''}`}
-                   onClick={() => setFilter(tab)}
-                 >
-                   {tab}
+            <div className="card-body mr-filters-row">
+              <div className="filter-tabs compact">
+                {['All','Pending','Overdue','Approved','Completed','Rejected','Archived'].map(tab => (
+                  <button key={tab} className={`filter-tab ${status === tab ? 'active' : ''}`} onClick={() => {setStatus(tab); setCurrentPage(1);}}>
+                    <span>{tab}</span>
+                    <span className="count">{statusCounts[tab] ?? 0}</span>
                  </button>
                ))}
              </div>
-
-            {/* Search and Sort */}
-            <div className="search-sort-section">
-              <div className="search-wrapper">
+              <div className="search-wrapper stretch">
                 <FaSearch className="search-icon" />
-                <input
-                  type="text"
-                  placeholder="Search requests..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input"
-                />
+                <input type="text" placeholder="Search requests..." value={searchTerm} onChange={(e)=>{setSearchTerm(e.target.value); setCurrentPage(1);}} className="search-input" />
+              </div>
+            </div>
               </div>
               
-              <button
-                onClick={() => setSortDesc(!sortDesc)}
-                className="sort-btn"
-                title="Toggle sort by Created date"
-              >
-                {sortDesc ? <FaSortAmountDown /> : <FaSortAmountUp />}
-                <span>Sort</span>
-              </button>
+          <div className="dashboard-card ceo-mr-summary-card">
+            <div className="card-header"><h3 className="card-title-sm">Summary</h3></div>
+            <div className="mr-summary-grid">
+              {[{ label:'Total', value: summaryCounts.total, color:'#334155' },
+                { label:'Pending', value: summaryCounts.pending, color:'#f59e0b' },
+                { label:'Overdue', value: summaryCounts.overdue, color:'#d97706' },
+                { label:'Approved', value: summaryCounts.approved, color:'#10b981' },
+                { label:'Completed', value: summaryCounts.completed, color:'#059669' },
+                { label:'Rejected', value: summaryCounts.rejected, color:'#ef4444' },
+                { label:'Archived', value: summaryCounts.archived, color:'#8b5cf6' }
+              ].map(c => (
+                <div key={c.label} className="mr-summary-item">
+                  <span className="mr-summary-label">{c.label}</span>
+                  <span className="mr-summary-value" style={{ color:c.color }}>{c.value}</span>
+                  <div className="mr-summary-bar" style={{ background:c.color }} />
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Requests Grid */}
-          <div className="requests-grid">
+          <div className="dashboard-card ceo-mr-list-card">
+            <div className="card-header list-header"><h3 className="card-title-sm">Requests <span className="muted">({sortedRequests.length})</span></h3></div>
+            <div className={`requests-grid ceo-mr-grid ${layoutView === 'table' ? 'table-view' : ''}`}>            
             {loading ? (
-              <div className="loading-state">
-                <div className="loading-spinner"></div>
-                <p>Loading manpower requests...</p>
-              </div>
+                <div className="loading-state"><div className="loading-spinner"></div><p>Loading manpower requests...</p></div>
             ) : error ? (
-              <div className="error-state">
-                <p>{error}</p>
-              </div>
-            ) : paginatedRequests.length === 0 ? (
+                <div className="error-state"><p>{error}</p></div>
+              ) : pageRows.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-icon">👥</div>
                 <h3>No manpower requests found</h3>
                 <p>No requests match your current filters. Try adjusting your search criteria.</p>
               </div>
             ) : (
-              paginatedRequests.map(request => {
-                const summary = (request.manpowers || [])
-                  .map((m) => `${m.quantity} ${m.type}`)
-                  .join(', ');
-
+                <>
+                  {layoutView === 'table' && (
+                    <div className="mr-table-header" role="row" aria-label="Table Header">
+                      <div>Project</div>
+                      <div>Requester</div>
+                      <div>Description</div>
+                      <div>Manpower</div>
+                      <div>Target</div>
+                      <div>Dur</div>
+                      <div>Created</div>
+                      <div>Status</div>
+                      <div>Actions</div>
+                    </div>
+                  )}
+                  {pageRows.map(request => {
+                    const summary = (request.manpowers || []).map(m=>`${m.quantity} ${m.type}`).join(', ');
+                    const badgeLabel = getStatusBadge(request);
+                    const badgeColor = getStatusColor(request);
+                    if (layoutView === 'table') {
                 return (
-                  <div className="request-card" key={request._id}>
-                    <div className="card-header">
-                      <div className="request-icon">👥</div>
-                      <div className="request-status">
-                        <span 
-                          className="status-badge"
-                          style={{ backgroundColor: getStatusColor(request.status) }}
+                        <div
+                          key={request._id}
+                          className="mr-table-row"
+                          role="row"
+                          title="View details"
                         >
-                          {getStatusBadge(request.status)}
-                        </span>
+                          <div className="rt-title" title={request.project?.projectName || '(No Project Name)'}>{request.project?.projectName || '(No Project Name)'}</div>
+                          <div className="rt-req" title={request.createdBy?.name || 'Unknown'}>{request.createdBy?.name || 'Unknown'}</div>
+                          <div className="rt-desc" title={request.description || 'No description'}>{request.description || 'No description'}</div>
+                          <div className="rt-man" title={summary || '—'}>{summary || '—'}</div>
+                          <div className="rt-date" title="Target Date">{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</div>
+                          <div className="rt-date" title="Duration">{request.duration || '—'}d</div>
+                          <div className="rt-date" title="Created">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</div>
+                          <div className="rt-btn"><span className={`status-chip ${badgeLabel.toLowerCase()}`}>{badgeLabel}</span></div>
+                          <div className="rt-actions">
+                            {request.status === 'Pending' && (
+                              <div className="table-approval-section">
+                                <input
+                                  type="text"
+                                  value={manpowerInput[request._id] || ''}
+                                  onChange={(e) => setManpowerInput((p) => ({ ...p, [request._id]: e.target.value }))}
+                                  placeholder="Manpower IDs..."
+                                  className="table-manpower-input"
+                                />
+                                <button
+                                  onClick={() => onApprove(request)}
+                                  disabled={busyId === request._id}
+                                  className="table-approve-btn"
+                                  title="Approve"
+                                >
+                                  <FaCheck />
+                                </button>
+                                <button
+                                  onClick={() => onDeny(request)}
+                                  disabled={busyId === request._id}
+                                  className="table-deny-btn"
+                                  title="Reject"
+                                >
+                                  <FaTimes />
+                                </button>
+                              </div>
+                            )}
                       </div>
                     </div>
-                    
+                      );
+                    }
+                    return (
+                      <div className={`request-card ceo-mr-card`} key={request._id}>
                     <div className="card-body">
-                      <h3 className="request-title">
-                        {request.project?.projectName || '(No Project Name)'}
-                      </h3>
-                      <p className="request-description">{request.description || 'No description provided'}</p>
-                      
+                          <div className="mr-card-top-row">
+                            <h3 className="request-title" title={request.project?.projectName || '(No Project Name)'}>{request.project?.projectName || '(No Project Name)'}</h3>
+                            <span className={`status-chip ${badgeLabel.toLowerCase()}`}>{badgeLabel}</span>
+                          </div>
+                          <p className="request-description" title={request.description || 'No description provided'}>{request.description || 'No description provided'}</p>
                       <div className="request-meta">
-                        <div className="meta-item">
-                          <span className="meta-label">Requested by:</span>
-                          <span className="meta-value">{request.createdBy?.name || 'Unknown'}</span>
-                        </div>
-                        <div className="meta-item">
-                          <span className="meta-label">Manpower needed:</span>
-                          <span className="meta-value">{summary || '—'}</span>
-                        </div>
-                        <div className="meta-item">
-                          <span className="meta-label">Date:</span>
-                          <span className="meta-value">
-                            {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}
-                          </span>
-                        </div>
-                        <div className="meta-item">
-                          <span className="meta-label">Target Date:</span>
-                          <span className="meta-value">
-                            {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}
-                          </span>
-                        </div>
-                        <div className="meta-item">
-                          <span className="meta-label">Duration:</span>
-                          <span className="meta-value">{request.duration || '—'} day(s)</span>
-                        </div>
+                            <div className="meta-item"><span className="meta-label">Requested by:</span><span className="meta-value" title={request.createdBy?.name || 'Unknown'}>{request.createdBy?.name || 'Unknown'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Manpower:</span><span className="meta-value" title={summary || '—'}>{summary || '—'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Date:</span><span className="meta-value">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Target:</span><span className="meta-value">{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Duration:</span><span className="meta-value">{request.duration || '—'} d</span></div>
                       </div>
+                      
+                      {/* Rejection Information */}
+                      {request.rejectedBy && request.rejectedBy.length > 0 && (
+                        <div className="rejection-info">
+                          <div className="meta-item">
+                            <span className="meta-label">Rejected by:</span>
+                            <span className="meta-value rejection-list">
+                              {request.rejectedBy.map((rejection, index) => (
+                                <span key={index} className="rejection-item">
+                                  {rejection.userName || rejection.userId?.name || 'Unknown PM'}
+                                  {index < request.rejectedBy.length - 1 ? ', ' : ''}
+                                </span>
+                              ))}
+                            </span>
+                          </div>
+                          {request.rejectionReason && (
+                            <div className="meta-item">
+                              <span className="meta-label">Reason:</span>
+                              <span className="meta-value rejection-reason">{request.rejectionReason}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    
                                          <div className="card-footer">
                        {request.status === 'Pending' ? (
-                         <div className="approval-section">
+                            <div className="pm-approval-section">
                            <div className="manpower-input-section">
                              <label className="manpower-label">Manpower IDs to assign:</label>
                              <input
                                type="text"
                                value={manpowerInput[request._id] || ''}
-                               onChange={(e) =>
-                                 setManpowerInput((p) => ({ ...p, [request._id]: e.target.value }))
-                               }
+                                  onChange={(e) => setManpowerInput((p) => ({ ...p, [request._id]: e.target.value }))}
                                placeholder="e.g. 668f0..., 668f1..."
                                className="manpower-input"
                              />
@@ -450,6 +428,7 @@ const PmManpowerRequestList = () => {
                                className="deny-btn"
                              >
                                <FaTimes />
+                                  <span>Reject</span>
                              </button>
                            </div>
                          </div>
@@ -469,45 +448,23 @@ const PmManpowerRequestList = () => {
                      </div>
                   </div>
                 );
-              })
+                  })}
+                </>
             )}
           </div>
-
-          {/* Pagination */}
           {sortedRequests.length > 0 && (
-            <div className="pagination-section">
-              <div className="pagination-info">
-                Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, sortedRequests.length)} of {sortedRequests.length} entries
-              </div>
+              <div className="pagination-section inside-card">
+                <div className="pagination-info">Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, sortedRequests.length)} of {sortedRequests.length} entries</div>
               <div className="pagination-controls">
-                <button 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                  disabled={currentPage === 1}
-                  className="pagination-btn"
-                >
-                  Previous
-                </button>
-                
+                  <button onClick={()=>setCurrentPage(p=>Math.max(p-1,1))} disabled={currentPage===1} className="pagination-btn">Previous</button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    className={`pagination-btn ${page === currentPage ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-                
-                <button 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                  disabled={currentPage === totalPages}
-                  className="pagination-btn"
-                >
-                  Next
-                </button>
+                    <button key={page} className={`pagination-btn ${page === currentPage ? 'active' : ''}`} onClick={()=>setCurrentPage(page)}>{page}</button>
+                  ))}
+                  <button onClick={()=>setCurrentPage(p=>Math.min(p+1,totalPages))} disabled={currentPage===totalPages} className="pagination-btn">Next</button>
               </div>
             </div>
           )}
+          </div>
         </div>
       </main>
     </div>

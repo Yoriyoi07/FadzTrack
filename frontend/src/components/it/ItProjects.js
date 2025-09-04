@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
+import Papa from 'papaparse';
 import '../style/it_style/It_Dash.css';
 import '../style/it_style/It_Projects.css';
 import '../style/am_style/Area_Projects.css';
@@ -69,6 +70,10 @@ export default function ItProjects(){
   const [areasByManager,setAreasByManager]=useState({});
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  
+  // CSV functionality
+  const [csvError, setCsvError] = useState('');
+  const [csvUploading, setCsvUploading] = useState(false);
   
   // Export functionality
   const [showExportModal, setShowExportModal] = useState(false);
@@ -160,6 +165,155 @@ export default function ItProjects(){
     }catch(e){console.error(e);} 
   }
   async function fetchManpower(){ try{ const {data}=await api.get('/manpower'); setAllManpower(Array.isArray(data)?data:[]);}catch{} }
+
+  // CSV upload for manpower
+  const handleCSVUpload = (e) => {
+    setCsvError('');
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const csvData = results.data;
+        const errors = results.errors;
+
+        if (errors.length > 0) {
+          setCsvError(`CSV Upload Error: ${errors[0].message}`);
+          return;
+        }
+
+        if (csvData.length === 0) {
+          setCsvError('No data found in CSV file.');
+          return;
+        }
+
+        const newManpowers = [];
+        const invalidRows = [];
+        const validationErrors = [];
+        const duplicateNames = [];
+
+        csvData.forEach((row, index) => {
+          const name = row['Name'] || row['name'] || '';
+          const position = row['Position'] || row['position'] || '';
+          const status = row['Status'] || row['status'] || '';
+          const project = row['Project'] || row['project'] || '';
+
+          // Validate required fields
+          if (!name || !position) {
+            invalidRows.push(`Row ${index + 1}: Missing name or position`);
+            return;
+          }
+
+          // Check for duplicates in CSV file itself
+          const duplicateInCSV = csvData.slice(0, index).some((prevRow, prevIndex) => {
+            const prevName = (prevRow['Name'] || prevRow['name'] || '').trim().toLowerCase();
+            const prevPosition = (prevRow['Position'] || prevRow['position'] || '').trim().toLowerCase();
+            return prevName === name.trim().toLowerCase() && prevPosition === position.trim().toLowerCase();
+          });
+          
+          if (duplicateInCSV) {
+            duplicateNames.push(`Row ${index + 1}: Duplicate entry (${name} - ${position})`);
+            return;
+          }
+
+          // Check for duplicates in existing manpower
+          const existingManpower = allManpower.find(mp => 
+            mp.name.trim().toLowerCase() === name.trim().toLowerCase() &&
+            mp.position.trim().toLowerCase() === position.trim().toLowerCase()
+          );
+          
+          if (existingManpower) {
+            duplicateNames.push(`Row ${index + 1}: Already exists in system (${name} - ${position})`);
+            return;
+          }
+
+          // For Create mode: validate no project assignment and status must be unassigned
+          if (!editingId) {
+            if (project && project.trim() !== '') {
+              validationErrors.push(`Row ${index + 1}: Project should be empty (${name})`);
+              return;
+            }
+            if (status && status.trim().toLowerCase() !== 'unassigned') {
+              validationErrors.push(`Row ${index + 1}: Status should be 'unassigned' (${name})`);
+              return;
+            }
+          }
+
+          newManpowers.push({
+            name: name.trim(),
+            position: position.trim(),
+            status: editingId ? (status || 'Active') : 'unassigned',
+            project: '',
+            isNew: true
+          });
+        });
+
+        if (invalidRows.length > 0) {
+          setCsvError(`Invalid rows: ${invalidRows.join(', ')}`);
+          return;
+        }
+
+        if (duplicateNames.length > 0) {
+          setCsvError(`Duplicate entries: ${duplicateNames.join(', ')}`);
+          return;
+        }
+
+        if (validationErrors.length > 0) {
+          setCsvError(`Validation errors: ${validationErrors.join(', ')}`);
+          return;
+        }
+
+        if (newManpowers.length > 0) {
+          setCsvUploading(true);
+          try {
+            // Create manpower entries individually
+            const createdManpowers = [];
+            for (const mp of newManpowers) {
+              const { data } = await api.post('/manpower', {
+                name: mp.name,
+                position: mp.position,
+                status: mp.status,
+                assignedProject: null
+              }, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+              });
+              createdManpowers.push(data);
+            }
+
+            // Add created manpower to the form data
+            const newManpowerIds = createdManpowers.map(mp => mp._id);
+            setFormData(prev => ({
+              ...prev,
+              manpower: [...prev.manpower, ...newManpowerIds]
+            }));
+
+            // Update the allManpower list to include new entries
+            setAllManpower(prev => [...prev, ...createdManpowers]);
+            
+            // Clear any previous errors
+            setCsvError('');
+            
+            // Show success message
+            const mode = editingId ? 'added to project' : 'created and assigned to project';
+            alert(`Successfully imported ${createdManpowers.length} manpower entries. They have been ${mode}.`);
+          } catch (err) {
+            console.error('Error importing manpower:', err);
+            setCsvError('Failed to import manpower. Please try again.');
+          } finally {
+            setCsvUploading(false);
+          }
+        } else {
+          setCsvError('No valid manpower data found in CSV file.');
+        }
+      },
+      error: (err) => {
+        console.error('CSV Parsing Error:', err);
+        setCsvError('Error parsing CSV file. Please ensure it is a valid CSV and try again.');
+      }
+    });
+  };
 
   function openCreate(){ setEditingId(null); setFormData(emptyForm); setShowForm(true); }
   function openEdit(p){ setEditingId(p._id); setFormData({ projectName:p.projectName||'', contractor:p.contractor||'', budget:p.budget??'', location:p.location?._id||'', startDate:p.startDate? new Date(p.startDate).toISOString().slice(0,10):'', endDate:p.endDate? new Date(p.endDate).toISOString().slice(0,10):'', status:p.status||'Ongoing', projectmanager:p.projectmanager?._id||'', areamanager:p.areamanager?._id||'', area:p.area?._id||'', pic:(p.pic||[]).map(x=>String(x._id||x)), staff:(p.staff||[]).map(x=>String(x._id||x)), hrsite:(p.hrsite||[]).map(x=>String(x._id||x)), manpower:(p.manpower||[]).map(x=>String(x._id||x)) }); setShowForm(true); }
@@ -734,7 +888,75 @@ export default function ItProjects(){
                 <label>PIC(s)<MultiBox name="pic" values={formData.pic} options={usersByRole['Person in Charge']||[]} userLookup={userLookup} onChange={vals=>setFormData(f=>({...f,pic:vals}))}/></label>
                 <label>Staff<MultiBox name="staff" values={formData.staff} options={usersByRole['Staff']||[]} userLookup={userLookup} onChange={vals=>setFormData(f=>({...f,staff:vals}))}/></label>
                 <label>HR - Site<MultiBox name="hrsite" values={formData.hrsite} options={usersByRole['HR - Site']||[]} userLookup={userLookup} onChange={vals=>setFormData(f=>({...f,hrsite:vals}))}/></label>
-                <label>Manpower<MultiBox name="manpower" values={formData.manpower} options={allManpower} labelKey="name" idKey="_id" userLookup={userLookup} onChange={vals=>setFormData(f=>({...f,manpower:vals}))}/></label>
+                <label>
+                  Manpower
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                    <input 
+                      id="csvUpload" 
+                      type="file" 
+                      accept=".csv" 
+                      style={{ display: 'none' }} 
+                      onChange={handleCSVUpload} 
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => document.getElementById('csvUpload').click()} 
+                      disabled={csvUploading}
+                      style={{ 
+                        padding: '4px 8px', 
+                        fontSize: '12px', 
+                        backgroundColor: '#3b82f6', 
+                        color: 'white', 
+                        border: 'none', 
+                        borderRadius: '4px',
+                        cursor: csvUploading ? 'not-allowed' : 'pointer',
+                        opacity: csvUploading ? 0.6 : 1
+                      }}
+                    >
+                      {csvUploading ? 'Uploading...' : 'Import CSV'}
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        const mode = editingId ? 'Edit' : 'Create';
+                        alert(`CSV Format for ${mode} Project:\n\nRequired columns:\n- Name (required)\n- Position (required)\n\nOptional columns:\n- Status (defaults to "Active" for Edit, must be "unassigned" for Create)\n- Project (must be empty for Create mode)\n\nRules:\n• ${editingId ? 'New manpower will be added to existing project roster' : 'All persons must have status "unassigned" and no project assignments'}\n• Duplicate names/positions are not allowed\n• New manpower will be created and assigned to this project\n\nExample:\nName,Position,Status,Project\nJohn Doe,Engineer,${editingId ? 'Active' : 'unassigned'},\nJane Smith,Manager,${editingId ? 'Active' : 'unassigned'},\nMike Johnson,Technician,${editingId ? 'Active' : 'unassigned'},`);
+                      }}
+                      style={{ 
+                        padding: '4px 8px', 
+                        fontSize: '12px', 
+                        backgroundColor: '#17a2b8', 
+                        color: 'white', 
+                        border: 'none', 
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ?
+                    </button>
+                  </div>
+                  {csvError && (
+                    <div style={{ 
+                      color: '#dc2626', 
+                      fontSize: '12px', 
+                      marginBottom: '8px',
+                      padding: '4px 8px',
+                      backgroundColor: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: '4px'
+                    }}>
+                      {csvError}
+                    </div>
+                  )}
+                  <MultiBox 
+                    name="manpower" 
+                    values={formData.manpower} 
+                    options={allManpower} 
+                    labelKey="name" 
+                    idKey="_id" 
+                    userLookup={userLookup} 
+                    onChange={vals=>setFormData(f=>({...f,manpower:vals}))}
+                  />
+                </label>
               </fieldset>
               {!editingId && <fieldset className="section" style={{gridColumn:'1 / -1'}}>
                 <legend>Initial Files (optional)</legend>

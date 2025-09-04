@@ -1,933 +1,303 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Download, Upload, Plus, RefreshCw, Calendar, MapPin, X, FileText, FileDown } from 'lucide-react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import '../style/ceo_style/Ceo_Dash.css';
+import '../style/ceo_style/Ceo_ManpowerRequest.css';
 import api from '../../api/axiosInstance';
-import '../style/it_style/It_Dash.css';
-// Nav icons
-import { FaUsers, FaExclamationTriangle, FaCheckCircle, FaClock, FaFileExport, FaCalendarAlt, FaExchangeAlt, FaUserPlus } from 'react-icons/fa';
+import { FaSearch } from 'react-icons/fa';
 import AppHeader from '../layout/AppHeader';
 
-export default function ItManpowerList() {
-  const [movements, setMovements] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('all');
-  // Header collapse/profile state not needed with AppHeader
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportFilters, setExportFilters] = useState({
-    user: 'all',
-    timeRange: 'all',
-    status: 'all',
-    format: 'pdf'
-  });
-  const [exportLoading, setExportLoading] = useState(false);
+const ITEMS_PER_PAGE = 8;
+
+const ItManpowerList = () => {
   const navigate = useNavigate();
-
-  // User state
-  const [user, setUser] = useState(() => {
+  const userRef = useRef(null);
+  if (userRef.current === null) {
     const stored = localStorage.getItem('user');
-    return stored ? JSON.parse(stored) : null;
-  });
-  const [token, setToken] = useState(() => localStorage.getItem('token') || "");
-  const [userId, setUserId] = useState(() => user?._id);
-  const [userName, setUserName] = useState(user?.name || 'IT Manager');
-  const [userRole, setUserRole] = useState(user?.role || '');
+    userRef.current = stored ? JSON.parse(stored) : null;
+  }
+  const user = userRef.current;
 
-  // Listen for storage changes
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [status, setStatus] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [layoutView, setLayoutView] = useState('cards');
+
   useEffect(() => {
-    const handleUserChange = () => {
-      const stored = localStorage.getItem('user');
-      setUser(stored ? JSON.parse(stored) : null);
-      setUserId(stored ? JSON.parse(stored)._id : undefined);
-      setToken(localStorage.getItem('token') || "");
+    if (!user || user.role !== 'IT') return;
+    let active = true;
+    const fetchAll = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const { data } = await api.get('/manpower-requests');
+        if (!active) return;
+        setRequests(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (!active) return;
+        console.error('Failed to load manpower requests:', err);
+        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+          setError('Session expired or unauthorized. Please login.');
+        } else {
+          setError('Failed to load manpower requests');
+        }
+      } finally {
+        if (active) {
+        setLoading(false);
+          setCurrentPage(1);
+        }
+      }
     };
-    window.addEventListener("storage", handleUserChange);
-    return () => window.removeEventListener("storage", handleUserChange);
-  }, []);
-
-  useEffect(() => {
-            setUserName(user?.name || 'IT Manager');
-    setUserRole(user?.role || '');
+    fetchAll();
+    return () => { active = false; };
   }, [user]);
 
-  // Redirect to login if not logged in
-  useEffect(() => {
-    if (!token || !userId) {
-      navigate('/');
-      return;
-    }
-  }, [token, userId, navigate]);
-
-  // Removed legacy scroll listener
-
-  // Fetch movement data
-  useEffect(() => {
-    const fetchMovements = async () => {
-      try {
-        setLoading(true);
-        
-        const { data } = await api.get('/manpower-requests', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        if (Array.isArray(data)) {
-          setMovements(data);
-          setError(null);
-        } else {
-          setError('Invalid data format received from server');
-          setMovements([]);
-        }
-      } catch (err) {
-        console.error('Error fetching movements:', err);
-        setError(`Failed to load movement data: ${err.response?.data?.message || err.message}`);
-        setMovements([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (token) {
-      fetchMovements();
-    }
-  }, [token]);
-
-  // Filtered movements
-  const filteredMovements = movements.filter(movement => {
-    const matchesSearch = 
-      movement.createdBy?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      movement.project?.projectName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (movement.manpowers?.[0]?.type?.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    const matchesStatus = statusFilter === 'all' || movement.status?.toLowerCase() === statusFilter.toLowerCase();
-
-    const matchesDate = dateFilter === 'all' || 
-      (dateFilter === 'today' && isToday(new Date(movement.createdAt))) ||
-      (dateFilter === 'week' && isThisWeek(new Date(movement.createdAt))) ||
-      (dateFilter === 'month' && isThisMonth(new Date(movement.createdAt)));
-
-    return matchesSearch && matchesStatus && matchesDate;
-  });
-
-
-
-  // Helper functions for date filtering
-  const isToday = (date) => {
-    const today = new Date();
-    return date.toDateString() === today.toDateString();
-  };
-
-  const isThisWeek = (date) => {
-    const today = new Date();
-    const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return date >= weekAgo;
-  };
-
-  const isThisMonth = (date) => {
-    const today = new Date();
-    return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
-  };
-
-  // Get movement counts
-  const movementCounts = {
-    total: movements.length,
-    pending: movements.filter(m => m.status === 'Pending').length,
-    approved: movements.filter(m => m.status === 'Approved').length,
-    overdue: movements.filter(m => m.status === 'Overdue').length,
-    completed: movements.filter(m => m.status === 'Completed').length,
-    today: movements.filter(m => isToday(new Date(m.createdAt))).length
-  };
-
-  // Handle logout
-  const handleLogout = () => {
-    api.post('/auth/logout', {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).finally(() => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-      setUser(null);
-      setUserId(undefined);
-      setToken("");
-      window.dispatchEvent(new Event('storage'));
-    navigate('/');
-    });
-  };
-
-  // Removed old profile menu logic (handled by unified header)
-
-  // Format date
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  // Get status icon and color
-  const getStatusInfo = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'approved':
-        return { icon: FaCheckCircle, color: 'status-approved', bgColor: '#dcfce7' };
-      case 'overdue':
-        return { icon: FaExclamationTriangle, color: 'status-overdue', bgColor: '#fef2f2' };
-      case 'completed':
-        return { icon: FaCheckCircle, color: 'status-completed', bgColor: '#f0fdf4' };
-      case 'pending':
-        return { icon: FaClock, color: 'status-pending', bgColor: '#fef3c7' };
-      default:
-        return { icon: FaClock, color: 'status-pending', bgColor: '#fef3c7' };
-    }
-  };
-
-  // Get unique users for export filter
-  const getUniqueUsers = () => {
-    const users = movements
-      .map(m => m.createdBy?.name)
-      .filter((name, index, arr) => name && arr.indexOf(name) === index);
-    return users;
-  };
-
-  // Filter movements for export
-  const getFilteredMovementsForExport = () => {
-    let filtered = [...movements];
-
-    // Filter by user
-    if (exportFilters.user !== 'all') {
-      filtered = filtered.filter(m => m.createdBy?.name === exportFilters.user);
-    }
-
-    // Filter by status
-    if (exportFilters.status !== 'all') {
-      filtered = filtered.filter(m => m.status?.toLowerCase() === exportFilters.status.toLowerCase());
-    }
-
-    // Filter by time range
-    if (exportFilters.timeRange !== 'all') {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
-      switch (exportFilters.timeRange) {
-        case 'today':
-          filtered = filtered.filter(m => isToday(new Date(m.createdAt)));
-          break;
-        case 'week':
-          filtered = filtered.filter(m => isThisWeek(new Date(m.createdAt)));
-          break;
-        case 'month':
-          filtered = filtered.filter(m => isThisMonth(new Date(m.createdAt)));
-          break;
-        case 'quarter':
-          const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-          filtered = filtered.filter(m => new Date(m.createdAt) >= quarterAgo);
-          break;
-        case 'year':
-          const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
-          filtered = filtered.filter(m => new Date(m.createdAt) >= yearAgo);
-          break;
-      }
-    }
-
-    return filtered;
-  };
-
-  // Handle export
-  const handleExport = async () => {
-    setExportLoading(true);
-    try {
-      const filteredMovements = getFilteredMovementsForExport();
-      
-      if (exportFilters.format === 'pdf') {
-        await exportToPDF(filteredMovements);
+  const filteredRequests = useMemo(() => {
+    let items = requests;
+    if (status !== 'All') {
+      if (status === 'Archived') {
+        items = items.filter(r => (r.status || 'Pending').toLowerCase().includes('archived'));
       } else {
-        await exportToCSV(filteredMovements);
+        items = items.filter(r => (r.status || 'Pending').toLowerCase().includes(status.toLowerCase()));
       }
-      
-      setExportModalOpen(false);
-    } catch (error) {
-      console.error('Export error:', error);
-      alert('Failed to export data. Please try again.');
-    } finally {
-      setExportLoading(false);
-    }
-  };
-
-  // Export to PDF
-  const exportToPDF = async (data) => {
-    try {
-      // Create new PDF document
-      const doc = new jsPDF();
-      
-      // Get current date and time
-      const now = new Date();
-      const exportDate = now.toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-      const exportTime = now.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-
-      // Add company logo
-      const logoImg = new Image();
-      logoImg.src = '/images/Fadz-logo.png';
-      
-      await new Promise((resolve) => {
-        logoImg.onload = () => {
-          // Add logo to PDF (top left)
-          doc.addImage(logoImg, 'PNG', 15, 15, 30, 30);
-          resolve();
-        };
-        logoImg.onerror = () => {
-          // If logo fails to load, continue without it
-          resolve();
-        };
-      });
-
-      // Add company name and title
-      doc.setFontSize(20);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Fadz Construction Inc.', 50, 25);
-      
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'normal');
-              doc.text('Manpower Requests Report', 50, 35);
-
-      // Add export details
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Exported on: ${exportDate} at ${exportTime}`, 15, 55);
-      doc.text(`Exported by: ${userName} (${userRole})`, 15, 62);
-
-      // Add filter information
-      let filterInfo = 'Filters Applied: ';
-      const filters = [];
-      
-      if (exportFilters.user !== 'all') {
-        filters.push(`User: ${exportFilters.user}`);
-      }
-      if (exportFilters.timeRange !== 'all') {
-        filters.push(`Time: ${exportFilters.timeRange}`);
-      }
-      if (exportFilters.status !== 'all') {
-        filters.push(`Status: ${exportFilters.status}`);
-      }
-      
-      if (filters.length > 0) {
-        filterInfo += filters.join(', ');
       } else {
-        filterInfo += 'None (All records)';
-      }
-      
-      doc.text(filterInfo, 15, 69);
-
-      // Add summary
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Total Records: ${data.length}`, 15, 80);
-
-      // Create main summary table
-      const tableData = data.map((m, index) => [
-        index + 1,
-        m.createdBy?.name || 'Unknown',
-        m.project?.projectName || 'Unknown',
-        m.manpowers?.[0]?.type || 'Unknown',
-        m.manpowers?.[0]?.quantity || 1,
-        m.status || 'Pending',
-        formatDate(m.createdAt),
-        m.description || ''
-      ]);
-
-      // Add main summary table
-      autoTable(doc, {
-        startY: 90,
-        head: [['#', 'Requester', 'Project', 'Position', 'Quantity', 'Status', 'Date', 'Description']],
-        body: tableData,
-        theme: 'grid',
-        headStyles: {
-          fillColor: [59, 130, 246],
-          textColor: 255,
-          fontStyle: 'bold'
-        },
-        styles: {
-          fontSize: 8,
-          cellPadding: 2
-        },
-        columnStyles: {
-          0: { cellWidth: 10 }, // #
-          1: { cellWidth: 25 }, // Requester
-          2: { cellWidth: 30 }, // Project
-          3: { cellWidth: 20 }, // Position
-          4: { cellWidth: 15 }, // Quantity
-          5: { cellWidth: 20 }, // Status
-          6: { cellWidth: 20 }, // Date
-          7: { cellWidth: 'auto' } // Description
-        },
-        margin: { top: 10 }
-      });
-
-      // Get the Y position after the main table
-      const mainTableEndY = doc.lastAutoTable.finalY || 150;
-      let currentY = mainTableEndY + 20;
-
-      // Add detailed sections for approved and completed requests
-      const approvedRequests = data.filter(m => m.status === 'Approved');
-      const completedRequests = data.filter(m => m.status === 'Completed');
-
-      // Approved Requests Details Section
-      if (approvedRequests.length > 0) {
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Approved Requests Details', 15, currentY);
-        currentY += 10;
-
-        const approvedTableData = approvedRequests.map((m, index) => [
-          index + 1,
-          m.createdBy?.name || 'Unknown',
-          m.project?.projectName || 'Unknown',
-          m.manpowers?.[0]?.type || 'Unknown',
-          m.manpowers?.[0]?.quantity || 1,
-          m.approvedBy || 'Unknown',
-          formatDate(m.updatedAt || m.createdAt),
-          formatDate(m.createdAt)
-        ]);
-
-        autoTable(doc, {
-          startY: currentY,
-          head: [['#', 'Requester', 'Project', 'Position', 'Quantity', 'Approved By', 'Approved On', 'Requested On']],
-          body: approvedTableData,
-          theme: 'grid',
-          headStyles: {
-            fillColor: [34, 197, 94],
-            textColor: 255,
-            fontStyle: 'bold'
-          },
-          styles: {
-            fontSize: 7,
-            cellPadding: 2
-          },
-          columnStyles: {
-            0: { cellWidth: 8 },
-            1: { cellWidth: 22 },
-            2: { cellWidth: 25 },
-            3: { cellWidth: 18 },
-            4: { cellWidth: 12 },
-            5: { cellWidth: 20 },
-            6: { cellWidth: 20 },
-            7: { cellWidth: 20 }
-          }
-        });
-
-        currentY = doc.lastAutoTable.finalY + 15;
-      }
-
-      // Completed Requests Details Section
-      if (completedRequests.length > 0) {
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Completed Requests Details', 15, currentY);
-        currentY += 10;
-
-        const completedTableData = completedRequests.map((m, index) => {
-          const arrivalTime = m.updatedAt ? new Date(m.updatedAt).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }) : 'N/A';
-          
-          const returnTime = m.returnDate ? new Date(m.returnDate).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }) : 'N/A';
-
-          return [
-            index + 1,
-            m.createdBy?.name || 'Unknown',
-            m.project?.projectName || 'Unknown',
-            m.manpowers?.[0]?.type || 'Unknown',
-            m.manpowers?.[0]?.quantity || 1,
-            m.approvedBy || 'Unknown',
-            formatDate(m.updatedAt || m.createdAt),
-            formatDate(m.returnDate || m.updatedAt),
-            `${arrivalTime} | ${returnTime}`
-          ];
-        });
-
-        autoTable(doc, {
-          startY: currentY,
-          head: [['#', 'Requester', 'Project', 'Position', 'Quantity', 'Approved By', 'Approved On', 'Returned On', 'Arrival | Return Time']],
-          body: completedTableData,
-          theme: 'grid',
-          headStyles: {
-            fillColor: [16, 185, 129],
-            textColor: 255,
-            fontStyle: 'bold'
-          },
-          styles: {
-            fontSize: 7,
-            cellPadding: 2
-          },
-          columnStyles: {
-            0: { cellWidth: 8 },
-            1: { cellWidth: 20 },
-            2: { cellWidth: 22 },
-            3: { cellWidth: 16 },
-            4: { cellWidth: 10 },
-            5: { cellWidth: 18 },
-            6: { cellWidth: 18 },
-            7: { cellWidth: 18 },
-            8: { cellWidth: 25 }
-          }
-        });
-      }
-
-      // Add footer
-      const pageCount = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= pageCount; i++) {
-        doc.setPage(i);
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'italic');
-        doc.text(
-          `Page ${i} of ${pageCount} | Generated by FadzTrack IT System`,
-          doc.internal.pageSize.width / 2,
-          doc.internal.pageSize.height - 10,
-          { align: 'center' }
-        );
-      }
-
-      // Save the PDF
-              const fileName = `manpower-requests-${now.toISOString().split('T')[0]}.pdf`;
-      doc.save(fileName);
-      
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF. Please try again.');
+      // For 'All' filter, exclude archived items by default
+      items = items.filter(r => !(r.status || 'Pending').toLowerCase().includes('archived'));
     }
-  };
-
-  // Export to CSV
-  const exportToCSV = async (data) => {
-    const csvContent = generateExportContent(data, 'csv');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-            a.download = `manpower-requests-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  // Generate export content
-  const generateExportContent = (data, format) => {
-    if (format === 'csv') {
-      // Enhanced CSV with additional details for approved and completed requests
-      const headers = [
-        'Requester', 'Project', 'Position', 'Quantity', 'Status', 'Date', 'Description',
-        'Approved By', 'Approved On', 'Returned On', 'Arrival Time', 'Return Time'
-      ];
-      
-      const rows = data.map(m => {
-        const arrivalTime = m.updatedAt ? new Date(m.updatedAt).toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        }) : '';
-        
-        const returnTime = m.returnDate ? new Date(m.returnDate).toLocaleTimeString('en-US', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        }) : '';
-
-        return [
-          m.createdBy?.name || 'Unknown',
-          m.project?.projectName || 'Unknown',
-          m.manpowers?.[0]?.type || 'Unknown',
-          m.manpowers?.[0]?.quantity || 1,
-          m.status || 'Pending',
-          formatDate(m.createdAt),
-          m.description || '',
-          m.approvedBy || '',
-          formatDate(m.updatedAt || ''),
-          formatDate(m.returnDate || ''),
-          arrivalTime,
-          returnTime
-        ];
+    if (searchTerm) {
+      const s = searchTerm.toLowerCase();
+      items = items.filter(r => {
+        const proj = r.project?.projectName || '';
+        const by = r.createdBy?.name || '';
+        const summary = (r.manpowers || []).map(m => `${m.quantity} ${m.type}`).join(', ');
+        return proj.toLowerCase().includes(s) || by.toLowerCase().includes(s) || summary.toLowerCase().includes(s) || (r.description || '').toLowerCase().includes(s);
       });
-      
-      return [headers, ...rows]
-        .map(row => row.map(cell => `"${cell}"`).join(','))
-        .join('\n');
-    } else {
-      // Simple text format for PDF simulation
-      let content = 'MANPOWER REQUESTS REPORT\n';
-      content += 'Generated on: ' + new Date().toLocaleDateString() + '\n\n';
-      
-      data.forEach((m, index) => {
-        content += `${index + 1}. Requester: ${m.createdBy?.name || 'Unknown'}\n`;
-        content += `   Project: ${m.project?.projectName || 'Unknown'}\n`;
-        content += `   Position: ${m.manpowers?.[0]?.type || 'Unknown'}\n`;
-        content += `   Quantity: ${m.manpowers?.[0]?.quantity || 1}\n`;
-        content += `   Status: ${m.status || 'Pending'}\n`;
-        content += `   Date: ${formatDate(m.createdAt)}\n`;
-        content += `   Description: ${m.description || ''}\n`;
-        
-        // Add approval details for approved requests
-        if (m.status === 'Approved' && m.approvedBy) {
-          content += `   Approved by: ${m.approvedBy}\n`;
-          content += `   Approved on: ${formatDate(m.updatedAt || m.createdAt)}\n`;
-        }
-        
-        // Add completion details for completed requests
-        if (m.status === 'Completed') {
-          if (m.approvedBy) {
-            content += `   Approved by: ${m.approvedBy}\n`;
-            content += `   Approved on: ${formatDate(m.updatedAt || m.createdAt)}\n`;
-          }
-          if (m.returnDate) {
-            content += `   Returned on: ${formatDate(m.returnDate)}\n`;
-          }
-          const arrivalTime = m.updatedAt ? new Date(m.updatedAt).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }) : 'N/A';
-          const returnTime = m.returnDate ? new Date(m.returnDate).toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }) : 'N/A';
-          content += `   Arrival time: ${arrivalTime}\n`;
-          content += `   Return time: ${returnTime}\n`;
-        }
-        
-        content += '\n';
-      });
-      
-      return content;
     }
+    return items;
+  }, [requests, status, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / ITEMS_PER_PAGE));
+  const pageRows = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredRequests.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredRequests, currentPage]);
+
+  const getRequestBackgroundColor = (request) => {
+    const statusLower = request.status?.toLowerCase() || '';
+    if (statusLower.includes('pending') && request.acquisitionDate && new Date(request.acquisitionDate) < new Date()) {
+      return '#fef3c7';
+    }
+    if (statusLower.includes('pending')) return '#ffffff';
+    if (statusLower.includes('approved')) return '#fef3c7';
+    if (statusLower.includes('rejected') || statusLower.includes('cancel') || statusLower.includes('denied')) return '#fef2f2';
+    if (statusLower.includes('completed')) return '#ecfdf5';
+    return '#f9fafb';
   };
+
+  const getStatusBadge = (request) => {
+    const s = (request.status || 'Pending').toLowerCase();
+    const isOverdue = s === 'pending' && request.acquisitionDate && new Date(request.acquisitionDate) < new Date();
+    if (isOverdue) return 'Overdue';
+    if (s.includes('archived')) return 'Archived';
+    if (s.includes('completed')) return 'Completed';
+    if (s.includes('approved')) return 'Approved';
+    if (s.includes('pending')) return 'Pending';
+    if (s.includes('reject') || s.includes('denied') || s.includes('cancel')) return 'Rejected';
+    if (s.includes('overdue')) return 'Overdue';
+    return 'Unknown';
+  };
+
+  const getStatusColor = (request) => {
+    const s = (request.status || 'Pending').toLowerCase();
+    const isOverdue = s === 'pending' && request.acquisitionDate && new Date(request.acquisitionDate) < new Date();
+    if (isOverdue) return '#d97706';
+    if (s.includes('archived')) return '#8b5cf6';
+    if (s.includes('completed')) return '#059669';
+    if (s.includes('approved')) return '#10b981';
+    if (s.includes('pending')) return '#f59e0b';
+    if (s.includes('reject') || s.includes('denied') || s.includes('cancel')) return '#ef4444';
+    if (s.includes('overdue')) return '#d97706';
+    return '#6b7280';
+  };
+
+  const summaryCounts = useMemo(() => {
+    let pending = 0, approved = 0, completed = 0, rejected = 0, overdue = 0, archived = 0;
+    requests.forEach(r => {
+      const s = (r.status || 'Pending').toLowerCase();
+      const isOver = s === 'pending' && r.acquisitionDate && new Date(r.acquisitionDate) < new Date();
+      if (s.includes('archived')) archived++; else if (s.includes('completed')) completed++; else if (s.includes('approved')) approved++; else if (s.includes('reject') || s.includes('denied') || s.includes('cancel')) rejected++; else if (isOver || s.includes('overdue')) overdue++; else pending++;
+    });
+    return { total: requests.length, pending, approved, rejected, overdue, completed, archived };
+  }, [requests]);
+
+  const statusCounts = useMemo(() => ({
+    All: summaryCounts.total - summaryCounts.archived, // Exclude archived from All count
+    Pending: summaryCounts.pending,
+    Overdue: summaryCounts.overdue,
+    Approved: summaryCounts.approved,
+    Completed: summaryCounts.completed,
+    Rejected: summaryCounts.rejected,
+    Archived: summaryCounts.archived
+  }), [summaryCounts]);
+
+  if (!user || user.role !== 'IT') {
+    return (
+      <div style={{ padding: 24 }}>
+        <h2>Forbidden</h2>
+        <p>You must be an IT user to view this page.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container ceo-manpower-requests-page">
       <AppHeader roleSegment="it" />
-
-      {/* Main Content */}
-  <main className="dashboard-main" style={{marginTop:'1rem'}}>
-        <div className="movement-container">
-          {/* Page Header */}
-          <div className="page-header">
-            <div className="page-title-section">
-                        <h1 className="page-title">Manpower Requests</h1>
-          <p className="page-subtitle">Monitor and manage manpower requests across all projects</p>
+      <main className="dashboard-main">
+        <div className="page-container">
+          <div className="dashboard-card ceo-mr-header-card">
+            <div className="card-header mr-header-row">
+              <div className="mr-header-texts">
+                <h1 className="card-title">Manpower Requests</h1>
+                <p className="card-subtitle">Monitor and manage manpower requests across all projects</p>
             </div>
-            <div className="page-actions">
-              <button className="action-button secondary" onClick={() => setExportModalOpen(true)}>
-                <FaFileExport />
-                <span>Export</span>
+              <div className="layout-toggle-wrapper">
+                <button onClick={()=>setLayoutView(v=> v==='cards' ? 'table' : 'cards')} className="btn-secondary toggle-layout-btn">
+                  {layoutView === 'cards' ? 'Table View' : 'Card View'}
               </button>
             </div>
           </div>
-
-          {/* Stats Overview */}
-          <div className="stats-overview">
-            <div className="stat-card">
-              <div className="stat-icon total">
-                <FaUsers />
+            <div className="card-body mr-filters-row">
+              <div className="filter-tabs compact">
+                {['All','Pending','Overdue','Approved','Completed','Rejected','Archived'].map(tab => (
+                  <button key={tab} className={`filter-tab ${status === tab ? 'active' : ''}`} onClick={() => {setStatus(tab); setCurrentPage(1);}}>
+                    <span>{tab}</span>
+                    <span className="count">{statusCounts[tab] ?? 0}</span>
+                  </button>
+                ))}
               </div>
-              <div className="stat-content">
-                <span className="stat-value">{movementCounts.total}</span>
-                <span className="stat-label">Total Requests</span>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon today">
-                <FaCalendarAlt />
-              </div>
-              <div className="stat-content">
-                <span className="stat-value">{movementCounts.today}</span>
-                <span className="stat-label">Today</span>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon pending">
-                <FaClock />
-              </div>
-              <div className="stat-content">
-                <span className="stat-value">{movementCounts.pending}</span>
-                <span className="stat-label">Pending</span>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon approved">
-                <FaCheckCircle />
-              </div>
-              <div className="stat-content">
-                <span className="stat-value">{movementCounts.approved}</span>
-                <span className="stat-label">Approved</span>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon overdue">
-                <FaExclamationTriangle />
-              </div>
-              <div className="stat-content">
-                <span className="stat-value">{movementCounts.overdue}</span>
-                <span className="stat-label">Overdue</span>
-              </div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-icon completed">
-                <FaCheckCircle />
-              </div>
-              <div className="stat-content">
-                <span className="stat-value">{movementCounts.completed}</span>
-                <span className="stat-label">Completed</span>
+              <div className="search-wrapper stretch">
+                <FaSearch className="search-icon" />
+                <input type="text" placeholder="Search requests..." value={searchTerm} onChange={(e)=>{setSearchTerm(e.target.value); setCurrentPage(1);}} className="search-input" />
               </div>
             </div>
           </div>
 
-          {/* Filters and Search */}
-          <div className="filters-section">
-            <div className="search-box">
-              <Search className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search by requester, project, or position..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
+          <div className="dashboard-card ceo-mr-summary-card">
+            <div className="card-header"><h3 className="card-title-sm">Summary</h3></div>
+            <div className="mr-summary-grid">
+              {[{ label:'Total', value: summaryCounts.total, color:'#334155' },
+                { label:'Pending', value: summaryCounts.pending, color:'#f59e0b' },
+                { label:'Overdue', value: summaryCounts.overdue, color:'#d97706' },
+                { label:'Approved', value: summaryCounts.approved, color:'#10b981' },
+                { label:'Completed', value: summaryCounts.completed, color:'#059669' },
+                { label:'Rejected', value: summaryCounts.rejected, color:'#ef4444' },
+                { label:'Archived', value: summaryCounts.archived, color:'#8b5cf6' }
+              ].map(c => (
+                <div key={c.label} className="mr-summary-item">
+                  <span className="mr-summary-label">{c.label}</span>
+                  <span className="mr-summary-value" style={{ color:c.color }}>{c.value}</span>
+                  <div className="mr-summary-bar" style={{ background:c.color }} />
             </div>
-            <div className="filter-controls">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="overdue">Overdue</option>
-                <option value="completed">Completed</option>
-              </select>
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-              </select>
-              <button className="refresh-btn" onClick={() => window.location.reload()}>
-                <RefreshCw />
-              </button>
+              ))}
             </div>
           </div>
 
-          {/* Movement List */}
-          <div className="movement-list-container">
+          <div className="dashboard-card ceo-mr-list-card">
+            <div className="card-header list-header"><h3 className="card-title-sm">Requests <span className="muted">({filteredRequests.length})</span></h3></div>
+            <div className={`requests-grid ceo-mr-grid ${layoutView === 'table' ? 'table-view' : ''}`}>            
             {loading ? (
-              <div className="loading-state">
-                <div className="loading-spinner"></div>
-                <span>Loading manpower data...</span>
-              </div>
+                <div className="loading-state"><div className="loading-spinner"></div><p>Loading manpower requests...</p></div>
             ) : error ? (
-              <div className="error-state">
-                <FaExclamationTriangle />
-                <span>{error}</span>
-              </div>
-            ) : filteredMovements.length === 0 ? (
+                <div className="error-state"><p>{error}</p></div>
+              ) : pageRows.length === 0 ? (
               <div className="empty-state">
-                <FaExchangeAlt />
-                <span>No manpower requests found matching your criteria</span>
+                  <div className="empty-icon">👥</div>
+                  <h3>No manpower requests found</h3>
+                  <p>No requests match your current filters. Try adjusting your search criteria.</p>
             </div>
           ) : (
-              <div className="movement-list">
-                {filteredMovements.map((movement) => {
-                  const statusInfo = getStatusInfo(movement.status);
-                  const StatusIcon = statusInfo.icon;
-                  
+                <>
+                  {layoutView === 'table' && (
+                    <div className="mr-table-header" role="row" aria-label="Table Header">
+                      <div>Project</div>
+                      <div>Requester</div>
+                      <div>Description</div>
+                      <div>Manpower</div>
+                      <div>Target</div>
+                      <div>Dur</div>
+                      <div>Created</div>
+                      <div>Status</div>
+                    </div>
+                  )}
+                  {pageRows.map(request => {
+                    const summary = (request.manpowers || []).map(m=>`${m.quantity} ${m.type}`).join(', ');
+                    const badgeLabel = getStatusBadge(request);
+                    const badgeColor = getStatusColor(request);
+                    if (layoutView === 'table') {
                   return (
                     <div 
-                      key={movement._id} 
-                      className="movement-item"
-                      onClick={() => navigate(`/it/manpower-list/${movement._id}`)}
-                    >
-                      <div className="movement-requester">
-                        <div className="requester-avatar">
-                          {movement.createdBy?.name ? movement.createdBy.name.charAt(0).toUpperCase() : 'U'}
+                          key={request._id}
+                          className="mr-table-row"
+                          role="row"
+                          onClick={() => navigate(`/it/manpower-list/${request._id}`)}
+                          style={{ cursor: 'pointer' }}
+                          title="View details"
+                        >
+                          <div className="rt-title" title={request.project?.projectName || '(No Project Name)'}>{request.project?.projectName || '(No Project Name)'}</div>
+                          <div className="rt-req" title={request.createdBy?.name || 'Unknown'}>{request.createdBy?.name || 'Unknown'}</div>
+                          <div className="rt-desc" title={request.description || 'No description'}>{request.description || 'No description'}</div>
+                          <div className="rt-man" title={summary || '—'}>{summary || '—'}</div>
+                          <div className="rt-date" title="Target Date">{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</div>
+                          <div className="rt-date" title="Duration">{request.duration || '—'}d</div>
+                          <div className="rt-date" title="Created">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</div>
+                          <div className="rt-btn"><span className={`status-chip ${badgeLabel.toLowerCase()}`}>{badgeLabel}</span></div>
                         </div>
-                        <div className="requester-info">
-                          <h4 className="requester-name">{movement.createdBy?.name || 'Unknown'}</h4>
-                          <p className="requester-role">{movement.createdBy?.role || 'Unknown Role'}</p>
+                      );
+                    }
+                    return (
+                      <div className={`request-card ceo-mr-card`} key={request._id}>
+                        <div className="card-body">
+                          <div className="mr-card-top-row">
+                            <h3 className="request-title" title={request.project?.projectName || '(No Project Name)'}>{request.project?.projectName || '(No Project Name)'}</h3>
+                            <span className={`status-chip ${badgeLabel.toLowerCase()}`}>{badgeLabel}</span>
+                        </div>
+                          <p className="request-description" title={request.description || 'No description provided'}>{request.description || 'No description provided'}</p>
+                          <div className="request-meta">
+                            <div className="meta-item"><span className="meta-label">Requested by:</span><span className="meta-value" title={request.createdBy?.name || 'Unknown'}>{request.createdBy?.name || 'Unknown'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Manpower:</span><span className="meta-value" title={summary || '—'}>{summary || '—'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Date:</span><span className="meta-value">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Target:</span><span className="meta-value">{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Duration:</span><span className="meta-value">{request.duration || '—'} d</span></div>
                         </div>
                       </div>
-                      <div className="movement-project">
-                        <MapPin className="detail-icon" />
-                        <span className="detail-value">{movement.project?.projectName || 'Unknown Project'}</span>
-                      </div>
-                      <div className="movement-position">
-                        <FaUserPlus className="detail-icon" />
-                        <span className="detail-value">{movement.manpowers?.[0]?.type || 'Unknown Position'}</span>
-                      </div>
-                      <div className="movement-quantity">
-                        <FaUsers className="detail-icon" />
-                        <span className="detail-value">{movement.manpowers?.[0]?.quantity || 1} needed</span>
-                      </div>
-                      <div className="movement-date">
-                        <Calendar className="detail-icon" />
-                        <span className="detail-value">{formatDate(movement.createdAt)}</span>
-                      </div>
-                      <div className="movement-status">
-                        <span className={`status-badge ${statusInfo.color}`}>
-                          <StatusIcon />
-                          {movement.status || 'Pending'}
-                        </span>
+                        <div className="card-footer">
+                          <Link to={`/it/manpower-list/${request._id}`} className="view-details-btn">View Details</Link>
                       </div>
                     </div>
                   );
                 })}
+                </>
+              )}
+            </div>
+            {filteredRequests.length > 0 && (
+              <div className="pagination-section inside-card">
+                <div className="pagination-info">Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries</div>
+                <div className="pagination-controls">
+                  <button onClick={()=>setCurrentPage(p=>Math.max(p-1,1))} disabled={currentPage===1} className="pagination-btn">Previous</button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button key={page} className={`pagination-btn ${page === currentPage ? 'active' : ''}`} onClick={()=>setCurrentPage(page)}>{page}</button>
+                  ))}
+                  <button onClick={()=>setCurrentPage(p=>Math.min(p+1,totalPages))} disabled={currentPage===totalPages} className="pagination-btn">Next</button>
+                </div>
               </div>
             )}
           </div>
         </div>
       </main>
-
-      {/* Export Modal */}
-      {exportModalOpen && (
-        <div className="export-modal-overlay" onClick={() => setExportModalOpen(false)}>
-          <div className="export-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="export-modal-header">
-              <h3>Export Manpower Requests</h3>
-              <button 
-                className="export-modal-close" 
-                onClick={() => setExportModalOpen(false)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="export-modal-content">
-              <div className="export-filters">
-                <div className="export-filter-group">
-                  <label>Filter by User:</label>
-                  <select 
-                    value={exportFilters.user} 
-                    onChange={(e) => setExportFilters(prev => ({ ...prev, user: e.target.value }))}
-                  >
-                    <option value="all">All Users</option>
-                    {getUniqueUsers().map(user => (
-                      <option key={user} value={user}>{user}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="export-filter-group">
-                  <label>Filter by Time Range:</label>
-                  <select 
-                    value={exportFilters.timeRange} 
-                    onChange={(e) => setExportFilters(prev => ({ ...prev, timeRange: e.target.value }))}
-                  >
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                    <option value="quarter">Last 3 Months</option>
-                    <option value="year">Last Year</option>
-                  </select>
-                </div>
-
-                <div className="export-filter-group">
-                  <label>Filter by Status:</label>
-                  <select 
-                    value={exportFilters.status} 
-                    onChange={(e) => setExportFilters(prev => ({ ...prev, status: e.target.value }))}
-                  >
-                    <option value="all">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                </div>
-
-                <div className="export-filter-group">
-                  <label>Export Format:</label>
-                  <div className="format-options">
-                    <label className="format-option">
-                      <input
-                        type="radio"
-                        name="format"
-                        value="pdf"
-                        checked={exportFilters.format === 'pdf'}
-                        onChange={(e) => setExportFilters(prev => ({ ...prev, format: e.target.value }))}
-                      />
-                      <span className="format-label">
-                        <FileText size={16} />
-                        PDF Report (Recommended)
-                      </span>
-                    </label>
-                    <label className="format-option">
-                      <input
-                        type="radio"
-                        name="format"
-                        value="csv"
-                        checked={exportFilters.format === 'csv'}
-                        onChange={(e) => setExportFilters(prev => ({ ...prev, format: e.target.value }))}
-                      />
-                      <span className="format-label">
-                        <FileDown size={16} />
-                        CSV File
-                      </span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="export-summary">
-                <h4>Export Summary</h4>
-                <p>Total records to export: <strong>{getFilteredMovementsForExport().length}</strong></p>
-                <p>Format: <strong>{exportFilters.format.toUpperCase()}</strong></p>
-              </div>
-
-              <div className="export-actions">
-                <button 
-                  className="export-btn cancel" 
-                  onClick={() => setExportModalOpen(false)}
-                  disabled={exportLoading}
-                >
-                  Cancel
-                </button>
-                <button 
-                  className="export-btn primary" 
-                  onClick={handleExport}
-                  disabled={exportLoading || getFilteredMovementsForExport().length === 0}
-                >
-                  {exportLoading ? (
-                    <>
-                      <div className="loading-spinner"></div>
-                      Exporting...
-                    </>
-                  ) : (
-                    <>
-                      <FileDown size={16} />
-                      Export {getFilteredMovementsForExport().length} Records
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
-}
+};
+
+export default ItManpowerList;

@@ -1,42 +1,21 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import '../style/ceo_style/Ceo_Dash.css';
+import '../style/ceo_style/Ceo_ManpowerRequest.css';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
+import { FaSearch, FaTh, FaList } from 'react-icons/fa';
 import AppHeader from '../layout/AppHeader';
-import '../style/pm_style/PmManpowerRequest.css';
-// Nav icons
-import { 
-  FaTachometerAlt, 
-  FaBoxes, 
-  FaUsers, 
-  FaProjectDiagram, 
-  FaClipboardList, 
-  FaChartBar, 
-  FaCalendarAlt,
-  FaSearch,
-  FaFilter,
-  FaPlus,
-  FaList,
-  FaComments
-} from 'react-icons/fa';
 
-const ITEMS_PER_PAGE = 5;
+const ITEMS_PER_PAGE = 8;
 
-export default function PmManpowerList() {
+const PmManpowerList = () => {
   const navigate = useNavigate();
-
-  // Read the user before any state depends on it (avoid TDZ)
-  const token = localStorage.getItem('token');
-  const stored = localStorage.getItem('user');
-  const user = stored ? JSON.parse(stored) : null;
-  const userId = user?._id || user?.id || null;
-
-  const [userName, setUserName] = useState(user?.name || 'ALECK');
-  const [userRole, setUserRole] = useState(user?.role || '');
-  const [project, setProject] = useState(null); // still used for linking inside page content if needed
-
-  // View mode: 'mine' | 'others'
-  const [viewMode, setViewMode] = useState('mine');
+  const userRef = useRef(null);
+  if (userRef.current === null) {
+    const stored = localStorage.getItem('user');
+    userRef.current = stored ? JSON.parse(stored) : null;
+  }
+  const user = userRef.current;
 
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,193 +23,149 @@ export default function PmManpowerList() {
   const [status, setStatus] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [layoutView, setLayoutView] = useState('cards'); // 'cards' or 'table'
-  const [deletingId, setDeletingId] = useState(null);
+  const [layoutView, setLayoutView] = useState('cards');
+  const [sortDesc, setSortDesc] = useState(true);
 
-  // Fetch list depending on viewMode
+  // PM-specific functionality
+  const [viewMode, setViewMode] = useState('mine'); // 'mine' or 'others'
+
   useEffect(() => {
-    const fetchData = async () => {
+    if (!user || user.role !== 'Project Manager') return;
+    let active = true;
+    const fetchAll = async () => {
       setLoading(true);
       setError('');
       try {
         if (viewMode === 'mine') {
           const { data } = await api.get('/manpower-requests/mine');
+          if (!active) return;
           setRequests(Array.isArray(data) ? data : []);
         } else {
-          // Fetch ALL requests then filter out those created by this user so we also see Approved/Completed/Overdue
-            const { data } = await api.get('/manpower-requests');
-            const arr = Array.isArray(data) ? data : [];
-            const othersOnly = arr.filter(r => {
-              const creatorId = r.createdBy?._id || r.createdBy?.id || r.createdBy;
-              return creatorId && creatorId !== userId; // exclude my own only
-            });
-            setRequests(othersOnly);
+          // Fetch ALL requests then filter out those created by this user
+          const { data } = await api.get('/manpower-requests');
+          if (!active) return;
+          const arr = Array.isArray(data) ? data : [];
+          const othersOnly = arr.filter(r => {
+            const creatorId = r.createdBy?._id || r.createdBy?.id || r.createdBy;
+            return creatorId && creatorId !== user._id; // exclude my own only
+          });
+          setRequests(othersOnly);
         }
       } catch (err) {
-        console.error('Load error:', err);
-        if (err.response && (err.response.status === 403 || err.response.status === 401)) {
+        if (!active) return;
+        console.error('Failed to load manpower requests:', err);
+        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
           setError('Session expired or unauthorized. Please login.');
         } else {
           setError('Failed to load manpower requests');
         }
-        setRequests([]);
       } finally {
-        setLoading(false);
-        setCurrentPage(1);
-      }
-    };
-    fetchData();
-  }, [viewMode, userId]);
-
-  // Removed custom header collapse + profile menu logic (handled by AppHeader)
-
-  // Fetch assigned project
-  useEffect(() => {
-    if (!token || !userId) return;
-    const fetchAssignedPMProject = async () => {
-      try {
-        const { data } = await api.get(`/projects/assigned/projectmanager/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setProject(data);
-      } catch (err) {
-        setProject(null);
-      }
-    };
-    fetchAssignedPMProject();
-  }, [token, userId]);
-
-  // Handle deleting archived requests
-  const handleDeleteArchived = async (requestId) => {
-    const confirmed = window.confirm(
-      'Are you sure you want to permanently delete this archived request? This action cannot be undone.'
-    );
-    
-    if (!confirmed) return;
-    
-    setDeletingId(requestId);
-    try {
-      await api.delete(`/manpower-requests/${requestId}/archived`);
-      alert('Archived request permanently deleted.');
-      // Refresh the list
-      const fetchData = async () => {
-        setLoading(true);
-        setError('');
-        try {
-          if (viewMode === 'mine') {
-            const { data } = await api.get('/manpower-requests/mine');
-            setRequests(Array.isArray(data) ? data : []);
-          } else {
-            const { data } = await api.get('/manpower-requests');
-            const arr = Array.isArray(data) ? data : [];
-            const othersOnly = arr.filter(r => {
-              const creatorId = r.createdBy?._id || r.createdBy?.id || r.createdBy;
-              return creatorId && creatorId !== userId;
-            });
-            setRequests(othersOnly);
-          }
-        } catch (err) {
-          console.error('Load error:', err);
-          setError('Failed to load manpower requests');
-          setRequests([]);
-        } finally {
+        if (active) {
           setLoading(false);
+          setCurrentPage(1);
         }
-      };
-      fetchData();
-    } catch (error) {
-      console.error('Error deleting archived request:', error);
-      alert(error?.response?.data?.message || 'Failed to delete archived request.');
-    } finally {
-      setDeletingId(null);
-    }
-  };
+      }
+    };
+    fetchAll();
+    return () => { active = false; };
+  }, [user, viewMode]);
 
-  // Filter and search logic
   const filteredRequests = useMemo(() => {
     let items = requests;
-
-    if (status && status !== 'All') {
-      const target = status === 'Complete' ? 'Completed' : status; // map UI label to stored status
-      items = items.filter((r) => (r.status || 'Pending') === target);
-    } else if (status === 'All') {
-      // When 'All' is selected, exclude rejected and archived requests ONLY for "Others' Requests"
-      // For "My Requests", show all including rejected ones but exclude archived
-      if (viewMode === 'others') {
-        items = items.filter((r) => (r.status || 'Pending') !== 'Rejected' && (r.status || 'Pending') !== 'Archived');
+    if (status !== 'All') {
+      if (status === 'Archived') {
+        items = items.filter(r => (r.status || 'Pending').toLowerCase().includes('archived'));
       } else {
-        // For 'mine' view, show all requests including rejected ones but exclude archived
-        items = items.filter((r) => (r.status || 'Pending') !== 'Archived');
+        items = items.filter(r => (r.status || 'Pending').toLowerCase().includes(status.toLowerCase()));
       }
+    } else {
+      // For 'All' filter, exclude archived items by default
+      items = items.filter(r => !(r.status || 'Pending').toLowerCase().includes('archived'));
     }
-
     if (searchTerm) {
-      const text = searchTerm.toLowerCase();
-      items = items.filter((r) => {
+      const s = searchTerm.toLowerCase();
+      items = items.filter(r => {
         const proj = r.project?.projectName || '';
         const by = r.createdBy?.name || '';
-        const reqSummary = (r.manpowers || []).map((m) => `${m.quantity} ${m.type}`).join(', ');
-        return (
-          proj.toLowerCase().includes(text) ||
-          by.toLowerCase().includes(text) ||
-          reqSummary.toLowerCase().includes(text) ||
-          (r.description || '').toLowerCase().includes(text)
-        );
+        const summary = (r.manpowers || []).map(m => `${m.quantity} ${m.type}`).join(', ');
+        return proj.toLowerCase().includes(s) || by.toLowerCase().includes(s) || summary.toLowerCase().includes(s) || (r.description || '').toLowerCase().includes(s);
       });
     }
-
     return items;
   }, [requests, status, searchTerm]);
 
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredRequests.length / ITEMS_PER_PAGE));
+  // Sorting logic
+  const sortedRequests = useMemo(() => {
+    return [...filteredRequests].sort((a, b) => {
+      const aTime = new Date(a.createdAt || 0).getTime();
+      const bTime = new Date(b.createdAt || 0).getTime();
+      return sortDesc ? bTime - aTime : aTime - bTime;
+    });
+  }, [filteredRequests, sortDesc]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedRequests.length / ITEMS_PER_PAGE));
   const pageRows = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredRequests.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredRequests, currentPage]);
-
-  const getStatusColor = (status) => {
-    const statusLower = status?.toLowerCase() || '';
-    if (statusLower.includes('completed')) return '#059669';
-    if (statusLower.includes('approved')) return '#10b981';
-    if (statusLower.includes('pending')) return '#f59e0b';
-    if (statusLower.includes('rejected')) return '#ef4444';
-    if (statusLower.includes('archived')) return '#8b5cf6';
-    return '#6b7280';
-  };
-
-  const getStatusBadge = (status) => {
-    const statusLower = status?.toLowerCase() || '';
-    if (statusLower.includes('completed')) return 'Completed';
-    if (statusLower.includes('approved')) return 'Approved';
-    if (statusLower.includes('pending')) return 'Pending';
-    if (statusLower.includes('rejected')) return 'Rejected';
-    if (statusLower.includes('archived')) return 'Archived';
-    return 'Unknown';
-  };
+    return sortedRequests.slice(start, start + ITEMS_PER_PAGE);
+  }, [sortedRequests, currentPage]);
 
   const getRequestBackgroundColor = (request) => {
     const statusLower = request.status?.toLowerCase() || '';
     if (statusLower.includes('pending') && request.acquisitionDate && new Date(request.acquisitionDate) < new Date()) {
-      return '#f59e0b'; // Overdue pending requests
+      return '#fef3c7';
     }
-    if (statusLower.includes('pending')) {
-      return '#f59e0b'; // Pending requests
-    }
-    if (statusLower.includes('approved')) {
-      return '#10b981'; // Approved requests
-    }
-    if (statusLower.includes('rejected')) {
-      return '#ef4444'; // Rejected requests
-    }
-    if (statusLower.includes('completed')) {
-      return '#059669'; // Completed requests
-    }
-    if (statusLower.includes('archived')) {
-      return '#8b5cf6'; // Archived requests
-    }
-    return '#e0e0e0'; // Default background
+    if (statusLower.includes('pending')) return '#ffffff';
+    if (statusLower.includes('approved')) return '#fef3c7';
+    if (statusLower.includes('rejected') || statusLower.includes('cancel') || statusLower.includes('denied')) return '#fef2f2';
+    if (statusLower.includes('completed')) return '#ecfdf5';
+    return '#f9fafb';
   };
+
+  const getStatusBadge = (request) => {
+    const s = (request.status || 'Pending').toLowerCase();
+    const isOverdue = s === 'pending' && request.acquisitionDate && new Date(request.acquisitionDate) < new Date();
+    if (isOverdue) return 'Overdue';
+    if (s.includes('archived')) return 'Archived';
+    if (s.includes('completed')) return 'Completed';
+    if (s.includes('approved')) return 'Approved';
+    if (s.includes('pending')) return 'Pending';
+    if (s.includes('reject') || s.includes('denied') || s.includes('cancel')) return 'Rejected';
+    if (s.includes('overdue')) return 'Overdue';
+    return 'Unknown';
+  };
+
+  const getStatusColor = (request) => {
+    const s = (request.status || 'Pending').toLowerCase();
+    const isOverdue = s === 'pending' && request.acquisitionDate && new Date(request.acquisitionDate) < new Date();
+    if (isOverdue) return '#d97706';
+    if (s.includes('archived')) return '#8b5cf6';
+    if (s.includes('completed')) return '#059669';
+    if (s.includes('approved')) return '#10b981';
+    if (s.includes('pending')) return '#f59e0b';
+    if (s.includes('reject') || s.includes('denied') || s.includes('cancel')) return '#ef4444';
+    if (s.includes('overdue')) return '#d97706';
+    return '#6b7280';
+  };
+
+  const summaryCounts = useMemo(() => {
+    let pending = 0, approved = 0, completed = 0, rejected = 0, overdue = 0, archived = 0;
+    requests.forEach(r => {
+      const s = (r.status || 'Pending').toLowerCase();
+      const isOver = s === 'pending' && r.acquisitionDate && new Date(r.acquisitionDate) < new Date();
+      if (s.includes('archived')) archived++; else if (s.includes('completed')) completed++; else if (s.includes('approved')) approved++; else if (s.includes('reject') || s.includes('denied') || s.includes('cancel')) rejected++; else if (isOver || s.includes('overdue')) overdue++; else pending++;
+    });
+    return { total: requests.length, pending, approved, rejected, overdue, completed, archived };
+  }, [requests]);
+
+  const statusCounts = useMemo(() => ({
+    All: summaryCounts.total - summaryCounts.archived, // Exclude archived from All count
+    Pending: summaryCounts.pending,
+    Overdue: summaryCounts.overdue,
+    Approved: summaryCounts.approved,
+    Completed: summaryCounts.completed,
+    Rejected: summaryCounts.rejected,
+    Archived: summaryCounts.archived
+  }), [summaryCounts]);
 
   if (!user || user.role !== 'Project Manager') {
     return (
@@ -242,337 +177,195 @@ export default function PmManpowerList() {
   }
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container ceo-manpower-requests-page">
       <AppHeader roleSegment="pm" />
       <main className="dashboard-main">
         <div className="page-container">
-                     {/* Page Header */}
-           <div className="page-header">
-             <div className="page-title-section">
-               <p className="page-subtitle">Manage and track manpower requests for your project</p>
-             </div>
-             <div className="layout-toggle">
-               <button
-                 className={`layout-btn ${layoutView === 'cards' ? 'active' : ''}`}
-                 onClick={() => setLayoutView('cards')}
-                 title="Cards View"
-               >
-                 <FaBoxes />
-               </button>
-               <button
-                 className={`layout-btn ${layoutView === 'table' ? 'active' : ''}`}
-                 onClick={() => setLayoutView('table')}
-                 title="Table View"
-               >
-                 <FaList />
-               </button>
-             </div>
-           </div>
-
-                     {/* Controls Bar */}
-           <div className="controls-bar">
-                           {/* Filter Tabs */}
-              <div className="filter-tabs">
-                {['All', 'Pending', 'Approved', 'Rejected', 'Complete', 'Archived'].map(tab => (
-                  <button
-                    key={tab}
-                    className={`filter-tab ${status === tab ? 'active' : ''}`}
-                    onClick={() => setStatus(tab)}
-                  >
-                    {tab}
-                  </button>
-                ))}
+          <div className="dashboard-card ceo-mr-header-card">
+            <div className="card-header mr-header-row">
+              <div className="mr-header-texts">
+                <h1 className="card-title">Manpower Requests</h1>
+                <p className="card-subtitle">Manage and track manpower requests for your project</p>
               </div>
-
-             {/* Request Type Filter */}
-             <div className="request-type-filter">
-               <button
-                 className={`type-filter-btn ${viewMode === 'mine' ? 'active' : ''}`}
-                 onClick={() => setViewMode('mine')}
-               >
-                 My Requests
-               </button>
-               <button
-                 className={`type-filter-btn ${viewMode === 'others' ? 'active' : ''}`}
-                 onClick={() => setViewMode('others')}
-               >
-                 Others' Requests
-               </button>
-             </div>
-
-             {/* Search and Actions */}
-             <div className="search-sort-section">
-               <div className="search-wrapper">
-                 <FaSearch className="search-icon" />
-                 <input
-                   type="text"
-                   placeholder="Search requests..."
-                   value={searchTerm}
-                   onChange={(e) => setSearchTerm(e.target.value)}
-                   className="search-input"
-                 />
-               </div>
-               
-               <button
-                 onClick={() => navigate('/pm/request-manpower')}
-                 className="btn-primary"
-               >
-                 <FaPlus />
-                 <span>Request Manpower</span>
-               </button>
-             </div>
-           </div>
-
-          {/* Requests Grid */}
-          <div className={`requests-grid ${layoutView === 'table' ? 'table-view' : ''}`}>
-            {loading ? (
-              <div className="loading-state">
-                <div className="loading-spinner"></div>
-                <p>Loading manpower requests...</p>
-              </div>
-            ) : error ? (
-              <div className="error-state">
-                <p>{error}</p>
-              </div>
-            ) : pageRows.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">👥</div>
-                <h3>No manpower requests found</h3>
-                <p>No requests match your current filters. Try adjusting your search criteria.</p>
-              </div>
-            ) : (
-              <>
-                {/* Table Header - REMOVED */}
-                
-                {pageRows.map(request => {
-                  const summary = (request.manpowers || [])
-                    .map((m) => `${m.quantity} ${m.type}`)
-                    .join(', ');
-
-                  if (layoutView === 'table') {
-                    // Table View Layout
-                    return (
-                      <div className={`request-card status-${(request.status || 'pending').toLowerCase()}`} key={request._id} style={{
-                        backgroundColor: getRequestBackgroundColor(request)
-                      }}>
-                        {/* Overdue Ribbon for Pending Requests */}
-                        {request.status?.toLowerCase() === 'pending' && 
-                         request.acquisitionDate && 
-                         new Date(request.acquisitionDate) < new Date() && (
-                          <div className="overdue-ribbon">
-                            <span>OVERDUE</span>
-                          </div>
-                        )}
-                        <div className="card-header">
-                          <h3 className="request-title">
-                            {request.project?.projectName || '(No Project Name)'}
-                          </h3>
-                        </div>
-                        
-                        <div className="card-body">
-                          <div className="requester-info">
-                            {request.createdBy?.name || 'Unknown'}
-                          </div>
-                          
-                          {/* Show archived reason if request is archived */}
-                          {request.status === 'Archived' && request.archivedReason && (
-                            <div className="archived-notice">
-                              <span className="archived-badge">Archived</span>
-                              <span className="archive-reason">Reason: {request.archivedReason}</span>
-                              {request.originalProjectName && (
-                                <div className="original-project-info">
-                                  <strong>Original Project:</strong> {request.originalProjectName}
-                                  {request.originalProjectEndDate && (
-                                    <span> (End Date: {new Date(request.originalProjectEndDate).toLocaleDateString()})</span>
-                                  )}
-                                </div>
-                              )}
-                              {request.originalRequestDetails && (
-                                <div className="original-request-details">
-                                  <strong>Original Request Details:</strong>
-                                  <div>Description: {request.originalRequestDetails.description}</div>
-                                  <div>Status: {request.originalRequestStatus}</div>
-                                  <div>Acquisition Date: {new Date(request.originalRequestDetails.acquisitionDate).toLocaleDateString()}</div>
-                                  <div>Duration: {request.originalRequestDetails.duration} days</div>
-                                  <div>Manpower Needed: {request.originalRequestDetails.manpowers?.map(m => `${m.type} (${m.quantity})`).join(', ')}</div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="request-details">
-                          <div className="details-info">
-                            {request.description || 'No description'}
-                          </div>
-                        </div>
-                        
-                        <div className="request-meta">
-                          <div className="manpower-info">
-                            {summary || '—'}
-                          </div>
-                        </div>
-                        
-                        <div className="target-date-info">
-                          {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}
-                        </div>
-                        
-                        <div className="duration-info">
-                          {request.duration || '—'} day(s)
-                        </div>
-                        
-                        <div className="date-posted-info">
-                          {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}
-                        </div>
-                        
-                        <div className="card-footer">
-                          <Link
-                            to={`/pm/manpower-request/${request._id}`}
-                            className="view-details-btn"
-                          >
-                            View Request
-                          </Link>
-                        </div>
-                      </div>
-                    );
-                  } else {
-                    // Card View Layout (Original)
-                    return (
-                      <div className={`request-card status-${(request.status || 'pending').toLowerCase()}`} key={request._id} style={{
-                        backgroundColor: getRequestBackgroundColor(request)
-                      }}>
-                        <div className="card-body">
-                          <h3 className="request-title">
-                            {request.project?.projectName || '(No Project Name)'}
-                          </h3>
-                          <p className="request-description">{request.description || 'No description provided'}</p>
-                          
-                          {/* Show archived reason if request is archived */}
-                          {request.status === 'Archived' && request.archivedReason && (
-                            <div className="archived-notice">
-                              <span className="archived-badge">Archived</span>
-                              <span className="archive-reason">Reason: {request.archivedReason}</span>
-                              {request.originalProjectName && (
-                                <div className="original-project-info">
-                                  <strong>Original Project:</strong> {request.originalProjectName}
-                                  {request.originalProjectEndDate && (
-                                    <span> (End Date: {new Date(request.originalProjectEndDate).toLocaleDateString()})</span>
-                                  )}
-                                </div>
-                              )}
-                              {request.originalRequestDetails && (
-                                <div className="original-request-details">
-                                  <strong>Original Request Details:</strong>
-                                  <div>Description: {request.originalRequestDetails.description}</div>
-                                  <div>Status: {request.originalRequestStatus}</div>
-                                  <div>Acquisition Date: {new Date(request.originalRequestDetails.acquisitionDate).toLocaleDateString()}</div>
-                                  <div>Duration: {request.originalRequestDetails.duration} days</div>
-                                  <div>Manpower Needed: {request.originalRequestDetails.manpowers?.map(m => `${m.type} (${m.quantity})`).join(', ')}</div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          
-                          <div className="request-meta">
-                            <div className="meta-item">
-                              <span className="meta-label">Requested by:</span>
-                              <span className="meta-value">{request.createdBy?.name || 'Unknown'}</span>
-                            </div>
-                            <div className="meta-item">
-                              <span className="meta-label">Manpower needed:</span>
-                              <span className="meta-value">{summary || '—'}</span>
-                            </div>
-                            <div className="meta-item">
-                              <span className="meta-label">Date:</span>
-                              <span className="meta-value">
-                                {request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}
-                              </span>
-                            </div>
-                            <div className="meta-item">
-                              <span className="meta-label">Target Date:</span>
-                              <span className="meta-value">
-                                {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}
-                              </span>
-                            </div>
-                            <div className="meta-item">
-                              <span className="meta-label">Duration:</span>
-                              <span className="meta-value">{request.duration || '—'} day(s)</span>
-                            </div>
-                          </div>
-                        </div>
-                        
-                                                 <div className="card-footer">
-                           {request.status === 'Archived' ? (
-                             <div className="archived-actions">
-                               <Link
-                                 to={`/pm/manpower-request/${request._id}`}
-                                 className="view-details-btn"
-                               >
-                                 View Details
-                               </Link>
-                               <button
-                                 onClick={() => handleDeleteArchived(request._id)}
-                                 className="delete-archived-btn"
-                                 title="Permanently delete this archived request"
-                                 disabled={deletingId === request._id}
-                               >
-                                 {deletingId === request._id ? 'Deleting...' : 'Delete Permanently'}
-                               </button>
-                             </div>
-                           ) : (
-                             <Link
-                               to={`/pm/manpower-request/${request._id}`}
-                               className="view-details-btn"
-                             >
-                               View Details
-                             </Link>
-                           )}
-                         </div>
-                      </div>
-                    );
-                  }
-                })}
-              </>
-            )}
-          </div>
-
-          {/* Pagination */}
-          {filteredRequests.length > 0 && (
-            <div className="pagination-section">
-              <div className="pagination-info">
-                Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredRequests.length)} of {filteredRequests.length} entries
-              </div>
-              <div className="pagination-controls">
-                <button 
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                  disabled={currentPage === 1}
-                  className="pagination-btn"
+              <div className="layout-toggle-wrapper">
+                <button
+                  onClick={() => setSortDesc(!sortDesc)}
+                  className="btn-secondary sort-btn"
+                  title="Toggle sort by Created date"
                 >
-                  Previous
-                </button>
-                
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                  <button
-                    key={page}
-                    className={`pagination-btn ${page === currentPage ? 'active' : ''}`}
-                    onClick={() => setCurrentPage(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-                
-                <button 
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                  disabled={currentPage === totalPages}
-                  className="pagination-btn"
-                >
-                  Next
+                  {sortDesc ? '↓ Newest' : '↑ Oldest'}
                 </button>
               </div>
             </div>
-          )}
+            <div className="card-body mr-filters-row">
+              <div className="horizontal-controls">
+                <div className="filter-tabs compact">
+                  {['All','Pending','Overdue','Approved','Completed','Rejected','Archived'].map(tab => (
+                    <button key={tab} className={`filter-tab ${status === tab ? 'active' : ''}`} onClick={() => {setStatus(tab); setCurrentPage(1);}}>
+                      <span>{tab}</span>
+                      <span className="count">{statusCounts[tab] ?? 0}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="search-wrapper">
+                  <FaSearch className="search-icon" />
+                  <input type="text" placeholder="Search requests..." value={searchTerm} onChange={(e)=>{setSearchTerm(e.target.value); setCurrentPage(1);}} className="search-input" />
+                </div>
+                <div className="view-mode-toggle small">
+                  <button
+                    onClick={() => setViewMode('mine')}
+                    className={`view-mode-btn ${viewMode === 'mine' ? 'active' : ''}`}
+                    title="My Requests"
+                  >
+                    Mine
+                  </button>
+                  <button
+                    onClick={() => setViewMode('others')}
+                    className={`view-mode-btn ${viewMode === 'others' ? 'active' : ''}`}
+                    title="Others' Requests"
+                  >
+                    Others
+                  </button>
+                </div>
+                <div className="layout-toggle small">
+                  <button
+                    onClick={() => setLayoutView('cards')}
+                    className={`layout-btn ${layoutView === 'cards' ? 'active' : ''}`}
+                    title="Card View"
+                  >
+                    <FaTh />
+                  </button>
+                  <button
+                    onClick={() => setLayoutView('table')}
+                    className={`layout-btn ${layoutView === 'table' ? 'active' : ''}`}
+                    title="Table View"
+                  >
+                    <FaList />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-card ceo-mr-list-card">
+            <div className="card-header list-header"><h3 className="card-title-sm">Requests <span className="muted">({sortedRequests.length})</span></h3></div>
+            <div className={`requests-grid ceo-mr-grid ${layoutView === 'table' ? 'table-view' : ''}`}>            
+              {loading ? (
+                <div className="loading-state"><div className="loading-spinner"></div><p>Loading manpower requests...</p></div>
+              ) : error ? (
+                <div className="error-state"><p>{error}</p></div>
+              ) : pageRows.length === 0 ? (
+                <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px', textAlign: 'center' }}>
+                  <div className="empty-icon" style={{ fontSize: '48px', marginBottom: '16px' }}>👥</div>
+                  <h3 style={{ marginBottom: '8px', color: '#374151' }}>No manpower requests found</h3>
+                  <p style={{ color: '#6b7280', margin: 0 }}>No requests match your current filters. Try adjusting your search criteria.</p>
+                </div>
+              ) : (
+                <>
+                  {layoutView === 'table' && (
+                    <div className="mr-table-header" role="row" aria-label="Table Header">
+                      <div>Project</div>
+                      <div>Requester</div>
+                      <div>Description</div>
+                      <div>Manpower</div>
+                      <div>Target</div>
+                      <div>Dur</div>
+                      <div>Created</div>
+                      <div>Status</div>
+                      <div>Actions</div>
+                    </div>
+                  )}
+                  {pageRows.map(request => {
+                    const summary = (request.manpowers || []).map(m=>`${m.quantity} ${m.type}`).join(', ');
+                    const badgeLabel = getStatusBadge(request);
+                    const badgeColor = getStatusColor(request);
+                    if (layoutView === 'table') {
+                      return (
+                        <div
+                          key={request._id}
+                          className="mr-table-row"
+                          role="row"
+                          title="View details"
+                        >
+                          <div className="rt-title" title={request.project?.projectName || '(No Project Name)'}>{request.project?.projectName || '(No Project Name)'}</div>
+                          <div className="rt-req" title={request.createdBy?.name || 'Unknown'}>{request.createdBy?.name || 'Unknown'}</div>
+                          <div className="rt-desc" title={request.description || 'No description'}>{request.description || 'No description'}</div>
+                          <div className="rt-man" title={summary || '—'}>{summary || '—'}</div>
+                          <div className="rt-date" title="Target Date">{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</div>
+                          <div className="rt-date" title="Duration">{request.duration || '—'}d</div>
+                          <div className="rt-date" title="Created">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</div>
+                          <div className="rt-btn"><span className={`status-chip ${badgeLabel.toLowerCase()}`}>{badgeLabel}</span></div>
+                          <div className="rt-actions">
+                            <Link to={`/pm/manpower-request/${request._id}`} className="view-details-btn">View Details</Link>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className={`request-card ceo-mr-card`} key={request._id}>
+                        <div className="card-body">
+                          <div className="mr-card-top-row">
+                            <h3 className="request-title" title={request.project?.projectName || '(No Project Name)'}>{request.project?.projectName || '(No Project Name)'}</h3>
+                            <span className={`status-chip ${badgeLabel.toLowerCase()}`}>{badgeLabel}</span>
+                          </div>
+                          <p className="request-description" title={request.description || 'No description provided'}>{request.description || 'No description provided'}</p>
+                          <div className="request-meta">
+                            <div className="meta-item"><span className="meta-label">Requested by:</span><span className="meta-value" title={request.createdBy?.name || 'Unknown'}>{request.createdBy?.name || 'Unknown'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Manpower:</span><span className="meta-value" title={summary || '—'}>{summary || '—'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Date:</span><span className="meta-value">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : '—'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Target:</span><span className="meta-value">{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</span></div>
+                            <div className="meta-item"><span className="meta-label">Duration:</span><span className="meta-value">{request.duration || '—'} d</span></div>
+                          </div>
+                          
+                          {/* Rejection Information */}
+                          {request.rejectedBy && request.rejectedBy.length > 0 && (
+                            <div className="rejection-info">
+                              <div className="meta-item">
+                                <span className="meta-label">Rejected by:</span>
+                                <span className="meta-value rejection-list">
+                                  {request.rejectedBy.map((rejection, index) => (
+                                    <span key={index} className="rejection-item">
+                                      {rejection.userName || rejection.userId?.name || 'Unknown PM'}
+                                      {index < request.rejectedBy.length - 1 ? ', ' : ''}
+                                    </span>
+                                  ))}
+                                </span>
+                              </div>
+                              {request.rejectionReason && (
+                                <div className="meta-item">
+                                  <span className="meta-label">Reason:</span>
+                                  <span className="meta-value rejection-reason">{request.rejectionReason}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="card-footer">
+                          <Link to={`/pm/manpower-request/${request._id}`} className="view-details-btn">View Details</Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+            {sortedRequests.length > 0 && (
+              <div className="pagination-section inside-card">
+                <div className="pagination-info">Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, sortedRequests.length)} of {sortedRequests.length} entries</div>
+                <div className="pagination-controls">
+                  <button onClick={()=>setCurrentPage(p=>Math.max(p-1,1))} disabled={currentPage===1} className="pagination-btn">Previous</button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <button key={page} className={`pagination-btn ${page === currentPage ? 'active' : ''}`} onClick={()=>setCurrentPage(page)}>{page}</button>
+                  ))}
+                  <button onClick={()=>setCurrentPage(p=>Math.min(p+1,totalPages))} disabled={currentPage===totalPages} className="pagination-btn">Next</button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>
   );
-}
+};
+
+export default PmManpowerList;

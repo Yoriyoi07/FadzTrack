@@ -150,14 +150,25 @@ const getManpowerRequestsForProjectManagers = async (req, res) => {
       return res.status(403).json({ message: 'Only Project Managers can view this list.' });
     }
     
+    const currentUserId = req.user?.id || req.user?._id;
+    
     // First, update statuses automatically (including archiving for completed projects)
     await updateRequestStatuses();
     
-    // Show all pending requests (you can add org/region filters here if needed)
-    const requests = await ManpowerRequest.find({ status: 'Pending' })
+    // Get all pending requests that the current PM hasn't rejected
+    const requests = await ManpowerRequest.find({ 
+      status: 'Pending',
+      // Exclude requests that this PM has already rejected
+      $or: [
+        { rejectedBy: { $exists: false } },
+        { rejectedBy: { $not: { $elemMatch: { userId: currentUserId } } } }
+      ]
+    })
       .sort({ createdAt: -1 })
       .populate('project', 'projectName location')
-      .populate('createdBy', 'name email role');
+      .populate('createdBy', 'name email role')
+      .populate('rejectedBy.userId', 'name');
+    
     res.status(200).json(requests);
   } catch (error) {
     console.error('❌ Error fetching PM inbox:', error);
@@ -293,6 +304,118 @@ const approveManpowerRequest = async (req, res) => {
   }
 };
 
+// REJECT manpower request
+const rejectManpowerRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const currentUserId = req.user?.id || req.user?._id;
+
+    // Only PMs can reject
+    if (req.user?.role !== 'Project Manager') {
+      return res.status(403).json({ message: 'Only Project Managers can reject manpower requests.' });
+    }
+
+    // Get the request to check if it's the PM's own request
+    const request = await ManpowerRequest.findById(id)
+      .populate('createdBy', 'name email role');
+    
+    if (!request) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    // Check if this PM has already rejected this request
+    const alreadyRejected = request.rejectedBy?.some(rejection => 
+      String(rejection.userId) === String(currentUserId)
+    );
+
+    if (alreadyRejected) {
+      return res.status(400).json({ message: "You have already rejected this request." });
+    }
+
+    // Add rejection record
+    const rejectionRecord = {
+      userId: currentUserId,
+      userName: req.user?.name || 'Unknown PM',
+      rejectedAt: new Date()
+    };
+
+    const updateData = {
+      $push: { rejectedBy: rejectionRecord }
+    };
+
+    // If it's the PM's own request, check if all PMs have rejected it
+    const isOwnRequest = String(request.createdBy._id) === String(currentUserId);
+    
+    if (isOwnRequest) {
+      // For own requests, we need to check if all PMs have rejected
+      // Get all PMs in the system
+      const allPMs = await User.find({ role: 'Project Manager' }).select('_id');
+      const pmIds = allPMs.map(pm => String(pm._id));
+      
+      // Add current PM's rejection
+      const updatedRequest = await ManpowerRequest.findByIdAndUpdate(
+        id, 
+        updateData, 
+        { new: true }
+      );
+
+      // Check if all PMs have now rejected
+      const allRejected = pmIds.every(pmId => 
+        updatedRequest.rejectedBy.some(rejection => String(rejection.userId) === pmId)
+      );
+
+      if (allRejected) {
+        // All PMs have rejected, mark as rejected
+        await ManpowerRequest.findByIdAndUpdate(id, {
+          status: 'Rejected',
+          rejectionReason: reason || 'Rejected by all Project Managers'
+        });
+      }
+    } else {
+      // For other users' requests, reject immediately
+      await ManpowerRequest.findByIdAndUpdate(id, {
+        ...updateData,
+        status: 'Rejected',
+        rejectionReason: reason || 'Rejected by Project Manager'
+      });
+    }
+
+    await logAction({
+      action: 'REJECT_MANPOWER_REQUEST',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `PM rejected manpower request for project ${request.project}`,
+      meta: { requestId: request._id, reason }
+    });
+
+    res.status(200).json({ 
+      message: "Request rejected successfully", 
+      isOwnRequest,
+      allPMsRejected: isOwnRequest ? await checkAllPMsRejected(id) : false
+    });
+  } catch (error) {
+    console.error("❌ Error rejecting request:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Helper function to check if all PMs have rejected a request
+const checkAllPMsRejected = async (requestId) => {
+  try {
+    const request = await ManpowerRequest.findById(requestId);
+    const allPMs = await User.find({ role: 'Project Manager' }).select('_id');
+    const pmIds = allPMs.map(pm => String(pm._id));
+    
+    return pmIds.every(pmId => 
+      request.rejectedBy.some(rejection => String(rejection.userId) === pmId)
+    );
+  } catch (error) {
+    console.error("Error checking PM rejections:", error);
+    return false;
+  }
+};
+
 const getSingleManpowerRequest = async (req, res) => {
   try {
     const { id } = req.params;
@@ -302,7 +425,8 @@ const getSingleManpowerRequest = async (req, res) => {
     
     const request = await ManpowerRequest.findById(id)
       .populate('project', 'projectName location')
-      .populate('createdBy', 'name email role');
+      .populate('createdBy', 'name email role')
+      .populate('rejectedBy.userId', 'name');
     if (!request) {
       return res.status(404).json({ message: "Request not found" });
     }
@@ -325,7 +449,8 @@ const getMyManpowerRequests = async (req, res) => {
     const requests = await ManpowerRequest.find({ createdBy: userId })
       .sort({ createdAt: -1 })
       .populate('project', 'projectName location')
-      .populate('createdBy', 'name email role');
+      .populate('createdBy', 'name email role')
+      .populate('rejectedBy.userId', 'name');
     res.status(200).json(requests);
   } catch (error) {
     console.error('❌ Error fetching my manpower requests:', error);
@@ -830,6 +955,7 @@ module.exports = {
   updateManpowerRequest,
   deleteManpowerRequest,
   approveManpowerRequest,
+  rejectManpowerRequest,
   getManpowerRequestsForAreaManager,
   getManpowerRequestsForProjectManagers,
   getSingleManpowerRequest,

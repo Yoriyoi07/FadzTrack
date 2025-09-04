@@ -11,6 +11,7 @@ const {
   getManpowerRequestsForAreaManager,
   getManpowerRequestsForProjectManagers,
   approveManpowerRequest,
+  rejectManpowerRequest,
   getMyManpowerRequests,
   getSingleManpowerRequest,
   markManpowerRequestReceived,
@@ -87,6 +88,8 @@ router.put('/:id/approve', (req, res, next) => {
   console.log("HIT /:id/approve route");
   next();
 }, verifyToken, approveManpowerRequest);
+
+router.put('/:id/reject', verifyToken, rejectManpowerRequest);
 
 router.put('/:id/received', verifyToken, markManpowerRequestReceived);
 

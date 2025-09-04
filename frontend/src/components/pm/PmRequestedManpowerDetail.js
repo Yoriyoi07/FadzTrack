@@ -180,6 +180,9 @@ export default function PmRequestedManpowerDetail() {
   const handleDeny = async () => {
     if (!isPM || isMine) return;
     
+    const reason = prompt('Please provide a reason for rejection (optional):');
+    if (reason === null) return; // User cancelled
+    
     const confirmed = window.confirm(
       'Confirm Rejection?\n\nRejecting this request will remove this from your list of Other\'s Request.'
     );
@@ -188,8 +191,8 @@ export default function PmRequestedManpowerDetail() {
     
     setBusy(true);
     try {
-      await api.put(`/manpower-requests/${id}`, { status: 'Rejected' });
-      alert('Request rejected successfully. It has been removed from your list.');
+      const response = await api.put(`/manpower-requests/${id}/reject`, { reason });
+      alert(response.data.message);
       // Navigate back to the manpower list since the request is now hidden
       navigate('/pm/manpower-list');
     } catch (e) {
@@ -534,6 +537,36 @@ export default function PmRequestedManpowerDetail() {
                 </div>
               </div>
             </div>
+
+            {/* Rejection Information */}
+            {request.rejectedBy && request.rejectedBy.length > 0 && (
+              <div className="rejection-card">
+                <div className="card-header">
+                  <FaTimes className="card-icon rejected" />
+                  <h3>Rejection Information</h3>
+                </div>
+                <div className="card-content">
+                  <div className="rejection-details">
+                    <div className="rejection-reason">
+                      <strong>Reason:</strong> {request.rejectionReason || 'No reason provided'}
+                    </div>
+                    <div className="rejection-list">
+                      <strong>Rejected by:</strong>
+                      <ul>
+                        {request.rejectedBy.map((rejection, index) => (
+                          <li key={index}>
+                            {rejection.userName || rejection.userId?.name || 'Unknown PM'} 
+                            <span className="rejection-date">
+                              ({new Date(rejection.rejectedAt).toLocaleDateString()})
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Approval Panel (Others' request only) */}
             {!isMine && isPM && !isApproved && request?.status !== 'Archived' && (

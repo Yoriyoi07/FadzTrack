@@ -147,3 +147,90 @@
   .search-input { background:#ffffff; color:#111; }
   .search-input::placeholder { color:#666; }
 }
+
+/* Rejection Information Styles */
+.ceo-mr-card .rejection-info {
+  margin-top: .5rem;
+  padding-top: .5rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ceo-mr-card .rejection-info .meta-item {
+  margin-bottom: .25rem;
+}
+
+.ceo-mr-card .rejection-list {
+  color: #ef4444 !important;
+  font-weight: 600;
+}
+
+.ceo-mr-card .rejection-item {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.ceo-mr-card .rejection-reason {
+  color: #dc2626 !important;
+  font-style: italic;
+  font-size: .6rem;
+}
+
+/* Rejection Card in Detail View */
+.rejection-card {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.rejection-card .card-header {
+  background: #fee2e2;
+  border-bottom: 1px solid #fecaca;
+  padding: .75rem 1rem;
+  border-radius: 12px 12px 0 0;
+}
+
+.rejection-card .card-header h3 {
+  color: #dc2626;
+  margin: 0;
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.rejection-card .card-icon.rejected {
+  color: #dc2626;
+}
+
+.rejection-card .card-content {
+  padding: 1rem;
+}
+
+.rejection-details .rejection-reason {
+  margin-bottom: .75rem;
+  padding: .5rem;
+  background: #fff;
+  border-radius: 6px;
+  border-left: 3px solid #dc2626;
+}
+
+.rejection-details .rejection-list {
+  margin-top: .5rem;
+}
+
+.rejection-details .rejection-list ul {
+  margin: .25rem 0 0 0;
+  padding-left: 1.25rem;
+}
+
+.rejection-details .rejection-list li {
+  margin-bottom: .25rem;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.rejection-details .rejection-date {
+  color: #6b7280;
+  font-weight: 400;
+  font-size: .8rem;
+  margin-left: .5rem;
+}
