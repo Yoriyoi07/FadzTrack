@@ -8,6 +8,7 @@ export const truncateWords = (text = '', maxWords = 10) => {
 
 export const getStatusBadge = (status, receivedFlag) => {
   const s = (status || '').toLowerCase();
+  if (s === 'archived') return 'Archived';
   if (s === 'received' || receivedFlag) return 'Completed';
   if (s.includes('approved')) return 'Approved';
   if (s.includes('pending')) return 'Pending';
@@ -30,16 +31,26 @@ export const computeApprovalSteps = (request) => {
   const receivedDate = request.receivedAt || request.receivedDate || null;
   const anyDenied = pmDenied || amDenied || statusLower.includes('denied');
 
-  const pmState = pmDenied ? 'denied' : pmApproved ? 'completed' : 'pending';
+  // Determine current stage for highlighting
+  let currentStage = null;
+  if (statusLower.includes('pending project manager')) {
+    currentStage = 'pm';
+  } else if (statusLower.includes('pending area manager')) {
+    currentStage = 'am';
+  } else if (pmApproved && amApproved && !isReceived && !anyDenied) {
+    currentStage = 'received';
+  }
+
+  const pmState = pmDenied ? 'denied' : pmApproved ? 'completed' : (currentStage === 'pm' ? 'current' : 'pending');
   let amState;
   if (pmDenied) amState = 'denied';
   else if (!pmApproved) amState = 'blocked';
-  else amState = amDenied ? 'denied' : amApproved ? 'completed' : 'pending';
+  else amState = amDenied ? 'denied' : amApproved ? 'completed' : (currentStage === 'am' ? 'current' : 'pending');
 
   let receivedState;
   if (anyDenied) receivedState = 'denied';
   else if (!(pmApproved && amApproved)) receivedState = 'blocked';
-  else receivedState = isReceived ? 'completed' : 'pending';
+  else receivedState = isReceived ? 'completed' : (currentStage === 'received' ? 'current' : 'pending');
 
   const steps = [
     { key:'placed', label:'Placed', date:request.createdAt, state:'completed' },
@@ -47,7 +58,7 @@ export const computeApprovalSteps = (request) => {
     { key:'am', label:'AM', date: amApproval?.timestamp || null, state: amState },
     { key:'received', label:'Received', date: isReceived ? (receivedDate || amApproval?.timestamp) : null, state: receivedState }
   ];
-  return { steps, meta:{ pmApproval, amApproval, pmApproved, pmDenied, amApproved, amDenied, isReceived, anyDenied } };
+  return { steps, meta:{ pmApproval, amApproval, pmApproved, pmDenied, amApproved, amDenied, isReceived, anyDenied, currentStage } };
 };
 
 export const canUserActOnRequest = (request, userRole) => {

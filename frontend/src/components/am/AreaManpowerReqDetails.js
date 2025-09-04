@@ -54,7 +54,15 @@ export default function AreaManpowerReqDetails() {
     const fetchAvailable = async () => {
       try {
         const { data } = await api.get('/manpower-requests/inactive');
-        setAvailableManpowers(Array.isArray(data) ? data : []);
+        const arr = Array.isArray(data) ? data : [];
+        
+        // Get the requested manpower types from the request
+        const requestedTypes = (reqData.manpowers || []).map(mp => mp.type);
+        
+        // Filter manpower to only show those whose position matches the requested types
+        const filtered = arr.filter(mp => requestedTypes.includes(mp.position));
+        
+        setAvailableManpowers(filtered);
       } catch (error) {
         console.error('❌ Error fetching inactive manpowers:', error);
         setAvailableManpowers([]);
@@ -116,15 +124,20 @@ export default function AreaManpowerReqDetails() {
   };
 
   const handleDeny = async () => {
-    if (!window.confirm('Are you sure you want to deny this request?')) return;
+    const confirmed = window.confirm(
+      'Confirm Rejection?\n\nRejecting this request will remove this from your list of Other\'s Request.'
+    );
+    
+    if (!confirmed) return;
+    
     setApproveLoading(true);
     try {
       await api.put(`/manpower-requests/${id}`, { status: 'Rejected' });
-      alert('Request Denied!');
+      alert('Request rejected successfully. It has been removed from your list.');
       navigate('/am/manpower-requests');
     } catch (error) {
       console.error(error);
-      alert(error?.response?.data?.message || 'Failed to deny.');
+      alert(error?.response?.data?.message || 'Failed to reject request.');
     } finally {
       setApproveLoading(false);
     }
@@ -243,6 +256,11 @@ export default function AreaManpowerReqDetails() {
 
               <div className="fadztrack-form-group">
                 <label>Select Manpower</label>
+                {reqData?.manpowers && reqData.manpowers.length > 0 && (
+                  <div style={{ marginBottom: '8px', fontSize: '0.9rem', color: '#666' }}>
+                    Requested types: {reqData.manpowers.map(mp => `${mp.type} (${mp.quantity})`).join(', ')}
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <select
                     defaultValue=""
@@ -250,7 +268,9 @@ export default function AreaManpowerReqDetails() {
                     className="fadztrack-select"
                     style={{ flex: 1 }}
                   >
-                    <option value="">Select Manpower</option>
+                    <option value="">
+                      {availableManpowers.length === 0 ? 'No matching manpower available' : 'Select Manpower'}
+                    </option>
                     {availableManpowers
                       .filter(mp => !selectedManpowers.some(sel => sel._id === mp._id))
                       .map(mp => (
@@ -323,10 +343,10 @@ export default function AreaManpowerReqDetails() {
                 </div>
               </div>
               {reqData.status !== 'Approved' && (
-                <div style={{ display: 'flex', marginTop: 32, gap: 24, justifyContent: 'center' }}>
-                  <button className="fadztrack-button" style={{ background: '#c0392b' }} onClick={handleDeny} disabled={approveLoading}>Deny Request</button>
-                  <button className="fadztrack-button review-btn" onClick={handleReviewRequest}>Review Request</button>
-                </div>
+                                 <div style={{ display: 'flex', marginTop: 32, gap: 24, justifyContent: 'center' }}>
+                   <button className="fadztrack-button" style={{ background: '#c0392b' }} onClick={handleDeny} disabled={approveLoading}>Reject Request</button>
+                   <button className="fadztrack-button review-btn" onClick={handleReviewRequest}>Review Request</button>
+                 </div>
               )}
               {reqData.status === 'Approved' && (
                 <div style={{ marginTop: 32, textAlign: 'center', fontWeight: 'bold', color: '#189d38' }}>

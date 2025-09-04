@@ -1,7 +1,7 @@
 /* Shared Material Request List Styles (PM & AM & Generic)
    Scoped with :is(.pm-request-list,.am-request-list,.mr-request-list) */
 
-:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .page-container {padding:0.75rem 1.5rem 1.5rem;max-width:1600px;margin:0 auto;width:100%;}
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .page-container {padding:0.75rem 1rem 1.5rem;max-width:none;margin:0;width:100%;}
 
 /* Controls Bar */
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .controls-bar {display:grid;grid-template-columns:1fr auto;gap:2rem;align-items:center;margin-bottom:1.25rem;padding:1rem;background:#fff;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,.1);border:1px solid #e2e8f0;}
@@ -25,6 +25,7 @@
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row:hover {transform:translateY(-3px);box-shadow:0 10px 24px -6px rgba(30,64,175,.18);border-color:#cbd5e1;}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row.request-denied {border-color:#ef4444;}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row.request-completed {border-color:#0ea5e9;}
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row.status-archived {border-color:#6b7280; background-color:#f9fafb; opacity:0.8;}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row-header {display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.35rem;}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-title-group {flex:1;min-width:0;}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row-title {margin:0 0 .25rem;font-size:.95rem;font-weight:600;color:#1e293b;line-height:1.35;}
@@ -34,12 +35,85 @@
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .status-chip.status-pending {background:#fef3c7;color:#92400e;}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .status-chip.status-rejected {background:#fee2e2;color:#991b1b;}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .status-chip.status-completed {background:#bfdbfe;color:#1e3a8a;}
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .status-chip.status-archived {background:#d1d5db;color:#374151;}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-meta-line {display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin:.15rem 0 .5rem;flex-wrap:wrap;}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .meta-origin {color:#64748b;font-size:.6rem;display:flex;align-items:center;gap:.4rem;}
 
+/* Archived Request Styles */
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .archived-notice {
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .archived-badge {
+  background: #6b7280;
+  color: white;
+  font-size: 0.55rem;
+  font-weight: 700;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-self: flex-start;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .archive-reason {
+  font-size: 0.6rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .original-request-details {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .original-project-info {
+  font-size: 0.6rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .archived-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .delete-archived-btn {
+  background: #dc2626;
+  color: white;
+  font-size: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .delete-archived-btn:hover:not(:disabled) {
+  background: #b91c1c;
+  transform: translateY(-1px);
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .delete-archived-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Progress Steps */
-:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-steps {display:flex;align-items:stretch;gap:0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:.6rem .75rem;position:relative;overflow:hidden;}
-:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step {position:relative;display:flex;flex-direction:column;align-items:center;min-width:70px;padding:0 .3rem;text-align:center;}
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-steps {display:flex;align-items:stretch;gap:0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:.6rem .75rem;position:relative;overflow:hidden;width:100%;justify-content:space-between;}
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step {position:relative;display:flex;flex-direction:column;align-items:center;min-width:70px;padding:0 .3rem;text-align:center;flex:1;}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step .step-icon {width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:#fff;margin-bottom:.25rem;box-shadow:0 2px 6px -2px rgba(0,0,0,.25);}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step .step-label {font-size:.55rem;font-weight:600;color:#1e293b;letter-spacing:.3px;}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step .step-sub {font-size:.5rem;font-weight:600;letter-spacing:.4px;margin-top:.1rem;}
@@ -49,11 +123,13 @@
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step.completed .step-icon {background:linear-gradient(135deg,#10b981,#059669);} 
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step.pending .step-icon {background:linear-gradient(135deg,#e2e8f0,#cbd5e1);color:#475569;} 
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step.denied .step-icon {background:linear-gradient(135deg,#ef4444,#dc2626);} 
-:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step.blocked .step-icon {background:linear-gradient(135deg,#f59e0b,#d97706);filter:grayscale(.25);} 
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step.blocked .step-icon {background:linear-gradient(135deg,#e2e8f0,#cbd5e1);color:#475569;} 
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step.current .step-icon {background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;} 
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step.completed .step-sub {color:#059669;} 
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step.pending .step-sub {color:#6b7280;} 
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step.denied .step-sub {color:#dc2626;} 
-:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step.blocked .step-sub {color:#b45309;} 
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step.blocked .step-sub {color:#6b7280;}
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step.current .step-sub {color:#b45309;} 
 
 /* Actions */
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-actions {display:flex;justify-content:flex-end;margin-top:.75rem;}
@@ -79,13 +155,424 @@
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .pagination-btn.active {background:#3b82f6;color:#fff;border-color:#3b82f6;}
 :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .pagination-btn:disabled {opacity:.5;cursor:not-allowed;}
 
+/* View Toggle */
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .view-toggle {
+  display: flex;
+  gap: 0.25rem;
+  background: #f8fafc;
+  padding: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .view-toggle-btn {
+  padding: 0.5rem;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .view-toggle-btn:hover {
+  color: #2563eb;
+  background: rgba(59,130,246,.1);
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .view-toggle-btn.active {
+  background: #3b82f6;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(59,130,246,.25);
+}
+
+/* List View Styles */
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .requests-grid.list-view {
+  display: block;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-table-container {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px -2px rgba(0,0,0,.08);
+  overflow: hidden;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-table th {
+  background: #f8fafc;
+  padding: 1rem 1.25rem;
+  text-align: left;
+  font-weight: 600;
+  color: #1e293b;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-table td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-table .table-row:hover {
+  background: #f8fafc;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-table .table-row.request-denied {
+  background: #fef2f2;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-table .table-row.request-completed {
+  background: #f0f9ff;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .materials-cell {
+  max-width: 250px;
+  font-weight: 500;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .description-cell {
+  max-width: 300px;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .requester-cell {
+  font-weight: 500;
+  color: #1e293b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .project-cell {
+  color: #64748b;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .date-cell {
+  color: #64748b;
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .status-cell {
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .actions-cell {
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .nudge-btn {
+  background: #0f766e;
+  color: #fff;
+  font-size: 0.6rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 6px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  border: none;
+  cursor: pointer;
+  transition: 0.25s;
+  margin-right: 0.5rem;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .nudge-btn:hover:not(:disabled) {
+  background: #0d5a52;
+  transform: translateY(-1px);
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .nudge-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Compact Progress Steps for List View */
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-steps-compact {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-compact {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.65rem;
+  color: #64748b;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-compact .step-icon-compact {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-compact .step-label-compact {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-compact .step-connector-compact {
+  width: 12px;
+  height: 2px;
+  background: #e2e8f0;
+  border-radius: 1px;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-compact.completed .step-icon-compact {
+  background: linear-gradient(135deg,#10b981,#059669);
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-compact.pending .step-icon-compact {
+  background: linear-gradient(135deg,#e2e8f0,#cbd5e1);
+  color: #475569;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-compact.denied .step-icon-compact {
+  background: linear-gradient(135deg,#ef4444,#dc2626);
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-compact.blocked .step-icon-compact {
+  background: linear-gradient(135deg,#e2e8f0,#cbd5e1);
+  color: #475569;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-compact.current .step-icon-compact {
+  background: linear-gradient(135deg,#f59e0b,#d97706);
+  color: #fff;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-compact.completed .step-connector-compact {
+  background: linear-gradient(90deg,#10b981,#059669);
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-cell {
+  max-width: 300px;
+}
+
+/* Progress Row for List View */
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-row {
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-row.request-denied {
+  background: #fef2f2;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-row.request-completed {
+  background: #f0f9ff;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-cell-full {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-steps-list {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  justify-content: space-between;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+  padding: 0 0.3rem;
+  text-align: center;
+  flex: 1;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list .step-icon-list {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.25rem;
+  box-shadow: 0 2px 6px -2px rgba(0,0,0,.25);
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list .step-label-list {
+  font-size: 0.55rem;
+  font-weight: 600;
+  color: #1e293b;
+  letter-spacing: 0.3px;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list .step-sub-list {
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  margin-top: 0.1rem;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list .step-date-list {
+  font-size: 0.45rem;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  color: #64748b;
+  margin-top: 0.15rem;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list .step-connector-list {
+  position: absolute;
+  top: 14px;
+  left: calc(100% - 2px);
+  width: 42px;
+  height: 3px;
+  background: #e2e8f0;
+  border-radius: 2px;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list .step-connector-list.completed {
+  background: linear-gradient(90deg,#10b981,#059669);
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list.completed .step-icon-list {
+  background: linear-gradient(135deg,#10b981,#059669);
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list.pending .step-icon-list {
+  background: linear-gradient(135deg,#e2e8f0,#cbd5e1);
+  color: #475569;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list.denied .step-icon-list {
+  background: linear-gradient(135deg,#ef4444,#dc2626);
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list.blocked .step-icon-list {
+  background: linear-gradient(135deg,#e2e8f0,#cbd5e1);
+  color: #475569;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list.current .step-icon-list {
+  background: linear-gradient(135deg,#f59e0b,#d97706);
+  color: #fff;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list.completed .step-sub-list {
+  color: #059669;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list.pending .step-sub-list {
+  color: #6b7280;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list.denied .step-sub-list {
+  color: #dc2626;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list.blocked .step-sub-list {
+  color: #6b7280;
+}
+
+:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step-list.current .step-sub-list {
+  color: #b45309;
+}
+
 /* Responsive */
 @media (max-width:820px){:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-steps {flex-wrap:wrap;row-gap:.75rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step {min-width:60px;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step .step-connector {display:none;}}
 @media (max-width:560px){:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row {padding:.9rem .85rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row-title {font-size:.85rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row-desc {-webkit-line-clamp:3;line-clamp:3;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-steps {padding:.55rem .6rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step .step-icon {width:26px;height:26px;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .status-chip, :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .priority-chip {font-size:.5rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .meta-origin {font-size:.55rem;}}
 
+/* Responsive adjustments for list view */
+@media (max-width: 1200px) {
+  :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-table th,
+  :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-table td {
+    padding: 0.75rem 1rem;
+  }
+  
+  :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-cell-full {
+    padding: 0.75rem 1rem;
+  }
+  
+  :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .materials-cell {
+    max-width: 200px;
+  }
+  
+  :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .description-cell {
+    max-width: 250px;
+  }
+}
+
+@media (max-width: 768px) {
+  :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-table {
+    font-size: 0.75rem;
+  }
+  
+  :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-table th,
+  :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-table td {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-cell-full {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .materials-cell,
+  :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .description-cell {
+    max-width: 150px;
+  }
+}
+
 /* Large desktop */
-@media (min-width:1500px){:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .page-container {max-width:1720px;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .requests-grid.enhanced-list .request-list {grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:1.25rem 1.4rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row-title {font-size:1rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row-desc {font-size:.72rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step {min-width:75px;}}
-@media (min-width:1800px){:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .page-container {max-width:1840px;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .requests-grid.enhanced-list .request-list {grid-template-columns:repeat(auto-fill,minmax(460px,1fr));} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row {padding:1.1rem 1.25rem 1.15rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-steps {padding:.7rem .9rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step .step-icon {width:30px;height:30px;}}
+@media (min-width:1500px){:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .requests-grid.enhanced-list .request-list {grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:1.5rem 2rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row-title {font-size:1rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row-desc {font-size:.72rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step {min-width:75px;}}
+@media (min-width:1800px){:is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .requests-grid.enhanced-list .request-list {grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:2rem 2.5rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .request-row {padding:1.1rem 1.25rem 1.15rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-steps {padding:.7rem .9rem;} :is(.pm-request-list,.am-request-list,.mr-request-list,.pic-request-list) .progress-step .step-icon {width:30px;height:30px;}}
 
 /* ===================== LAYOUT OVERRIDE (REMOVE NESTED SCROLLBAR) ===================== */
 /* Some legacy PM/AM CSS files define an unscoped .dashboard-main with min-height + overflow-y:auto,
@@ -101,4 +588,33 @@
 /* Ensure page container still gets vertical spacing below header */
 :is(.mr-request-list,.mr-request-detail,.pm-request-list,.am-request-list,.pic-request-list) .dashboard-main .page-container {
    padding-top: 1rem;
+}
+
+/* ===================== WIDTH OVERRIDE RULES ===================== */
+/* Override any global width constraints to maximize space usage */
+:is(.mr-request-list,.mr-request-detail,.pm-request-list,.am-request-list,.pic-request-list) .dashboard-container {
+   width: 100% !important;
+   max-width: none !important;
+}
+
+:is(.mr-request-list,.mr-request-detail,.pm-request-list,.am-request-list,.pic-request-list) .dashboard-main {
+   width: 100% !important;
+   max-width: none !important;
+}
+
+:is(.mr-request-list,.mr-request-detail,.pm-request-list,.am-request-list,.pic-request-list) .page-container {
+   width: 100% !important;
+   max-width: none !important;
+   margin: 0 !important;
+}
+
+/* Ensure the grid uses maximum available space */
+:is(.mr-request-list,.mr-request-detail,.pm-request-list,.am-request-list,.pic-request-list) .requests-grid.enhanced-list {
+   width: 100% !important;
+   max-width: none !important;
+}
+
+:is(.mr-request-list,.mr-request-detail,.pm-request-list,.am-request-list,.pic-request-list) .requests-grid.enhanced-list .request-list {
+   width: 100% !important;
+   max-width: none !important;
 }

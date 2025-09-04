@@ -1349,3 +1349,135 @@
     background: #475569;
   }
 }
+
+/* ===================== ARCHIVED REQUEST STYLES ===================== */
+.request-card.status-archived {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border: 2px solid #8b5cf6;
+  opacity: 0.8;
+  position: relative;
+}
+
+.request-card.status-archived::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(124, 58, 237, 0.1) 100%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.request-card.status-archived:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.15);
+}
+
+.archived-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.delete-archived-btn {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 0.5rem;
+}
+
+.delete-archived-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.delete-archived-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.archived-status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border: 1px solid #8b5cf6;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+
+.archived-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #8b5cf6;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.archived-badge svg {
+  font-size: 1rem;
+}
+
+.original-project-info,
+.original-request-details {
+  margin-top: 10px;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #8b5cf6;
+}
+
+.original-project-info h4,
+.original-request-details h4 {
+  margin: 0 0 8px 0;
+  color: #495057;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+.original-project-info p,
+.original-request-details p {
+  margin: 4px 0;
+  font-size: 0.85em;
+  color: #6c757d;
+}
+
+.original-project-info strong,
+.original-request-details strong {
+  color: #495057;
+}
+
+/* Dark mode support for archived requests */
+@media (prefers-color-scheme: dark) {
+  .request-card.status-archived {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    border-color: #8b5cf6;
+  }
+  
+  .request-card.status-archived::before {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(124, 58, 237, 0.2) 100%);
+  }
+  
+  .archived-status {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    border-color: #8b5cf6;
+  }
+  
+  .archived-badge {
+    color: #a78bfa;
+  }
+}

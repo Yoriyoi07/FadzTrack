@@ -171,6 +171,7 @@ exports.createMaterialRequest = async (req, res) => {
 // ========== GET ALL MATERIAL REQUESTS ==========
 exports.getAllMaterialRequests = async (req, res) => {
   try {
+    await exports.updateRequestStatuses();
     const requests = await MaterialRequest.find()
       .sort({ createdAt: -1 })
       .populate('project', 'projectName')
@@ -185,6 +186,7 @@ exports.getAllMaterialRequests = async (req, res) => {
 // ========== GET SINGLE MATERIAL REQUEST ==========
 exports.getMaterialRequestById = async (req, res) => {
   try {
+    await exports.updateRequestStatuses();
     const request = await MaterialRequest.findById(req.params.id)
       .populate({ path: 'project', select: 'projectName location', populate: { path: 'location', select: 'name region' } })
       .populate('createdBy', 'name role email')
@@ -419,6 +421,7 @@ exports.getMyMaterialRequests = async (req, res) => {
   const userId = req.user.id;
   const userRole = req.user.role;
   try {
+    await exports.updateRequestStatuses();
     let requests = [];
     if (userRole === 'PIC' || userRole === 'Person in Charge') {
       requests = await MaterialRequest.find({ createdBy: userId })
@@ -471,5 +474,169 @@ exports.markReceived = async (req, res) => {
   res.json({ message: 'Marked as received. Status updated to Received.' });
   } catch (err) {
     res.status(500).json({ message: 'Failed to mark as received', error: err.message });
+  }
+};
+
+// ========== ARCHIVE REQUESTS FOR COMPLETED PROJECTS ==========
+exports.archiveRequestsForCompletedProjects = async () => {
+  try {
+    console.log('[MATERIAL ARCHIVE] Starting archive check for completed projects...');
+    
+    // Find all completed projects
+    const completedProjects = await Project.find({ 
+      status: 'Completed',
+      isDeleted: { $ne: true }
+    });
+    
+    console.log(`[MATERIAL ARCHIVE] Found ${completedProjects.length} completed projects`);
+    
+    // Find all soft-deleted projects
+    const softDeletedProjects = await Project.find({ 
+      isDeleted: true 
+    });
+    
+    console.log(`[MATERIAL ARCHIVE] Found ${softDeletedProjects.length} soft-deleted projects`);
+    
+    const allProjectsToArchive = [...completedProjects, ...softDeletedProjects];
+    
+    for (const project of allProjectsToArchive) {
+      // Find all material requests for this project that are not already archived
+      const requestsToArchive = await MaterialRequest.find({
+        project: project._id,
+        isArchived: { $ne: true },
+        status: { $ne: 'Archived' }
+      });
+      
+      console.log(`[MATERIAL ARCHIVE] Found ${requestsToArchive.length} requests to archive for project: ${project.projectName}`);
+      
+      for (const request of requestsToArchive) {
+        // Preserve original project and request information
+        request.originalProjectName = project.projectName;
+        request.originalProjectEndDate = project.endDate;
+        request.originalRequestStatus = request.status;
+        request.originalRequestDetails = {
+          description: request.description,
+          materials: request.materials,
+          attachments: request.attachments,
+          createdBy: request.createdBy,
+          approvals: request.approvals,
+          receivedByPIC: request.receivedByPIC,
+          purchaseOrder: request.purchaseOrder,
+          totalValue: request.totalValue,
+          receivedDate: request.receivedDate,
+          receivedAt: request.receivedAt,
+          receivedBy: request.receivedBy
+        };
+        
+        // Set archived reason based on project status
+        if (project.status === 'Completed') {
+          request.archivedReason = `Project Completed - Request was ${request.status}`;
+        } else if (project.isDeleted) {
+          request.archivedReason = `Project Cancelled (${project.deletionReason || 'No reason provided'}) - Request was ${request.status}`;
+        }
+        
+        request.isArchived = true;
+        request.status = 'Archived';
+        
+        await request.save();
+        console.log(`[MATERIAL ARCHIVE] Archived request ${request._id} for project: ${project.projectName}`);
+      }
+    }
+    
+    console.log('[MATERIAL ARCHIVE] Archive check completed');
+  } catch (error) {
+    console.error('[MATERIAL ARCHIVE] Error archiving requests:', error);
+  }
+};
+
+// ========== UPDATE REQUEST STATUSES ==========
+exports.updateRequestStatuses = async () => {
+  try {
+    await exports.archiveRequestsForCompletedProjects();
+  } catch (error) {
+    console.error('[MATERIAL STATUS UPDATE] Error updating request statuses:', error);
+  }
+};
+
+// ========== MANUAL ARCHIVE MATERIAL REQUEST ==========
+exports.archiveMaterialRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await MaterialRequest.findById(id);
+    
+    if (!request) {
+      return res.status(404).json({ message: 'Material request not found' });
+    }
+    
+    if (request.isArchived) {
+      return res.status(400).json({ message: 'Request is already archived' });
+    }
+    
+    // Preserve original information
+    request.originalProjectName = request.project?.projectName || 'Unknown Project';
+    request.originalRequestStatus = request.status;
+    request.originalRequestDetails = {
+      description: request.description,
+      materials: request.materials,
+      attachments: request.attachments,
+      createdBy: request.createdBy,
+      approvals: request.approvals,
+      receivedByPIC: request.receivedByPIC,
+      purchaseOrder: request.purchaseOrder,
+      totalValue: request.totalValue,
+      receivedDate: request.receivedDate,
+      receivedAt: request.receivedAt,
+      receivedBy: request.receivedBy
+    };
+    
+    request.archivedReason = `Manually Archived - Request was ${request.status}`;
+    request.isArchived = true;
+    request.status = 'Archived';
+    
+    await request.save();
+    
+    await logAction({
+      action: 'ARCHIVE_MATERIAL_REQUEST',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `Manually archived material request`,
+      meta: { requestId: request._id }
+    });
+    
+    res.json({ message: 'Request archived successfully' });
+  } catch (error) {
+    console.error('Archive error:', error);
+    res.status(500).json({ message: 'Failed to archive request' });
+  }
+};
+
+// ========== DELETE ARCHIVED REQUEST ==========
+exports.deleteArchivedRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await MaterialRequest.findById(id);
+    
+    if (!request) {
+      return res.status(404).json({ message: 'Material request not found' });
+    }
+    
+    if (!request.isArchived) {
+      return res.status(400).json({ message: 'Only archived requests can be permanently deleted' });
+    }
+    
+    await MaterialRequest.findByIdAndDelete(id);
+    
+    await logAction({
+      action: 'DELETE_ARCHIVED_MATERIAL_REQUEST',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `Permanently deleted archived material request`,
+      meta: { requestId: request._id }
+    });
+    
+    res.json({ message: 'Archived request permanently deleted' });
+  } catch (error) {
+    console.error('Delete error:', error);
+    res.status(500).json({ message: 'Failed to delete archived request' });
   }
 };

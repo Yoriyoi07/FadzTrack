@@ -22,7 +22,8 @@ const MaterialRequestListView = ({
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('date');
+  const [sortBy, setSortBy] = useState('latest');
+  const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
   const [currentPage, setCurrentPage] = useState(1);
   // PIC specific state (active project + nudge cooldowns)
   const [activeProject, setActiveProject] = useState(null);
@@ -56,17 +57,26 @@ const MaterialRequestListView = ({
   const filteredRequests = requests.filter(r => {
     const status = (r.status||'').toLowerCase();
     const isCompleted = status === 'received' || !!r.receivedByPIC;
-    const matchesFilter = filter === 'All' ||
-      (filter === 'Pending' && status.includes('pending')) ||
-      (filter === 'Approved' && status.includes('approved') && status !== 'received') ||
-      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel'))) ||
-      (filter === 'Completed' && isCompleted);
+    const isArchived = status === 'archived' || !!r.isArchived;
+    
+    // For "All" filter, exclude archived requests to keep the dashboard clean
+    const matchesFilter = filter === 'All' ? !isArchived :
+      (filter === 'Pending' && status.includes('pending') && !isArchived) ||
+      (filter === 'Approved' && status.includes('approved') && status !== 'received' && !isArchived) ||
+      (filter === 'Cancelled' && (status.includes('denied') || status.includes('cancel')) && !isArchived) ||
+      (filter === 'Completed' && isCompleted && !isArchived) ||
+      (filter === 'Archived' && isArchived);
+    
     if (!matchesFilter) return false;
+    
+    // For archived requests, use original project name if available
+    const projectName = isArchived && r.originalProjectName ? r.originalProjectName : r.project?.projectName;
+    
     const searchTarget = [
       r.materials?.map(m => m.materialName).join(', ') || '',
       r.description || '',
       r.createdBy?.name || '',
-      r.project?.projectName || ''
+      projectName || ''
     ].join(' ').toLowerCase();
     return searchTarget.includes(searchTerm.toLowerCase());
   });
@@ -79,16 +89,26 @@ const MaterialRequestListView = ({
         const bC = (b.status||'').toLowerCase() === 'received' || b.receivedByPIC ? 1:0;
         if (aC !== bC) return aC - bC;
       }
-      switch (sortBy) {
-        case 'date': return new Date(b.createdAt||0) - new Date(a.createdAt||0);
-        case 'priority': {
-          const ap = priorityRank[(a.priority||'').toLowerCase()]||0;
-          const bp = priorityRank[(b.priority||'').toLowerCase()]||0;
-          return bp - ap;
+              switch (sortBy) {
+          case 'latest':
+          case 'date': 
+            return new Date(b.createdAt||0) - new Date(a.createdAt||0);
+          case 'oldest': 
+            return new Date(a.createdAt||0) - new Date(b.createdAt||0);
+          case 'priority': {
+            const ap = priorityRank[(a.priority||'').toLowerCase()]||0;
+            const bp = priorityRank[(b.priority||'').toLowerCase()]||0;
+            return bp - ap;
+          }
+          case 'status': 
+            return (a.status||'').localeCompare(b.status||'');
+          case 'requester': 
+            return (a.createdBy?.name||'').localeCompare(b.createdBy?.name||'');
+          case 'project': 
+            return (a.project?.projectName||'').localeCompare(b.project?.projectName||'');
+                    default:
+            return new Date(b.createdAt||0) - new Date(a.createdAt||0);
         }
-        case 'status': return (a.status||'').localeCompare(b.status||'');
-        default: return 0;
-      }
     });
   }, [filteredRequests, sortBy, filter]);
 
@@ -97,6 +117,26 @@ const MaterialRequestListView = ({
   const pageRequests = sortedRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const [pendingNudges, setPendingNudges] = useState({}); // transient disable while awaiting server
+  const [deletingId, setDeletingId] = useState(null);
+  
+  const handleDeleteArchived = async (requestId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this archived request? This action cannot be undone.')) {
+      return;
+    }
+    
+    setDeletingId(requestId);
+    try {
+      await api.delete(`/requests/${requestId}/archived`);
+      // Refresh the requests list
+      const res = await api.get(fetchUrl);
+      setRequests(Array.isArray(res.data) ? res.data : []);
+    } catch (error) {
+      alert('Failed to delete archived request: ' + (error?.response?.data?.message || error.message));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+  
   const handleNudge = async (reqObj) => {
     if(!isPICRole) return; const id=reqObj._id; const status=(reqObj.status||'').toLowerCase();
     if(!(status==='pending project manager' || status==='pending area manager')) return;
@@ -139,6 +179,7 @@ const MaterialRequestListView = ({
       case 'completed': return '✓';
       case 'denied': return '✗';
       case 'blocked': return '!';
+      case 'current': return '●';
       case 'pending': return '○';
       default: return '○';
     }
@@ -147,9 +188,203 @@ const MaterialRequestListView = ({
     if (s === 'completed') return key === 'received' ? 'Done' : 'Done';
     if (s === 'denied') return 'Denied';
     if (s === 'blocked') return 'Waiting';
+    if (s === 'current') return 'Current';
     if (key === 'received') return 'Pending';
     return 'Pending';
   };
+
+  const renderCardView = () => (
+    <ul className="request-list">
+      {pageRequests.map(r => {
+        const { steps, meta } = computeApprovalSteps(r);
+        const statusBadge = getStatusBadge(r.status, meta.isReceived);
+        const isArchived = r.status === 'Archived' || r.isArchived;
+        const projectName = isArchived && r.originalProjectName ? r.originalProjectName : r.project?.projectName;
+        
+        return (
+          <li key={r._id} className={`request-row ${meta.anyDenied?'request-denied':''} ${meta.isReceived?'request-completed':''} ${isArchived?'status-archived':''}`}>
+            {isArchived && (
+              <div className="archived-notice">
+                <span className="archived-badge">Archived – Project Completed</span>
+                {r.archivedReason && <span className="archive-reason">{r.archivedReason}</span>}
+              </div>
+            )}
+            <div className="request-row-header">
+              <div className="request-title-group">
+                <h3 className="request-row-title">{r.materials?.length ? r.materials.map(m=>`${m.materialName} (${m.quantity}${m.unit? ' '+m.unit:''})`).join(', ') : 'Material Request'}</h3>
+                <p className="request-row-desc">{truncateWords(r.description||'No description',28)}</p>
+              </div>
+              <span className={`status-chip status-${statusBadge.toLowerCase()}`}>{statusBadge}</span>
+            </div>
+            <div className="request-meta-line">
+              <span className="meta-origin">
+                <strong>{r.createdBy?.name||'Unknown'}</strong> • {new Date(r.createdAt).toLocaleDateString()} 
+                {projectName && <span>• {projectName}</span>}
+              </span>
+            </div>
+            {isArchived && r.originalRequestDetails && (
+              <div className="original-request-details">
+                <div className="original-project-info">
+                  <strong>Original Status:</strong> {r.originalRequestStatus}
+                  {r.originalProjectEndDate && (
+                    <span> • <strong>Project End Date:</strong> {new Date(r.originalProjectEndDate).toLocaleDateString()}</span>
+                  )}
+                </div>
+              </div>
+            )}
+            {!isArchived && (
+              <div className="progress-steps">
+                {steps.map((s,idx)=>(
+                  <div key={s.key} className={`progress-step ${s.state}`}>
+                    <div className="step-icon">{iconFor(s.state)}</div>
+                    <div className="step-label">{s.label}</div>
+                    <div className="step-sub">{subFor(s.state,s.key)}</div>
+                    <div className="step-date">{s.date? new Date(s.date).toLocaleDateString(): '—'}</div>
+                    {idx < steps.length-1 && <div className={`step-connector ${steps[idx+1].state==='completed'?'completed':''}`}></div>}
+                  </div>))}
+              </div>
+            )}
+            <div className="request-actions">
+              {isArchived ? (
+                <div className="archived-actions">
+                  <Link to={`${detailLinkBase}/${r._id}`} className="view-details-btn">View Details</Link>
+                  <button 
+                    onClick={() => handleDeleteArchived(r._id)} 
+                    className="delete-archived-btn"
+                    disabled={deletingId === r._id}
+                  >
+                    {deletingId === r._id ? 'Deleting...' : 'Delete Permanently'}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {isPICRole && (
+                    (()=>{ const status=(r.status||'').toLowerCase(); const canNudge = (status==='pending project manager'||status==='pending area manager') && r.createdBy?._id===userId && !meta.isReceived && !meta.anyDenied; if(!canNudge) return null; const coolingRaw=nudgeCooldowns[r._id]; const remaining = coolingRaw ? (coolingRaw - nowTs) : 0; if(remaining<=0 && coolingRaw){ // cleanup expired
+                      setTimeout(()=>{ setNudgeCooldowns(prev=>{ const copy={...prev}; delete copy[r._id]; localStorage.setItem('nudgeCooldowns', JSON.stringify(copy)); return copy; }); },0); }
+                    const isPending = pendingNudges[r._id];
+                    const nextAt = nudgeCooldowns[r._id];
+                    return <div style={{display:'flex', flexDirection:'column', alignItems:'flex-start'}}>
+                      <button
+                        onClick={()=>handleNudge(r)}
+                        disabled={remaining>0 || isPending}
+                        className="view-details-btn"
+                        title={remaining>0 && nextAt ? `Next nudge allowed at ${formatNextTime(nextAt)}` : 'Send reminder to pending approver'}
+                        style={{background:'#0f766e', opacity:(remaining>0||isPending)?0.7:1}}
+                      >{isPending? 'Sending...' : formatRemaining(remaining)}</button>
+                      {remaining>0 && nextAt && <span style={{marginTop:4, fontSize:11, color:'#0f766e'}}>{formatNextTime(nextAt)}</span>}
+                    </div>; })()
+                  )}
+                  <Link to={`${detailLinkBase}/${r._id}`} className="view-details-btn" style={{marginLeft:isPICRole? '0.5rem':0}}>View Details</Link>
+                </>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  const renderListView = () => (
+    <div className="request-table-container">
+      <table className="request-table">
+        <thead>
+          <tr>
+            <th>Materials</th>
+            <th>Description</th>
+            <th>Requester</th>
+            <th>Project</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pageRequests.map(r => {
+            const { steps, meta } = computeApprovalSteps(r);
+            const statusBadge = getStatusBadge(r.status, meta.isReceived);
+            const isArchived = r.status === 'Archived' || r.isArchived;
+            const projectName = isArchived && r.originalProjectName ? r.originalProjectName : r.project?.projectName;
+            
+            return (
+              <React.Fragment key={r._id}>
+                <tr className={`table-row ${meta.anyDenied?'request-denied':''} ${meta.isReceived?'request-completed':''} ${isArchived?'status-archived':''}`}>
+                  <td className="table-cell materials-cell" title={r.materials?.length ? r.materials.map(m=>`${m.materialName} (${m.quantity}${m.unit? ' '+m.unit:''})`).join(', ') : 'Material Request'}>
+                    {r.materials?.length ? r.materials.map(m=>`${m.materialName} (${m.quantity}${m.unit? ' '+m.unit:''})`).join(', ') : 'Material Request'}
+                  </td>
+                  <td className="table-cell description-cell" title={r.description||'No description'}>
+                    {truncateWords(r.description||'No description', 50)}
+                  </td>
+                  <td className="table-cell requester-cell" title={r.createdBy?.name||'Unknown'}>
+                    <strong>{r.createdBy?.name||'Unknown'}</strong>
+                  </td>
+                  <td className="table-cell project-cell" title={projectName || '—'}>
+                    {projectName || '—'}
+                  </td>
+                  <td className="table-cell date-cell" title={new Date(r.createdAt).toLocaleDateString()}>
+                    {new Date(r.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="table-cell status-cell">
+                    <span className={`status-chip status-${statusBadge.toLowerCase()}`}>{statusBadge}</span>
+                    {isArchived && r.archivedReason && (
+                      <div className="archive-reason" style={{fontSize: '11px', color: '#666', marginTop: '2px'}}>
+                        {r.archivedReason}
+                      </div>
+                    )}
+                  </td>
+                  <td className="table-cell actions-cell">
+                    {isArchived ? (
+                      <div className="archived-actions">
+                        <Link to={`${detailLinkBase}/${r._id}`} className="view-details-btn">View</Link>
+                        <button 
+                          onClick={() => handleDeleteArchived(r._id)} 
+                          className="delete-archived-btn"
+                          disabled={deletingId === r._id}
+                          style={{marginLeft: '5px', fontSize: '11px', padding: '2px 6px'}}
+                        >
+                          {deletingId === r._id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {isPICRole && (
+                          (()=>{ const status=(r.status||'').toLowerCase(); const canNudge = (status==='pending project manager'||status==='pending area manager') && r.createdBy?._id===userId && !meta.isReceived && !meta.anyDenied; if(!canNudge) return null; const coolingRaw=nudgeCooldowns[r._id]; const remaining = coolingRaw ? (coolingRaw - nowTs) : 0; if(remaining<=0 && coolingRaw){ // cleanup expired
+                            setTimeout(()=>{ setNudgeCooldowns(prev=>{ const copy={...prev}; delete copy[r._id]; localStorage.setItem('nudgeCooldowns', JSON.stringify(copy)); return copy; }); },0); }
+                          const isPending = pendingNudges[r._id];
+                          const nextAt = nudgeCooldowns[r._id];
+                          return <button
+                            onClick={()=>handleNudge(r)}
+                            disabled={remaining>0 || isPending}
+                            className="nudge-btn"
+                            title={remaining>0 && nextAt ? `Next nudge allowed at ${formatNextTime(nextAt)}` : 'Send reminder to pending approver'}
+                          >{isPending? 'Sending...' : formatRemaining(remaining)}</button>; })()
+                        )}
+                        <Link to={`${detailLinkBase}/${r._id}`} className="view-details-btn">View</Link>
+                      </>
+                    )}
+                  </td>
+                </tr>
+                <tr className={`progress-row ${meta.anyDenied?'request-denied':''} ${meta.isReceived?'request-completed':''}`}>
+                  <td colSpan="7" className="progress-cell-full">
+                    <div className="progress-steps-list">
+                      {steps.map((s,idx)=>(
+                        <div key={s.key} className={`progress-step-list ${s.state}`}>
+                          <div className="step-icon-list">{iconFor(s.state)}</div>
+                          <div className="step-label-list">{s.label}</div>
+                          <div className="step-sub-list">{subFor(s.state,s.key)}</div>
+                          <div className="step-date-list">{s.date? new Date(s.date).toLocaleDateString(): '—'}</div>
+                          {idx < steps.length-1 && <div className={`step-connector-list ${steps[idx+1].state==='completed'?'completed':''}`}></div>}
+                        </div>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <div className={`dashboard-container ${rootClass}`}>
@@ -165,7 +400,7 @@ const MaterialRequestListView = ({
         <div className="page-container">
           <div className="controls-bar">
             <div className="filter-tabs">
-              {['All','Pending','Approved','Cancelled','Completed'].map(tab => (
+              {['All','Pending','Approved','Cancelled','Completed','Archived'].map(tab => (
                 <button key={tab} className={`filter-tab ${filter===tab?'active':''}`} onClick={()=>{setFilter(tab); setCurrentPage(1);}}>{tab}</button>
               ))}
             </div>
@@ -175,10 +410,33 @@ const MaterialRequestListView = ({
               </div>
               <div className="sort-wrapper">
                 <select value={sortBy} onChange={e=>setSortBy(e.target.value)} className="sort-select">
-                  <option value="date">Sort by Date</option>
-                  <option value="priority">Sort by Priority</option>
-                  <option value="status">Sort by Status</option>
+                  <option value="latest">Latest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="priority">By Priority</option>
+                  <option value="status">By Status</option>
+                  <option value="requester">By Requester</option>
+                  <option value="project">By Project</option>
                 </select>
+              </div>
+              <div className="view-toggle">
+                <button
+                  className={`view-toggle-btn ${viewMode === 'card' ? 'active' : ''}`}
+                  onClick={() => setViewMode('card')}
+                  title="Card View"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 3h7v7H3V3zm0 11h7v7H3v-7zm11-11h7v7h-7V3zm0 11h7v7h-7v-7z"/>
+                  </svg>
+                </button>
+                <button
+                  className={`view-toggle-btn ${viewMode === 'list' ? 'active' : ''}`}
+                  onClick={() => setViewMode('list')}
+                  title="List View"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+                  </svg>
+                </button>
               </div>
               {isPICRole && activeProject && (
                 <button onClick={()=>window.location.href = `/pic/projects/${activeProject._id}/request`} className="view-details-btn" style={{marginLeft:'0.5rem'}}>
@@ -187,7 +445,7 @@ const MaterialRequestListView = ({
               )}
             </div>
           </div>
-          <div className="requests-grid enhanced-list">
+          <div className={`requests-grid ${viewMode === 'list' ? 'list-view' : 'enhanced-list'}`}>
             {loading ? (
               <div className="loading-state"><div className="loading-spinner"/><p>Loading...</p></div>
             ) : error ? (
@@ -195,56 +453,7 @@ const MaterialRequestListView = ({
             ) : pageRequests.length === 0 ? (
               <div className="empty-state"><div className="empty-icon">📦</div><h3>No material requests found</h3><p>No requests match your current filters.</p></div>
             ) : (
-              <ul className="request-list">
-                {pageRequests.map(r => {
-                  const { steps, meta } = computeApprovalSteps(r);
-                  const statusBadge = getStatusBadge(r.status, meta.isReceived);
-                  return (
-                    <li key={r._id} className={`request-row ${meta.anyDenied?'request-denied':''} ${meta.isReceived?'request-completed':''}`}>
-                      <div className="request-row-header">
-                        <div className="request-title-group">
-                          <h3 className="request-row-title">{r.materials?.length ? r.materials.map(m=>`${m.materialName} (${m.quantity}${m.unit? ' '+m.unit:''})`).join(', ') : 'Material Request'}</h3>
-                          <p className="request-row-desc">{truncateWords(r.description||'No description',28)}</p>
-                        </div>
-                        <span className={`status-chip status-${statusBadge.toLowerCase()}`}>{statusBadge}</span>
-                      </div>
-                      <div className="request-meta-line">
-                        <span className="meta-origin"><strong>{r.createdBy?.name||'Unknown'}</strong> • {new Date(r.createdAt).toLocaleDateString()} {r.project?.projectName && <span>• {r.project.projectName}</span>}</span>
-                      </div>
-                      <div className="progress-steps">
-                        {steps.map((s,idx)=>(
-                          <div key={s.key} className={`progress-step ${s.state}`}>
-                            <div className="step-icon">{iconFor(s.state)}</div>
-                            <div className="step-label">{s.label}</div>
-                            <div className="step-sub">{subFor(s.state,s.key)}</div>
-                            <div className="step-date">{s.date? new Date(s.date).toLocaleDateString(): '—'}</div>
-                            {idx < steps.length-1 && <div className={`step-connector ${steps[idx+1].state==='completed'?'completed':''}`}></div>}
-                          </div>))}
-                      </div>
-                      <div className="request-actions">
-                        {isPICRole && (
-                          (()=>{ const status=(r.status||'').toLowerCase(); const canNudge = (status==='pending project manager'||status==='pending area manager') && r.createdBy?._id===userId && !meta.isReceived && !meta.anyDenied; if(!canNudge) return null; const coolingRaw=nudgeCooldowns[r._id]; const remaining = coolingRaw ? (coolingRaw - nowTs) : 0; if(remaining<=0 && coolingRaw){ // cleanup expired
-                            setTimeout(()=>{ setNudgeCooldowns(prev=>{ const copy={...prev}; delete copy[r._id]; localStorage.setItem('nudgeCooldowns', JSON.stringify(copy)); return copy; }); },0);
-                          }
-                          const isPending = pendingNudges[r._id];
-                          const nextAt = nudgeCooldowns[r._id];
-                          return <div style={{display:'flex', flexDirection:'column', alignItems:'flex-start'}}>
-                            <button
-                              onClick={()=>handleNudge(r)}
-                              disabled={remaining>0 || isPending}
-                              className="view-details-btn"
-                              title={remaining>0 && nextAt ? `Next nudge allowed at ${formatNextTime(nextAt)}` : 'Send reminder to pending approver'}
-                              style={{background:'#0f766e', opacity:(remaining>0||isPending)?0.7:1}}
-                            >{isPending? 'Sending...' : formatRemaining(remaining)}</button>
-                            {remaining>0 && nextAt && <span style={{marginTop:4, fontSize:11, color:'#0f766e'}}>{formatNextTime(nextAt)}</span>}
-                          </div>; })()
-                        )}
-                        <Link to={`${detailLinkBase}/${r._id}`} className="view-details-btn" style={{marginLeft:isPICRole? '0.5rem':0}}>View Details</Link>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
+              viewMode === 'card' ? renderCardView() : renderListView()
             )}
           </div>
           {sortedRequests.length > 0 && (

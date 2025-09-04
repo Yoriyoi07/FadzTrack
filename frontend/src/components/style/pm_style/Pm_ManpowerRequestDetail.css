@@ -1010,3 +1010,161 @@
     transform: none;
   }
 }
+
+/* ===================== ARCHIVED REQUEST STYLES ===================== */
+.archived-notice {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border: 2px solid #8b5cf6;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+  text-align: center;
+}
+
+.archived-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: #8b5cf6;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.archived-badge svg {
+  font-size: 1.2rem;
+}
+
+.archive-reason {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin: 0;
+  font-style: italic;
+}
+
+.original-project-info,
+.original-request-details {
+  margin-top: 15px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #8b5cf6;
+}
+
+.original-project-info h4,
+.original-request-details h4 {
+  margin: 0 0 12px 0;
+  color: #495057;
+  font-size: 1em;
+  font-weight: bold;
+}
+
+.original-project-info p,
+.original-request-details p {
+  margin: 6px 0;
+  font-size: 0.9em;
+  color: #6c757d;
+  line-height: 1.4;
+}
+
+.original-project-info strong,
+.original-request-details strong {
+  color: #495057;
+}
+
+.archive-actions {
+  display: flex;
+  justify-content: center;
+  margin: 1rem 0;
+}
+
+.archive-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+}
+
+.archive-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.archive-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Status icon for archived */
+.status-icon.archived {
+  color: #8b5cf6;
+}
+
+/* Archived request card styling */
+.request-card.status-archived {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border: 2px solid #8b5cf6;
+  opacity: 0.8;
+}
+
+.request-card.status-archived:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.15);
+}
+
+/* Delete archived button styling */
+.delete-archived-btn {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-left: 0.5rem;
+}
+
+.delete-archived-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.delete-archived-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.archived-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Archived badge in list view */
+.archived-badge-list {
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}

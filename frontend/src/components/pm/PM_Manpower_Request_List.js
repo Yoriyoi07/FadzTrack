@@ -54,10 +54,11 @@ const PmManpowerRequestList = () => {
   const filteredRequests = requests.filter(request => {
     const status = (request.status || 'Pending').toLowerCase();
     const matchesFilter =
-      filter === 'All' ||
+      (filter === 'All' && !status.includes('rejected') && !status.includes('archived')) ||
       (filter === 'Pending' && status.includes('pending')) ||
       (filter === 'Approved' && status.includes('approved')) ||
-      (filter === 'Rejected' && status.includes('rejected'));
+      (filter === 'Rejected' && status.includes('rejected')) ||
+      (filter === 'Archived' && status.includes('archived'));
     
     const searchTarget = [
       request.project?.projectName || '',
@@ -155,6 +156,7 @@ const PmManpowerRequestList = () => {
     if (statusLower.includes('approved')) return '#10b981';
     if (statusLower.includes('pending')) return '#f59e0b';
     if (statusLower.includes('rejected')) return '#ef4444';
+    if (statusLower.includes('archived')) return '#8b5cf6';
     return '#6b7280';
   };
 
@@ -163,6 +165,7 @@ const PmManpowerRequestList = () => {
     if (statusLower.includes('approved')) return 'Approved';
     if (statusLower.includes('pending')) return 'Pending';
     if (statusLower.includes('rejected')) return 'Rejected';
+    if (statusLower.includes('archived')) return 'Archived';
     return 'Unknown';
   };
 
@@ -195,15 +198,20 @@ const PmManpowerRequestList = () => {
   };
 
   const onDeny = async (item) => {
-    if (!window.confirm('Deny this request?')) return;
+    const confirmed = window.confirm(
+      'Confirm Rejection?\n\nRejecting this request will remove this from your list of Other\'s Request.'
+    );
+    
+    if (!confirmed) return;
+    
     setBusyId(item._id);
     try {
       await api.put(`/manpower-requests/${item._id}`, { status: 'Rejected' });
-      alert('Request denied.');
+      alert('Request rejected successfully. It has been removed from your list.');
       await fetchRequests();
     } catch (e) {
       console.error(e);
-      alert(e?.response?.data?.message || 'Failed to deny.');
+      alert(e?.response?.data?.message || 'Failed to reject request.');
     } finally {
       setBusyId(null);
     }
@@ -304,18 +312,18 @@ const PmManpowerRequestList = () => {
 
           {/* Controls Bar */}
           <div className="controls-bar">
-            {/* Filter Tabs */}
-            <div className="filter-tabs">
-              {['Pending', 'Approved', 'Rejected', 'All'].map(tab => (
-                <button
-                  key={tab}
-                  className={`filter-tab ${filter === tab ? 'active' : ''}`}
-                  onClick={() => setFilter(tab)}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+                         {/* Filter Tabs */}
+             <div className="filter-tabs">
+               {['Pending', 'Approved', 'Rejected', 'Archived', 'All'].map(tab => (
+                 <button
+                   key={tab}
+                   className={`filter-tab ${filter === tab ? 'active' : ''}`}
+                   onClick={() => setFilter(tab)}
+                 >
+                   {tab}
+                 </button>
+               ))}
+             </div>
 
             {/* Search and Sort */}
             <div className="search-sort-section">
@@ -412,47 +420,53 @@ const PmManpowerRequestList = () => {
                       </div>
                     </div>
                     
-                    <div className="card-footer">
-                      {request.status === 'Pending' ? (
-                        <div className="approval-section">
-                          <div className="manpower-input-section">
-                            <label className="manpower-label">Manpower IDs to assign:</label>
-                            <input
-                              type="text"
-                              value={manpowerInput[request._id] || ''}
-                              onChange={(e) =>
-                                setManpowerInput((p) => ({ ...p, [request._id]: e.target.value }))
-                              }
-                              placeholder="e.g. 668f0..., 668f1..."
-                              className="manpower-input"
-                            />
-                          </div>
-                          <div className="action-buttons">
-                            <button
-                              onClick={() => onApprove(request)}
-                              disabled={busyId === request._id}
-                              className="approve-btn"
-                            >
-                              <FaCheck />
-                              <span>{busyId === request._id ? 'Processing…' : 'Approve'}</span>
-                            </button>
-                            <button
-                              onClick={() => onDeny(request)}
-                              disabled={busyId === request._id}
-                              className="deny-btn"
-                            >
-                              <FaTimes />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="status-display">
-                          <span className="final-status">
-                            {getStatusBadge(request.status)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                                         <div className="card-footer">
+                       {request.status === 'Pending' ? (
+                         <div className="approval-section">
+                           <div className="manpower-input-section">
+                             <label className="manpower-label">Manpower IDs to assign:</label>
+                             <input
+                               type="text"
+                               value={manpowerInput[request._id] || ''}
+                               onChange={(e) =>
+                                 setManpowerInput((p) => ({ ...p, [request._id]: e.target.value }))
+                               }
+                               placeholder="e.g. 668f0..., 668f1..."
+                               className="manpower-input"
+                             />
+                           </div>
+                           <div className="action-buttons">
+                             <button
+                               onClick={() => onApprove(request)}
+                               disabled={busyId === request._id}
+                               className="approve-btn"
+                             >
+                               <FaCheck />
+                               <span>{busyId === request._id ? 'Processing…' : 'Approve'}</span>
+                             </button>
+                             <button
+                               onClick={() => onDeny(request)}
+                               disabled={busyId === request._id}
+                               className="deny-btn"
+                             >
+                               <FaTimes />
+                             </button>
+                           </div>
+                         </div>
+                       ) : request.status === 'Archived' ? (
+                         <div className="archived-status">
+                           <span className="archived-badge">
+                             {getStatusBadge(request.status)} - Project Completed
+                           </span>
+                         </div>
+                       ) : (
+                         <div className="status-display">
+                           <span className="final-status">
+                             {getStatusBadge(request.status)}
+                           </span>
+                         </div>
+                       )}
+                     </div>
                   </div>
                 );
               })

@@ -561,49 +561,137 @@ exports.updateProject = async (req, res) => {
   }
 };
 
-/* --- DELETE PROJECT --- */
+/* --- SOFT DELETE PROJECT --- */
 exports.deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
-    const deletedProject = await Project.findByIdAndDelete(id);
-    if (!deletedProject) return res.status(404).json({ message: 'Project not found' });
+    const { reason = 'Project cancelled by user' } = req.body;
+    
+    // Find the project first
+    const project = await Project.findById(id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+    
+    // Check if already soft deleted
+    if (project.isDeleted) {
+      return res.status(400).json({ message: 'Project is already deleted' });
+    }
+    
+    // Soft delete the project
+    const updatedProject = await Project.findByIdAndUpdate(
+      id,
+      {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: req.user.id,
+        deletionReason: reason,
+        status: 'Cancelled' // Set status to Cancelled for soft-deleted projects
+      },
+      { new: true }
+    );
 
     await logAction({
-      action: 'DELETE_PROJECT',
+      action: 'SOFT_DELETE_PROJECT',
       performedBy: req.user.id,
       performedByRole: req.user.role,
-      description: `Deleted project ${deletedProject.projectName}`,
-      meta: { projectId: deletedProject._id, projectName: deletedProject.projectName, context: 'project' }
+      description: `Soft deleted project ${project.projectName} - ${reason}`,
+      meta: { projectId: project._id, projectName: project.projectName, reason, context: 'project' }
     });
+    
     if (req.user.role === 'CEO') {
       await logAction({
-        action: 'CEO_DELETE_PROJECT',
+        action: 'CEO_SOFT_DELETE_PROJECT',
         performedBy: req.user.id,
         performedByRole: req.user.role,
-        description: `CEO deleted project ${deletedProject.projectName}`,
-        meta: { projectId: deletedProject._id, projectName: deletedProject.projectName, context: 'project' }
+        description: `CEO soft deleted project ${project.projectName} - ${reason}`,
+        meta: { projectId: project._id, projectName: project.projectName, reason, context: 'project' }
       });
     }
+    
     if (req.user.role === 'IT') {
       await logAction({
-        action: 'IT_DELETE_PROJECT',
+        action: 'IT_SOFT_DELETE_PROJECT',
         performedBy: req.user.id,
         performedByRole: req.user.role,
-        description: `IT deleted project ${deletedProject.projectName}`,
-        meta: { projectId: deletedProject._id, projectName: deletedProject.projectName, context: 'project' }
+        description: `IT soft deleted project ${project.projectName} - ${reason}`,
+        meta: { projectId: project._id, projectName: project.projectName, reason, context: 'project' }
       });
     }
-    res.status(200).json({ message: 'Project deleted successfully' });
+    
+    res.status(200).json({ 
+      message: 'Project cancelled successfully',
+      data: updatedProject
+    });
   } catch (err) {
-    console.error('❌ Error deleting project:', err);
-    res.status(500).json({ message: 'Failed to delete project' });
+    console.error('❌ Error soft deleting project:', err);
+    res.status(500).json({ message: 'Failed to cancel project' });
+  }
+};
+
+/* --- RESTORE SOFT DELETED PROJECT --- */
+exports.restoreProject = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Only IT and CEO can restore projects
+    if (req.user?.role !== 'IT' && req.user?.role !== 'CEO') {
+      return res.status(403).json({ message: 'Only IT and CEO can restore projects' });
+    }
+    
+    // Find the project
+    const project = await Project.findById(id);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+    
+    // Check if project is soft deleted
+    if (!project.isDeleted) {
+      return res.status(400).json({ message: 'Project is not deleted' });
+    }
+    
+    // Restore the project
+    const restoredProject = await Project.findByIdAndUpdate(
+      id,
+      {
+        isDeleted: false,
+        deletedAt: null,
+        deletedBy: null,
+        deletionReason: '',
+        status: 'Ongoing' // Reset to Ongoing status
+      },
+      { new: true }
+    );
+
+    await logAction({
+      action: 'RESTORE_PROJECT',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `Restored project ${project.projectName}`,
+      meta: { projectId: project._id, projectName: project.projectName, context: 'project' }
+    });
+    
+    res.status(200).json({ 
+      message: 'Project restored successfully',
+      data: restoredProject
+    });
+  } catch (err) {
+    console.error('❌ Error restoring project:', err);
+    res.status(500).json({ message: 'Failed to restore project' });
   }
 };
 
 /* --- GET ALL PROJECTS --- */
 exports.getAllProjects = async (req, res) => {
   try {
-    const projects = await Project.find()
+    const { includeDeleted = false } = req.query;
+    const userRole = req.user?.role;
+    
+    // Build query - exclude soft-deleted projects by default
+    let query = { isDeleted: { $ne: true } };
+    
+    // IT and CEO can see soft-deleted projects if requested
+    if ((userRole === 'IT' || userRole === 'CEO') && includeDeleted === 'true') {
+      query = {}; // Include all projects including soft-deleted ones
+    }
+    
+    const projects = await Project.find(query)
       .populate('projectmanager', 'name email')
       .populate('pic', 'name email')
       .populate('staff', 'name email')
@@ -611,7 +699,8 @@ exports.getAllProjects = async (req, res) => {
       .populate('areamanager', 'name email')
       .populate('location', 'name region')
       .populate('manpower', 'name position')
-      .populate('contractor', 'name company companyName displayName');
+      .populate('contractor', 'name company companyName displayName')
+      .populate('deletedBy', 'name email');
 
     for (const p of projects) await hydrateProjectDocumentMetadata(p);
 
@@ -650,7 +739,10 @@ exports.getProjectById = async (req, res) => {
 exports.getAssignedProjectsPIC = async (req, res) => {
   const userId = req.params.userId;
   try {
-    const projects = await Project.find({ pic: userId })
+    const projects = await Project.find({ 
+      pic: userId,
+      isDeleted: { $ne: true } // Exclude soft-deleted projects
+    })
       .populate('projectmanager', 'name email')
       .populate('pic', 'name email')
       .populate('staff', 'name email')
@@ -678,7 +770,8 @@ exports.getAssignedProjectsAllRoles = async (req, res) => {
         { projectmanager: userId },
         { areamanager: userId }
       ],
-      status: 'Ongoing'
+      status: 'Ongoing',
+      isDeleted: { $ne: true } // Exclude soft-deleted projects
     })
       .select('projectName photos budget startDate endDate status location pic projectmanager manpower documents')
       .populate('projectmanager', 'name')
@@ -698,7 +791,7 @@ exports.getAssignedProjectsAllRoles = async (req, res) => {
 exports.getUnassignedPICs = async (req, res) => {
   try {
     const candidates = await User.find({ role: 'Person in Charge' }, 'name role');
-    const projects = await Project.find({}, 'pic');
+    const projects = await Project.find({ isDeleted: { $ne: true } }, 'pic'); // Exclude soft-deleted projects
     const assigned = new Set();
     projects.forEach(p => Array.isArray(p.pic) && p.pic.forEach(id => assigned.add(id.toString())));
     const unassigned = candidates.filter(u => !assigned.has(u._id.toString()));
@@ -710,7 +803,7 @@ exports.getUnassignedPICs = async (req, res) => {
 exports.getUnassignedStaff = async (req, res) => {
   try {
     const candidates = await User.find({ role: 'Staff' }, 'name role');
-    const projects = await Project.find({}, 'staff');
+    const projects = await Project.find({ isDeleted: { $ne: true } }, 'staff'); // Exclude soft-deleted projects
     const assigned = new Set();
     projects.forEach(p => Array.isArray(p.staff) && p.staff.forEach(id => assigned.add(id.toString())));
     const unassigned = candidates.filter(u => !assigned.has(u._id.toString()));
@@ -722,7 +815,7 @@ exports.getUnassignedStaff = async (req, res) => {
 exports.getUnassignedHR = async (req, res) => {
   try {
     const candidates = await User.find({ role: 'HR - Site' }, 'name role');
-    const projects = await Project.find({}, 'hrsite');
+    const projects = await Project.find({ isDeleted: { $ne: true } }, 'hrsite'); // Exclude soft-deleted projects
     const assigned = new Set();
     projects.forEach(p => Array.isArray(p.hrsite) && p.hrsite.forEach(id => assigned.add(id.toString())));
     const unassigned = candidates.filter(u => !assigned.has(u._id.toString()));
@@ -736,7 +829,10 @@ exports.getUnassignedHR = async (req, res) => {
 exports.getAssignedProjectManager = async (req, res) => {
   const userId = req.params.userId;
   try {
-    const project = await Project.findOne({ projectmanager: userId })
+    const project = await Project.findOne({ 
+      projectmanager: userId,
+      isDeleted: { $ne: true } // Exclude soft-deleted projects
+    })
       .populate('projectmanager', 'name email')
       .populate('pic', 'name email')
       .populate('staff', 'name email')

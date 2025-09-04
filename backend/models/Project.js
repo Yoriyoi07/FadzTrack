@@ -95,7 +95,13 @@ const projectSchema = new mongoose.Schema({
   endDate: { type: Date, required: true },
   manpower: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Manpower' }],
   tasks: [{ name: { type: String, required: true }, percent: { type: Number, required: true } }],
-  status: { type: String, enum: ['Ongoing', 'Completed'], default: 'Ongoing' },
+  status: { type: String, enum: ['Ongoing', 'Completed', 'Archived', 'Cancelled'], default: 'Ongoing' },
+  
+  // Soft delete fields
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: { type: Date },
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  deletionReason: { type: String, default: '' },
 
   discussions: [discussionSchema]
 }, { timestamps: true });

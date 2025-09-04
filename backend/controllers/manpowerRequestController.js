@@ -120,6 +120,10 @@ const getManpowerRequestsForAreaManager = async (req, res) => {
     if (!areaManagerId) {
       return res.status(400).json({ message: 'Area manager ID is required.' });
     }
+    
+    // First, update statuses automatically (including archiving for completed projects)
+    await updateRequestStatuses();
+    
     const projects = await Project.find({ areamanager: areaManagerId }).select('_id');
     const projectIds = projects.map(p => p._id);
 
@@ -145,6 +149,10 @@ const getManpowerRequestsForProjectManagers = async (req, res) => {
     if (req.user?.role !== 'Project Manager') {
       return res.status(403).json({ message: 'Only Project Managers can view this list.' });
     }
+    
+    // First, update statuses automatically (including archiving for completed projects)
+    await updateRequestStatuses();
+    
     // Show all pending requests (you can add org/region filters here if needed)
     const requests = await ManpowerRequest.find({ status: 'Pending' })
       .sort({ createdAt: -1 })
@@ -288,6 +296,10 @@ const approveManpowerRequest = async (req, res) => {
 const getSingleManpowerRequest = async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // First, update statuses automatically (including archiving for completed projects)
+    await updateRequestStatuses();
+    
     const request = await ManpowerRequest.findById(id)
       .populate('project', 'projectName location')
       .populate('createdBy', 'name email role');
@@ -306,6 +318,10 @@ const getMyManpowerRequests = async (req, res) => {
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized, no user found." });
     }
+    
+    // First, update statuses automatically (including archiving for completed projects)
+    await updateRequestStatuses();
+    
     const requests = await ManpowerRequest.find({ createdBy: userId })
       .sort({ createdAt: -1 })
       .populate('project', 'projectName location')
@@ -379,9 +395,162 @@ const updateRequestStatuses = async () => {
       }
     );
 
+    // Archive requests for completed projects
+    await archiveRequestsForCompletedProjects();
+
     console.log('✅ Manpower request statuses updated automatically');
   } catch (error) {
     console.error('❌ Error updating request statuses:', error);
+  }
+};
+
+// Function to archive requests for completed/inactive projects
+const archiveRequestsForCompletedProjects = async () => {
+  try {
+    console.log('🔄 Starting comprehensive archive process for completed/inactive projects...');
+    
+    let totalArchived = 0;
+    
+    // 1. Find all completed projects (status: 'Completed')
+    const completedProjects = await Project.find({ status: 'Completed' }).select('_id projectName endDate');
+    console.log(`📋 Found ${completedProjects.length} completed projects:`, completedProjects.map(p => p.projectName));
+    
+    // 2. Find all projects with end dates that have passed (overdue projects)
+    // Note: Overdue projects are NOT archived as they could still be completed
+    const now = new Date();
+    const overdueProjects = await Project.find({ 
+      status: 'Ongoing',
+      endDate: { $lt: now }
+    }).select('_id projectName endDate');
+    console.log(`📋 Found ${overdueProjects.length} overdue projects (not archiving as they could still be completed):`, overdueProjects.map(p => p.projectName));
+    
+    // 3. Combine all projects that should have their requests archived
+    // Note: Only completed projects are archived (overdue projects are excluded)
+    const projectsToArchive = [...completedProjects];
+    
+    if (projectsToArchive.length > 0) {
+      for (const project of projectsToArchive) {
+        console.log(`🔍 Processing completed project: ${project.projectName} (${project._id})`);
+        
+        // Find all requests for this project that are not already archived
+        const requestsToArchive = await ManpowerRequest.find({
+          project: project._id,
+          isArchived: { $ne: true }
+        });
+
+        console.log(`📝 Found ${requestsToArchive.length} non-archived requests for project ${project.projectName}`);
+
+        if (requestsToArchive.length > 0) {
+          // Archive each request individually to preserve their original status and full information
+          for (const request of requestsToArchive) {
+            const originalStatus = request.status;
+            const archiveReason = `Project Completed - Request was ${originalStatus}`;
+            
+            // Preserve all original information before archiving
+            const archivedData = {
+              status: 'Archived',
+              isArchived: true,
+              archivedReason: archiveReason,
+              // Preserve original project information
+              originalProjectName: project.projectName,
+              originalProjectEndDate: project.endDate,
+              // Preserve original request information
+              originalRequestStatus: originalStatus,
+              originalRequestDetails: {
+                description: request.description,
+                acquisitionDate: request.acquisitionDate,
+                duration: request.duration,
+                manpowers: request.manpowers,
+                createdBy: request.createdBy,
+                approvedBy: request.approvedBy,
+                received: request.received,
+                returnDate: request.returnDate,
+                manpowerProvided: request.manpowerProvided,
+                area: request.area
+              }
+            };
+            
+            await ManpowerRequest.findByIdAndUpdate(request._id, archivedData);
+            
+            console.log(`  - Request ${request._id}: ${originalStatus} -> Archived (${archiveReason})`);
+            totalArchived++;
+          }
+          
+          console.log(`✅ Archived ${requestsToArchive.length} requests for completed project: ${project.projectName}`);
+        } else {
+          console.log(`ℹ️ No requests to archive for project: ${project.projectName}`);
+        }
+      }
+    } else {
+      console.log('ℹ️ No completed projects found');
+    }
+    
+    // 4. Handle requests with soft-deleted projects
+    console.log('🔍 Checking for requests with soft-deleted projects...');
+    
+    // Find all soft-deleted projects
+    const softDeletedProjects = await Project.find({ 
+      isDeleted: true 
+    }).select('_id projectName endDate deletedAt deletionReason');
+    console.log(`📋 Found ${softDeletedProjects.length} soft-deleted projects:`, softDeletedProjects.map(p => p.projectName));
+    
+    // Find all requests that reference soft-deleted projects
+    const allRequests = await ManpowerRequest.find({ isArchived: { $ne: true } });
+    const requestsWithSoftDeletedProjects = [];
+    
+    for (const request of allRequests) {
+      if (request.project) {
+        const softDeletedProject = softDeletedProjects.find(p => p._id.toString() === request.project.toString());
+        if (softDeletedProject) {
+          requestsWithSoftDeletedProjects.push({ request, project: softDeletedProject });
+        }
+      }
+    }
+    
+    if (requestsWithSoftDeletedProjects.length > 0) {
+      console.log(`⚠️ Found ${requestsWithSoftDeletedProjects.length} requests with soft-deleted project references`);
+      
+      // Archive these requests individually to preserve their original status
+      for (const { request, project } of requestsWithSoftDeletedProjects) {
+        const originalStatus = request.status;
+        const archivedReason = `Project Cancelled (${project.deletionReason || 'No reason provided'}) - Request was ${originalStatus}`;
+        
+        // Preserve all original information before archiving
+        const archivedData = {
+          status: 'Archived',
+          isArchived: true,
+          archivedReason: archivedReason,
+          // Preserve original project information
+          originalProjectName: project.projectName,
+          originalProjectEndDate: project.endDate,
+          // Preserve original request information
+          originalRequestStatus: originalStatus,
+          originalRequestDetails: {
+            description: request.description,
+            acquisitionDate: request.acquisitionDate,
+            duration: request.duration,
+            manpowers: request.manpowers,
+            createdBy: request.createdBy,
+            approvedBy: request.approvedBy,
+            received: request.received,
+            returnDate: request.returnDate,
+            manpowerProvided: request.manpowerProvided,
+            area: request.area
+          }
+        };
+        
+        await ManpowerRequest.findByIdAndUpdate(request._id, archivedData);
+        
+        console.log(`  - Request ${request._id}: ${originalStatus} -> Archived (${archivedReason})`);
+        totalArchived++;
+      }
+      
+      console.log(`✅ Archived ${requestsWithSoftDeletedProjects.length} requests with soft-deleted project references`);
+    }
+    
+    console.log(`🎉 Comprehensive archive process completed. Total requests archived: ${totalArchived}`);
+  } catch (error) {
+    console.error('❌ Error archiving requests for completed/inactive projects:', error);
   }
 };
 
@@ -439,6 +608,222 @@ const markRequestCompleted = async (req, res) => {
   }
 };
 
+// Function to manually archive a request
+const archiveManpowerRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    // Only Project Managers, Area Managers, or HR can archive requests
+    if (!['Project Manager', 'Area Manager', 'HR'].includes(req.user?.role)) {
+      return res.status(403).json({ message: 'Only Project Managers, Area Managers, or HR can archive requests.' });
+    }
+
+    const request = await ManpowerRequest.findById(id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Check if request is already archived
+    if (request.isArchived) {
+      return res.status(400).json({ message: 'Request is already archived.' });
+    }
+
+    // Archive the request with original status
+    const originalStatus = request.status;
+    const archivedReason = reason || `Manually archived by user - Request was ${originalStatus}`;
+    
+    const updated = await ManpowerRequest.findByIdAndUpdate(
+      id,
+      { 
+        status: 'Archived',
+        isArchived: true,
+        archivedReason: archivedReason
+      },
+      { new: true }
+    );
+
+    await logAction({
+      action: 'ARCHIVE_MANPOWER_REQUEST',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `Archived manpower request for project ${updated.project}`,
+      meta: { requestId: updated._id, reason: archivedReason }
+    });
+
+    res.json({ message: '✅ Request archived successfully', data: updated });
+  } catch (error) {
+    console.error('❌ Error archiving request:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Function to permanently delete an archived request
+const deleteArchivedRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Only Project Managers, Area Managers, or HR can delete archived requests
+    if (!['Project Manager', 'Area Manager', 'HR'].includes(req.user?.role)) {
+      return res.status(403).json({ message: 'Only Project Managers, Area Managers, or HR can delete archived requests.' });
+    }
+
+    const request = await ManpowerRequest.findById(id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found' });
+    }
+
+    // Only archived requests can be permanently deleted
+    if (!request.isArchived) {
+      return res.status(400).json({ message: 'Only archived requests can be permanently deleted.' });
+    }
+
+    await ManpowerRequest.findByIdAndDelete(id);
+
+    await logAction({
+      action: 'DELETE_ARCHIVED_MANPOWER_REQUEST',
+      performedBy: req.user.id,
+      performedByRole: req.user.role,
+      description: `Permanently deleted archived manpower request for project ${request.project}`,
+      meta: { requestId: request._id }
+    });
+
+    res.json({ message: '✅ Archived request permanently deleted' });
+  } catch (error) {
+    console.error('❌ Error deleting archived request:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Test endpoint to manually trigger archiving (for debugging)
+const testArchiveRequests = async (req, res) => {
+  try {
+    // Only allow in development or for admin users
+    if (process.env.NODE_ENV === 'production' && req.user?.role !== 'HR') {
+      return res.status(403).json({ message: 'This endpoint is only available in development or for HR users.' });
+    }
+
+    console.log('🔧 Manually triggering archive requests for completed projects...');
+    
+    // Find all completed projects
+    const completedProjects = await Project.find({ status: 'Completed' }).select('_id projectName');
+    console.log(`Found ${completedProjects.length} completed projects:`, completedProjects.map(p => p.projectName));
+    
+    let totalArchived = 0;
+    
+    for (const project of completedProjects) {
+      // Find all requests for this project that are not already archived
+      const requestsToArchive = await ManpowerRequest.find({
+        project: project._id,
+        isArchived: { $ne: true }
+      });
+
+      console.log(`Project ${project.projectName}: Found ${requestsToArchive.length} requests to archive`);
+
+      if (requestsToArchive.length > 0) {
+        // Archive all requests for this completed project
+        const result = await ManpowerRequest.updateMany(
+          {
+            project: project._id,
+            isArchived: { $ne: true }
+          },
+          {
+            status: 'Archived',
+            isArchived: true,
+            archivedReason: 'Project Completed'
+          }
+        );
+
+        totalArchived += result.modifiedCount;
+        console.log(`✅ Archived ${result.modifiedCount} requests for completed project: ${project.projectName}`);
+      }
+    }
+
+    res.json({ 
+      message: `✅ Manual archiving completed. Total requests archived: ${totalArchived}`,
+      completedProjects: completedProjects.length,
+      totalArchived
+    });
+  } catch (error) {
+    console.error('❌ Error in manual archiving:', error);
+    res.status(500).json({ message: 'Server error during manual archiving' });
+  }
+};
+
+// Debug endpoint to check current state
+const debugArchiveState = async (req, res) => {
+  try {
+    // Only allow in development or for admin users
+    if (process.env.NODE_ENV === 'production' && req.user?.role !== 'HR') {
+      return res.status(403).json({ message: 'This endpoint is only available in development or for HR users.' });
+    }
+
+    console.log('🔍 Debugging archive state...');
+    
+    // Find all completed projects
+    const completedProjects = await Project.find({ status: 'Completed' }).select('_id projectName');
+    console.log(`Found ${completedProjects.length} completed projects:`, completedProjects.map(p => p.projectName));
+    
+    // Also check for projects with null/undefined names
+    const allProjects = await Project.find().select('_id projectName status');
+    const projectsWithNoName = allProjects.filter(p => !p.projectName || p.projectName === '(NO PROJECT NAME)');
+    console.log(`Found ${projectsWithNoName.length} projects with no name:`, projectsWithNoName.map(p => ({ id: p._id, name: p.projectName, status: p.status })));
+    
+    const debugData = {
+      completedProjects: completedProjects.map(p => ({ id: p._id, name: p.projectName })),
+      projectsWithNoName: projectsWithNoName.map(p => ({ id: p._id, name: p.projectName, status: p.status })),
+      projectRequests: [],
+      allProjects: allProjects.map(p => ({ id: p._id, name: p.projectName, status: p.status }))
+    };
+    
+    for (const project of completedProjects) {
+      // Find all requests for this project
+      const allRequests = await ManpowerRequest.find({ project: project._id });
+      const archivedRequests = allRequests.filter(r => r.isArchived);
+      const nonArchivedRequests = allRequests.filter(r => !r.isArchived);
+      
+      debugData.projectRequests.push({
+        projectId: project._id,
+        projectName: project.projectName,
+        totalRequests: allRequests.length,
+        archivedRequests: archivedRequests.length,
+        nonArchivedRequests: nonArchivedRequests.length,
+        requestDetails: allRequests.map(r => ({
+          id: r._id,
+          status: r.status,
+          isArchived: r.isArchived,
+          archivedReason: r.archivedReason,
+          createdBy: r.createdBy
+        }))
+      });
+      
+      console.log(`Project ${project.projectName}: ${allRequests.length} total requests, ${archivedRequests.length} archived, ${nonArchivedRequests.length} not archived`);
+    }
+
+    // Also check for requests with no project or invalid project references
+    const requestsWithNoProject = await ManpowerRequest.find({ 
+      $or: [
+        { project: { $exists: false } },
+        { project: null },
+        { project: { $type: "string", $regex: /^[0-9a-fA-F]{24}$/ } }
+      ]
+    }).populate('project', 'projectName status');
+    
+    debugData.requestsWithNoProject = requestsWithNoProject.map(r => ({
+      id: r._id,
+      project: r.project,
+      status: r.status,
+      isArchived: r.isArchived,
+      createdBy: r.createdBy
+    }));
+
+    res.json(debugData);
+  } catch (error) {
+    console.error('❌ Error in debug state:', error);
+    res.status(500).json({ message: 'Server error during debug' });
+  }
+};
+
 module.exports = {
   createManpowerRequest,
   getAllManpowerRequests,
@@ -453,4 +838,9 @@ module.exports = {
   scheduleManpowerReturn,
   updateRequestStatuses,
   markRequestCompleted,
+  archiveManpowerRequest,
+  deleteArchivedRequest,
+  archiveRequestsForCompletedProjects,
+  testArchiveRequests,
+  debugArchiveState,
 };

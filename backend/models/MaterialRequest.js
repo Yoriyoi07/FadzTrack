@@ -20,7 +20,8 @@ const materialRequestSchema = new mongoose.Schema({
   'Pending Area Manager',
   'Denied by Area Manager',
   'Approved',            // Fully approved, awaiting receipt by PIC
-  'Received'             // Materials received/closed
+  'Received',            // Materials received/closed
+  'Archived'             // Archived due to project completion/cancellation
     ],
     default: 'Pending Project Manager'
   },
@@ -50,8 +51,37 @@ const materialRequestSchema = new mongoose.Schema({
     role: { type: String },
     timestamp: { type: Date }
   }
-]
+],
 
+  // Archiving fields
+  isArchived: { type: Boolean, default: false },
+  archivedReason: { type: String, default: '' },
+  
+  // Preserve original project and request information when archived
+  originalProjectName: { type: String },
+  originalProjectEndDate: { type: Date },
+  originalRequestStatus: { type: String },
+  originalRequestDetails: {
+    description: { type: String },
+    materials: [MaterialSchema],
+    attachments: [String],
+    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    approvals: [
+      {
+        role: { type: String, enum: ['Project Manager', 'Area Manager'] },
+        user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        decision: { type: String, enum: ['approved', 'denied'] },
+        reason: String,
+        timestamp: { type: Date, default: Date.now }
+      }
+    ],
+    receivedByPIC: { type: Boolean, default: false },
+    purchaseOrder: { type: String },
+    totalValue: { type: Number },
+    receivedDate: { type: Date },
+    receivedAt: { type: Date },
+    receivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  }
 
 }, {
   timestamps: true

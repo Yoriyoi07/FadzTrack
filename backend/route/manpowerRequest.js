@@ -15,7 +15,11 @@ const {
   getSingleManpowerRequest,
   markManpowerRequestReceived,
   scheduleManpowerReturn,
-  markRequestCompleted
+  markRequestCompleted,
+  archiveManpowerRequest,
+  deleteArchivedRequest,
+  testArchiveRequests,
+  debugArchiveState
 } = require('../controllers/manpowerRequestController');
 const { verifyToken } = require('../middleware/authMiddleware');
 
@@ -88,5 +92,17 @@ router.put('/:id/received', verifyToken, markManpowerRequestReceived);
 
 // Mark request as completed (when manpower returns)
 router.put('/:id/complete', verifyToken, markRequestCompleted);
+
+// Archive a request
+router.put('/:id/archive', verifyToken, archiveManpowerRequest);
+
+// Permanently delete an archived request
+router.delete('/:id/archived', verifyToken, deleteArchivedRequest);
+
+// Test endpoint to manually trigger archiving (for debugging)
+router.post('/test-archive', verifyToken, testArchiveRequests);
+
+// Debug endpoint to check current state
+router.get('/debug-archive', verifyToken, debugArchiveState);
 
 module.exports = router;

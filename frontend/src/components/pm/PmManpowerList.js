@@ -45,6 +45,7 @@ export default function PmManpowerList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [layoutView, setLayoutView] = useState('cards'); // 'cards' or 'table'
+  const [deletingId, setDeletingId] = useState(null);
 
   // Fetch list depending on viewMode
   useEffect(() => {
@@ -99,6 +100,52 @@ export default function PmManpowerList() {
     fetchAssignedPMProject();
   }, [token, userId]);
 
+  // Handle deleting archived requests
+  const handleDeleteArchived = async (requestId) => {
+    const confirmed = window.confirm(
+      'Are you sure you want to permanently delete this archived request? This action cannot be undone.'
+    );
+    
+    if (!confirmed) return;
+    
+    setDeletingId(requestId);
+    try {
+      await api.delete(`/manpower-requests/${requestId}/archived`);
+      alert('Archived request permanently deleted.');
+      // Refresh the list
+      const fetchData = async () => {
+        setLoading(true);
+        setError('');
+        try {
+          if (viewMode === 'mine') {
+            const { data } = await api.get('/manpower-requests/mine');
+            setRequests(Array.isArray(data) ? data : []);
+          } else {
+            const { data } = await api.get('/manpower-requests');
+            const arr = Array.isArray(data) ? data : [];
+            const othersOnly = arr.filter(r => {
+              const creatorId = r.createdBy?._id || r.createdBy?.id || r.createdBy;
+              return creatorId && creatorId !== userId;
+            });
+            setRequests(othersOnly);
+          }
+        } catch (err) {
+          console.error('Load error:', err);
+          setError('Failed to load manpower requests');
+          setRequests([]);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting archived request:', error);
+      alert(error?.response?.data?.message || 'Failed to delete archived request.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   // Filter and search logic
   const filteredRequests = useMemo(() => {
     let items = requests;
@@ -106,6 +153,15 @@ export default function PmManpowerList() {
     if (status && status !== 'All') {
       const target = status === 'Complete' ? 'Completed' : status; // map UI label to stored status
       items = items.filter((r) => (r.status || 'Pending') === target);
+    } else if (status === 'All') {
+      // When 'All' is selected, exclude rejected and archived requests ONLY for "Others' Requests"
+      // For "My Requests", show all including rejected ones but exclude archived
+      if (viewMode === 'others') {
+        items = items.filter((r) => (r.status || 'Pending') !== 'Rejected' && (r.status || 'Pending') !== 'Archived');
+      } else {
+        // For 'mine' view, show all requests including rejected ones but exclude archived
+        items = items.filter((r) => (r.status || 'Pending') !== 'Archived');
+      }
     }
 
     if (searchTerm) {
@@ -139,6 +195,7 @@ export default function PmManpowerList() {
     if (statusLower.includes('approved')) return '#10b981';
     if (statusLower.includes('pending')) return '#f59e0b';
     if (statusLower.includes('rejected')) return '#ef4444';
+    if (statusLower.includes('archived')) return '#8b5cf6';
     return '#6b7280';
   };
 
@@ -148,6 +205,7 @@ export default function PmManpowerList() {
     if (statusLower.includes('approved')) return 'Approved';
     if (statusLower.includes('pending')) return 'Pending';
     if (statusLower.includes('rejected')) return 'Rejected';
+    if (statusLower.includes('archived')) return 'Archived';
     return 'Unknown';
   };
 
@@ -167,6 +225,9 @@ export default function PmManpowerList() {
     }
     if (statusLower.includes('completed')) {
       return '#059669'; // Completed requests
+    }
+    if (statusLower.includes('archived')) {
+      return '#8b5cf6'; // Archived requests
     }
     return '#e0e0e0'; // Default background
   };
@@ -210,18 +271,18 @@ export default function PmManpowerList() {
 
                      {/* Controls Bar */}
            <div className="controls-bar">
-             {/* Filter Tabs */}
-             <div className="filter-tabs">
-               {['All', 'Pending', 'Approved', 'Rejected', 'Complete'].map(tab => (
-                 <button
-                   key={tab}
-                   className={`filter-tab ${status === tab ? 'active' : ''}`}
-                   onClick={() => setStatus(tab)}
-                 >
-                   {tab}
-                 </button>
-               ))}
-             </div>
+                           {/* Filter Tabs */}
+              <div className="filter-tabs">
+                {['All', 'Pending', 'Approved', 'Rejected', 'Complete', 'Archived'].map(tab => (
+                  <button
+                    key={tab}
+                    className={`filter-tab ${status === tab ? 'active' : ''}`}
+                    onClick={() => setStatus(tab)}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
 
              {/* Request Type Filter */}
              <div className="request-type-filter">
@@ -312,6 +373,32 @@ export default function PmManpowerList() {
                           <div className="requester-info">
                             {request.createdBy?.name || 'Unknown'}
                           </div>
+                          
+                          {/* Show archived reason if request is archived */}
+                          {request.status === 'Archived' && request.archivedReason && (
+                            <div className="archived-notice">
+                              <span className="archived-badge">Archived</span>
+                              <span className="archive-reason">Reason: {request.archivedReason}</span>
+                              {request.originalProjectName && (
+                                <div className="original-project-info">
+                                  <strong>Original Project:</strong> {request.originalProjectName}
+                                  {request.originalProjectEndDate && (
+                                    <span> (End Date: {new Date(request.originalProjectEndDate).toLocaleDateString()})</span>
+                                  )}
+                                </div>
+                              )}
+                              {request.originalRequestDetails && (
+                                <div className="original-request-details">
+                                  <strong>Original Request Details:</strong>
+                                  <div>Description: {request.originalRequestDetails.description}</div>
+                                  <div>Status: {request.originalRequestStatus}</div>
+                                  <div>Acquisition Date: {new Date(request.originalRequestDetails.acquisitionDate).toLocaleDateString()}</div>
+                                  <div>Duration: {request.originalRequestDetails.duration} days</div>
+                                  <div>Manpower Needed: {request.originalRequestDetails.manpowers?.map(m => `${m.type} (${m.quantity})`).join(', ')}</div>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                         
                         <div className="request-details">
@@ -360,6 +447,32 @@ export default function PmManpowerList() {
                           </h3>
                           <p className="request-description">{request.description || 'No description provided'}</p>
                           
+                          {/* Show archived reason if request is archived */}
+                          {request.status === 'Archived' && request.archivedReason && (
+                            <div className="archived-notice">
+                              <span className="archived-badge">Archived</span>
+                              <span className="archive-reason">Reason: {request.archivedReason}</span>
+                              {request.originalProjectName && (
+                                <div className="original-project-info">
+                                  <strong>Original Project:</strong> {request.originalProjectName}
+                                  {request.originalProjectEndDate && (
+                                    <span> (End Date: {new Date(request.originalProjectEndDate).toLocaleDateString()})</span>
+                                  )}
+                                </div>
+                              )}
+                              {request.originalRequestDetails && (
+                                <div className="original-request-details">
+                                  <strong>Original Request Details:</strong>
+                                  <div>Description: {request.originalRequestDetails.description}</div>
+                                  <div>Status: {request.originalRequestStatus}</div>
+                                  <div>Acquisition Date: {new Date(request.originalRequestDetails.acquisitionDate).toLocaleDateString()}</div>
+                                  <div>Duration: {request.originalRequestDetails.duration} days</div>
+                                  <div>Manpower Needed: {request.originalRequestDetails.manpowers?.map(m => `${m.type} (${m.quantity})`).join(', ')}</div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
                           <div className="request-meta">
                             <div className="meta-item">
                               <span className="meta-label">Requested by:</span>
@@ -388,14 +501,33 @@ export default function PmManpowerList() {
                           </div>
                         </div>
                         
-                        <div className="card-footer">
-                          <Link
-                            to={`/pm/manpower-request/${request._id}`}
-                            className="view-details-btn"
-                          >
-                            View Details
-                          </Link>
-                        </div>
+                                                 <div className="card-footer">
+                           {request.status === 'Archived' ? (
+                             <div className="archived-actions">
+                               <Link
+                                 to={`/pm/manpower-request/${request._id}`}
+                                 className="view-details-btn"
+                               >
+                                 View Details
+                               </Link>
+                               <button
+                                 onClick={() => handleDeleteArchived(request._id)}
+                                 className="delete-archived-btn"
+                                 title="Permanently delete this archived request"
+                                 disabled={deletingId === request._id}
+                               >
+                                 {deletingId === request._id ? 'Deleting...' : 'Delete Permanently'}
+                               </button>
+                             </div>
+                           ) : (
+                             <Link
+                               to={`/pm/manpower-request/${request._id}`}
+                               className="view-details-btn"
+                             >
+                               View Details
+                             </Link>
+                           )}
+                         </div>
                       </div>
                     );
                   }

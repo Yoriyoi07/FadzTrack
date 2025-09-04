@@ -47,6 +47,10 @@ router.post('/:id/approve', verifyToken, controller.approveMaterialRequest);
 // MARK AS RECEIVED
 router.patch('/:id/received', verifyToken, controller.markReceived);
 
+// ARCHIVE AND DELETE ARCHIVED REQUESTS
+router.put('/:id/archive', verifyToken, controller.archiveMaterialRequest);
+router.delete('/:id/archived', verifyToken, controller.deleteArchivedRequest);
+
 router.post('/:id/nudge', verifyToken, controller.nudgePendingApprover);
 
 module.exports = router;

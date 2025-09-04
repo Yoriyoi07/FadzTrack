@@ -117,7 +117,7 @@ export default function PmRequestedManpowerDetail() {
     loadPmProject();
   }, [token, userId, isPM]);
 
-  // fetch manpower ONLY from this PM's project
+  // fetch manpower ONLY from this PM's project that matches the requested types
   useEffect(() => {
     if (!request || isMine || !isPM || !pmProject?._id) return;
 
@@ -125,9 +125,18 @@ export default function PmRequestedManpowerDetail() {
       try {
         const { data } = await api.get('/manpower'); // backend does NOT filter by project yet
         const arr = Array.isArray(data) ? data : [];
+        
+        // Get the requested manpower types from the request
+        const requestedTypes = (request.manpowers || []).map(mp => mp.type);
+        
         const filtered = arr.filter(m => {
           const ap = m.assignedProject?._id || m.assignedProject || m.project || m.homeProject;
-            return ap && String(ap) === String(pmProject._id);
+          const projectMatch = ap && String(ap) === String(pmProject._id);
+          
+          // Only include manpower whose position matches the requested types
+          const typeMatch = requestedTypes.includes(m.position);
+          
+          return projectMatch && typeMatch;
         });
         setAvailableManpowers(filtered);
       } catch (e) {
@@ -170,15 +179,21 @@ export default function PmRequestedManpowerDetail() {
 
   const handleDeny = async () => {
     if (!isPM || isMine) return;
-    if (!window.confirm('Deny this request?')) return;
+    
+    const confirmed = window.confirm(
+      'Confirm Rejection?\n\nRejecting this request will remove this from your list of Other\'s Request.'
+    );
+    
+    if (!confirmed) return;
+    
     setBusy(true);
     try {
       await api.put(`/manpower-requests/${id}`, { status: 'Rejected' });
-      alert('Request denied.');
-      const { data } = await api.get(`/manpower-requests/${id}`);
-      setRequest(data);
+      alert('Request rejected successfully. It has been removed from your list.');
+      // Navigate back to the manpower list since the request is now hidden
+      navigate('/pm/manpower-list');
     } catch (e) {
-      alert(e?.response?.data?.message || 'Failed to deny.');
+      alert(e?.response?.data?.message || 'Failed to reject request.');
     } finally {
       setBusy(false);
     }
@@ -216,6 +231,23 @@ export default function PmRequestedManpowerDetail() {
     }
   };
 
+  const handleArchive = async () => {
+    const reason = window.prompt('Please provide a reason for archiving this request (optional):');
+    if (reason === null) return; // User cancelled
+    
+    setBusy(true);
+    try {
+      await api.put(`/manpower-requests/${id}/archive`, { reason });
+      alert('Request archived successfully.');
+      const { data } = await api.get(`/manpower-requests/${id}`);
+      setRequest(data);
+    } catch (e) {
+      alert(e?.response?.data?.message || 'Failed to archive request.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // helpers
   const sourceProjectName = pmProject?.projectName || 'your project';
   const destProjectName = request?.project?.projectName || 'this project';
@@ -228,6 +260,8 @@ export default function PmRequestedManpowerDetail() {
         return <FaTimes className="status-icon rejected" />;
       case 'pending':
         return <FaHourglassHalf className="status-icon pending" />;
+      case 'archived':
+        return <FaFileAlt className="status-icon archived" />;
       default:
         return <FaHourglassHalf className="status-icon pending" />;
     }
@@ -502,7 +536,7 @@ export default function PmRequestedManpowerDetail() {
             </div>
 
             {/* Approval Panel (Others' request only) */}
-            {!isMine && isPM && !isApproved && (
+            {!isMine && isPM && !isApproved && request?.status !== 'Archived' && (
               <div className="approval-panel">
                 <div className="panel-header">
                   <h3>Approve & Assign Manpower</h3>
@@ -516,6 +550,13 @@ export default function PmRequestedManpowerDetail() {
                   <label className="selection-label">
                     Select manpower from your project
                   </label>
+                  {request?.manpowers && request.manpowers.length > 0 && (
+                    <div className="requested-types">
+                      <small>
+                        Requested types: {request.manpowers.map(mp => `${mp.type} (${mp.quantity})`).join(', ')}
+                      </small>
+                    </div>
+                  )}
                   <div className="selection-controls">
                     <select
                       defaultValue=""
@@ -527,7 +568,9 @@ export default function PmRequestedManpowerDetail() {
                       className="manpower-select"
                     >
                       <option value="">
-                        {pmProject ? 'Pick manpower…' : 'No PM project found'}
+                        {!pmProject ? 'No PM project found' : 
+                         availableManpowers.length === 0 ? 'No matching manpower available' :
+                         'Pick manpower…'}
                       </option>
                       {availableManpowers
                         .filter(mp => !selectedManpowerIds.includes(mp._id))
@@ -575,7 +618,7 @@ export default function PmRequestedManpowerDetail() {
                     className="deny-btn"
                   >
                     <FaTimes />
-                    <span>Deny Request</span>
+                    <span>Reject Request</span>
                   </button>
                   <button
                     onClick={handleApprove}
@@ -590,7 +633,7 @@ export default function PmRequestedManpowerDetail() {
             )}
 
             {/* Creator Actions */}
-            {isMine && !isApproved && (
+            {isMine && !isApproved && request?.status !== 'Archived' && (
               <div className="creator-actions">
                 <button onClick={handleEdit} className="edit-btn">
                   <FaEdit />
@@ -599,6 +642,54 @@ export default function PmRequestedManpowerDetail() {
                 <button onClick={handleCancel} className="cancel-btn">
                   <FaTrash />
                   <span>Cancel Request</span>
+                </button>
+              </div>
+            )}
+
+            {/* Archive Actions */}
+            {request?.status === 'Archived' && (
+              <div className="archived-notice">
+                <div className="archived-badge">
+                  <FaFileAlt />
+                  <span>Archived - Project Completed</span>
+                </div>
+                {request.archivedReason && (
+                  <p className="archive-reason">Reason: {request.archivedReason}</p>
+                )}
+                {request.originalProjectName && (
+                  <div className="original-project-info">
+                    <h4>Original Project Information</h4>
+                    <p><strong>Project Name:</strong> {request.originalProjectName}</p>
+                    {request.originalProjectEndDate && (
+                      <p><strong>Project End Date:</strong> {new Date(request.originalProjectEndDate).toLocaleDateString()}</p>
+                    )}
+                  </div>
+                )}
+                {request.originalRequestDetails && (
+                  <div className="original-request-details">
+                    <h4>Original Request Information</h4>
+                    <p><strong>Original Status:</strong> {request.originalRequestStatus}</p>
+                    <p><strong>Description:</strong> {request.originalRequestDetails.description}</p>
+                    <p><strong>Acquisition Date:</strong> {new Date(request.originalRequestDetails.acquisitionDate).toLocaleDateString()}</p>
+                    <p><strong>Duration:</strong> {request.originalRequestDetails.duration} days</p>
+                    <p><strong>Manpower Needed:</strong> {request.originalRequestDetails.manpowers?.map(m => `${m.type} (${m.quantity})`).join(', ')}</p>
+                    {request.originalRequestDetails.approvedBy && (
+                      <p><strong>Approved By:</strong> {request.originalRequestDetails.approvedBy}</p>
+                    )}
+                    {request.originalRequestDetails.area && (
+                      <p><strong>Area:</strong> {request.originalRequestDetails.area}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Manual Archive Action */}
+            {!isMine && isPM && request?.status !== 'Archived' && (
+              <div className="archive-actions">
+                <button onClick={handleArchive} className="archive-btn" disabled={busy}>
+                  <FaFileAlt />
+                  <span>{busy ? 'Processing…' : 'Archive Request'}</span>
                 </button>
               </div>
             )}
