@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
 import '../style/ceo_style/Ceo_ManpowerRequest.css';
+import '../style/pm_style/Pm_ViewRequest.css';
 import api from '../../api/axiosInstance';
 import { FaSearch, FaTh, FaList } from 'react-icons/fa';
 import AppHeader from '../layout/AppHeader';
@@ -188,6 +189,14 @@ const PmManpowerList = () => {
                 <p className="card-subtitle">Manage and track manpower requests for your project</p>
               </div>
               <div className="layout-toggle-wrapper">
+                <button
+                  type="button"
+                  className="btn-primary request-manpower-btn"
+                  onClick={()=> navigate('/pm/request-manpower')}
+                  style={{marginRight:12}}
+                >
+                  + Request Manpower
+                </button>
                 <button
                   onClick={() => setSortDesc(!sortDesc)}
                   className="btn-secondary sort-btn"

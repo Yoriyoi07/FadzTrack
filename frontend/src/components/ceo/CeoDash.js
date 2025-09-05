@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
@@ -224,7 +225,8 @@ const CeoDash = () => {
             picNames,
             aiRisk,
             reportingPics,
-            pendingPics
+            pendingPics,
+            picContributions
           };
         } catch (err) {
           return {
@@ -238,7 +240,8 @@ const CeoDash = () => {
             latestDate: null,
             status: 'stale',
             waitingForAll: false,
-            picNames: []
+            picNames: [],
+            picContributions: []
           };
         }
       }));
@@ -569,11 +572,53 @@ const CeoDash = () => {
                               {metric.waitingForAll ? 'Waiting for all PICs' : metric.status === 'ontrack' ? 'On Track' : metric.status === 'regressing' ? 'Regressing' : metric.status === 'stale' ? 'Stale' : 'Pending'}
                             </span>
                           </div>
-                          {metric.picNames?.length > 0 && (
-                            <div className="metric-pics">
-                              <b>PICs:</b> {metric.picNames.join(', ')}
+                          {/* AM-style metric badges */}
+                          <div className="metric-badges" style={{marginTop:8, display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(90px,1fr))', gap:6, fontSize:11}}>
+                            <div style={{background:'#f1f5f9',padding:'6px 8px',borderRadius:6,display:'flex',flexDirection:'column',gap:2}}>
+                              <span style={{opacity:.6}}>Progress</span>
+                              <strong>{metric.progress}%</strong>
                             </div>
-                          )}
+                            <div style={{background:'#f1f5f9',padding:'6px 8px',borderRadius:6,display:'flex',flexDirection:'column',gap:2}}>
+                              <span style={{opacity:.6}}>Reported</span>
+                              <strong>{metric.reportingPics}/{metric.totalPics||0}</strong>
+                            </div>
+                            <div style={{background:'#f1f5f9',padding:'6px 8px',borderRadius:6,display:'flex',flexDirection:'column',gap:2}}>
+                              <span style={{opacity:.6}}>Pending PICs</span>
+                              <strong>{metric.pendingPics}</strong>
+                            </div>
+                            <div style={{background:'#f1f5f9',padding:'6px 8px',borderRadius:6,display:'flex',flexDirection:'column',gap:2}}>
+                              <span style={{opacity:.6}}>Status</span>
+                              <strong style={{textTransform:'capitalize'}}>{metric.waitingForAll ? 'Waiting' : metric.status}</strong>
+                            </div>
+                            <div style={{background:'#f1f5f9',padding:'6px 8px',borderRadius:6,display:'flex',flexDirection:'column',gap:2}}>
+                              <span style={{opacity:.6}}>Last Report</span>
+                              <strong>{metric.latestDate ? new Date(metric.latestDate).toLocaleDateString() : '—'}</strong>
+                            </div>
+                          </div>
+                          {/* Mini per-PIC contribution bar chart */}
+                          <div className="metric-mini-chart" style={{marginTop:10, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:'4px 6px'}}>
+                            {(() => {
+                              const contrib = metric.picContributions || [];
+                              const data = contrib.filter(c=>c.hasReport).map(c=>({
+                                name: c.picName.length>6? c.picName.slice(0,6)+'…': c.picName,
+                                value: c.contribution || 0
+                              }));
+                              if(!data.length){
+                                return <div style={{fontSize:11, opacity:.6, textAlign:'center', padding:'6px 0'}}>No PIC reports yet</div>;
+                              }
+                              return (
+                                <ResponsiveContainer width="100%" height={90}>
+                                  <BarChart data={data} margin={{top:4,right:4,left:0,bottom:0}}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                    <XAxis dataKey="name" tick={{fontSize:9}} axisLine={false} tickLine={false} />
+                                    <YAxis hide domain={[0,100]} />
+                                    <Tooltip cursor={{fill:'rgba(0,0,0,0.04)'}} formatter={(v)=>[v+'%', 'Contribution']} />
+                                    <Bar dataKey="value" radius={[4,4,0,0]} fill="#3B82F6" />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              );
+                            })()}
+                          </div>
                         </div>
                       </Link>
                     ))}

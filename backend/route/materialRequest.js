@@ -6,17 +6,8 @@ const controller = require('../controllers/materialRequestController');
 const { verifyIT } = require('../middleware/authMiddleware');
 
 
-// File storage config
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/');
-  },
-  filename: function (req, file, cb) {
-    const uniqueName = `${Date.now()}-${file.originalname}`;
-    cb(null, uniqueName);
-  }
-});
-const upload = multer({ storage });
+// Use memory storage – files will be pushed to Supabase, not local disk
+const upload = multer({ storage: multer.memoryStorage(), limits:{ fileSize: 25 * 1024 * 1024 } });
 
 // CREATE
 router.post('/', verifyToken, upload.array('attachments'), controller.createMaterialRequest);
@@ -36,6 +27,9 @@ router.get('/:id', verifyToken, controller.getMaterialRequestById);
 
 // UPDATE
 router.put('/:id', verifyToken, upload.array('newAttachments'), controller.updateMaterialRequest);
+
+// SIGNED URLS FOR ATTACHMENTS
+router.get('/:id/attachments/signed', verifyToken, controller.getMaterialRequestAttachmentSignedUrls);
 
 // DELETE
 router.delete('/:id', verifyToken, controller.deleteMaterialRequest);

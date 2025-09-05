@@ -250,7 +250,7 @@ html {
   background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
   border-radius: 16px;
   padding: 2rem 1.5rem;
-  margin-bottom: 2rem;
+ margin: 1.5rem 0 2rem;
   color: white;
   box-shadow: 0 20px 40px rgba(30, 41, 59, 0.15);
   position: relative;
@@ -599,25 +599,11 @@ html {
 }
 
 /* ===== Request List Styles ===== */
-.requests-section {
-  margin-bottom: 2rem;
+.requests-content {
+  max-height: none;
+  overflow-y: visible;
+  padding-right: 0;
 }
-
-.requests-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.25rem;
-  padding: 0;
-}
-
-.requests-section-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0;
-}
-
 .requests-section-subtitle {
   font-size: 0.9rem;
   color: #64748b;

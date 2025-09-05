@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { useNavigate, Link } from 'react-router-dom';
 import '../style/am_style/Area_Dash.css';
 import api from '../../api/axiosInstance';
 import AppHeader from '../layout/AppHeader';
 
 // React Icons
-import { FaCalendarAlt, FaCheckCircle, FaExclamationTriangle, FaArrowRight, FaChevronDown, FaChevronUp, FaBuilding, FaMapMarkerAlt, FaUserTie, FaChevronRight, FaChevronLeft, FaUsers, FaProjectDiagram, FaBoxes, FaChartBar } from 'react-icons/fa';
+import { FaCalendarAlt, FaCheckCircle, FaExclamationTriangle, FaArrowRight, FaChevronDown, FaChevronUp, FaBuilding, FaMapMarkerAlt, FaUserTie, FaChevronRight, FaChevronLeft, FaUsers, FaProjectDiagram, FaBoxes, FaChartBar, FaBars } from 'react-icons/fa';
 
 const AreaDash = () => {
   const navigate = useNavigate();
@@ -188,16 +188,7 @@ const AreaDash = () => {
       try {
         const { data } = await api.get('/requests', { signal: controller.signal });
         if (!isActive) return;
-        // Count only those pending AREA MANAGER action for badge
-        const pendingForAM = data.filter(request => {
-          if (!request || !request.project) return false;
-          const statusNorm = normalizeStatus(request.status||'');
-          const isPendingAM = statusNorm === 'PENDING AM' || statusNorm === 'PENDING AREA MANAGER';
-          if (!isPendingAM) return false;
-          return locations.some(loc => loc._id === (request.project.location?._id || request.project.location));
-        });
-        setPendingRequests(pendingForAM);
-        setMaterialRequests(data);
+        setMaterialRequests(Array.isArray(data)? data : []);
         setRequestsError(null);
       } catch (error) {
         if (!isActive) return;
@@ -273,6 +264,29 @@ const AreaDash = () => {
     }
   }, [enrichedAllProjects, pendingRequests, projects]);
 
+  // Recalculate pending requests whenever material requests or assigned locations change
+  useEffect(()=>{
+    const norm = (s='')=> s.replace(/\s+/g,' ').trim().toUpperCase();
+    if(!materialRequests.length){ setPendingRequests([]); return; }
+    const pending = materialRequests.filter(r=>{
+      if(!r || !r.project) return false;
+      const status = norm(r.status||'');
+      const isPending = status.includes('PENDING AM') || status.includes('PENDING AREA MANAGER');
+      if(!isPending) return false;
+      // Try direct location on request.project
+      let locId = r.project?.location?._id || (typeof r.project?.location === 'string' ? r.project.location : null);
+      if(!locId){
+        // fallback: find project in enriched list
+        const pid = r.project._id || r.project.id || r.project; // handle raw id
+        const proj = enrichedAllProjects.find(p=> p._id === pid);
+        if(proj) locId = proj.location?._id || proj.location; 
+      }
+      if(!locId) return false; // cannot verify assignment
+      return assignedLocations.some(l=> l._id === locId);
+    });
+    setPendingRequests(pending);
+  },[materialRequests, assignedLocations, enrichedAllProjects]);
+
   // Unified header handles logout & profile menu
 
   const toggleSidebar = () => {
@@ -295,6 +309,7 @@ const AreaDash = () => {
   // Project metrics reuse fetched contributions
   const [projectMetrics, setProjectMetrics] = useState([]);
   const [metricsLoading, setMetricsLoading] = useState(false); // loading tied to fetchProjects
+  // (Removed CEO-style filter controls to restore original horizontal layout)
   useEffect(()=>{
     if(!enrichedAllProjects.length){ setProjectMetrics([]); return; }
   const metrics = enrichedAllProjects.map(project => {
@@ -397,15 +412,17 @@ const AreaDash = () => {
     );
   }
 
+  // Original layout uses full projectMetrics list directly (no local filtering UI)
+
   return (
     <div className="am-dashboard dashboard-container">
       <AppHeader roleSegment="am" />
 
       {/* Main Dashboard Content */}
       <main className="dashboard-main">
-        {/* Sidebar Toggle Button */}
-        <button className="sidebar-toggle-btn" onClick={toggleSidebar}>
-          <FaChevronRight />
+        {/* Sidebar Toggle Button (burger icon like CEO) */}
+        <button className="sidebar-toggle-btn" onClick={toggleSidebar} aria-label={sidebarOpen ? 'Close areas & projects panel' : 'Open areas & projects panel'}>
+          <FaBars />
         </button>
 
         {/* Areas & Projects Sidebar */}
@@ -488,7 +505,7 @@ const AreaDash = () => {
               </div>
             </div>
 
-            {/* Project Metrics - Full Width */}
+            {/* Project Metrics - Restored Original Layout (horizontal scroll, no filters) */}
             <div className="dashboard-card project-metrics-card">
               <div className="card-header">
                 <h3>Project Progress</h3>
@@ -509,7 +526,13 @@ const AreaDash = () => {
                 ) : (
                   <div className="project-metrics-scroll">
                     {projectMetrics.map((metric) => (
-                      <div key={metric.projectId} className="project-metric-item">
+                      <Link
+                        to={`/am/projects/${metric.projectId}`}
+                        key={metric.projectId}
+                        className="project-metric-item project-metric-link"
+                        style={{ textDecoration:'none' }}
+                        aria-label={`View project ${metric.projectName}`}
+                      >
                         <div className="metric-header">
                           <div className="metric-project-info">
                             <h4 className="metric-project-name">{metric.projectName}</h4>
@@ -559,15 +582,64 @@ const AreaDash = () => {
                               {metric.latestDate ? new Date(metric.latestDate).toLocaleDateString() : '\u2014'}
                             </span>
                           </div>
+                          {/* Professional metric badges (no bar graphs) */}
+                          <div className="metric-badges" style={{marginTop:8, display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(90px,1fr))', gap:6, fontSize:11}}>
+                            <div style={{background:'#f1f5f9',padding:'6px 8px',borderRadius:6,display:'flex',flexDirection:'column',gap:2}}>
+                              <span style={{opacity:.6}}>Progress</span>
+                              <strong>{metric.progress}%</strong>
+                            </div>
+                            <div style={{background:'#f1f5f9',padding:'6px 8px',borderRadius:6,display:'flex',flexDirection:'column',gap:2}}>
+                              <span style={{opacity:.6}}>Reported</span>
+                              <strong>{metric.reportingPics}/{metric.totalPics||0}</strong>
+                            </div>
+                            <div style={{background:'#f1f5f9',padding:'6px 8px',borderRadius:6,display:'flex',flexDirection:'column',gap:2}}>
+                              <span style={{opacity:.6}}>Pending PICs</span>
+                              <strong>{metric.pendingPics}</strong>
+                            </div>
+                            <div style={{background:'#f1f5f9',padding:'6px 8px',borderRadius:6,display:'flex',flexDirection:'column',gap:2}}>
+                              <span style={{opacity:.6}}>Status</span>
+                              <strong style={{textTransform:'capitalize'}}>{metric.waitingForAll ? 'Waiting' : metric.status}</strong>
+                            </div>
+                            <div style={{background:'#f1f5f9',padding:'6px 8px',borderRadius:6,display:'flex',flexDirection:'column',gap:2}}>
+                              <span style={{opacity:.6}}>Last Report</span>
+                              <strong>{metric.latestDate ? new Date(metric.latestDate).toLocaleDateString() : '—'}</strong>
+                            </div>
+                          </div>
+                          {/* Mini per-PIC contribution bar chart (re-added as requested) */}
+                          <div className="metric-mini-chart" style={{marginTop:10, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:'4px 6px'}}>
+                            {(() => {
+                              const contrib = projectContribs[metric.projectId]?.picContributions || [];
+                              const data = contrib.filter(c=>c.hasReport).map(c=>({
+                                name: c.picName.length>6? c.picName.slice(0,6)+'…': c.picName,
+                                value: c.contribution || 0
+                              }));
+                              if(!data.length){
+                                return <div style={{fontSize:11, opacity:.6, textAlign:'center', padding:'6px 0'}}>No PIC reports yet</div>;
+                              }
+                              return (
+                                <ResponsiveContainer width="100%" height={90}>
+                                  <BarChart data={data} margin={{top:4,right:4,left:0,bottom:0}}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                    <XAxis dataKey="name" tick={{fontSize:9}} axisLine={false} tickLine={false} />
+                                    <YAxis hide domain={[0,100]} />
+                                    <Tooltip cursor={{fill:'rgba(0,0,0,0.04)'}} formatter={(v)=>[v+'%', 'Contribution']} />
+                                    <Bar dataKey="value" radius={[4,4,0,0]} fill="#3B82F6" />
+                                  </BarChart>
+                                </ResponsiveContainer>
+                              );
+                            })()}
+                          </div>
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Material Requests Overview - Compact with Tracking */}
+            {/* Aggregated Metrics Charts removed per request */}
+
+            {/* Material Requests Overview - Compact with Tracking (original layout) */}
             <div className="dashboard-card requests-card">
               <div className="card-header">
                 <h3 className="card-title">Material Requests</h3>
@@ -602,7 +674,6 @@ const AreaDash = () => {
                         if (!aPendingAM && bPendingAM) return 1;
                         return new Date(b.createdAt) - new Date(a.createdAt);
                       })
-                      // Removed slice(0,3) so list is no longer cut off
                       .map(request => {
                         const statusNorm = (request.status||'').replace(/\s+/g,' ').trim().toUpperCase();
                         const pendingAM = statusNorm==='PENDING AM' || statusNorm==='PENDING AREA MANAGER';
@@ -629,7 +700,6 @@ const AreaDash = () => {
                                 </span>
                               </div>
                             </div>
-                            
                             {/* Compact Tracking Timeline */}
                             <div className="tracking-timeline-compact">
                               {/* Placed Stage */}
@@ -639,9 +709,7 @@ const AreaDash = () => {
                                 </div>
                                 <span className="timeline-label-compact">Placed</span>
                               </div>
-                              
                               <div className={`timeline-connector-compact ${['Pending PM', 'Pending AM', 'Approved', 'Received', 'PENDING PROJECT MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
-                              
                               {/* PM Stage */}
                               <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'pm')}`}>
                                 <div className="timeline-icon-compact">
@@ -649,9 +717,7 @@ const AreaDash = () => {
                                 </div>
                                 <span className="timeline-label-compact">PM</span>
                               </div>
-
                               <div className={`timeline-connector-compact ${['Pending AM', 'Approved', 'Received', 'PENDING AREA MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
-                              
                               {/* AM Stage */}
                               <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'am')}`}>
                                 <div className="timeline-icon-compact">
@@ -659,13 +725,9 @@ const AreaDash = () => {
                                 </div>
                                 <span className="timeline-label-compact">AM</span>
                               </div>
-                              
                               <div className={`timeline-connector-compact ${['Approved', 'Received'].includes(request.status) ? 'completed' : ''}`}></div>
-                              
                               {/* Removed CEO/CIO stage */}
-
                               <div className={`timeline-connector-compact ${request.status === 'Received' ? 'completed' : ''}`}></div>
-                              
                               {/* Done Stage */}
                               <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'done')}`}>
                                 <div className="timeline-icon-compact">

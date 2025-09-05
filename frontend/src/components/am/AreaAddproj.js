@@ -264,114 +264,66 @@ const AreaAddproj = () => {
           setCsvError('No data found in CSV file.');
           return;
         }
+        // New behavior: QUICK ASSIGN existing manpower (no creation)
+        const notFound = [];
+        const duplicatesInCSV = [];
+        const alreadyAssigned = [];
+        const invalid = [];
+        const matched = [];
+        const seenKeys = new Set();
 
-        const newManpowers = [];
-        const invalidRows = [];
-        const validationErrors = [];
-        const duplicateNames = [];
-
-        csvData.forEach((row, index) => {
-          const name = row['Name'] || row['name'] || '';
-          const position = row['Position'] || row['position'] || '';
-          const status = row['Status'] || row['status'] || '';
-          const project = row['Project'] || row['project'] || '';
-
-          // Validate required fields
-          if (!name || !position) {
-            invalidRows.push(`Row ${index + 1}: Missing name or position`);
-            return;
-          }
-
-          // Check for duplicates in CSV file itself
-          const duplicateInCSV = csvData.slice(0, index).some((prevRow, prevIndex) => {
-            const prevName = (prevRow['Name'] || prevRow['name'] || '').trim().toLowerCase();
-            const prevPosition = (prevRow['Position'] || prevRow['position'] || '').trim().toLowerCase();
-            return prevName === name.trim().toLowerCase() && prevPosition === position.trim().toLowerCase();
-          });
-          
-          if (duplicateInCSV) {
-            duplicateNames.push(`Row ${index + 1}: Duplicate entry (${name} - ${position})`);
-            return;
-          }
-
-          // Check for duplicates in existing manpower
-          const existingManpower = availableManpower.find(mp => 
-            mp.name.trim().toLowerCase() === name.trim().toLowerCase() &&
-            mp.position.trim().toLowerCase() === position.trim().toLowerCase()
-          );
-          
-          if (existingManpower) {
-            duplicateNames.push(`Row ${index + 1}: Already exists in system (${name} - ${position})`);
-            return;
-          }
-
-          // Validate no project assignment
-          if (project && project.trim() !== '') {
-            validationErrors.push(`Row ${index + 1}: Project should be empty (${name})`);
-            return;
-          }
-
-          // Validate status is unassigned
-          if (status && status.trim().toLowerCase() !== 'unassigned') {
-            validationErrors.push(`Row ${index + 1}: Status should be 'unassigned' (${name})`);
-            return;
-          }
-
-          newManpowers.push({
-            name: name.trim(),
-            position: position.trim(),
-            status: 'unassigned',
-            project: '',
-            isNew: true // Flag to identify newly created manpower
-          });
+        // Build lookup map of available (unassigned) manpower by name|position (case-insensitive)
+        const availableMap = new Map();
+        availableManpower.forEach(mp => {
+          const key = `${mp.name.trim().toLowerCase()}|${mp.position.trim().toLowerCase()}`;
+            if(!availableMap.has(key)) availableMap.set(key, mp);
         });
 
-        if (invalidRows.length > 0) {
-          setCsvError(`Invalid rows: ${invalidRows.join(', ')}`);
-          return;
-        }
-
-        if (duplicateNames.length > 0) {
-          setCsvError(`Duplicate entries: ${duplicateNames.join(', ')}`);
-          return;
-        }
-
-        if (validationErrors.length > 0) {
-          setCsvError(`Validation errors: ${validationErrors.join(', ')}`);
-          return;
-        }
-
-        if (newManpowers.length > 0) {
-          try {
-            // Create manpower entries individually
-            const createdManpowers = [];
-            for (const mp of newManpowers) {
-              const { data } = await api.post('/manpower', {
-                name: mp.name,
-                position: mp.position,
-                status: 'unassigned',
-                assignedProject: null
-              }, {
-                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-              });
-              createdManpowers.push(data);
-            }
-
-            // Add created manpower to assigned list
-            setAssignedManpower(prev => [...prev, ...createdManpowers]);
-            
-            // Clear any previous errors
-            setCsvError('');
-            
-            // Show success message
-            toast.success(`Successfully imported ${createdManpowers.length} manpower entries.`);
-          } catch (err) {
-            console.error('Error importing manpower:', err);
-            setCsvError('Failed to import manpower. Please try again.');
+        csvData.forEach((row, idx) => {
+          const name = (row['Name'] || row['name'] || '').trim();
+          const position = (row['Position'] || row['position'] || '').trim();
+          if(!name || !position){
+            invalid.push(`Row ${idx+1}`);
+            return;
           }
+          const key = `${name.toLowerCase()}|${position.toLowerCase()}`;
+          if(seenKeys.has(key)){
+            duplicatesInCSV.push(`Row ${idx+1}`);
+            return;
+          }
+          seenKeys.add(key);
+          // Already assigned in current selection?
+          const already = assignedManpower.find(m => m.name.trim().toLowerCase() === name.toLowerCase() && m.position.trim().toLowerCase() === position.toLowerCase());
+          if(already){
+            alreadyAssigned.push(`${name} - ${position}`);
+            return;
+          }
+          const found = availableMap.get(key);
+          if(found){
+            matched.push(found);
+            // Remove from map so it can't match again (avoid duplicate assignment if CSV contains same)
+            availableMap.delete(key);
+          } else {
+            notFound.push(`${name} - ${position}`);
+          }
+        });
+
+        if(matched.length){
+          setAssignedManpower(prev => [...prev, ...matched]);
+          const matchedIds = new Set(matched.map(m=>m._id));
+          setAvailableManpower(prev => prev.filter(m => !matchedIds.has(m._id)));
+          toast.success(`Quick-assigned ${matched.length} manpower${notFound.length? ` (${notFound.length} not found)`:''}.`);
         } else {
-          setCsvError('No valid manpower data found in CSV file.');
+          setCsvError('No matches found in CSV for existing unassigned manpower.');
         }
+
+        // Detailed error summary (non-blocking if matches succeeded)
+        const details = [];
+        if(invalid.length) details.push(`Invalid rows: ${invalid.join(', ')}`);
+        if(duplicatesInCSV.length) details.push(`Duplicate rows: ${duplicatesInCSV.join(', ')}`);
+        if(alreadyAssigned.length) details.push(`Already selected: ${alreadyAssigned.slice(0,10).join('; ')}${alreadyAssigned.length>10?'…':''}`);
+        if(notFound.length && matched.length) details.push(`Not found: ${notFound.slice(0,10).join('; ')}${notFound.length>10?'…':''}`);
+        if(details.length) setCsvError(details.join(' | ')); else if(matched.length) setCsvError('');
       },
       error: (err) => {
         console.error('CSV Parsing Error:', err);
@@ -687,7 +639,7 @@ const AreaAddproj = () => {
                     <button type="button" onClick={()=>document.getElementById('csvUpload').click()} className="area-addproj-csv-upload-btn small">CSV</button>
                     <button 
                       type="button" 
-                      onClick={() => alert('CSV Format for Create Project:\n\nRequired columns:\n- Name (required)\n- Position (required)\n\nOptional columns:\n- Status (must be "unassigned" or empty)\n- Project (must be empty)\n\nRules:\n• All persons must have status "unassigned"\n• No project assignments allowed\n• New manpower will be created and assigned to this project\n\nExample:\nName,Position,Status,Project\nJohn Doe,Engineer,unassigned,\nJane Smith,Manager,,\nMike Johnson,Technician,unassigned,')}
+                      onClick={() => alert('CSV Quick Assign Format:\n\nThis will MATCH existing unassigned manpower already in the system and add them to this project. It WILL NOT create new manpower.\n\nRequired columns (case-insensitive):\n- Name\n- Position\n\nRules:\n• Each (Name, Position) pair must exactly match an existing unassigned manpower record.\n• Duplicates inside the CSV are ignored (first wins).\n• Rows with names or positions missing are skipped.\n• Extra columns are ignored.\n\nExample:\nName,Position\nJohn Doe,Engineer\nJane Smith,Manager\nMike Johnson,Technician\n')}
                       className="area-addproj-csv-upload-btn small"
                       style={{ marginLeft: '5px', backgroundColor: '#17a2b8', borderColor: '#17a2b8' }}
                       title="CSV Format Guide"

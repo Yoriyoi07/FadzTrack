@@ -2237,7 +2237,7 @@ exports.uploadAttendance = async (req,res) => {
     const up2 = await supabase.storage.from('documents').upload(outputPath, Buffer.from(workbookBuf), { upsert:true, contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     if(up1.error || up2.error) return res.status(500).json({ message:'Failed to store files' });
     project.attendanceReports = project.attendanceReports || [];
-    project.attendanceReports.push({ originalName:req.file.originalname, inputPath, outputPath, generatedAt:new Date(), generatedBy:req.user?.id, ai: aiSummary });
+  project.attendanceReports.push({ originalName:req.file.originalname, inputPath, outputPath, generatedAt:new Date(), generatedBy:req.user?.id, uploadedByName: req.user?.name, ai: aiSummary });
     await project.save();
     res.json({ message:'Attendance processed', report: project.attendanceReports.at(-1) });
   } catch(err){
@@ -2257,6 +2257,39 @@ exports.listAttendanceReports = async (req,res)=>{
     res.json({ reports: project.attendanceReports||[] });
   } catch(e){
     res.status(500).json({ message:'Failed to list attendance reports' });
+  }
+};
+
+// Delete a single attendance report (and both stored files)
+exports.deleteAttendanceReport = async (req,res)=>{
+  try {
+    const { id, reportId } = req.params;
+    const project = await Project.findById(id);
+    if(!project) return res.status(404).json({ message:'Project not found' });
+    project.attendanceReports = project.attendanceReports || [];
+    const rep = project.attendanceReports.id(reportId);
+    if(!rep) return res.status(404).json({ message:'Attendance report not found' });
+    // Basic permission: must be uploader or project manager / area manager (simplistic)
+    const userId = String(req.user?._id||req.user?.id||'');
+    const isOwner = rep.generatedBy && String(rep.generatedBy)===userId;
+    const pm = project.projectmanager && String(project.projectmanager)===userId;
+    const am = project.areamanager && String(project.areamanager)===userId;
+    if(!isOwner && !pm && !am){
+      return res.status(403).json({ message:'Not authorized to delete this attendance report' });
+    }
+    const toRemove = [];
+    if(rep.inputPath) toRemove.push(rep.inputPath);
+    if(rep.outputPath) toRemove.push(rep.outputPath);
+    if(toRemove.length){
+      const { error } = await supabase.storage.from('documents').remove(toRemove);
+      if(error) console.warn('Supabase attendance remove error:', error.message);
+    }
+    rep.deleteOne();
+    await project.save();
+    res.json({ reports: project.attendanceReports });
+  } catch(e){
+    console.error('deleteAttendanceReport error:', e);
+    res.status(500).json({ message:'Failed to delete attendance report' });
   }
 };
 

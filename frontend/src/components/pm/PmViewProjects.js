@@ -6,7 +6,6 @@ import AppHeader from '../layout/AppHeader';
 export default function PmViewProjects(){
   return (
     <>
-      <AppHeader roleSegment="pm" />
       <ProjectView role="pm" useUnifiedHeader />
     </>
   );

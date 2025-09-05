@@ -3,6 +3,10 @@ const Project = require('../models/Project');
 const { logAction } = require('../utils/auditLogger');
 const { createAndEmitNotification } = require('./notificationController');
 const User = require('../models/User');
+const supabase = require('../utils/supabaseClient');
+const path = require('path');
+const { v4: uuid } = require('uuid');
+const MR_BUCKET = 'material-request-photos';
 
 // ========== NUDGE PENDING APPROVER ==========
 exports.nudgePendingApprover = async (req, res) => {
@@ -105,7 +109,16 @@ exports.createMaterialRequest = async (req, res) => {
     }
 
     if (req.files && req.files.length > 0) {
-      attachments = req.files.map(file => file.filename);
+      for (const f of req.files) {
+        const ext = path.extname(f.originalname) || '';
+        const key = `material-requests/${Date.now()}-${uuid()}${ext}`;
+  const { error: upErr } = await supabase.storage.from(MR_BUCKET).upload(key, f.buffer, { upsert:false, contentType: f.mimetype });
+        if (upErr) {
+          console.error('[MR UPLOAD] Failed upload', f.originalname, upErr.message);
+          continue; // skip failing file
+        }
+        attachments.push(key);
+      }
     }
 
     const newRequest = new MaterialRequest({
@@ -215,10 +228,16 @@ exports.updateMaterialRequest = async (req, res) => {
       updatedAttachments = [];
     }
     if (req.files && req.files.length > 0) {
-      updatedAttachments = [
-        ...updatedAttachments,
-        ...req.files.map(file => file.filename)
-      ];
+      for (const f of req.files) {
+        const ext = path.extname(f.originalname) || '';
+        const key = `material-requests/${Date.now()}-${uuid()}${ext}`;
+  const { error: upErr } = await supabase.storage.from(MR_BUCKET).upload(key, f.buffer, { upsert:false, contentType: f.mimetype });
+        if (upErr) {
+          console.error('[MR UPDATE UPLOAD] Failed upload', f.originalname, upErr.message);
+          continue;
+        }
+        updatedAttachments.push(key);
+      }
     }
     const updated = await MaterialRequest.findByIdAndUpdate(
       req.params.id,
@@ -283,6 +302,29 @@ exports.deleteMaterialRequest = async (req, res) => {
     res.json({ message: 'Request cancelled successfully' });
   } catch (err) {
     res.status(500).json({ message: 'Error cancelling request', err });
+  }
+};
+
+// ========== SIGNED URLS FOR ATTACHMENTS ==========
+exports.getMaterialRequestAttachmentSignedUrls = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const request = await MaterialRequest.findById(id);
+    if (!request) return res.status(404).json({ message: 'Not found' });
+    const output = [];
+    for (const a of request.attachments || []) {
+      // a is a storage key (path in bucket 'documents')
+  const { data, error } = await supabase.storage.from(MR_BUCKET).createSignedUrl(a, 60 * 10);
+      if (error) {
+        console.error('[MR SIGNED] failed for', a, error.message);
+        continue;
+      }
+      output.push({ key: a, signedUrl: data?.signedUrl });
+    }
+    res.json(output);
+  } catch (e) {
+    console.error('Signed URL error', e);
+    res.status(500).json({ message: 'Failed to generate signed urls' });
   }
 };
 

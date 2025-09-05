@@ -193,7 +193,7 @@ const handleLogout = () => {
   }, []);
 
   return (
-    <div className="dashboard-container">
+  <div className="pic-dashboard dashboard-container">
   <AppHeader roleSegment="pic" />
 
              {/* Main Content */}

@@ -83,5 +83,6 @@ router.delete('/:id/reports/:reportId', verifyToken, controller.deleteProjectRep
 router.post('/:id/attendance/upload', verifyToken, upload.single('schedule'), controller.uploadAttendanceSchedule);
 router.get('/:id/attendance', verifyToken, controller.listAttendanceReports);
 router.get('/:id/attendance-signed-url', verifyToken, controller.getAttendanceSignedUrl);
+router.delete('/:id/attendance/:reportId', verifyToken, controller.deleteAttendanceReport);
 
 module.exports = router;

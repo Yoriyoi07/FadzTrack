@@ -1,400 +1,146 @@
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useDeferredValue } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import AppHeader from '../layout/AppHeader';
+import '../style/it_style/It_Projects.css';
 import '../style/am_style/Area_Projects.css';
-
-// React Icons
-import {
-  FaBoxes,
-  FaUsers,
-  FaProjectDiagram,
-  FaMapMarkerAlt,
-  FaUserTie,
-  FaBuilding,
-  FaCalendarAlt,
-  FaUsers as FaUsersIcon,
-  FaMoneyBillWave,
-  FaCheckCircle,
-  FaClock,
-  FaTh,
-  FaList,
-  FaSearch,
-  FaChevronDown,
-  FaChevronUp
-} from 'react-icons/fa';
+import { FaProjectDiagram, FaSearch, FaChevronUp, FaChevronDown, FaTh, FaList, FaMapMarkerAlt, FaUserTie, FaBuilding, FaCalendarAlt, FaUsers as FaUsersIcon, FaMoneyBillWave, FaClock, FaCheckCircle } from 'react-icons/fa';
 
 const AreaProj = () => {
-  const [filter, setFilter] = useState('all');
-  const [viewMode, setViewMode] = useState('grid');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('name');
-  const [sortOrder, setSortOrder] = useState('asc');
-  // Unified header removed collapse/profile local states
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
   const navigate = useNavigate();
+  const [projects,setProjects]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState('');
+  const [filter,setFilter]=useState('all');
+  const [viewMode,setViewMode]=useState('grid');
+  const [searchTerm,setSearchTerm]=useState('');
+  const deferredSearch = useDeferredValue(searchTerm);
+  const [sortBy,setSortBy]=useState('name');
+  const [sortOrder,setSortOrder]=useState('asc');
+  const [page,setPage]=useState(1);
+  const [pageSize,setPageSize]=useState(12);
+
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
-  const userName = user?.name || 'Area Manager';
-  const userRole = user?.role || 'Area Manager';
   const areaManagerId = user?._id;
 
-  // Unified header handles logout & profile interactions
+  useEffect(()=>{ let active=true; (async()=>{ try{ const {data}=await api.get('/projects'); if(!active) return; setProjects(Array.isArray(data)?data:[]);}catch{ if(active) setError('Failed to fetch projects'); } finally{ if(active) setLoading(false);} })(); return ()=>{active=false}; },[]);
 
-  // Fetch projects
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        setLoading(true);
-        const response = await api.get('/projects');
-        setProjects(response.data);
-        setError(null);
-      } catch (error) {
-        console.error('Failed to fetch projects:', error);
-        setError('Failed to load projects. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProjects();
-  }, []);
+  const currencyFmt = useMemo(()=> new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}),[]);
+  const dateFmt = d=> d? new Date(d).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}):'';
 
-  // Filter projects for this area manager
-  const filteredProjects = projects.filter(project => 
-    project.areamanager && project.areamanager._id === areaManagerId
-  );
+  const statusMeta = (statusRaw='')=>{ const s=statusRaw.toLowerCase(); if(s==='completed') return {color:'#10B981',Icon:FaCheckCircle,label:'Completed'}; if(['ongoing','on going'].includes(s)) return {color:'#3B82F6',Icon:FaClock,label:'Ongoing'}; if(['pending','not started'].includes(s)) return {color:'#F59E0B',Icon:FaClock,label:'Pending'}; return {color:'#6B7280',Icon:FaClock,label:statusRaw||'Unknown'}; };
 
-  // Apply filters and search
-  const displayedProjects = filteredProjects
-    .filter(project => {
-      // Status filter
-      if (filter === 'completed') {
-        return project.status === 'Completed';
-      }
-      if (filter === 'ongoing') {
-        return project.status === 'Ongoing' || project.status === 'On Going';
-      }
-      if (filter === 'pending') {
-        return project.status === 'Pending' || project.status === 'Not Started';
-      }
-      
-      // Search filter
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        return (
-          project.projectName?.toLowerCase().includes(searchLower) ||
-          project.location?.name?.toLowerCase().includes(searchLower) ||
-          project.projectmanager?.name?.toLowerCase().includes(searchLower) ||
-          project.contractor?.toLowerCase().includes(searchLower)
-        );
-      }
-      
-      return true;
-    })
-    .sort((a, b) => {
-      let aValue, bValue;
-      
-      switch (sortBy) {
-        case 'name':
-          aValue = a.projectName || '';
-          bValue = b.projectName || '';
-          break;
-        case 'location':
-          aValue = a.location?.name || '';
-          bValue = b.location?.name || '';
-          break;
-        case 'manager':
-          aValue = a.projectmanager?.name || '';
-          bValue = b.projectmanager?.name || '';
-          break;
-        case 'status':
-          aValue = a.status || '';
-          bValue = b.status || '';
-          break;
-        case 'startDate':
-          aValue = new Date(a.startDate || 0);
-          bValue = new Date(b.startDate || 0);
-          break;
-        default:
-          aValue = a.projectName || '';
-          bValue = b.projectName || '';
-      }
-      
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
+  // base projects for this area manager (used for stable counts independent of active filter/search)
+  const baseProjects = useMemo(()=> projects.filter(p=> p.areamanager && p.areamanager._id===areaManagerId), [projects, areaManagerId]);
 
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-        return '#10B981';
-      case 'ongoing':
-      case 'on going':
-        return '#3B82F6';
-      case 'pending':
-      case 'not started':
-        return '#F59E0B';
-      default:
-        return '#6B7280';
-    }
-  };
+  const filteredSorted = useMemo(()=>{ const srch=deferredSearch.trim().toLowerCase(); const subset = baseProjects
+      .filter(p=>{ const st=(p.status||'').toLowerCase(); if(filter==='completed') return st==='completed'; if(filter==='ongoing') return ['ongoing','on going'].includes(st); if(filter==='pending') return ['pending','not started'].includes(st); return true; })
+      .filter(p=>{ if(!srch) return true; return [p.projectName,p.location?.name,p.projectmanager?.name,p.contractor].some(v=>(v||'').toLowerCase().includes(srch)); })
+      .sort((a,b)=>{ const pick=o=>{ switch(sortBy){ case 'location':return o.location?.name||''; case 'manager':return o.projectmanager?.name||''; case 'status':return o.status||''; case 'startDate': return o.startDate? new Date(o.startDate).getTime():0; default: return o.projectName||'';} }; const av=pick(a); const bv=pick(b); if(av===bv) return 0; return (av>bv?1:-1)*(sortOrder==='asc'?1:-1); }); return subset; },[baseProjects,filter,deferredSearch,sortBy,sortOrder]);
 
-  const getStatusIcon = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'completed':
-        return <FaCheckCircle />;
-      case 'ongoing':
-      case 'on going':
-        return <FaClock />;
-      case 'pending':
-      case 'not started':
-        return <FaClock />;
-      default:
-        return <FaClock />;
-    }
-  };
+  useEffect(()=>{ setPage(1); },[filter,deferredSearch,sortBy,sortOrder]);
 
-  if (loading) {
-    return (
-      <div className="loading-container">
-        <div className="loading-spinner"></div>
-        <p>Loading projects...</p>
-      </div>
-    );
-  }
+  const totalItems = filteredSorted.length; const totalPages=Math.max(1,Math.ceil(totalItems/pageSize)); const currentPage = Math.min(page,totalPages);
+  const paginatedProjects = useMemo(()=> filteredSorted.slice((currentPage-1)*pageSize, currentPage*pageSize),[filteredSorted,currentPage,pageSize]);
+
+  // counts derived from full baseProjects list so they don't change when switching filters
+  const counts = useMemo(()=>({
+    total: baseProjects.length,
+    ongoing: baseProjects.filter(p=>['ongoing','on going'].includes((p.status||'').toLowerCase())).length,
+    completed: baseProjects.filter(p=>(p.status||'').toLowerCase()==='completed').length,
+    pending: baseProjects.filter(p=>['pending','not started'].includes((p.status||'').toLowerCase())).length
+  }),[baseProjects]);
+
+  const Skeleton = ({n=8}) => (<div className={`projects-display ${viewMode}`}>{Array.from({length:n}).map((_,i)=>(<div key={i} className="project-card skeleton"><div className="project-image-wrapper shimmer"/><div className="project-content"><div className="skeleton-line w60"/><div className="skeleton-line w40"/><div className="skeleton-line w80"/><div className="skeleton-line w50"/></div></div>))}</div>);
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container no-inner-scroll am-projects-page">
       <AppHeader roleSegment="am" />
-
-      {/* Main Content */}
-      <main className="dashboard-main">
-        <div className="projects-container">
-          {/* Page Header */}
-          <div className="page-header">
+      <main className="dashboard-main auto-height">
+        <div className="projects-container projects-light">
+          <div className="page-header enhanced">
             <div className="page-title-section">
               <h1 className="page-title">My Projects</h1>
-              <p className="page-subtitle">Manage and monitor all projects under your areas</p>
+              <p className="page-subtitle">Manage and monitor your portfolio</p>
             </div>
             <div className="page-actions">
-              <button className="add-project-btn" onClick={() => navigate('/am/addproj')}>
-                <FaProjectDiagram />
-                Add Project
-              </button>
-            </div>
-          </div>
-
-          {/* Filters and Controls */}
-          <div className="projects-controls">
-            <div className="controls-left">
-              {/* Search */}
+              <button className="add-project-btn" onClick={()=>navigate('/am/addproj')} aria-label="Add Project"><FaProjectDiagram/><span>Add Project</span></button>
               <div className="search-container">
-                <FaSearch className="search-icon" />
-                <input
-                  type="text"
-                  placeholder="Search projects..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input"
-                />
+                <FaSearch className="search-icon"/>
+                <input value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} placeholder="Search by name, location, manager..." className="search-input" />
               </div>
-
-              {/* Status Filter */}
-              <div className="filter-group">
-                <button
-                  className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
-                  onClick={() => setFilter('all')}
-                >
-                  All ({filteredProjects.length})
-                </button>
-                <button
-                  className={`filter-btn ${filter === 'ongoing' ? 'active' : ''}`}
-                  onClick={() => setFilter('ongoing')}
-                >
-                  Ongoing ({filteredProjects.filter(p => p.status === 'Ongoing' || p.status === 'On Going').length})
-                </button>
-                <button
-                  className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
-                  onClick={() => setFilter('completed')}
-                >
-                  Completed ({filteredProjects.filter(p => p.status === 'Completed').length})
-                </button>
-                <button
-                  className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
-                  onClick={() => setFilter('pending')}
-                >
-                  Pending ({filteredProjects.filter(p => p.status === 'Pending' || p.status === 'Not Started').length})
-                </button>
-              </div>
-            </div>
-
-            <div className="controls-right">
-              {/* Sort */}
-              <div className="sort-container">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="sort-select"
-                >
-                  <option value="name">Sort by Name</option>
-                  <option value="location">Sort by Location</option>
-                  <option value="manager">Sort by Manager</option>
-                  <option value="status">Sort by Status</option>
-                  <option value="startDate">Sort by Start Date</option>
-                </select>
-                <button
-                  className="sort-order-btn"
-                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                >
-                  {sortOrder === 'asc' ? <FaChevronUp /> : <FaChevronDown />}
-                </button>
-              </div>
-
-              {/* View Mode */}
               <div className="view-mode-container">
-                <button
-                  className={`view-mode-btn ${viewMode === 'grid' ? 'active' : ''}`}
-                  onClick={() => setViewMode('grid')}
-                >
-                  <FaTh />
-                </button>
-                <button
-                  className={`view-mode-btn ${viewMode === 'list' ? 'active' : ''}`}
-                  onClick={() => setViewMode('list')}
-                >
-                  <FaList />
-                </button>
+                <button aria-label="Grid view" className={`view-mode-btn ${viewMode==='grid'?'active':''}`} onClick={()=>setViewMode('grid')}><FaTh/></button>
+                <button aria-label="List view" className={`view-mode-btn ${viewMode==='list'?'active':''}`} onClick={()=>setViewMode('list')}><FaList/></button>
+              </div>
+              <div className="sort-container">
+                <select value={sortBy} onChange={e=>setSortBy(e.target.value)} className="sort-select">
+                  <option value="name">Name</option>
+                  <option value="location">Location</option>
+                  <option value="manager">Manager</option>
+                  <option value="status">Status</option>
+                  <option value="startDate">Start Date</option>
+                </select>
+                <button aria-label="Toggle sort order" className="sort-order-btn" onClick={()=>setSortOrder(o=>o==='asc'?'desc':'asc')}>{sortOrder==='asc'? <FaChevronUp/> : <FaChevronDown/>}</button>
               </div>
             </div>
           </div>
-
-          {/* Error State */}
-          {error && (
-            <div className="error-state">
-              <FaClock />
-              <span>{error}</span>
-              <button onClick={() => window.location.reload()} className="retry-btn">
-                Try Again
-              </button>
-            </div>
-          )}
-
-          {/* Projects Grid/List */}
-          {!error && (
+          <div className="filter-bar below-header">
+            <button className={`filter-chip ${filter==='all'?'active':''}`} onClick={()=>setFilter('all')}>All <span className="badge">{counts.total}</span></button>
+            <button className={`filter-chip ${filter==='ongoing'?'active':''}`} onClick={()=>setFilter('ongoing')}>Ongoing <span className="badge">{counts.ongoing}</span></button>
+            <button className={`filter-chip ${filter==='completed'?'active':''}`} onClick={()=>setFilter('completed')}>Completed <span className="badge">{counts.completed}</span></button>
+            <button className={`filter-chip ${filter==='pending'?'active':''}`} onClick={()=>setFilter('pending')}>Pending <span className="badge">{counts.pending}</span></button>
+          </div>
+          {error && <div className="error-state compact"><FaClock/><span>{error}</span></div>}
+          {loading && !error && <Skeleton n={8} />}
+          {!loading && !error && (
+            <>
             <div className={`projects-display ${viewMode}`}>
-              {displayedProjects.length === 0 ? (
-                <div className="empty-state">
-                  <FaProjectDiagram />
+              {paginatedProjects.length===0 && (
+                <div className="empty-state full">
+                  <FaProjectDiagram size={42}/>
                   <h3>No projects found</h3>
-                  <p>
-                    {searchTerm || filter !== 'all' 
-                      ? 'Try adjusting your search or filters'
-                      : 'You don\'t have any projects assigned yet'
-                    }
-                  </p>
-                  {!searchTerm && filter === 'all' && (
-                    <button className="add-project-btn" onClick={() => navigate('/am/addproj')}>
-                      Add Your First Project
-                    </button>
-                  )}
+                  <p>{searchTerm||filter!=='all' ? 'Adjust search text, filters or sorting.' : 'No projects assigned yet.'}</p>
                 </div>
-              ) : (
-                displayedProjects.map(project => (
-                  <div
-                    key={project._id}
-                    className="project-card"
-                    onClick={() => navigate(`/am/projects/${project._id}`)}
-                  >
-                    {/* Project Image */}
-                    <div className="project-image-container">
-                      <img
-                        src={project.photos && project.photos.length > 0
-                          ? project.photos[0]
-                          : 'https://placehold.co/400x250?text=No+Photo'}
-                        alt={project.projectName}
-                        className="project-image"
-                      />
-                      <div className="project-status-badge" style={{ backgroundColor: getStatusColor(project.status) }}>
-                        {getStatusIcon(project.status)}
-                        <span>{project.status || 'Unknown'}</span>
-                      </div>
-                    </div>
-
-                    {/* Project Content */}
-                    <div className="project-content">
-                      <div className="project-header">
-                        <h3 className="project-name">{project.projectName}</h3>
-                        <div className="project-location">
-                          <FaMapMarkerAlt />
-                          <span>{project.location?.name || 'No Location'}</span>
-                        </div>
-                      </div>
-
-                      <div className="project-details">
-                        <div className="detail-item">
-                          <FaUserTie className="detail-icon" />
-                          <div className="detail-content">
-                            <span className="detail-label">Project Manager</span>
-                            <span className="detail-value">{project.projectmanager?.name || 'Not Assigned'}</span>
-                          </div>
-                        </div>
-
-                        <div className="detail-item">
-                          <FaBuilding className="detail-icon" />
-                          <div className="detail-content">
-                            <span className="detail-label">Contractor</span>
-                            <span className="detail-value">{project.contractor || 'Not Assigned'}</span>
-                          </div>
-                        </div>
-
-                        <div className="detail-item">
-                          <FaCalendarAlt className="detail-icon" />
-                          <div className="detail-content">
-                            <span className="detail-label">Timeline</span>
-                            <span className="detail-value">
-                              {project.startDate && project.endDate
-                                ? `${new Date(project.startDate).toLocaleDateString()} - ${new Date(project.endDate).toLocaleDateString()}`
-                                : 'Not Set'
-                              }
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="detail-item">
-                          <FaUsersIcon className="detail-icon" />
-                          <div className="detail-content">
-                            <span className="detail-label">Manpower</span>
-                            <span className="detail-value">
-                              {Array.isArray(project.manpower) && project.manpower.length > 0
-                                ? `${project.manpower.length} assigned`
-                                : 'No manpower assigned'
-                              }
-                            </span>
-                          </div>
-                        </div>
-
-                        {project.budget && (
-                          <div className="detail-item">
-                            <FaMoneyBillWave className="detail-icon" />
-                            <div className="detail-content">
-                              <span className="detail-label">Budget</span>
-                              <span className="detail-value">{project.budget}</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))
               )}
+              {paginatedProjects.map(p=>{ const meta=statusMeta(p.status); return (
+                <div key={p._id} className={`project-card ${viewMode}`} onClick={()=>navigate(`/am/projects/${p._id}`)} role="button" tabIndex={0} onKeyDown={e=>{ if(e.key==='Enter') navigate(`/am/projects/${p._id}`); }}>
+                  <div className="project-image-wrapper">
+                    <img loading="lazy" src={p.photos?.[0] || 'https://placehold.co/640x360?text=No+Photo'} alt={p.projectName} className="project-image" />
+                    <div className="status-badge" style={{backgroundColor:meta.color}}><meta.Icon size={12}/><span>{meta.label}</span></div>
+                  </div>
+                  <div className="project-content">
+                    <h3 className="project-name clamp">{p.projectName||'Untitled'}</h3>
+                    <div className="project-location"><FaMapMarkerAlt/><span>{p.location?.name || 'No Location'}</span></div>
+                    <ul className="meta-list">
+                      <li><FaUserTie/><span>{p.projectmanager?.name||'Unassigned'}</span></li>
+                      <li><FaBuilding/><span>{p.contractor||'No Contractor'}</span></li>
+                      <li><FaCalendarAlt/><span>{p.startDate && p.endDate ? `${dateFmt(p.startDate)} - ${dateFmt(p.endDate)}` : (p.startDate? dateFmt(p.startDate): 'No timeline')}</span></li>
+                      <li><FaUsersIcon/><span>{Array.isArray(p.manpower)&&p.manpower.length>0 ? `${p.manpower.length} manpower` : 'No manpower'}</span></li>
+                      {p.budget && <li><FaMoneyBillWave/><span>{currencyFmt.format(p.budget)}</span></li>}
+                    </ul>
+                  </div>
+                </div>
+              ); })}
             </div>
+            {paginatedProjects.length>0 && (
+              <div className="pagination-bar">
+                <div className="pagination-left">
+                  <span className="pagination-info">Showing {(currentPage-1)*pageSize + 1}-{Math.min(currentPage*pageSize,totalItems)} of {totalItems}</span>
+                  <label className="page-size-select-label"><span>Per page:</span>
+                    <select value={pageSize} onChange={e=>{ setPageSize(parseInt(e.target.value)||12); setPage(1); }} className="page-size-select">{[6,12,18,24,36].map(sz=> <option key={sz} value={sz}>{sz}</option>)}</select>
+                  </label>
+                </div>
+                <div className="pagination-pages">
+                  <button disabled={currentPage===1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="page-btn" aria-label="Previous page">‹</button>
+                  {Array.from({length: totalPages}).slice(0, totalPages).map((_,i)=>{ const pageNumber=i+1; const show= pageNumber===1 || pageNumber===totalPages || Math.abs(pageNumber-currentPage)<=1; if(!show){ if(pageNumber===2 && currentPage>3) return <span key="start-ellipsis" className="ellipsis">…</span>; if(pageNumber===totalPages-1 && currentPage<totalPages-2) return <span key="end-ellipsis" className="ellipsis">…</span>; return null;} return (<button key={pageNumber} className={`page-btn ${pageNumber===currentPage?'active':''}`} onClick={()=>setPage(pageNumber)} aria-current={pageNumber===currentPage? 'page': undefined}>{pageNumber}</button>); })}
+                  <button disabled={currentPage===totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="page-btn" aria-label="Next page">›</button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </div>
       </main>

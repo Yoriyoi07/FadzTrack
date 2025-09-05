@@ -78,7 +78,10 @@ const roleConfigs={
   hrsite:{ label:'HR-Site', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:true }, base:'/hr-site'}
 };
 
-export default function ProjectView({ role='pm', navItems, permissionsOverride, navPathOverrides, useUnifiedHeader=false }) {
+export default function ProjectView(props) {
+  const { role='pm', navItems, permissionsOverride, navPathOverrides, useUnifiedHeader: useUnifiedHeaderProp=false } = props || {};
+  // Use unified header only when explicitly requested by parent
+  const useUnifiedHeader = !!useUnifiedHeaderProp;
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -341,10 +344,9 @@ const labelColorMap = {
 function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[label]||{bg:'#334155',fg:'#fff'}; return <span className="discussion-label-badge" style={{background:s.bg,color:s.fg,padding:'2px 8px',borderRadius:8,fontSize:11,marginLeft:8,fontWeight:600,letterSpacing:.5,display:'inline-flex',alignItems:'center',gap:4}}>{label}</span>; }
   return (
   <div className={`dashboard-container ${rootRoleClass}`}>
-      {useUnifiedHeader ? (
-        <AppHeader roleSegment={role} />
-      ) : (
-      <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
+  {useUnifiedHeader && !document.body.dataset?.appHeaderMounted && <AppHeader roleSegment={role} />}
+  {!useUnifiedHeader && (
+  <header className={`dashboard-header ${isHeaderCollapsed ? 'collapsed' : ''}`}>
         <div className="header-top">
           <div className="logo-section">
             <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="header-logo" />
@@ -844,8 +846,8 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
             )}
             {/* DISCUSSIONS TAB */}
             {activeTab === 'Discussions' && (
-              <div className="discussions-container">
-                <div className="messages-list" ref={listScrollRef}>
+              <div className="discussions-container" style={{minHeight:'120vh',maxHeight:'calc(200vh - 300px)',display:'flex',flexDirection:'column'}}>
+                <div className="messages-list" ref={listScrollRef} style={{flex:'1 1 auto',overflowY:'auto',paddingBottom:16}}>
                   {loadingMsgs ? (
                     <div className="loading-messages">
                       <div className="loading-spinner" />
@@ -1326,7 +1328,7 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                                     style={{
                                       marginRight: 10,
                                       border: '1px solid #cbd5e1',
-                                      background: '#f8fafc',
+                                      background: '#000000ff',
                                       padding: '6px 12px',
                                       borderRadius: 8,
                                       cursor: 'pointer',
@@ -1540,6 +1542,7 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                     <thead>
                       <tr>
                         <th style={{textAlign:'left',padding:'8px'}}>Original File</th>
+                        <th style={{textAlign:'left',padding:'8px'}}>Uploaded By</th>
                         <th style={{textAlign:'left',padding:'8px'}}>Generated At</th>
                         <th style={{textAlign:'left',padding:'8px'}}>Actions</th>
                       </tr>
@@ -1548,10 +1551,12 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                       {attendanceReports.slice().reverse().map((r,i)=>(
                         <tr key={i} style={{borderTop:'1px solid #eee'}}>
                           <td style={{padding:'8px'}}>{r.originalName}</td>
+                          <td style={{padding:'8px'}}>{r.uploadedByName || r.uploaderName || '—'}</td>
                           <td style={{padding:'8px'}}>{r.generatedAt? new Date(r.generatedAt).toLocaleString(): 'N/A'}</td>
                           <td style={{padding:'8px',display:'flex',gap:8}}>
-                            <button onClick={async()=>{ try { const {data}=await api.get(`/projects/${project._id}/attendance-signed-url`,{ params:{ path:r.inputPath}, headers:{Authorization:`Bearer ${token}`}}); if(data?.signedUrl) window.open(data.signedUrl,'_blank'); } catch {} }} className="btn small">Input</button>
-                            <button onClick={async()=>{ try { const {data}=await api.get(`/projects/${project._id}/attendance-signed-url`,{ params:{ path:r.outputPath}, headers:{Authorization:`Bearer ${token}`}}); if(data?.signedUrl) window.open(data.signedUrl,'_blank'); } catch {} }} className="btn small primary">Output</button>
+                            <button onClick={async()=>{ try { const {data}=await api.get(`/projects/${project._id}/attendance-signed-url`,{ params:{ path:r.inputPath}, headers:{Authorization:`Bearer ${token}`}}); if(data?.signedUrl) window.open(data.signedUrl,'_blank'); } catch {} }} className="btn small">View Excel</button>
+                            <button onClick={async()=>{ try { const {data}=await api.get(`/projects/${project._id}/attendance-signed-url`,{ params:{ path:r.outputPath}, headers:{Authorization:`Bearer ${token}`}}); if(data?.signedUrl) window.open(data.signedUrl,'_blank'); } catch {} }} className="btn small primary">Download AI Attendace Report</button>
+                            <button onClick={async()=>{ if(!window.confirm('Delete this attendance report?')) return; try { const {data}=await api.delete(`/projects/${project._id}/attendance/${r._id}`,{ headers:{Authorization:`Bearer ${token}`}}); setAttendanceReports(data?.reports||[]); } catch { alert('Delete failed'); } }} className="btn small danger" style={{background:'#fee2e2',color:'#b91c1c'}}>Delete</button>
                           </td>
                         </tr>
                       ))}

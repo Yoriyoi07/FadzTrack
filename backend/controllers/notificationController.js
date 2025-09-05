@@ -25,7 +25,18 @@ exports.createAndEmitNotification = async ({
     const derive = (t)=>{
       switch(t){
         case 'material_request_created': return { title:'Material Request Submitted', severity:'info', icon:'box-plus', actionUrl: requestId?`/pic/material-request/${requestId}`:undefined };
-        case 'pending_approval': return { title:'Approval Needed', severity:'warning', icon:'clipboard-check', actionUrl: requestId?`/pm/material-request/${requestId}`:undefined };
+        case 'pending_approval': {
+          // Route dynamically based on recipient role (if available in meta.recipientRole)
+          // Fallback: PM path
+          let base = '/pm/material-request/';
+          if(meta && meta.recipientRole){
+            const r = String(meta.recipientRole).toLowerCase();
+            if(r.includes('area')) base = '/am/material-request/';
+            else if(r.includes('ceo')) base = '/ceo/material-request/';
+            else if(r.includes('pic')) base = '/pic/material-request/';
+          }
+          return { title:'Approval Needed', severity:'warning', icon:'clipboard-check', actionUrl: requestId?`${base}${requestId}`:undefined };
+        }
         case 'approved': return { title:'Request Fully Approved', severity:'success', icon:'check-circle', actionUrl: requestId?`/pic/material-request/${requestId}`:undefined };
         case 'denied': return { title:'Request Denied', severity:'error', icon:'x-circle', actionUrl: requestId?`/pic/material-request/${requestId}`:undefined };
         case 'nudge': return { title:'Reminder Sent', severity:'info', icon:'bell-ring', actionUrl: requestId?`/pm/material-request/${requestId}`:undefined };

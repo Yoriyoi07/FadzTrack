@@ -1,4 +1,21 @@
 /* AM Projects Page Styles */
+/* White theme (excluding header) */
+.am-white-theme{background:#f1f5f9 !important;}
+.am-white-theme .dashboard-main.am-main-white{background:linear-gradient(#ffffff,#f8fafc) !important;}
+.am-white-theme .project-card{background:#ffffff;color:#1e293b;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 4px 16px -4px rgba(15,23,42,.08);transition:.25s;}
+.am-white-theme .project-card:hover{box-shadow:0 8px 28px -6px rgba(15,23,42,.15);transform:translateY(-3px);}
+.am-white-theme .project-card .project-content{background:transparent;color:#334155;}
+.am-white-theme .project-card .project-name{color:#0f172a;}
+.am-white-theme .project-card .project-location span{color:#475569;}
+.am-white-theme .project-card .detail-label{color:#64748b;}
+.am-white-theme .project-card .detail-value{color:#0f172a;font-weight:600;}
+.am-white-theme .project-card .project-image-container{background:#fff;}
+.am-white-theme .project-card .project-image{filter:none;}
+.am-white-theme .project-status-badge{box-shadow:0 2px 6px -2px rgba(0,0,0,.2);border-radius:10px;padding:.4rem .6rem;}
+.am-white-theme .filter-btn{background:#ffffff;}
+.am-white-theme .filter-btn.active{background:#2563eb;border-color:#2563eb;}
+.am-white-theme .view-mode-btn.active{background:#2563eb;}
+.am-white-theme .add-project-btn{background:linear-gradient(135deg,#2563eb,#1d4ed8);} 
 
 /* Defensive override: some global/other role CSS sets .dashboard-container height:100vh and overflow hidden/auto, producing nested scrollbars.
    Ensure this AM projects view lets the body own the scroll. */
@@ -36,12 +53,17 @@
 
 /* Page Header */
 .page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 2rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:1rem;
+  background:#ffffff;
+  padding:1.1rem 1.25rem .95rem;
+  border-radius:14px;
+  border:1px solid #e2e8f0;
+  box-shadow:0 2px 4px -2px rgba(0,0,0,0.04),0 1px 2px rgba(0,0,0,0.04);
+  margin-bottom:1rem;
 }
 
 .page-title-section h1 {
@@ -57,25 +79,11 @@
   margin: 0;
 }
 
-.add-project-btn {
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.add-project-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
+/* Add Project button refined: intrinsic width not full row */
+.page-actions .add-project-btn{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:1px solid #4f46e5;padding:.65rem 1.1rem;border-radius:10px;font-weight:600;display:inline-flex;align-items:center;gap:.55rem;line-height:1;white-space:nowrap;box-shadow:0 2px 6px -1px rgba(79,70,229,.4);transition:.25s;}
+.page-actions .add-project-btn span{font-size:.85rem;letter-spacing:.3px;}
+.page-actions .add-project-btn:hover{transform:translateY(-2px);box-shadow:0 6px 18px -4px rgba(79,70,229,.55);}
+.page-actions .add-project-btn:active{transform:translateY(0);} 
 
 /* Projects Controls */
 .projects-controls {

@@ -177,7 +177,7 @@ const handleApprove = async () => {
       {/* CEO fields removed */}
 
       {/* Action Buttons */}
-      <div className="action-buttons">
+  <div className="action-buttons unified">
         <button onClick={onBack} className="back-btn">Back</button>
         {showApproveDeny && (
           <>
