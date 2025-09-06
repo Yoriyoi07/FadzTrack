@@ -168,64 +168,36 @@ const PicMatReq = () => {
     <div>
   <AppHeader roleSegment="pic" />
 
-      <div style={{padding:'1.05rem 1.6rem .3rem'}}>
-        <h1 style={{margin:'0 0 4px',fontSize:'1.06rem',fontWeight:600,color:'#1e293b'}}>New Material Request</h1>
-        <p style={{margin:0,fontSize:'.7rem',letterSpacing:.2,color:'#64748b'}}>Create a new request for your project</p>
-      </div>
 
       {/* Main content */}
       <div className="dashboard-layout">
         <main className="dashboard-main">
           <div className="page-container">
             <div className="request-materials-container-picmatreq">
-              {/* Back Button */}
-              <div className="back-button-container" style={{ marginBottom: '20px' }}>
-                <button 
-                  onClick={() => navigate('/pic/requests')} 
-                  className="back-button"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '10px 16px',
-                    backgroundColor: '#f8f9fa',
-                    border: '1px solid #dee2e6',
-                    borderRadius: '6px',
-                    color: '#495057',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.backgroundColor = '#e9ecef';
-                    e.target.style.borderColor = '#adb5bd';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.backgroundColor = '#f8f9fa';
-                    e.target.style.borderColor = '#dee2e6';
-                  }}
-                >
-                  ← Back to Requests
-                </button>
-        </div>
-
-            <h1 className="page-title-picmatreq">Request Materials</h1>
-            {project && (
-                <div className="project-details-box" style={{ 
-                  marginBottom: '20px',
-                  background: '#ffffff',
-                  padding: '16px',
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
-                }}>
-                  <h2 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#1f2937' }}>{project.name}</h2>
-                  <p style={{ margin: '0 0 4px 0', fontStyle: 'italic', color: '#6b7280' }}>
-                  {project.location?.name} ({project.location?.region})
-                </p>
-                  <p style={{ margin: 0, color: '#9ca3af', fontSize: '14px' }}>Target Date: {project.targetDate}</p>
+              {/* Header Section with Title and Back Button */}
+              <div className="form-header-section">
+                <div className="page-title-section">
+                  <h1 className="page-title-picmatreq">Request Materials</h1>
+                  <p className="page-description">Create a new request for your project</p>
+                </div>
+                
+                <div className="back-button-container">
+                  <button 
+                    onClick={() => navigate('/pic/requests')} 
+                    className="back-button"
+                  >
+                    ← Back to Requests
+                  </button>
+                </div>
               </div>
+            {project && (
+                <div className="project-details-box">
+                  <h2 className="project-name">{project.name}</h2>
+                  <p className="project-location">
+                    {project.location?.name} ({project.location?.region})
+                  </p>
+                  <p className="project-target-date">Target Date: {project.targetDate}</p>
+                </div>
             )}
               
             <div className="materials-form-picmatreq">
@@ -233,9 +205,9 @@ const PicMatReq = () => {
                 <label className="form-label-picmatreq">Material to be Requested</label>
                 <div className="materials-list-picmatreq">
                   <div className="material-headers-picmatreq">
-                    <span className="material-header-label-picmatreq">Material Name</span>
-                    <span className="quantity-header-label-picmatreq">Quantity</span>
-                    <span className="unit-header-label-picmatreq">Unit</span>
+                    <span className="material-header-label-picmatreq">MATERIAL NAME</span>
+                    <span className="quantity-header-label-picmatreq">QUANTITY</span>
+                    <span className="unit-header-label-picmatreq">UNIT</span>
                     <span className="action-header-label-picmatreq"></span>
                   </div>
                   {materials.map((material) => (
@@ -298,7 +270,7 @@ const PicMatReq = () => {
                         className="remove-material-btn-picmatreq"
                         disabled={materials.length === 1}
                       >
-                        ×
+                        ✕
                       </button>
                     </div>
                   ))}

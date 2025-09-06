@@ -5,7 +5,7 @@ import api from '../../api/axiosInstance';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import AppHeader from '../layout/AppHeader';
 // Nav icons
-import { FaComments, FaBoxes, FaProjectDiagram, FaTasks, FaCheckCircle, FaClock, FaExclamationTriangle, FaArrowRight } from 'react-icons/fa';
+import { FaComments, FaBoxes, FaProjectDiagram, FaTasks, FaCheckCircle, FaClock, FaExclamationTriangle, FaArrowRight, FaUserTie, FaBuilding, FaChartBar, FaUsers } from 'react-icons/fa';
 
 const PmDash = ({ forceUserUpdate }) => {
   const navigate = useNavigate();
@@ -50,6 +50,61 @@ const PmDash = ({ forceUserUpdate }) => {
   const [materialRequests, setMaterialRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [requestsError, setRequestsError] = useState(null);
+
+  // Timeline status logic function
+  const getTimelineStatus = (status, stage) => {
+    const statusLower = status?.toLowerCase() || '';
+    
+    // Check for rejected statuses
+    if (statusLower.includes('rejected')) {
+      return 'rejected';
+    }
+    
+    switch (stage) {
+      case 'placed':
+        // Placed should be green (one step behind) when PM is pending
+        if (statusLower.includes('pending pm') || statusLower.includes('project manager')) {
+          return 'completed one-step-behind'; // Green - one step behind pending
+        } else if (statusLower.includes('pending am') || statusLower.includes('area manager') || 
+                   statusLower.includes('approved') || statusLower.includes('received')) {
+          return 'completed'; // Blue - two or more steps behind pending
+        }
+        return 'completed'; // Default to blue for placed
+        
+      case 'pm':
+        if (statusLower.includes('rejected pm') || statusLower.includes('pm rejected')) {
+          return 'rejected';
+        } else if (statusLower.includes('pending pm') || statusLower.includes('project manager')) {
+          return 'pending'; // Yellow/Orange - pending
+        } else if (statusLower.includes('pending am') || statusLower.includes('area manager')) {
+          return 'completed one-step-behind'; // Green - one step behind pending
+        } else if (statusLower.includes('approved') || statusLower.includes('received')) {
+          return 'completed'; // Blue - two or more steps behind pending
+        }
+        break;
+        
+      case 'am':
+        if (statusLower.includes('rejected am') || statusLower.includes('am rejected')) {
+          return 'rejected';
+        } else if (statusLower.includes('pending am') || statusLower.includes('area manager')) {
+          return 'pending'; // Yellow/Orange - pending
+        } else if (statusLower.includes('approved')) {
+          return 'completed one-step-behind'; // Green - one step behind final
+        } else if (statusLower.includes('received')) {
+          return 'completed'; // Blue - final reached
+        }
+        break;
+      
+        
+      case 'done':
+        if (statusLower.includes('received')) {
+          return 'completed'; // Blue - completed
+        }
+        break;
+    }
+    
+    return ''; // Default empty state
+  };
 
   // --- 5. Redirect to login if not logged in ---
   useEffect(() => {
@@ -259,34 +314,97 @@ const PmDash = ({ forceUserUpdate }) => {
 
   // Removed custom logout (AppHeader handles logout)
 
-  // --- 12. KPI data for Pie Chart ---
-  const taskStatusData = React.useMemo(() => {
-    if (!project?.tasks || !Array.isArray(project.tasks)) {
+  // --- 12. Report-based metrics ---
+  const [reports, setReports] = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+
+  // Fetch reports for the project
+  const fetchReports = useCallback(async () => {
+    if (!project?._id || !token) return;
+    
+    try {
+      setReportsLoading(true);
+      const { data } = await api.get(`/projects/${project._id}/reports`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setReports(data?.reports || []);
+    } catch (error) {
+      console.error('Failed to fetch reports:', error);
+      setReports([]);
+    } finally {
+      setReportsLoading(false);
+    }
+  }, [project?._id, token]);
+
+  useEffect(() => {
+    fetchReports();
+  }, [fetchReports]);
+
+  // Calculate metrics from reports
+  const reportMetrics = React.useMemo(() => {
+    if (!reports.length) {
       return {
         data: [],
-        completedTasks: 0,
-        inProgressTasks: 0,
-        notStartedTasks: 0,
-        totalTasks: 0,
+        totalReports: 0,
+        completedWorkItems: 0,
+        inProgressWorkItems: 0,
+        totalWorkItems: 0,
+        averageContribution: 0,
+        reportingPics: 0,
+        lastReportDate: null
       };
     }
-    const completedTasks = project.tasks.filter(task => task.percent === 100).length;
-    const inProgressTasks = project.tasks.filter(task => task.percent > 0 && task.percent < 100).length;
-    const notStartedTasks = project.tasks.filter(task => task.percent === 0).length;
-    const totalTasks = project.tasks.length;
+
+    // Get latest report per PIC
+    const sorted = [...reports].sort((a, b) => new Date(b.uploadedAt || 0) - new Date(a.uploadedAt || 0));
+    const byUploader = new Map();
+    for (const report of sorted) {
+      const key = report.uploadedBy || report.uploadedByName || report._id;
+      if (!byUploader.has(key)) byUploader.set(key, report);
+    }
+    const distinctReports = [...byUploader.values()];
+
+    // Calculate work items from reports
+    let totalCompleted = 0;
+    let totalInProgress = 0;
+    let totalWorkItems = 0;
+    let totalContribution = 0;
+    let validContributions = 0;
+
+    distinctReports.forEach(report => {
+      const completed = report.ai?.completed_tasks?.length || 0;
+      const inProgress = report.ai?.summary_of_work_done?.length || 0;
+      const contribution = Number(report.ai?.pic_contribution_percent) || 0;
+      
+      totalCompleted += completed;
+      totalInProgress += inProgress;
+      totalWorkItems += completed + inProgress;
+      
+      if (contribution > 0) {
+        totalContribution += contribution;
+        validContributions++;
+      }
+    });
+
+    const averageContribution = validContributions > 0 ? totalContribution / validContributions : 0;
+    const lastReportDate = sorted[0]?.uploadedAt || null;
+
     const data = [
-      { name: 'Completed', value: completedTasks, color: '#22c55e' },
-      { name: 'In Progress', value: inProgressTasks, color: '#3b82f6' },
-      { name: 'Not Started', value: notStartedTasks, color: '#ef4444' },
-    ];
+      { name: 'Completed', value: totalCompleted, color: '#22c55e' },
+      { name: 'In Progress', value: totalInProgress, color: '#3b82f6' },
+    ].filter(item => item.value > 0);
+
     return {
-      data: data.filter(item => item.value > 0),
-      completedTasks,
-      inProgressTasks,
-      notStartedTasks,
-      totalTasks,
+      data,
+      totalReports: reports.length,
+      completedWorkItems: totalCompleted,
+      inProgressWorkItems: totalInProgress,
+      totalWorkItems,
+      averageContribution: Math.round(averageContribution),
+      reportingPics: distinctReports.length,
+      lastReportDate
     };
-  }, [project?.tasks]);
+  }, [reports]);
 
   // Function to truncate text to about 10 words
   const truncateMessage = (text, maxWords = 10) => {
@@ -340,11 +458,11 @@ const PmDash = ({ forceUserUpdate }) => {
               <div className="project-stats">
                 <div className="stat-item">
                   <div className="stat-icon">
-                    <FaTasks />
+                    <FaProjectDiagram />
                   </div>
                   <div className="stat-content">
-                    <span className="stat-value">{taskStatusData.totalTasks}</span>
-                    <span className="stat-label">Total Tasks</span>
+                    <span className="stat-value">{reportMetrics.totalReports}</span>
+                    <span className="stat-label">Total Reports</span>
                   </div>
                 </div>
                 <div className="stat-item">
@@ -352,8 +470,8 @@ const PmDash = ({ forceUserUpdate }) => {
                     <FaCheckCircle />
                   </div>
                   <div className="stat-content">
-                    <span className="stat-value">{taskStatusData.completedTasks}</span>
-                    <span className="stat-label">Completed</span>
+                    <span className="stat-value">{reportMetrics.completedWorkItems}</span>
+                    <span className="stat-label">Completed Items</span>
                   </div>
                 </div>
                 <div className="stat-item">
@@ -361,34 +479,37 @@ const PmDash = ({ forceUserUpdate }) => {
                     <FaClock />
                   </div>
                   <div className="stat-content">
-                    <span className="stat-value">{taskStatusData.inProgressTasks}</span>
+                    <span className="stat-value">{reportMetrics.inProgressWorkItems}</span>
                     <span className="stat-label">In Progress</span>
                   </div>
                 </div>
                 <div className="stat-item">
-                  <div className="stat-icon not-started">
-                    <FaExclamationTriangle />
+                  <div className="stat-icon">
+                    <FaComments />
                   </div>
                   <div className="stat-content">
-                    <span className="stat-value">{taskStatusData.notStartedTasks}</span>
-                    <span className="stat-label">Not Started</span>
+                    <span className="stat-value">{reportMetrics.reportingPics}</span>
+                    <span className="stat-label">Active PICs</span>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Task Progress Chart */}
-          {project && taskStatusData.data.length > 0 && (
+          {/* Work Progress Chart */}
+          {project && reportMetrics.data.length > 0 && (
             <div className="dashboard-card chart-card">
               <div className="card-header">
-                <h3 className="card-title">Task Progress Overview</h3>
+                <h3 className="card-title">Work Progress Overview</h3>
+                <div className="card-subtitle">
+                  Based on {reportMetrics.reportingPics} PIC reports
+                </div>
               </div>
               <div className="chart-container">
                 <ResponsiveContainer width="100%" height={200}>
                   <PieChart>
                     <Pie
-                      data={taskStatusData.data}
+                      data={reportMetrics.data}
                       cx="50%"
                       cy="50%"
                       innerRadius={40}
@@ -399,13 +520,20 @@ const PmDash = ({ forceUserUpdate }) => {
                       label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                       labelLine={false}
                     >
-                      {taskStatusData.data.map((entry, index) => (
+                      {reportMetrics.data.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
                   </PieChart>
                 </ResponsiveContainer>
               </div>
+              {reportMetrics.lastReportDate && (
+                <div className="chart-footer">
+                  <span className="last-report">
+                    Last report: {new Date(reportMetrics.lastReportDate).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -535,27 +663,69 @@ const PmDash = ({ forceUserUpdate }) => {
               ) : (
                 <div className="requests-list">
                   {materialRequests.slice(0, 3).map(request => (
-                    <Link to={`/pm/request/${request._id}`} key={request._id} className="request-item">
-                      <div className="request-icon">
-                        <FaBoxes />
-                      </div>
-                      <div className="request-details">
-                        <h4 className="request-title">
-                          {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
-                        </h4>
-                        <p className="request-description">{request.description}</p>
-                        <div className="request-meta">
-                          <span className="request-project">{request.project?.projectName}</span>
-                          <span className="request-date">
-                            {new Date(request.createdAt).toLocaleDateString()}
-                          </span>
+                    <Link to={`/pm/request/${request._id}`} key={request._id} className="request-item-new-layout" style={{textDecoration:'none'}}>
+                      {/* Left Section - Item Details */}
+                      <div className="request-left-section">
+                        <div className="request-icon-new">
+                          <FaBoxes />
+                        </div>
+                        <div className="request-details-new">
+                          <h4 className="request-title-new">
+                            {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
+                          </h4>
+                          <div className="request-meta-new">
+                            <span className="request-project-new">{request.project?.projectName}</span>
+                            <span className="request-date-new">
+                              {new Date(request.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                      <div className="request-status">
-                        {getStatusIcon(request.status)}
-                        <span className={`status-text ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
-                          {request.status}
-                        </span>
+                      
+                      {/* Center Section - Progress Tracking */}
+                      <div className="request-center-section">
+                        <div className="tracking-timeline-new">
+                          {/* Placed Stage */}
+                          <div className={`timeline-step-new ${getTimelineStatus(request.status, 'placed')}`}>
+                            <div className="timeline-icon-new">
+                              <FaCheckCircle />
+                            </div>
+                            <span className="timeline-label-new">Placed</span>
+                          </div>
+                          <div className={`timeline-connector-new ${['Pending PM', 'Pending AM', 'Approved', 'Received', 'PENDING PROJECT MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
+                          {/* PM Stage */}
+                          <div className={`timeline-step-new ${getTimelineStatus(request.status, 'pm')}`}>
+                            <div className="timeline-icon-new">
+                              <FaUserTie />
+                            </div>
+                            <span className="timeline-label-new">PM</span>
+                          </div>
+                          <div className={`timeline-connector-new ${['Pending AM', 'Approved', 'Received', 'PENDING AREA MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
+                          {/* AM Stage */}
+                          <div className={`timeline-step-new ${getTimelineStatus(request.status, 'am')}`}>
+                            <div className="timeline-icon-new">
+                              <FaBuilding />
+                            </div>
+                            <span className="timeline-label-new">AM</span>
+                          </div>
+                          <div className={`timeline-connector-new ${['Approved', 'Received'].includes(request.status) ? 'completed' : ''}`}></div>
+                          {/* Done Stage */}
+                          <div className={`timeline-step-new ${getTimelineStatus(request.status, 'done')}`}>
+                            <div className="timeline-icon-new">
+                              <FaCheckCircle />
+                            </div>
+                            <span className="timeline-label-new">Done</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Right Section - Status */}
+                      <div className="request-right-section">
+                        <div className="request-status-new">
+                          <span className={`status-text-new ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
+                            {request.status}
+                          </span>
+                        </div>
                       </div>
                     </Link>
                   ))}

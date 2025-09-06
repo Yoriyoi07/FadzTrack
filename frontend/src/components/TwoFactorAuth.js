@@ -57,7 +57,7 @@ const TwoFactorAuth = ({ email, onSuccess, forceUserUpdate }) => {
     <div className="two-fa-container">
       <div className="two-fa-header">
         <div className="two-fa-title-row">
-          <FaShieldAlt className="two-fa-icon" size={32} />
+          <FaShieldAlt className="two-fa-icon" size={24} />
           <h2 className="two-fa-title">Two-Factor Authentication</h2>
         </div>
         <p className="two-fa-subtitle">
@@ -69,7 +69,7 @@ const TwoFactorAuth = ({ email, onSuccess, forceUserUpdate }) => {
         <div className="verification-input-group">
           <label htmlFor="verification-code" className="verification-label">
             <FaEnvelope className="input-icon" />
-            Enter Verification Code
+            ENTER VERIFICATION CODE
           </label>
           <input
             id="verification-code"

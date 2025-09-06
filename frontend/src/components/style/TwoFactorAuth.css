@@ -30,7 +30,6 @@
 
 .two-fa-icon {
   color: #001F8B;
-  animation: pulse 2s ease-in-out infinite;
   flex-shrink: 0;
 }
 
@@ -90,20 +89,20 @@
 
 .verification-input {
   width: 100%;
-  padding: 0.875rem 1rem 0.875rem 1.125rem; /* Reduced padding to save space */
+  padding: 1rem 1.25rem;
   border: 2px solid #e5e7eb;
-  border-radius: 12px;
-  font-size: 1.125rem;
+  border-radius: 8px;
+  font-size: 1.25rem;
   font-weight: 600;
   background-color: #ffffff;
   color: #1f2937;
   transition: all 0.2s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  height: 52px; /* Reduced from 56px to save space */
+  height: 56px;
   box-sizing: border-box;
-  text-align: center;
-  letter-spacing: 0.5em;
-  font-family: 'Courier New', monospace;
+  text-align: left;
+  letter-spacing: 0.2em;
+  font-family: 'Inter', sans-serif;
 }
 
 .verification-input:focus {
@@ -182,11 +181,11 @@
 /* Verify Button */
 .verify-button {
   width: 100%;
-  padding: 0.875rem 1.25rem; /* Reduced padding to save space */
+  padding: 1rem 1.5rem;
   background: linear-gradient(135deg, #001F8B 0%, #001470 100%);
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -198,7 +197,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  height: 52px; /* Reduced from 56px to save space */
+  height: 56px;
 }
 
 .verify-button:hover:not(:disabled) {
@@ -243,9 +242,9 @@
   background: none;
   border: 2px solid #e5e7eb;
   color: #6b7280;
-  padding: 0.625rem 1.25rem; /* Reduced padding to save space */
+  padding: 0.75rem 1.5rem;
   border-radius: 8px;
-  font-size: 0.8rem; /* Reduced from 0.875rem to save space */
+  font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;

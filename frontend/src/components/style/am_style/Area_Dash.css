@@ -634,11 +634,12 @@
 .am-dashboard .requests-card { display:flex; flex-direction:column; }
 .am-dashboard .requests-card .card-header { flex-shrink:0; }
 .am-dashboard .requests-content { flex:1; display:flex; flex-direction:column; }
-.am-dashboard .requests-list { flex:1; overflow-y:auto; padding-right:2px; }
-/* Hide second scrollbar if parent also scrolls */
-.am-dashboard .requests-list::-webkit-scrollbar { width:6px; }
-.am-dashboard .requests-list::-webkit-scrollbar-track { background:transparent; }
-.am-dashboard .requests-list::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+.am-dashboard .requests-list { flex:1; overflow-y:auto; padding-right:8px; max-height: 300px; }
+/* Custom scrollbar styling */
+.am-dashboard .requests-list::-webkit-scrollbar { width:8px; }
+.am-dashboard .requests-list::-webkit-scrollbar-track { background:#f1f5f9; border-radius:4px; }
+.am-dashboard .requests-list::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+.am-dashboard .requests-list::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
 /* Project Metrics card full-width just after welcome */
 .am-dashboard .project-metrics-card { grid-column: 1 / -1; order: 2; margin-top:0; position:relative; z-index:0; }
 
@@ -670,9 +671,332 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  max-height: 300px; /* Limit to show approximately 3 items */
+  overflow-y: auto;
+  padding-right: 8px;
 }
 
-/* Compact Request Item */
+/* New Layout Request Item */
+.am-dashboard .request-item-new-layout {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  transition: all 0.2s ease;
+  position: relative;
+  min-height: 80px;
+}
+
+.am-dashboard .request-item-new-layout:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
+}
+
+/* Left Section - Item Details */
+.am-dashboard .request-left-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 200px;
+  min-width: 200px;
+  max-width: 200px;
+  flex-shrink: 0;
+}
+
+.am-dashboard .request-icon-new {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.am-dashboard .request-details-new {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 140px;
+  min-width: 140px;
+  max-width: 140px;
+  flex-shrink: 0;
+}
+
+.am-dashboard .request-title-new {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+  line-height: 1.3;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.am-dashboard .request-meta-new {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.am-dashboard .request-project-new {
+  font-size: 0.75rem;
+  color: #3b82f6;
+  font-weight: 500;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.am-dashboard .request-date-new {
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+/* Center Section - Progress Tracking */
+.am-dashboard .request-center-section {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 300px;
+  max-width: 400px;
+  z-index: 1;
+}
+
+.am-dashboard .tracking-timeline-new {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  position: relative;
+}
+
+.am-dashboard .timeline-step-new {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  position: relative;
+  width: 60px;
+  min-width: 60px;
+  max-width: 60px;
+  flex-shrink: 0;
+}
+
+.am-dashboard .timeline-icon-new {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: white;
+  position: relative;
+  z-index: 2;
+}
+
+.am-dashboard .timeline-label-new {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-align: center;
+  min-width: 40px;
+  max-width: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.am-dashboard .timeline-connector-new {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  width: calc(100% - 32px);
+  height: 2px;
+  background: #e2e8f0;
+  z-index: 1;
+  transform: translateX(-50%);
+}
+
+.am-dashboard .timeline-connector-new.completed {
+  background: #10b981;
+}
+
+/* Timeline Status Colors */
+.am-dashboard .timeline-step-new.completed .timeline-icon-new {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.am-dashboard .timeline-step-new.completed .timeline-label-new {
+  color: #059669;
+}
+
+.am-dashboard .timeline-step-new.pending .timeline-icon-new {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.am-dashboard .timeline-step-new.pending .timeline-label-new {
+  color: #b45309;
+}
+
+.am-dashboard .timeline-step-new.completed.one-step-behind .timeline-icon-new {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.am-dashboard .timeline-step-new.completed.one-step-behind .timeline-label-new {
+  color: #059669;
+}
+
+.am-dashboard .timeline-step-new:not(.completed):not(.pending):not(.completed.one-step-behind) .timeline-icon-new {
+  background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+  color: #64748b;
+}
+
+.am-dashboard .timeline-step-new:not(.completed):not(.pending):not(.completed.one-step-behind) .timeline-label-new {
+  color: #64748b;
+}
+
+/* Right Section - Status */
+.am-dashboard .request-right-section {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 150px;
+  min-width: 150px;
+  max-width: 150px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.am-dashboard .request-status-new {
+  text-align: right;
+}
+
+.am-dashboard .status-text-new {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  display: inline-block;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.am-dashboard .status-text-new.pendingareamanager {
+  color: #3b82f6;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+}
+
+.am-dashboard .status-text-new.pendingprojectmanager {
+  color: #f59e0b;
+  background: #fffbeb;
+  border: 1px solid #fed7aa;
+}
+
+.am-dashboard .status-text-new.approved {
+  color: #059669;
+  background: #ecfdf5;
+  border: 1px solid #bbf7d0;
+}
+
+.am-dashboard .status-text-new.received {
+  color: #7c3aed;
+  background: #f3e8ff;
+  border: 1px solid #e9d5ff;
+}
+
+/* Responsive constraints for new layout */
+@media (max-width: 1200px) {
+  .am-dashboard .request-left-section {
+    width: 160px;
+    min-width: 160px;
+    max-width: 160px;
+  }
+  
+  .am-dashboard .request-details-new {
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
+  }
+  
+  .am-dashboard .request-right-section {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+  }
+  
+  .am-dashboard .status-text-new {
+    max-width: 100px;
+  }
+  
+  .am-dashboard .request-center-section {
+    min-width: 250px;
+    max-width: 350px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .am-dashboard .request-item-new-layout {
+    gap: 1rem;
+    flex-direction: column;
+    align-items: stretch;
+    min-height: auto;
+  }
+  
+  .am-dashboard .request-left-section {
+    width: 100%;
+    min-width: auto;
+    max-width: none;
+    justify-content: flex-start;
+  }
+  
+  .am-dashboard .request-details-new {
+    width: auto;
+    min-width: auto;
+    max-width: none;
+  }
+  
+  .am-dashboard .request-right-section {
+    width: 100%;
+    min-width: auto;
+    max-width: none;
+    justify-content: flex-end;
+    margin-left: 0;
+  }
+  
+  .am-dashboard .status-text-new {
+    max-width: 80px;
+  }
+  
+  .am-dashboard .request-center-section {
+    position: static;
+    transform: none;
+    min-width: auto;
+    max-width: none;
+    margin: 0.5rem 0;
+  }
+}
+
+/* Compact Request Item (Legacy - keeping for compatibility) */
 .am-dashboard .request-item-compact {
   background: white;
   border: 1px solid #e2e8f0;

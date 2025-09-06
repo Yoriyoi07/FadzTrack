@@ -596,9 +596,98 @@ const AreaDash = () => {
                               <span style={{opacity:.6}}>Pending PICs</span>
                               <strong>{metric.pendingPics}</strong>
                             </div>
-                            <div style={{background:'#f1f5f9',padding:'6px 8px',borderRadius:6,display:'flex',flexDirection:'column',gap:2}}>
+                            <div style={{
+                              background: (() => {
+                                const status = metric.waitingForAll ? 'Waiting' : metric.status;
+                                switch(status?.toLowerCase()) {
+                                  case 'completed':
+                                  case 'done':
+                                  case 'finished':
+                                    return '#ecfdf5'; // Green background
+                                  case 'ontrack':
+                                  case 'on track':
+                                  case 'in progress':
+                                  case 'active':
+                                  case 'ongoing':
+                                    return '#eff6ff'; // Blue background
+                                  case 'pending':
+                                  case 'waiting':
+                                    return '#fffbeb'; // Orange background
+                                  case 'regressing':
+                                  case 'delayed':
+                                  case 'behind':
+                                    return '#fef2f2'; // Red background
+                                  case 'on hold':
+                                  case 'paused':
+                                    return '#f3e8ff'; // Purple background
+                                  default:
+                                    return '#f1f5f9'; // Default gray background
+                                }
+                              })(),
+                              border: (() => {
+                                const status = metric.waitingForAll ? 'Waiting' : metric.status;
+                                switch(status?.toLowerCase()) {
+                                  case 'completed':
+                                  case 'done':
+                                  case 'finished':
+                                    return '1px solid #bbf7d0'; // Green border
+                                  case 'ontrack':
+                                  case 'on track':
+                                  case 'in progress':
+                                  case 'active':
+                                  case 'ongoing':
+                                    return '1px solid #dbeafe'; // Blue border
+                                  case 'pending':
+                                  case 'waiting':
+                                    return '1px solid #fed7aa'; // Orange border
+                                  case 'regressing':
+                                  case 'delayed':
+                                  case 'behind':
+                                    return '1px solid #fecaca'; // Red border
+                                  case 'on hold':
+                                  case 'paused':
+                                    return '1px solid #e9d5ff'; // Purple border
+                                  default:
+                                    return '1px solid #e2e8f0'; // Default gray border
+                                }
+                              })(),
+                              padding:'6px 8px',
+                              borderRadius:6,
+                              display:'flex',
+                              flexDirection:'column',
+                              gap:2
+                            }}>
                               <span style={{opacity:.6}}>Status</span>
-                              <strong style={{textTransform:'capitalize'}}>{metric.waitingForAll ? 'Waiting' : metric.status}</strong>
+                              <strong style={{
+                                textTransform:'capitalize',
+                                color: (() => {
+                                  const status = metric.waitingForAll ? 'Waiting' : metric.status;
+                                  switch(status?.toLowerCase()) {
+                                    case 'completed':
+                                    case 'done':
+                                    case 'finished':
+                                      return '#059669'; // Green text
+                                    case 'ontrack':
+                                    case 'on track':
+                                    case 'in progress':
+                                    case 'active':
+                                    case 'ongoing':
+                                      return '#1d4ed8'; // Blue text
+                                    case 'pending':
+                                    case 'waiting':
+                                      return '#d97706'; // Orange text
+                                    case 'regressing':
+                                    case 'delayed':
+                                    case 'behind':
+                                      return '#dc2626'; // Red text
+                                    case 'on hold':
+                                    case 'paused':
+                                      return '#7c3aed'; // Purple text
+                                    default:
+                                      return '#374151'; // Default gray text
+                                  }
+                                })()
+                              }}>{metric.waitingForAll ? 'Waiting' : metric.status}</strong>
                             </div>
                             <div style={{background:'#f1f5f9',padding:'6px 8px',borderRadius:6,display:'flex',flexDirection:'column',gap:2}}>
                               <span style={{opacity:.6}}>Last Report</span>
@@ -678,62 +767,68 @@ const AreaDash = () => {
                         const statusNorm = (request.status||'').replace(/\s+/g,' ').trim().toUpperCase();
                         const pendingAM = statusNorm==='PENDING AM' || statusNorm==='PENDING AREA MANAGER';
                         return (
-                          <Link to={`/am/material-request/${request._id}`} key={request._id} className={`request-item-compact ${pendingAM? 'pending-for-user':''}`} style={{textDecoration:'none'}}>
-                            <div className="request-main-info">
-                              <div className="request-icon-small">
+                          <Link to={`/am/material-request/${request._id}`} key={request._id} className={`request-item-new-layout ${pendingAM? 'pending-for-user':''}`} style={{textDecoration:'none'}}>
+                            {/* Left Section - Item Details */}
+                            <div className="request-left-section">
+                              <div className="request-icon-new">
                                 <FaBoxes />
                               </div>
-                              <div className="request-details-compact">
-                                <h4 className="request-title-compact">
+                              <div className="request-details-new">
+                                <h4 className="request-title-new">
                                   {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
                                 </h4>
-                                <div className="request-meta-compact">
-                                  <span className="request-project-compact">{request.project?.projectName}</span>
-                                  <span className="request-date-compact">
+                                <div className="request-meta-new">
+                                  <span className="request-project-new">{request.project?.projectName}</span>
+                                  <span className="request-date-new">
                                     {new Date(request.createdAt).toLocaleDateString()}
                                   </span>
                                 </div>
                               </div>
-                              <div className="request-status-compact">
-                                <span className={`status-text-compact ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
-                                  {request.status}
-                                </span>
+                            </div>
+                            
+                            {/* Center Section - Progress Tracking */}
+                            <div className="request-center-section">
+                              <div className="tracking-timeline-new">
+                                {/* Placed Stage */}
+                                <div className={`timeline-step-new ${getTimelineStatus(request.status, 'placed')}`}>
+                                  <div className="timeline-icon-new">
+                                    <FaCheckCircle />
+                                  </div>
+                                  <span className="timeline-label-new">Placed</span>
+                                </div>
+                                <div className={`timeline-connector-new ${['Pending PM', 'Pending AM', 'Approved', 'Received', 'PENDING PROJECT MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
+                                {/* PM Stage */}
+                                <div className={`timeline-step-new ${getTimelineStatus(request.status, 'pm')}`}>
+                                  <div className="timeline-icon-new">
+                                    <FaUserTie />
+                                  </div>
+                                  <span className="timeline-label-new">PM</span>
+                                </div>
+                                <div className={`timeline-connector-new ${['Pending AM', 'Approved', 'Received', 'PENDING AREA MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
+                                {/* AM Stage */}
+                                <div className={`timeline-step-new ${getTimelineStatus(request.status, 'am')}`}>
+                                  <div className="timeline-icon-new">
+                                    <FaBuilding />
+                                  </div>
+                                  <span className="timeline-label-new">AM</span>
+                                </div>
+                                <div className={`timeline-connector-new ${['Approved', 'Received'].includes(request.status) ? 'completed' : ''}`}></div>
+                                {/* Done Stage */}
+                                <div className={`timeline-step-new ${getTimelineStatus(request.status, 'done')}`}>
+                                  <div className="timeline-icon-new">
+                                    <FaCheckCircle />
+                                  </div>
+                                  <span className="timeline-label-new">Done</span>
+                                </div>
                               </div>
                             </div>
-                            {/* Compact Tracking Timeline */}
-                            <div className="tracking-timeline-compact">
-                              {/* Placed Stage */}
-                              <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'placed')}`}>
-                                <div className="timeline-icon-compact">
-                                  <FaCheckCircle />
-                                </div>
-                                <span className="timeline-label-compact">Placed</span>
-                              </div>
-                              <div className={`timeline-connector-compact ${['Pending PM', 'Pending AM', 'Approved', 'Received', 'PENDING PROJECT MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
-                              {/* PM Stage */}
-                              <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'pm')}`}>
-                                <div className="timeline-icon-compact">
-                                  <FaUserTie />
-                                </div>
-                                <span className="timeline-label-compact">PM</span>
-                              </div>
-                              <div className={`timeline-connector-compact ${['Pending AM', 'Approved', 'Received', 'PENDING AREA MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
-                              {/* AM Stage */}
-                              <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'am')}`}>
-                                <div className="timeline-icon-compact">
-                                  <FaBuilding />
-                                </div>
-                                <span className="timeline-label-compact">AM</span>
-                              </div>
-                              <div className={`timeline-connector-compact ${['Approved', 'Received'].includes(request.status) ? 'completed' : ''}`}></div>
-                              {/* Removed CEO/CIO stage */}
-                              <div className={`timeline-connector-compact ${request.status === 'Received' ? 'completed' : ''}`}></div>
-                              {/* Done Stage */}
-                              <div className={`timeline-step-compact ${getTimelineStatus(request.status, 'done')}`}>
-                                <div className="timeline-icon-compact">
-                                  <FaCheckCircle />
-                                </div>
-                                <span className="timeline-label-compact">Done</span>
+                            
+                            {/* Right Section - Status */}
+                            <div className="request-right-section">
+                              <div className="request-status-new">
+                                <span className={`status-text-new ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
+                                  {request.status}
+                                </span>
                               </div>
                             </div>
                           </Link>
