@@ -539,7 +539,23 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
               <div className="project-details-content">
                 <div className="action-buttons">
                   <button
-                    onClick={() => exportProjectDetails(project, { contextTitle: `Project Details — ${roleCfg.label}` })}
+                    onClick={() => {
+                      const user = JSON.parse(localStorage.getItem('user') || '{}');
+                      const exportDateTime = new Date().toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: true
+                      });
+                      exportProjectDetails(project, { 
+                        contextTitle: `Project Details — ${roleCfg.label}`,
+                        exportedBy: user?.name || 'Unknown User',
+                        exportDate: exportDateTime
+                      });
+                    }}
                     className="export-btn"
                   >
                     <FaDownload />

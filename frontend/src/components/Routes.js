@@ -55,7 +55,7 @@ import AmViewProject from './am/AmViewProject';
 import ItDash from './it/ItDash';
 import ItChat from './chats/ItChat';
 import ItAuditLog from './it/ItAuditLogs';
-import ItMaterialList from './it/ItMaterialList';
+import ItMatRequestListWrapper from './it/ItMatRequestListWrapper';
 import ItMaterialRequestDetail from './it/ItMaterialRequestDetail';
 import ItMaterialRequestEdit from './it/ItMaterialRequestEdit';
 import ItManpowerList from './it/ItManpowerList';
@@ -67,7 +67,7 @@ import ItViewProject from './it/ItViewProject';
 import CeoDash from './ceo/CeoDash';
 import CeoProj from './ceo/CeoProj';
 import CeoAddArea from './ceo/CeoAddArea';
-import CeoMaterialList from './ceo/CeoMaterialList';
+import CeoMatRequestListWrapper from './ceo/CeoMatRequestListWrapper';
 import CeoMaterialRequestDetail from './ceo/CeoMaterialRequestDetail';
 import CeoAuditLogs from './ceo/CeoAuditLogs';
 import CeoChat from './chats/CeoChat';
@@ -168,7 +168,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
       <Route element={<PrivateRoute allowedRoles={['IT']} />}>
         <Route path="/it" element={<ItDash />} />
         <Route path="/it/auditlogs" element={<ItAuditLog />} />
-        <Route path="/it/material-list" element={<ItMaterialList />} />
+        <Route path="/it/material-list" element={<ItMatRequestListWrapper />} />
         <Route path="/it/material-request/:id" element={<ItMaterialRequestDetail />} />
         <Route path="/it/material-request/edit/:id" element={<ItMaterialRequestEdit />} />
         <Route path="/it/manpower-list" element={<ItManpowerList />} />
@@ -187,7 +187,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
   <Route path="/ceo/proj/:id" element={<CeoViewProject />} />
   {/* New unified project view (reusable) */}
   <Route path="/ceo/viewprojects/:id" element={<CeoViewProject />} />
-        <Route path="/ceo/material-list" element={<CeoMaterialList />} />
+        <Route path="/ceo/material-list" element={<CeoMatRequestListWrapper />} />
         <Route path="/ceo/material-request/:id" element={<CeoMaterialRequestDetail />} />
         <Route path="/ceo/material-request/edit/:id" element={<CeoMaterialRequestEdit />} />
         <Route path="/ceo/audit-logs" element={<CeoAuditLogs />} />

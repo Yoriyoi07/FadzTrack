@@ -108,8 +108,18 @@ export async function exportProjectDetails(project, opts = {}) {
     includeAM = true,
     includePM = true,
     includeBudget = true,
-  includeManpower = true,
+    includeManpower = true,
     preferPesoSign = false, // set true only if your font definitely has ₱
+    exportedBy = 'Unknown User',
+    exportDate = new Date().toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    })
   } = opts;
 
   const doc = new jsPDF({ unit: 'pt', format: 'a4' }); // 595×842
@@ -144,7 +154,7 @@ export async function exportProjectDetails(project, opts = {}) {
   doc.setFont(bodyFont, headStyle);
   doc.setFontSize(18);
   doc.setTextColor(20);
-  doc.text('FadzTrack', titleX, y + 12);
+  doc.text('Fadz Construction Inc.', titleX, y + 12);
 
   doc.setFont(bodyFont, 'normal');
   doc.setFontSize(12);
@@ -157,6 +167,20 @@ export async function exportProjectDetails(project, opts = {}) {
   doc.line(marginX, y + 42, 595 - marginX, y + 42);
 
   y += 56;
+
+  // Export information section
+  doc.setFont(bodyFont, 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(100, 116, 139);
+  doc.text(`Exported by: ${exportedBy}`, marginX, y);
+  doc.text(`Export Date & Time: ${exportDate}`, marginX, y + 12);
+  
+  // Add separator line
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.5);
+  doc.line(marginX, y + 20, 595 - marginX, y + 20);
+  
+  y += 30;
 
   /* -- project title + right photo (both kept ratio) -- */
   doc.setTextColor(20);
@@ -244,57 +268,109 @@ export async function exportProjectDetails(project, opts = {}) {
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     const footerY = 842 - 24;
-    doc.text(`Generated: ${new Date().toLocaleString()}`, marginX, footerY);
+    doc.text(`Fadz Construction Inc. - Project Details`, marginX, footerY);
     const label = `Page ${i} of ${pageCount}`;
     const w = doc.getTextWidth(label);
     doc.text(label, 595 - marginX - w, footerY);
+    
+    // Add export info in footer
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    const exportInfo = `Generated on ${exportDate} by ${exportedBy}`;
+    const exportW = doc.getTextWidth(exportInfo);
+    doc.text(exportInfo, 595 - marginX - exportW, footerY - 12);
   }
 
   doc.save(`Project-${sanitizeFilename(project?.projectName)}.pdf`);
 }
 
-export const generateProjectPDF = (data) => {
+export const generateProjectPDF = async (data) => {
   const { companyName, companyLogo, exportedBy, exportDate, filters, projects } = data;
 
   const pdf = new jsPDF('landscape', 'mm', 'a4');
   pdf.setFont('helvetica');
 
-  // Header
+  // Load and add company logo
+  let logoX = 20;
+  let logoY = 15;
+  let logoWidth = 0;
+  let logoHeight = 0;
+
+  if (companyLogo) {
+    try {
+      const logoData = await loadImageDataURLWithSize(companyLogo);
+      if (logoData?.dataUrl) {
+        // Resize logo to fit nicely in header
+        const maxLogoHeight = 20;
+        const maxLogoWidth = 60;
+        const { w: logoW, h: logoH } = fitInside(logoData.w, logoData.h, maxLogoWidth, maxLogoHeight);
+        
+        logoWidth = logoW;
+        logoHeight = logoH;
+        
+        pdf.addImage(logoData.dataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight, undefined, 'FAST');
+        logoX += logoWidth + 10; // Add space after logo
+      }
+    } catch (error) {
+      console.warn('Failed to load company logo:', error);
+    }
+  }
+
+  // Header with company name
   pdf.setFontSize(24);
   pdf.setTextColor(30, 41, 59);
-  pdf.text(companyName || 'Projects', 20, 30);
+  pdf.text(companyName || 'Projects', logoX, logoY + 15);
 
+  // Export information
   pdf.setFontSize(12);
   pdf.setTextColor(100, 116, 139);
   pdf.text(`Exported by: ${exportedBy || 'Unknown'}`, 20, 40);
-  pdf.text(`Export Date: ${exportDate}`, 20, 47);
+  pdf.text(`Export Date & Time: ${exportDate}`, 20, 47);
 
   // Filters block
   const hasFilters = (filters.status && filters.status !== 'all') || filters.search || filters.dateFrom || filters.dateTo;
   if (hasFilters) {
     pdf.setFontSize(14);
     pdf.setTextColor(30, 41, 59);
-    pdf.text('Export Filters:', 20, 60);
+    pdf.text('Export Filters Applied:', 20, 60);
 
     pdf.setFontSize(10);
     pdf.setTextColor(100, 116, 139);
     let filterY = 70;
+    
+    // Status filter
     if (filters.status && filters.status !== 'all') {
-      pdf.text(`Status: ${filters.status.charAt(0).toUpperCase() + filters.status.slice(1)}`, 20, filterY); filterY += 7;
+      pdf.text(`• Status: ${filters.status.charAt(0).toUpperCase() + filters.status.slice(1)}`, 20, filterY); 
+      filterY += 7;
     }
-    if (filters.search) { pdf.text(`Search: "${filters.search}"`, 20, filterY); filterY += 7; }
+    
+    // Search filter
+    if (filters.search) { 
+      pdf.text(`• Search: "${filters.search}"`, 20, filterY); 
+      filterY += 7; 
+    }
+    
+    // Date range filter
     if (filters.dateFrom || filters.dateTo) {
       const parts = [];
       if (filters.dateFrom) parts.push(`From: ${filters.dateFrom}`);
       if (filters.dateTo) parts.push(`To: ${filters.dateTo}`);
-      pdf.text(`Date Range: ${parts.join(' - ')}`, 20, filterY); filterY += 7;
+      pdf.text(`• Date Range: ${parts.join(' - ')}`, 20, filterY); 
+      filterY += 7;
     }
+    
+    // Add a separator line
+    pdf.setDrawColor(200, 200, 200);
+    pdf.setLineWidth(0.5);
+    pdf.line(20, filterY + 2, 280, filterY + 2);
+    filterY += 10;
   }
 
   // Project count
+  const projectCountY = hasFilters ? 95 : 60;
   pdf.setFontSize(12);
   pdf.setTextColor(30, 41, 59);
-  pdf.text(`Total Projects: ${projects?.length || 0}`, 20, hasFilters ? 85 : 60);
+  pdf.text(`Total Projects: ${projects?.length || 0}`, 20, projectCountY);
 
   // Table data
   const tableData = (projects && projects.length ? projects : []).map(p => [
@@ -310,13 +386,13 @@ export const generateProjectPDF = (data) => {
   if (!projects || !projects.length) {
     pdf.setFontSize(14);
     pdf.setTextColor(150);
-    pdf.text('No projects match the selected filters.', 20, 100);
+    pdf.text('No projects match the selected filters.', 20, projectCountY + 15);
   } else {
     try {
       autoTable(pdf, {
         head: [['Project Name', 'Area', 'Project Manager', 'Contractor', 'Timeline', 'PICs', 'Budget']],
         body: tableData,
-        startY: hasFilters ? 95 : 70,
+        startY: projectCountY + 15,
         margin: { top: 20 },
         styles: { fontSize: 9, cellPadding: 3, lineColor: [226, 232, 240], lineWidth: 0.1 },
         headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
@@ -351,7 +427,7 @@ export const generateProjectPDF = (data) => {
     pdf.setFontSize(8);
     pdf.setTextColor(100, 116, 139);
     pdf.text(`${companyName} - Project Export`, 20, pdf.internal.pageSize.height - 10);
-    pdf.text(`Generated on ${exportDate}`, pdf.internal.pageSize.width - 60, pdf.internal.pageSize.height - 10);
+    pdf.text(`Generated on ${exportDate} by ${exportedBy}`, pdf.internal.pageSize.width - 80, pdf.internal.pageSize.height - 10);
   }
 
   pdf.save(`projects_export_${String(exportDate).replace(/\//g, '-')}.pdf`);

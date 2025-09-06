@@ -433,12 +433,23 @@ export default function ItProjects(){
   async function loadAudit(projectId){ setAuditLoading(true); setAuditProjectId(projectId); try{ const {data}=await api.get('/audit-logs',{params:{projectId}}); setAuditLogs(data||[]);}catch{ setAuditLogs([]);} finally{ setAuditLoading(false); setShowAudit(true);} }
 
   // Export function
-  const exportProjects = () => {
+  const exportProjects = async () => {
+    const now = new Date();
+    const exportDateTime = now.toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+    
     const pdfContent = {
-      companyName: 'FadzTrack',
-      companyLogo: require('../../assets/images/FadzLogo1.png'),
-      exportedBy: userName,
-      exportDate: new Date().toLocaleDateString(),
+      companyName: 'Fadz Construction Inc.',
+      companyLogo: '/images/Fadz-logo.png', // Use the correct path to the logo
+      exportedBy: userName || 'Unknown User',
+      exportDate: exportDateTime,
       filters: exportFilters,
       projects: exportPreview.map(project => ({
         name: project.projectName,
@@ -452,7 +463,7 @@ export default function ItProjects(){
     };
 
     try {
-      generateProjectPDF(pdfContent);
+      await generateProjectPDF(pdfContent);
     } catch (e) {
       console.error('PDF generation failed', e);
       alert('PDF generation failed. See console for details.');
