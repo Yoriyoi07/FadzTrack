@@ -1,34 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import '../style/pm_style/Pm_ManpowerRequest.css';
-import NotificationBell from '../NotificationBell';
-// Nav icons
-import { 
-  FaTachometerAlt, 
-  FaComments, 
-  FaBoxes, 
-  FaUsers, 
-  FaProjectDiagram, 
-  FaClipboardList, 
-  FaChartBar, 
-  FaCalendarAlt,
-  FaPlus,
-  FaTrash,
-  FaSave,
-  FaArrowLeft
-} from 'react-icons/fa';
+import AppHeader from '../layout/AppHeader';
+import { FaPlus, FaTrash, FaSave, FaArrowLeft } from 'react-icons/fa';
 
 const PmRequestManpower = () => {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
   const stored = localStorage.getItem('user');
   const user = stored ? JSON.parse(stored) : null;
+  const token = localStorage.getItem('token');
   const userId = user?._id;
-  const [userName, setUserName] = useState(user?.name || 'ALECK');
-  const [userRole, setUserRole] = useState(user?.role || '');
   const { id } = useParams();
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [project, setProject] = useState(null);
   const [projects, setProjects] = useState('');
   const [loading, setLoading] = useState(true);
@@ -115,26 +98,6 @@ const PmRequestManpower = () => {
   };
 
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest(".user-profile")) {
-        setProfileMenuOpen(false);
-      }
-    };
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    api.post('/auth/logout', {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).finally(() => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
-    });
-  };
-
-  useEffect(() => {
     if (!token || !user) return;
     const fetchProjects = async () => {
       try {
@@ -151,7 +114,7 @@ const PmRequestManpower = () => {
       }
     };
     fetchProjects();
-  }, [token, user, userId]);
+  }, [user, userId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -218,81 +181,7 @@ const PmRequestManpower = () => {
 
   return (
     <div className="dashboard-container">
-      {/* Modern Header - Same as PM Dashboard */}
-      <header className="dashboard-header">
-        {/* Top Row: Logo and Profile */}
-        <div className="header-top">
-          <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'P'}
-            </div>
-            <div className="profile-info">
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/pm" className="nav-item">
-              <FaTachometerAlt />
-              <span>Dashboard</span>
-            </Link>
-            <Link to="/pm/chat" className="nav-item">
-              <FaComments />
-              <span>Chat</span>
-            </Link>
-            <Link to="/pm/request/:id" className="nav-item">
-              <FaBoxes />
-              <span>Material</span>
-            </Link>
-            <Link to="/pm/manpower-list" className="nav-item active">
-              <FaUsers />
-              <span>Manpower</span>
-            </Link>
-            {project && (
-              <Link to={`/pm/viewprojects/${project._id || project.id}`} className="nav-item">
-                <FaProjectDiagram />
-                <span>View Project</span>
-              </Link>
-            )}
-            <Link to="/pm/daily-logs" className="nav-item">
-              <FaClipboardList />
-              <span>Logs</span>
-            </Link>
-            {project && (
-              <Link to={`/pm/progress-report/${project._id}`} className="nav-item">
-                <FaChartBar />
-                <span>Reports</span>
-              </Link>
-            )}
-            <Link to="/pm/daily-logs-list" className="nav-item">
-              <FaCalendarAlt />
-              <span>Daily Logs</span>
-            </Link>
-          </nav>
-          
-          <NotificationBell />
-        </div>
-      </header>
+      <AppHeader roleSegment="pm" />
 
       {/* Main Content Area */}
       <main className="dashboard-main">

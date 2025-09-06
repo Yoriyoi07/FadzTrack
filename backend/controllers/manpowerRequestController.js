@@ -3,6 +3,7 @@ const Project = require('../models/Project');
 const { logAction } = require('../utils/auditLogger');
 const Manpower = require('../models/Manpower');
 const User = require('../models/User'); // ensure this exists and has role/name
+const { createAndEmitNotification } = require('./notificationController');
 
 // CREATE Manpower Request
 const createManpowerRequest = async (req, res) => {
@@ -80,6 +81,26 @@ const createManpowerRequest = async (req, res) => {
         description: `CEO created manpower request for project ${projectName}`,
     meta: { requestId: newRequest._id, projectId: projectDoc?._id, projectName, context: 'manpower' }
       });
+    }
+
+    // Notify all other Project Managers (excluding creator) about new request (inbox style)
+    try {
+      const creatorIdStr = String(createdBy);
+      const pms = await User.find({ role: 'Project Manager' }).select('_id');
+      for (const pm of pms) {
+        if (String(pm._id) === creatorIdStr) continue; // skip creator
+        await createAndEmitNotification({
+          type: 'manpower_request_created',
+          toUserId: pm._id,
+            fromUserId: createdBy,
+          message: `New manpower request for ${projectName}`,
+          projectId: projectDoc?._id,
+          requestId: newRequest._id,
+          meta: { recipientRole: 'Project Manager', manpower: true }
+        });
+      }
+    } catch (notifyErr) {
+      console.error('Failed to emit PM notifications for manpower request:', notifyErr);
     }
 
     res.status(201).json({ message: '✅ Manpower request created successfully' });
@@ -296,6 +317,24 @@ const approveManpowerRequest = async (req, res) => {
       description: `PM approved manpower request for project ${updated.project}`,
       meta: { requestId: updated._id }
     });
+
+    // Notify creator that their request was approved
+    try {
+      const creatorId = updated.createdBy || updated.createdBy?._id;
+      if (creatorId) {
+        await createAndEmitNotification({
+          type: 'manpower_request_approved',
+          toUserId: creatorId,
+          fromUserId: req.user.id,
+          message: 'Your manpower request has been approved',
+          projectId: updated.project,
+          requestId: updated._id,
+          meta: { recipientRole: 'Project Manager', manpower: true }
+        });
+      }
+    } catch (e) {
+      console.error('Failed to send approval notification for manpower request:', e);
+    }
 
     res.status(200).json({ message: "✅ Request approved", data: updated });
   } catch (error) {

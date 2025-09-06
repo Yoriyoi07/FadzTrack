@@ -10,7 +10,6 @@ import {
 import { io } from 'socket.io-client';
 import EmojiPicker from 'emoji-picker-react';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
 import '../style/am_style/AreaChat.css';
 
 // Map role/baseSegment to its navigation links so reused chat shows correct menu.
@@ -157,6 +156,16 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   // For Project Manager & PIC conditional nav items (project-dependent)
   const [pmProjectId, setPmProjectId] = useState(null);
   const [picProjectId, setPicProjectId] = useState(null);
+  // Track which long messages are expanded (to avoid truncation)
+  const [expandedLongMessages, setExpandedLongMessages] = useState(new Set());
+
+  const toggleExpandLong = (id) => {
+    setExpandedLongMessages(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
   const mediaImages = useMemo(() => (
     messages
       .flatMap(m => m.attachments || [])
@@ -392,11 +401,23 @@ const AreaChat = ({ baseSegment = 'am' }) => {
       const { text, attachments } = normalizeIncoming(msg);
       // update list preview + reorder
       const tsNum = typeof msg.timestamp === 'number' ? msg.timestamp : (msg.timestamp ? Date.parse(msg.timestamp) : Date.now());
-      setChatList(list => sortChatList(list.map(c =>
-        c._id === msg.conversation
-          ? { ...c, lastMessage: { content: text || (attachments.length ? '📎 Attachment' : ''), timestamp: msg.timestamp || tsNum, tsNum, seq: ++seqRef.current } }
-          : c
-      )));
+      setChatList(list => {
+        let found = false;
+        const updated = list.map(c => {
+          if (c._id !== msg.conversation) return c;
+          found = true;
+          // Build preview content with richer attachment indicator (image vs files)
+          let content = text;
+          if (!content && attachments.length) {
+            const allImages = attachments.every(a => (a?.mimetype||'').startsWith('image/'));
+            const count = attachments.length;
+            content = allImages ? (count === 1 ? '� Photo' : `🖼 ${count} Photos`) : (count === 1 ? '�📎 Attachment' : `📎 ${count} Files`);
+          }
+          return { ...c, lastMessage: { content, timestamp: msg.timestamp || tsNum, tsNum, seq: ++seqRef.current, attachments } };
+        });
+        if (!found) return list; // chat not yet in list (will be added by chatCreated event)
+        return sortChatList(updated);
+      });
 
       // show in open chat
       if (selectedChatIdRef.current === msg.conversation) {
@@ -500,12 +521,21 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   const reloadChats = async () => {
     try {
       const { data } = await api.get('/chats', { headers });
-      const withTs = (data || []).map(c => {
+    const withTs = (data || []).map(c => {
         if (c?.lastMessage) {
-          const raw = c.lastMessage.timestamp || c.lastMessage.createdAt || c.lastMessage.updatedAt;
+          const lm = c.lastMessage;
+          const raw = lm.timestamp || lm.createdAt || lm.updatedAt;
           let num = typeof raw === 'number' ? raw : (raw ? Date.parse(raw) : 0);
           if (!num) num = 0;
-          return { ...c, lastMessage: { ...c.lastMessage, tsNum: num } };
+          // If no textual content but attachments exist, synthesize preview token
+          let content = lm.content || '';
+          if ((!content || /^https?:\/\//.test(content)) && Array.isArray(lm.attachments) && lm.attachments.length) {
+            const allImages = lm.attachments.every(a => (a?.mimetype||'').startsWith('image/'));
+            const count = lm.attachments.length;
+            if (allImages) content = count === 1 ? '🖼 Photo' : `🖼 ${count} Photos`;
+            else content = count === 1 ? '📎 Attachment' : `📎 ${count} Files`;
+          }
+      return { ...c, lastMessage: { ...lm, content, tsNum: num, attachments: lm.attachments || [] } };
         }
         return c;
       });
@@ -571,14 +601,30 @@ const AreaChat = ({ baseSegment = 'am' }) => {
     const id = setTimeout(async () => {
       const q = searchQuery.trim().toLowerCase();
       if (!q) return setSearchResults([]);
-
       try {
-        const { data: users } = await api.get(`/users/search?query=${encodeURIComponent(q)}`, { headers });
+        // Fetch all users once per search (backend already auth-protected)
+        const { data: allUsers } = await api.get('/users', { headers });
+        const users = Array.isArray(allUsers) ? allUsers : [];
+
+        // Existing chats that match (group or direct)
         const matchedChats = chatList.filter(c => c.isGroup ? (c.name || '').toLowerCase().includes(q)
           : getDisplayName(c.users.find(u => u._id !== userId)).toLowerCase().includes(q));
-        const newUsers = (users || []).filter(u => !chatList.some(c => c.users.some(x => x._id === u._id)));
-        setSearchResults([...matchedChats, ...newUsers.map(u => ({ ...u, type: 'user' }))]);
-      } catch { setSearchResults([]); }
+
+        // All users matching query (by name/email) regardless of existing chat
+        const regex = new RegExp(q, 'i');
+        const matchedUsers = users.filter(u => regex.test(u.name || '') || regex.test(u.email || ''));
+
+        // Combine: keep matched chats as-is; add matched users (mark type:'user') if no existing 1-1 chat with them
+        const results = [...matchedChats];
+        matchedUsers.forEach(u => {
+          const alreadyDirect = chatList.some(c => !c.isGroup && c.users.some(x => x._id === u._id));
+          if (!alreadyDirect) results.push({ ...u, type: 'user' });
+        });
+
+        setSearchResults(results);
+      } catch (e) {
+        setSearchResults([]);
+      }
     }, 300);
     return () => clearTimeout(id);
   }, [searchQuery, chatList, userId, headers]);
@@ -946,7 +992,30 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                 const isGroup = item.isGroup;
                 const other = isGroup ? null : item.users?.find(u => u._id !== userId) || {};
                 const name = isUser ? getDisplayName(item) : isGroup ? item.name : getDisplayName(other);
-                const preview = item.lastMessage?.content?.slice(0, 30) || 'Start chatting';
+                // Improved preview logic: prioritize last message content, then last non-system message, else empty
+                let preview = '';
+                if (item.lastMessage?.content) {
+                  preview = item.lastMessage.content;
+                } else if (Array.isArray(item.messages) && item.messages.length) {
+                  const lastUserMsg = [...item.messages].reverse().find(m => !m.system && m.content);
+                  preview = lastUserMsg?.content || '';
+                }
+                // Attachment indicator if no text OR last event is attachments
+                const lastAttachments = item.lastMessage?.attachments || (Array.isArray(item.messages) ? [...item.messages].reverse().find(m=>Array.isArray(m.attachments)&&m.attachments.length)?.attachments : []);
+                if ((!preview || /^https?:\/\//.test(preview)) && lastAttachments && lastAttachments.length) {
+                  // Determine if all attachments are images
+                  const allImages = lastAttachments.every(a => (a?.mimetype||'').startsWith('image/'));
+                  if (allImages) {
+                    const count = lastAttachments.length;
+                    preview = count === 1 ? '🖼 Photo' : `🖼 ${count} Photos`;
+                  } else {
+                    const count = lastAttachments.length;
+                    const fileWord = count === 1 ? 'File' : 'Files';
+                    preview = count === 1 ? '📎 Attachment' : `📎 ${count} ${fileWord}`;
+                  }
+                }
+                if (!preview) preview = '(no messages yet)';
+                preview = preview.length > 60 ? preview.slice(0,57) + '…' : preview;
                 const timeStr = item.lastMessage?.timestamp ? formatTime(item.lastMessage.timestamp) : '';
                 return (
                   <div key={item._id} className={`modern-chat-item ${selectedChat?._id === item._id ? 'active' : ''}`} onClick={() => openChat(item)}>
@@ -1037,9 +1106,14 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                           });
                         })();
 
+                        const rawText = (msg.content || '').replace(/<[^>]+>/g,'');
+                        const hasSpaces = /\s/.test(rawText);
+                        const isVeryLongUnbroken = rawText.length > 120 && !hasSpaces; // continuous string
+                        const bubbleMax = isVeryLongUnbroken ? 420 : 560; // narrower for unbroken
                         return (
                           <div key={`${String(msg._id)}-${idx}`} data-msg-index={idx} className={`modern-message-wrapper ${msg.isOwn ? 'own' : 'other'} ${searchMatches.includes(idx) ? 'search-hit' : ''}`}>
-                            <div className={`modern-message ${msg.isOwn ? 'own' : 'other'}`}>
+                            <div className={`modern-message ${msg.isOwn ? 'own' : 'other'}`}
+                                 style={{maxWidth: bubbleMax, width:'fit-content', wordBreak: isVeryLongUnbroken ? 'break-all' : 'break-word', overflowWrap:'anywhere'}}>
                               <div className="modern-message-content">
                                 {/* Forward label */}
                                 {msg.forwardOf && <div className="forward-label" style={{ fontSize:10, opacity:.6, marginBottom:2 }}>Forwarded</div>}

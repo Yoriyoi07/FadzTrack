@@ -423,10 +423,20 @@
 .modern-chat-messages {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1.5rem;
   background: #f8f9fa;
   position: relative;
 }
+
+/* Long message auto handling */
+.modern-message .msg-text { white-space: pre-wrap; overflow-wrap:anywhere; word-break:break-word; max-width:100%; }
+.modern-message .msg-text { overflow:hidden; }
+.modern-message .msg-text * { max-width:100%; }
+.modern-message .msg-text code, .modern-message .msg-text pre { white-space:pre-wrap; word-break:break-word; }
+@supports (text-wrap:balance) { .modern-message .msg-text { text-wrap:pretty; } }
+.modern-message-wrapper { position:relative; }
+.seen-details-tooltip { white-space:normal; max-height:300px; overflow-y:auto; }
 
 .messages-loading {
   text-align: center;
@@ -450,7 +460,8 @@
 
 .modern-message {
   position: relative;
-  max-width: 70%;
+  max-width: 560px;
+  width: fit-content;
   padding: 1rem 1.25rem;
   border-radius: 18px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);

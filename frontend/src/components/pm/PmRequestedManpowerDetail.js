@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
-import NotificationBell from '../NotificationBell';
+import AppHeader from '../layout/AppHeader';
 import {
   FaTachometerAlt, 
   FaComments, 
@@ -38,7 +38,7 @@ export default function PmRequestedManpowerDetail() {
   const userRole = user?.role;
   const [userName] = useState(() => user?.name || 'ALECK');
 
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  // profile menu logic removed (handled by AppHeader)
 
   // request + PM project
   const [request, setRequest] = useState(null);
@@ -58,23 +58,7 @@ export default function PmRequestedManpowerDetail() {
 
   const isPM = userRole === 'Project Manager';
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (!e.target.closest('.user-profile')) setProfileMenuOpen(false);
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
-  const handleLogout = () => {
-    api.post('/auth/logout', {}, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).finally(() => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      navigate('/');
-    });
-  };
+  // logout handled by AppHeader
 
   // load request
   useEffect(() => {
@@ -294,81 +278,7 @@ export default function PmRequestedManpowerDetail() {
 
   return (
     <div className="dashboard-container">
-      {/* Modern Header - Same as PM Dashboard */}
-      <header className="dashboard-header">
-        {/* Top Row: Logo and Profile */}
-        <div className="header-top">
-          <div className="logo-section">
-            <img
-              src={require('../../assets/images/FadzLogo1.png')}
-              alt="FadzTrack Logo"
-              className="header-logo"
-            />
-            <h1 className="header-brand">FadzTrack</h1>
-          </div>
-          
-          <div className="user-profile" onClick={() => setProfileMenuOpen(!profileMenuOpen)}>
-            <div className="profile-avatar">
-              {userName ? userName.charAt(0).toUpperCase() : 'P'}
-            </div>
-            <div className="profile-info">
-              <span className="profile-name">{userName}</span>
-              <span className="profile-role">{userRole}</span>
-            </div>
-            {profileMenuOpen && (
-              <div className="profile-dropdown">
-                <button onClick={handleLogout} className="logout-btn">
-                  <span>Logout</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Row: Navigation and Notifications */}
-        <div className="header-bottom">
-          <nav className="header-nav">
-            <Link to="/pm" className="nav-item">
-              <FaTachometerAlt />
-              <span>Dashboard</span>
-            </Link>
-            <Link to="/pm/chat" className="nav-item">
-              <FaComments />
-              <span>Chat</span>
-            </Link>
-            <Link to="/pm/request/:id" className="nav-item">
-              <FaBoxes />
-              <span>Material</span>
-            </Link>
-            <Link to="/pm/manpower-list" className="nav-item active">
-              <FaUsers />
-              <span>Manpower</span>
-            </Link>
-            {pmProject && (
-              <Link to={`/pm/viewprojects/${pmProject._id || pmProject.id}`} className="nav-item">
-                <FaProjectDiagram />
-                <span>View Project</span>
-              </Link>
-            )}
-            <Link to="/pm/daily-logs" className="nav-item">
-              <FaClipboardList />
-              <span>Logs</span>
-            </Link>
-            {pmProject && (
-              <Link to={`/pm/progress-report/${pmProject._id}`} className="nav-item">
-                <FaChartBar />
-                <span>Reports</span>
-              </Link>
-            )}
-            <Link to="/pm/daily-logs-list" className="nav-item">
-              <FaCalendarAlt />
-              <span>Daily Logs</span>
-            </Link>
-          </nav>
-          
-          <NotificationBell />
-        </div>
-      </header>
+      <AppHeader roleSegment="pm" />
 
       {/* Main Content Area */}
       <main className="dashboard-main">

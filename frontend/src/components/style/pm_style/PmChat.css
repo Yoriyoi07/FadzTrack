@@ -210,16 +210,24 @@
   color: #2c3e50;
 }
 
+/* Enlarged new group button for better accessibility */
 .modern-new-group-btn {
   background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
-  color: white;
+  color: #fff;
   border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 500;
+  padding: 0.65rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  line-height: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  min-width: 130px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  letter-spacing: .25px;
+  transition: background .25s ease, transform .2s ease, box-shadow .25s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,.15);
 }
 
 .modern-new-group-btn:hover {
@@ -438,10 +446,21 @@
 .modern-chat-messages {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden; /* prevent horizontal scroll */
   padding: 1.5rem;
   background: #f8f9fa;
   position: relative;
 }
+
+/* Long message auto handling */
+.modern-message .msg-text { white-space: pre-wrap; overflow-wrap:anywhere; word-break:break-word; max-width:100%; display:block; }
+/* Force break for extremely long tokens */
+.modern-message .msg-text { overflow:hidden; }
+.modern-message .msg-text * { max-width:100%; }
+.modern-message .msg-text code, .modern-message .msg-text pre { white-space:pre-wrap; word-break:break-word; }
+@supports (text-wrap:balance) { .modern-message .msg-text { text-wrap:pretty; } }
+.modern-message-wrapper { position:relative; }
+.seen-details-tooltip { white-space:normal; max-height:300px; overflow-y:auto; }
 
 .messages-loading {
   text-align: center;
@@ -466,7 +485,8 @@
 
 .modern-message {
   position: relative;
-  max-width: 70%;
+  max-width: 560px; /* fixed readable width */
+  width: fit-content;
   padding: 1rem 1.25rem;
   border-radius: 18px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
