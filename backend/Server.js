@@ -69,8 +69,8 @@ const corsDelegate = (req, cb) => {
   });
 };
 
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.use(cors(corsDelegate));
+app.options('*', cors(corsDelegate));
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
