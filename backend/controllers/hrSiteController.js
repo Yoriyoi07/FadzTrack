@@ -1,4 +1,5 @@
 const { logAction } = require('../utils/auditLogger');
+const Project = require('../models/Project');
 
 // Generate attendance report
 exports.generateAttendanceReport = async (req, res) => {
@@ -105,6 +106,119 @@ exports.getAttendanceReports = async (req, res) => {
     res.json(reports);
   } catch (error) {
     console.error('Error fetching attendance reports:', error);
+    res.status(500).json({ message: 'Failed to fetch attendance reports' });
+  }
+};
+
+// Get all attendance reports across all projects for HR users
+exports.getAllAttendanceReports = async (req, res) => {
+  try {
+    const { search, projectId, dateFrom, dateTo, sortBy = 'generatedAt', sortOrder = 'desc' } = req.query;
+    
+    // Build query for projects with attendance reports
+    let query = { attendanceReports: { $exists: true, $ne: [] } };
+    
+    if (projectId) {
+      query._id = projectId;
+    }
+    
+    // Get projects with attendance reports
+    const projects = await Project.find(query)
+      .select('projectName attendanceReports location startDate endDate')
+      .lean();
+    
+    // Flatten all attendance reports with project information
+    let allReports = [];
+    projects.forEach(project => {
+      if (project.attendanceReports && project.attendanceReports.length > 0) {
+        project.attendanceReports.forEach(report => {
+          allReports.push({
+            _id: report._id,
+            projectId: project._id,
+            projectName: project.projectName,
+            location: project.location || 'Unknown',
+            originalName: report.originalName,
+            inputPath: report.inputPath,
+            outputPath: report.outputPath,
+            generatedAt: report.generatedAt,
+            generatedBy: report.generatedBy,
+            uploadedByName: report.uploadedByName,
+            ai: report.ai,
+            projectStartDate: project.startDate,
+            projectEndDate: project.endDate
+          });
+        });
+      }
+    });
+    
+    // Apply search filter
+    if (search) {
+      const searchLower = search.toLowerCase();
+      allReports = allReports.filter(report => 
+        report.projectName.toLowerCase().includes(searchLower) ||
+        report.originalName.toLowerCase().includes(searchLower) ||
+        report.uploadedByName?.toLowerCase().includes(searchLower) ||
+        report.location.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Apply date filters
+    if (dateFrom) {
+      const fromDate = new Date(dateFrom);
+      allReports = allReports.filter(report => new Date(report.generatedAt) >= fromDate);
+    }
+    
+    if (dateTo) {
+      const toDate = new Date(dateTo);
+      toDate.setHours(23, 59, 59, 999); // Include the entire day
+      allReports = allReports.filter(report => new Date(report.generatedAt) <= toDate);
+    }
+    
+    // Apply sorting
+    allReports.sort((a, b) => {
+      let aValue = a[sortBy];
+      let bValue = b[sortBy];
+      
+      if (sortBy === 'generatedAt') {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      }
+      
+      if (sortOrder === 'desc') {
+        return bValue > aValue ? 1 : -1;
+      } else {
+        return aValue > bValue ? 1 : -1;
+      }
+    });
+    
+    // Log the action
+    try {
+      await logAction({
+        action: 'VIEW_ALL_ATTENDANCE_REPORTS',
+        performedBy: req.user?.id,
+        performedByRole: req.user?.role || 'HR',
+        description: `Viewed all attendance reports with filters: search="${search}", projectId="${projectId}", dateFrom="${dateFrom}", dateTo="${dateTo}"`,
+        meta: { 
+          totalReports: allReports.length,
+          search,
+          projectId,
+          dateFrom,
+          dateTo,
+          sortBy,
+          sortOrder
+        }
+      });
+    } catch (logErr) {
+      console.error('Audit log error (getAllAttendanceReports):', logErr);
+    }
+    
+    res.json({
+      reports: allReports,
+      total: allReports.length,
+      filters: { search, projectId, dateFrom, dateTo, sortBy, sortOrder }
+    });
+  } catch (error) {
+    console.error('Error fetching all attendance reports:', error);
     res.status(500).json({ message: 'Failed to fetch attendance reports' });
   }
 };

@@ -534,12 +534,12 @@ export default function HrManpowerList() {
         roleSegment="hr"
         onLogout={handleLogout}
         overrideNav={[
-          { to:'/hr', label:'Dashboard', icon:<FaTachometerAlt/>, match:'/hr' },
+          { to:'/hr/dash', label:'Dashboard', icon:<FaTachometerAlt/>, match:'/hr/dash' },
           { to:'/hr/chat', label:'Chat', icon:<FaComments/>, match:'/hr/chat' },
           { to:'/hr/mlist', label:'Manpower', icon:<FaUsers/>, match:'/hr/mlist' },
           { to:'/hr/movement', label:'Movement', icon:<FaExchangeAlt/>, match:'/hr/movement' },
           { to:'/hr/project-records', label:'Projects', icon:<FaProjectDiagram/>, match:'/hr/project-records' },
-          // Requests & Reports removed
+          { to:'/hr/attendance', label:'Attendance', icon:<FaCalendarAlt/>, match:'/hr/attendance' }
         ]}
       />
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import NotificationBell from '../NotificationBell';
-import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaBoxes, FaUsers, FaClipboardList as FaLogs, FaChartBar, FaExchangeAlt } from 'react-icons/fa';
+import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaBoxes, FaUsers, FaClipboardList as FaLogs, FaChartBar, FaExchangeAlt, FaCalendarAlt } from 'react-icons/fa';
 import '../style/pic_style/PicHeader.css'; // reuse base styles
 import api from '../../api/axiosInstance';
 import { io } from 'socket.io-client';
@@ -75,7 +75,7 @@ const ROLE_NAV = {
     { to:'/hr/mlist', label:'Manpower', icon:<FaUsers/>, match:'/hr/mlist' },
     { to:'/hr/movement', label:'Movement', icon:<FaExchangeAlt/>, match:'/hr/movement' },
     { to:'/hr/project-records', label:'Projects', icon:<FaProjectDiagram/>, match:'/hr/project-records' },
-  // Requests & Reports removed per latest requirement
+    { to:'/hr/attendance', label:'Attendance', icon:<FaCalendarAlt/>, match:'/hr/attendance' }
   ]
 };
 

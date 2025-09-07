@@ -5,13 +5,16 @@ import axios from 'axios';
 const baseURL = (
   process.env.REACT_APP_API_URL ||
   process.env.REACT_APP_API_BASE_URL ||
-  'https://fadztrack.onrender.com/api'
+  (process.env.NODE_ENV === 'development' ? 'http://localhost:5000/api' : 'https://fadztrack.onrender.com/api')
 ).replace(/\/+$/, '');
 
 const api = axios.create({
   baseURL,
   withCredentials: true, // send cookies (refresh, trust)
 });
+
+// Debug: Log the base URL being used
+console.log('API Base URL:', baseURL);
 
 // Plain client for refresh (no interceptors to avoid recursion)
 const refreshClient = axios.create({

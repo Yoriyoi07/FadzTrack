@@ -85,6 +85,7 @@ import HrManpowerRequestDetail from './hr/HrManpowerRequestDetail';
 import HrChat from './chats/HrChat';
 import HrManpowerRequestList from './hr/HrManpowerRequestList';
 import HrViewProject from './hr/HrViewProject';
+import HrAttendance from './hr/HrAttendance';
 
 // STAFF
 import StaffCurrentProject from './staff/StaffCurrentProject';
@@ -209,6 +210,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/hr/chat" element={<HrChat />} />
         <Route path="/hr/chat/:chatId" element={<HrChat />} />
         <Route path="/hr/manpower-requests" element={<HrManpowerRequestList />} />
+        <Route path="/hr/attendance" element={<HrAttendance />} />
       </Route>
 
       {/* Staff-only */}
