@@ -26,6 +26,32 @@ import {
 } from 'react-icons/fa';
 import '../style/pm_style/Pm_ManpowerRequestDetail.css';
 
+// IT-style helper functions and styles
+const inputStyle = { width:'100%', padding:'10px 12px', border:'1px solid #d1d5db', borderRadius:6, fontSize:14 };
+const pill = (bg, color='#111827') => ({ background:bg, color, padding:'4px 10px', borderRadius:20, fontSize:12, fontWeight:600, display:'inline-flex', alignItems:'center', gap:6 });
+const labelStyle = { display:'block', fontWeight:600, marginBottom:6, fontSize:13, letterSpacing:'.25px', color:'#374151' };
+const valueBox = { padding:'12px 14px', border:'1px solid #e5e7eb', borderRadius:8, background:'#fff', fontSize:14, minHeight:44, display:'flex', alignItems:'center' };
+const btn = (variant) => {
+  const base = { display:'inline-flex', alignItems:'center', gap:8, padding:'10px 18px', fontSize:14, fontWeight:600, borderRadius:8, border:'none', cursor:'pointer' };
+  switch(variant){
+    case 'primary': return { ...base, background:'#2563eb', color:'#fff' };
+    case 'danger': return { ...base, background:'#dc2626', color:'#fff' };
+    case 'neutral': return { ...base, background:'#6b7280', color:'#fff' };
+    default: return { ...base, background:'#e5e7eb', color:'#111827' };
+  }
+};
+
+const getStatusBadgeStyle = (status) => {
+  const statusColors = {
+    Pending: pill('#fef3c7', '#92400e'),
+    Approved: pill('#dcfce7', '#065f46'),
+    Overdue: pill('#fee2e2', '#991b1b'),
+    Completed: pill('#e0f2fe', '#075985'),
+    Rejected: pill('#fee2e2', '#991b1b')
+  };
+  return statusColors[status] || pill('#e5e7eb');
+};
+
 export default function PmRequestedManpowerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -280,31 +306,60 @@ export default function PmRequestedManpowerDetail() {
     <div className="dashboard-container">
       <AppHeader roleSegment="pm" />
 
-      {/* Main Content Area */}
       <main className="dashboard-main">
-        <div className="content-wrapper">
-          {/* Page Header */}
-          <div className="page-header">
-            <div className="page-header-content">
-              <button 
-                onClick={() => navigate('/pm/manpower-list')} 
-                className="back-button"
-              >
-                <FaArrowLeft />
-                <span>Back to Manpower List</span>
-              </button>
-              <div className="page-title-section">
-                <h1 className="page-title">
-                  Manpower Request Details
-                </h1>
-                <p className="page-subtitle">
-                  Review and manage manpower request #{request.requestNumber || id?.slice(-3)}
-                </p>
+        <div className="form-container" style={{ maxWidth:900, margin:'40px auto', background:'#fff', borderRadius:16, padding:'32px 40px', boxShadow:'0 4px 16px rgba(0,0,0,0.06)' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:24 }}>
+            <div>
+              <h2 style={{ margin:0, fontSize:30, fontWeight:700 }}>Manpower Request #{(request._id || '').slice(-5)}</h2>
+              <div style={{ marginTop:8, fontSize:14, color:'#4b5563' }}>
+                Project: <strong>{request.project?.projectName || 'N/A'}</strong> &nbsp;•&nbsp; Requested by {request.createdBy?.name}
               </div>
+              <div style={{ marginTop:12 }}>
+                <span style={getStatusBadgeStyle(request.status)}>{request.status}</span>
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+              <button onClick={()=>navigate('/pm/manpower-list')} style={btn('secondary')}>Back</button>
+              {isMine && !isApproved && (
+                <button onClick={()=>navigate(`/pm/manpower-request/${id}?edit=1`)} style={btn('primary')}><FaEdit/> Edit</button>
+              )}
+              {isMine && (
+                <button disabled={busy} onClick={handleCancel} style={btn('danger')}>{busy? 'Deleting...' : 'Delete'}</button>
+              )}
             </div>
           </div>
 
-          {/* Request Details Container */}
+          {/* Content Sections */}
+          <div style={{ marginTop:32, display:'grid', gap:32, gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))' }}>
+            <div>
+              <label style={labelStyle}>Target Acquisition Date</label>
+              <div style={valueBox}>{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</div>
+            </div>
+            <div>
+              <label style={labelStyle}>Duration (days)</label>
+              <div style={valueBox}>{request.duration} days</div>
+            </div>
+            <div>
+              <label style={labelStyle}>Project</label>
+              <div style={{ ...valueBox, background:'#f3f4f6' }}>{request.project?.projectName || '—'}</div>
+            </div>
+          </div>
+
+          <div style={{ marginTop:40 }}>
+            <label style={labelStyle}>Manpower Needed</label>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:12 }}>
+              {request.manpowers?.length ? request.manpowers.map((m,i)=>(
+                <span key={i} style={pill('#eef2ff', '#3730a3')}>{m.quantity} {m.type}</span>
+              )) : <span style={{ color:'#6b7280' }}>No manpower entries</span>}
+            </div>
+          </div>
+
+          <div style={{ marginTop:40 }}>
+            <label style={labelStyle}>Description / Purpose</label>
+            <div style={{ ...valueBox, minHeight:80 }}>{request.description || 'No description provided'}</div>
+          </div>
+
+          {/* PM-specific functionality */}
           <div className="request-details-container">
                          {/* Status Banner */}
              <div className={`status-banner ${request.status?.toLowerCase()}`}>
@@ -694,8 +749,47 @@ export default function PmRequestedManpowerDetail() {
               </div>
             </div>
           )}
+
+          <AuditTrail requestId={request._id} />
         </div>
       </main>
     </div>
   );
 }
+
+// Audit trail component (inline fetch)
+const AuditTrail = ({ requestId }) => {
+  const [logs, setLogs] = React.useState([]);
+  const [open, setOpen] = React.useState(false);
+  const token = localStorage.getItem('token');
+  useEffect(() => {
+    if (!open) return;
+    const fetchLogs = async () => {
+      try {
+        const { data } = await api.get('/audit-logs', { headers:{ Authorization:`Bearer ${token}` } });
+        // Filter to those referencing this request
+        const filtered = data.filter(l => l.meta?.requestId === requestId);
+        setLogs(filtered);
+      } catch(e){ console.error('Audit fetch failed', e); }
+    };
+    fetchLogs();
+  }, [open, requestId, token]);
+
+  return (
+    <div style={{ marginTop:48 }}>
+      <button onClick={()=>setOpen(o=>!o)} style={{ ...btn('neutral'), background:'#f3f4f6', color:'#111827' }}>{open? 'Hide' : 'Show'} Audit Log</button>
+      {open && (
+        <div style={{ marginTop:16, maxHeight:260, overflowY:'auto', border:'1px solid #e5e7eb', borderRadius:12, padding:16, background:'#fafafa' }}>
+          {logs.length === 0 && <div style={{ fontSize:13, color:'#6b7280' }}>No audit entries for this request.</div>}
+          {logs.map(l => (
+            <div key={l._id || l.timestamp} style={{ padding:'10px 12px', borderBottom:'1px solid #e5e7eb', fontSize:13, lineHeight:1.4 }}>
+              <div style={{ fontWeight:600 }}>{l.action}</div>
+              <div style={{ color:'#374151' }}>{l.description}</div>
+              <div style={{ color:'#6b7280', fontSize:12, marginTop:4 }}>{new Date(l.timestamp).toLocaleString()} • {l.performedBy?.name} ({l.performedByRole})</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};

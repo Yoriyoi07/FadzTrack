@@ -47,8 +47,31 @@
 .ceo-mr-header-card .card-subtitle { margin:.35rem 0 0 0; font-size:.85rem; color:var(--mr-muted); font-weight:500; }
 .ceo-mr-header-card .card-body { padding:0 .9rem 1rem 1.4rem; display:flex; gap:1rem; flex-wrap:wrap; align-items:center; }
 
+/* Horizontal Controls Layout */
+.ceo-manpower-requests-page .horizontal-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+
+.ceo-manpower-requests-page .mr-filters-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
 /* Filter Tabs */
-.ceo-manpower-requests-page .filter-tabs { background:#f1f5f9; padding:.3rem; border-radius:50px; display:flex; gap:.4rem; border:1px solid var(--mr-border); }
+.ceo-manpower-requests-page .filter-tabs { 
+  background:#f1f5f9; 
+  padding:.3rem; 
+  border-radius:50px; 
+  display:flex; 
+  gap:.4rem; 
+  border:1px solid var(--mr-border);
+  flex-shrink: 0;
+}
 .ceo-manpower-requests-page .filter-tab { position:relative; background:transparent; border:none; padding:.55rem .9rem; font-size:.75rem; font-weight:600; color:var(--mr-muted); border-radius:30px; cursor:pointer; transition:.18s background, .18s color; display:flex; align-items:center; gap:.45rem; }
 .ceo-manpower-requests-page .filter-tab:hover { background:#e2e8f0; color:#334155; }
 .ceo-manpower-requests-page .filter-tab.active { background:#2563eb; color:#fff; box-shadow:0 2px 6px rgba(37,99,235,.35); }
@@ -56,15 +79,117 @@
 .ceo-manpower-requests-page .filter-tab.active .count { background:rgba(255,255,255,.15); color:#fff; box-shadow:none; }
 
 /* Search */
+.ceo-manpower-requests-page .search-wrapper { 
+  flex: 1 1 260px; 
+  max-width: 420px; 
+  position: relative;
+  min-width: 200px;
+}
 .ceo-manpower-requests-page .search-wrapper.stretch { flex:1 1 260px; max-width:420px; position:relative; }
 .ceo-manpower-requests-page .search-input { width:100%; border:1px solid var(--mr-border); background:#fff; padding:.7rem .9rem .7rem 2.4rem; font-size:.8rem; border-radius:10px; transition:.18s border, .18s box-shadow, .18s background; }
 .ceo-manpower-requests-page .search-input:focus { outline:none; border-color:#2563eb; box-shadow:var(--mr-focus); background:#fff; }
 .ceo-manpower-requests-page .search-icon { left:12px; }
 
+/* View Mode Toggle */
+.ceo-manpower-requests-page .view-mode-toggle {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 2px;
+  border: 1px solid var(--mr-border);
+  flex-shrink: 0;
+}
+
+.ceo-manpower-requests-page .view-mode-btn {
+  background: transparent;
+  border: none;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--mr-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.ceo-manpower-requests-page .view-mode-btn.active {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(37,99,235,.35);
+}
+
+/* Layout Toggle */
+.ceo-manpower-requests-page .layout-toggle {
+  display: flex;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 2px;
+  border: 1px solid var(--mr-border);
+  flex-shrink: 0;
+}
+
+.ceo-manpower-requests-page .layout-btn {
+  background: transparent;
+  border: none;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--mr-muted);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ceo-manpower-requests-page .layout-btn.active {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(37,99,235,.35);
+}
+
 /* Toggle Layout Btn */
 .toggle-layout-btn { background:#fff; border:1px solid var(--mr-border); padding:.55rem .95rem; border-radius:10px; font-size:.72rem; font-weight:600; color:#334155; cursor:pointer; display:inline-flex; align-items:center; gap:.4rem; transition:.18s box-shadow, .18s transform; }
 .toggle-layout-btn:hover { box-shadow:0 2px 8px rgba(0,0,0,.08); transform:translateY(-1px); }
 .toggle-layout-btn:active { transform:none; }
+
+/* Responsive Design for Horizontal Controls */
+@media (max-width: 1200px) {
+  .ceo-manpower-requests-page .horizontal-controls {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  
+  .ceo-manpower-requests-page .search-wrapper {
+    flex: 1 1 200px;
+    min-width: 180px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ceo-manpower-requests-page .horizontal-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  
+  .ceo-manpower-requests-page .filter-tabs {
+    order: 1;
+    justify-content: center;
+  }
+  
+  .ceo-manpower-requests-page .search-wrapper {
+    order: 2;
+    flex: none;
+    max-width: none;
+  }
+  
+  .ceo-manpower-requests-page .view-mode-toggle,
+  .ceo-manpower-requests-page .layout-toggle {
+    order: 3;
+    align-self: center;
+  }
+}
 
 /* Summary Grid */
 .mr-summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem; padding:1rem 1.25rem 1.25rem 1.25rem; }
@@ -84,13 +209,33 @@
 .ceo-mr-card.request-card { border:1px solid var(--mr-border); background:#ffffff; border-radius:12px; box-shadow:var(--mr-shadow); display:flex; flex-direction:column; transition:.22s box-shadow, .22s transform, .22s border; }
 .ceo-mr-card.request-card:hover { box-shadow:var(--mr-shadow-hover); transform:translateY(-2px); }
 .ceo-mr-card .card-body { padding:.85rem .95rem .5rem .95rem; flex:1 1 auto; display:flex; flex-direction:column; }
+.ceo-mr-card .card-body .request-meta { 
+  padding-right:0; 
+  margin-right:-0.95rem; 
+  margin-left:-0.95rem;
+  padding-left:0.95rem;
+  padding-right:0.95rem;
+  width:calc(100% + 1.9rem);
+  box-sizing:border-box;
+}
 .ceo-mr-card .mr-card-top-row { display:flex; justify-content:space-between; align-items:flex-start; gap:.6rem; }
 .ceo-mr-card .request-title { margin:0; font-size:.9rem; letter-spacing:.4px; font-weight:700; color:#0f172a; line-height:1.15; flex:1; }
 .ceo-mr-card .request-description { font-size:.68rem; color:var(--mr-muted); margin:.45rem 0 .55rem; line-height:1.3; min-height:1.3em; }
-.ceo-mr-card .request-meta { display:grid; gap:.35rem; font-size:.64rem; margin-top:auto; }
-.ceo-mr-card .meta-item { display:flex; justify-content:space-between; gap:.5rem; }
+.ceo-mr-card .request-meta { display:grid; gap:.35rem; font-size:.64rem; margin-top:auto; padding-right:0; }
+.ceo-mr-card .meta-item { 
+  display:flex; 
+  justify-content:space-between; 
+  align-items:center; 
+  width:100%;
+  box-sizing:border-box;
+}
 .ceo-mr-card .meta-label { font-weight:600; color:#475569; }
-.ceo-mr-card .meta-value { font-weight:600; color:#1e293b; max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ceo-mr-card .meta-value { 
+  font-weight:600; 
+  color:#1e293b; 
+  text-align:right;
+  flex-shrink: 0;
+}
 .ceo-mr-card .card-footer { padding:.65rem .95rem .85rem; margin-top:.4rem; }
 .ceo-mr-card .view-details-btn { width:100%; background:#2563eb; border:none; border-radius:8px; font-size:.65rem; font-weight:600; letter-spacing:.5px; padding:.55rem .9rem; color:#fff; text-align:center; text-decoration:none; display:inline-block; box-shadow:0 2px 8px rgba(37,99,235,.35); transition:.2s background, .2s box-shadow, .2s transform; }
 .ceo-mr-card .view-details-btn:hover { background:#1d4ed8; transform:translateY(-1px); }
@@ -157,6 +302,10 @@
 
 .ceo-mr-card .rejection-info .meta-item {
   margin-bottom: .25rem;
+  display: flex;
+  justify-content: space-between;
+  gap: .5rem;
+  align-items: center;
 }
 
 .ceo-mr-card .rejection-list {
