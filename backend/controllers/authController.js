@@ -20,7 +20,10 @@ const REFRESH_TTL_SEC = Number(process.env.REFRESH_TTL_SEC || 30 * 24 * 60 * 60)
 const TRUST_TTL_SEC   = Number(process.env.TRUST_TTL_SEC   || 30 * 24 * 60 * 60);      // 30d
 
 // Frontend base URL (production domain default, overridable via env)
-const FRONTEND_BASE_URL = process.env.FRONTEND_URL || 'https://fadztrack.online';
+const PROD_DOMAIN = 'https://fadztrack.online';
+const FRONTEND_BASE_URL = (process.env.FORCE_PROD_LINKS === 'true')
+  ? PROD_DOMAIN
+  : (process.env.FRONTEND_URL || PROD_DOMAIN);
 // Short refresh lifetime (when user does NOT remember device)
 const SHORT_REFRESH = Number(process.env.SHORT_REFRESH_TTL_SEC || 7 * 24 * 60 * 60); // 7d
 
@@ -94,6 +97,10 @@ function clearRefreshCookie(req, res) {
 }
 
 async function sendEmailLink(to, subject, linkText, linkURL, buttonText = 'Activate Account') {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('[MAIL] Missing EMAIL_USER/EMAIL_PASS env vars. Cannot send email. Intended link:', linkURL);
+    return { sent:false, skipped:true };
+  }
   const t = makeTransport();
   const html = `
     <div style="font-family: Arial,sans-serif;">
@@ -101,8 +108,17 @@ async function sendEmailLink(to, subject, linkText, linkURL, buttonText = 'Activ
       <p>${linkText}</p>
       <p><a href="${linkURL}" style="background:#007bff;color:#fff;padding:10px 18px;border-radius:4px;text-decoration:none;">${buttonText}</a></p>
       <p>If the button doesn't work, open: <a href="${linkURL}">${linkURL}</a></p>
+      <hr style="margin:24px 0;opacity:.25" />
+      <small style="color:#666">If you did not request this, you can ignore this email.</small>
     </div>`;
-  await t.sendMail({ from: '"FadzTrack" <no-reply@fadztrack.com>', to, subject, html });
+  try {
+    const info = await t.sendMail({ from: '"FadzTrack" <no-reply@fadztrack.com>', to, subject, html });
+    if (!isProd) console.log(`[MAIL DEBUG] Sent ${subject} to ${to}. Link: ${linkURL} (msgId=${info.messageId})`);
+    return { sent:true };
+  } catch (err) {
+    console.error('[MAIL ERROR] Failed to send email:', err.message, 'Link:', linkURL);
+    return { sent:false, error:err };
+  }
 }
 
 async function sendTwoFACode(email, code) {
@@ -164,6 +180,10 @@ async function deleteUser(req, res) {
 }
 
 // ───────────── Register / Activate / Reset ─────────────
+function passwordMeetsPolicy(pw = '') {
+  // At least one uppercase letter and one digit (existing min length handled by client or can extend here)
+  return /[A-Z]/.test(pw) && /\d/.test(pw) && pw.length >= 6;
+}
 async function registerUser(req, res) {
   try {
     const { name, email, phone, role } = req.body;
@@ -181,15 +201,15 @@ async function registerUser(req, res) {
     const activationToken = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
   const activationLink = `${FRONTEND_BASE_URL}/activate-account?token=${activationToken}`;
 
-    await sendEmailLink(
+    const mailResult = await sendEmailLink(
       user.email,
       'Activate Your FadzTrack Account',
       'Click below to set your password and activate your account:',
       activationLink,
       'Activate Account'
     );
-
-  res.status(201).json({ msg: 'Activation link sent to email', activationLink, user: { name, email, role, phone } });
+    if (!isProd) console.log('[ACTIVATION LINK DEBUG]', activationLink);
+  res.status(201).json({ msg: mailResult?.sent ? 'Activation link sent to email' : 'Activation link generated', activationLink, emailSent: !!mailResult?.sent, user: { name, email, role, phone } });
   } catch (err) {
     res.status(500).json({ msg: 'Registration failed', err });
   }
@@ -198,6 +218,9 @@ async function registerUser(req, res) {
 async function activateAccount(req, res) {
   try {
     const { token, password } = req.body;
+    if (!passwordMeetsPolicy(password)) {
+      return res.status(400).json({ msg: 'Password must be at least 6 chars and include at least one uppercase letter and one number.' });
+    }
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findOne({ email: decoded.email });
     if (!user) return res.status(404).json({ msg: 'User not found' });
@@ -222,15 +245,15 @@ async function resetPasswordRequest(req, res) {
     const resetToken = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '15m' });
   const resetLink = `${FRONTEND_BASE_URL}/reset-password?token=${resetToken}`;
 
-    await sendEmailLink(
+    const mailResult = await sendEmailLink(
       user.email,
       'Reset Your Password',
       'Click below to reset your password:',
       resetLink,
       'Reset Password'
     );
-
-  res.json({ msg: 'Password reset link sent to email', resetLink });
+    if (!isProd) console.log('[RESET LINK DEBUG]', resetLink);
+  res.json({ msg: mailResult?.sent ? 'Password reset link sent to email' : 'Password reset link generated', resetLink, emailSent: !!mailResult?.sent });
   } catch (err) {
     res.status(500).json({ msg: 'Failed to send reset email' });
   }
@@ -239,6 +262,9 @@ async function resetPasswordRequest(req, res) {
 async function resetPassword(req, res) {
   try {
     const { token, newPassword } = req.body;
+    if (!passwordMeetsPolicy(newPassword)) {
+      return res.status(400).json({ msg: 'Password must be at least 6 chars and include at least one uppercase letter and one number.' });
+    }
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findOne({ email: decoded.email });
     if (!user) return res.status(404).json({ msg: 'User not found' });

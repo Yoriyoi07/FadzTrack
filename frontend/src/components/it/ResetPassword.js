@@ -15,8 +15,13 @@ const ResetPassword = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const policyOk = /[A-Z]/.test(password) && /\d/.test(password) && password.length >= 6;
     if (!password || password !== confirm) {
       setError('Passwords must match and not be empty');
+      return;
+    }
+    if (!policyOk) {
+      setError('Password must be at least 6 characters and include an uppercase letter and a number.');
       return;
     }
     try {
@@ -108,6 +113,14 @@ const ResetPassword = () => {
           </div>
 
           {error && <div className="error-message">{error}</div>}
+
+          {!error && password && (
+            <div style={{ fontSize:12, marginTop:4 }}>
+              <span style={{ display:'block', color: /[A-Z]/.test(password) ? '#2f855a' : '#b91c1c' }}>• At least one uppercase letter {/[A-Z]/.test(password) ? '✓' : ''}</span>
+              <span style={{ display:'block', color: /\d/.test(password) ? '#2f855a' : '#b91c1c' }}>• At least one number {/\d/.test(password) ? '✓' : ''}</span>
+              <span style={{ display:'block', color: password.length >= 6 ? '#2f855a' : '#b91c1c' }}>• Minimum 6 characters {password.length >= 6 ? '✓' : ''}</span>
+            </div>
+          )}
 
           <button type="submit" className="submit-button">
             Set New Password
