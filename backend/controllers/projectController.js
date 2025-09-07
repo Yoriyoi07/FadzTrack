@@ -50,6 +50,42 @@ const collectProjectMembers = (project) => {
 };
 /* --------------------------------------------------------- */
 
+
+function monthName(n) {
+  return [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December'
+  ][Math.max(0, Math.min(11, n))];
+}
+
+function deriveMonthYearFromFilename(name = '') {
+  // Looks for things like "APRIL-2025" or "April 2025" in the filename
+  const m = String(name).match(/\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC)[A-Z]*[^\w]?[- ]?([12]\d{3})\b/i)
+         || String(name).match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s*[- ]?\s*([12]\d{3})\b/i);
+  if (!m) return null;
+
+  const monthMap = {
+    JAN:0, FEB:1, MAR:2, APR:3, MAY:4, JUN:5,
+    JUL:6, AUG:7, SEP:8, SEPT:8, OCT:9, NOV:10, DEC:11
+  };
+  let monStr = m[1].toUpperCase();
+  if (monthMap[monStr] == null) {
+    // full name to index
+    const idx = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY',
+                 'AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'].indexOf(monStr);
+    if (idx >= 0) monStr = Object.keys(monthMap)[idx]; // not really used, just guards
+  }
+  const monIdx =
+    monthMap[monStr] ??
+    ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE','JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER']
+      .indexOf(monStr);
+  const year = parseInt(m[2], 10);
+  if (monIdx >= 0 && Number.isFinite(year)) {
+    return { monthIndex: monIdx, year, text: `${monthName(monIdx).toUpperCase()} ${year}` };
+  }
+  return null;
+}
+
 /* ------------------ small filename & doc helpers ------------------ */
 function extractOriginalNameFromPath(path = '') {
   const base = (path || '').split('/').pop() || '';
@@ -1943,14 +1979,18 @@ function parseAttendanceWorkbook(buf){
     chosen = { sheetName: sn, rows2d: XLSX.utils.sheet_to_json(ws, { header:1, blankrows:false }), headerIdx: 0 };
   }
   const { sheetName, rows2d, headerIdx } = chosen;
-  const header = rows2d[headerIdx] || [];
+const header = rows2d[headerIdx] || [];
 
-  const STATIC_COLS = new Set(['NAME','POSITION','P','L','A','AL','EO','SE','R','HD','ATTENDANCE','ATTENDANCE%','ATTENDANCE RATE']);
-  const idColIdx = header.findIndex(c => /\bID\b/i.test(String(c)));
+const STATIC_COLS = new Set(['NAME','POSITION','P','L','A','AL','EO','SE','R','HD','ATTENDANCE','ATTENDANCE%','ATTENDANCE RATE']);
+  const idColIdx   = header.findIndex(c => /\bID\b/i.test(String(c)));
   const nameColIdx = header.findIndex(c => /name/i.test(String(c)));
-  const deptIdx = header.findIndex(c => /department/i.test(String(c)));
-  const cardIdx = header.findIndex(c => /card\s*number/i.test(String(c)));
+  const deptIdx    = header.findIndex(c => /department/i.test(String(c)));
+  const cardIdx    = header.findIndex(c => /card\s*number/i.test(String(c)));
 
+  // NEW: find a Position column by common variants
+  const posIdx = header.findIndex(c =>
+    /position|role|designation|job\s*title|title/i.test(String(c || ''))
+  );
   // If header already contains a Day 1 column, start scanning from there; else use last static column +1
   let firstDayIdx = header.findIndex(c => /day\s*1/i.test(String(c||'')));
   if(firstDayIdx === -1){
@@ -2021,21 +2061,25 @@ function parseAttendanceWorkbook(buf){
   }
 
   const rows = [];
-  for(let i = headerIdx + 1; i < rows2d.length; i++){
+  for (let i = headerIdx + 1; i < rows2d.length; i++) {
     const row = rows2d[i];
-    if(!row || row.every(c => c == null || String(c).trim()==='')) continue;
-    const name = nameColIdx >=0 ? row[nameColIdx] : row[1];
-  if(!name || String(name).trim()==='') continue;
-  if(/^summary$/i.test(String(name).trim())) continue; // skip summary aggregation row
-    const id = idColIdx >=0 ? row[idColIdx] : undefined;
+    if (!row || row.every(c => c == null || String(c).trim() === '')) continue;
+
+    const name = nameColIdx >= 0 ? row[nameColIdx] : row[1];
+    if (!name || String(name).trim() === '') continue;
+    if (/^summary$/i.test(String(name).trim())) continue;
+
+    const id       = idColIdx >= 0 ? row[idColIdx] : undefined;
+    const position = posIdx   >= 0 ? String(row[posIdx] || '').trim() : ''; // <— NEW
+
     const daysRaw = {};
     dayGroups.forEach(g => {
       const values = [];
-      for(const idx of g.idxList){
+      for (const idx of g.idxList) {
         const v = row[idx];
-        if(v != null && String(v).trim() !== '') values.push(String(v).trim());
+        if (v != null && String(v).trim() !== '') values.push(String(v).trim());
       }
-      if(!values.length) return;
+      if (!values.length) return;
       // Prefer a time-looking value over a bare code 'A'/'P' etc. to avoid defaulting to Absent when time exists in second column
       const timeRegexes = [/(\d{1,2}):(\d{2})/,/(\d{3,4})$/,/(\d{1,2})\s*[-/]\s*(\d{1,2})/,/(AM|PM)$/i];
       let chosen = null;
@@ -2049,10 +2093,11 @@ function parseAttendanceWorkbook(buf){
       }
       daysRaw[g.name] = chosen;
     });
+
     if(process.env.ATT_DEBUG && rows.length < 5){
       console.log('[ATT DEBUG] Row parsed', { name: String(name).trim(), daysRaw });
     }
-    rows.push({ id, name: String(name).trim(), daysRaw });
+    rows.push({ id, name: String(name).trim(),position, daysRaw });
   }
   return { rows, dayCols: dayGroups.map(d=> d.name) };
 }
@@ -2154,69 +2199,192 @@ function enrichAttendance(parsed){
   return { enriched, summary };
 }
 
-async function buildAttendanceWorkbook(parsed, aiSummary){
-  const { enriched, summary } = enrichAttendance(parsed);
-  const dayCols = parsed.dayCols;
+async function buildAttendanceWorkbook(parsed, aiSummary, opts = {}) {
+  const now = new Date();
+  const byFilename = opts.sourceFilename ? deriveMonthYearFromFilename(opts.sourceFilename) : null;
+  const monthIndex = byFilename?.monthIndex ?? now.getMonth();
+  const year = byFilename?.year ?? now.getFullYear();
+  const titleText = `ATTENDANCE MONITORING — ${monthName(monthIndex).toUpperCase()} ${year}`;
+  const createdStamp = `Created on: ${monthName(now.getMonth())} ${now.getDate()}, ${now.getFullYear()}`;
+
+  // Prepare data (we’ll just render codes like the reference sheet)
+  const { enriched } = enrichAttendance(parsed);
+  const dayCols = parsed.dayCols || []; // e.g. ["Day 1","Day 2",...]
+  const dayLabels = dayCols.map(d => String(d).replace(/^Day\s+/i, '').trim()); // ["1","2",...]
+
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Attendance');
-  const header = ['Name','Position','P','L','A','AL','EO','SE','R','HD','Attendance%', ...dayCols];
-  ws.addRow(header);
-  ws.getRow(1).eachCell(c=>{ c.font={ bold:true, color:{argb:'FFFFFFFF'} }; c.fill={ type:'pattern', pattern:'solid', fgColor:{argb:'FF1E293B'} }; c.alignment={ vertical:'middle', horizontal:'center' }; });
-  const colorMap = { P:'FFDCFCE7', L:'FFFDE68A', A:'FFFCA5A5', AL:'FFDDD6FE', EO:'FFE0F2FE', SE:'FFF5D0FE', R:'FFD1FAE5', HD:'FFFAE8B4' };
-  enriched.forEach(r => {
-    const position = '';
-    const base = [r.name, position, r.totals.P, r.totals.L, r.totals.A, r.totals.AL, r.totals.EO, r.totals.SE, r.totals.R, r.totals.HD, r.attendanceRate];
-  const dayVals = dayCols.map(d => { const c = r.days[d]; return c ? c.code : ''; });
-    const row = ws.addRow([...base, ...dayVals]);
-    dayCols.forEach((d, idx) => {
-      const code = r.days[d]?.code;
-      if(code && colorMap[code]){
-        const excelCell = row.getCell(header.length - dayCols.length + idx);
-        excelCell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb: colorMap[code] } };
-      }
-    });
+
+  // --- Colors (ARGB), fixed palette to avoid “black” cells ---
+  const colorMap = {
+    P:  'FFDCFCE7', // green
+    L:  'FFFDE68A', // yellow
+    A:  'FFFCA5A5', // red
+    AL: 'FFDDD6FE', // purple
+    EO: 'FFE0F2FE', // light blue
+    SE: 'FFF5D0FE', // pink-violet
+    R:  'FFD1FAE5', // teal/green
+    HD: 'FFFAE8B4', // tan
+  };
+
+  const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+  const headerFont = { bold: true, color: { argb: 'FFFFFFFF' } };
+  const thin = { style: 'thin', color: { argb: 'FF94A3B8' } };
+  const border = { top: thin, left: thin, right: thin, bottom: thin };
+
+  // --- Column widths ---
+  const firstDayCol = 3;
+  const lastDayCol = firstDayCol + dayLabels.length - 1;
+  ws.getColumn(1).width = 28; // Name
+  ws.getColumn(2).width = 18; // Position
+  for (let c = firstDayCol; c <= lastDayCol; c++) ws.getColumn(c).width = 5;
+
+  // Legend immediately after days, with one spacer column
+  const legendSwatchCol = lastDayCol + 2;
+  const legendLabelCol  = lastDayCol + 3;
+  ws.getColumn(legendSwatchCol).width = 4;
+  ws.getColumn(legendLabelCol).width = 26;
+
+  // --- Title row (merged above the table) ---
+  ws.mergeCells(1, 1, 1, lastDayCol); // merge across Name..last day
+  ws.getCell(1, 1).value = titleText;
+  ws.getCell(1, 1).font = { bold: true, size: 20 };
+  ws.getCell(1, 1).alignment = { vertical: 'middle', horizontal: 'left' };
+
+  // Created on stamp (top-right, above the legend)
+  ws.getCell(1, legendLabelCol).value = createdStamp;
+  ws.getCell(1, legendLabelCol).alignment = { horizontal: 'left' };
+
+  // --- Header row ---
+  const headerRow = ws.getRow(3);
+  headerRow.getCell(1).value = 'NAME';
+  headerRow.getCell(2).value = 'POSITION';
+  headerRow.getCell(1).fill = headerFill;
+  headerRow.getCell(2).fill = headerFill;
+  headerRow.getCell(1).font = headerFont;
+  headerRow.getCell(2).font = headerFont;
+  headerRow.getCell(1).alignment = { horizontal: 'center' };
+  headerRow.getCell(2).alignment = { horizontal: 'center' };
+  headerRow.getCell(1).border = border;
+  headerRow.getCell(2).border = border;
+
+  dayLabels.forEach((d, i) => {
+    const c = firstDayCol + i;
+    const cell = headerRow.getCell(c);
+    cell.value = d;                 // numeric: 1..N
+    cell.fill = headerFill;
+    cell.font = headerFont;
+    cell.alignment = { horizontal: 'center' };
+    cell.border = border;
   });
-  ws.addRow([]);
-  ws.addRow(['Summary','',`Employees: ${summary.totalEmployees}`,`Avg Attendance: ${summary.avgAttendance}%`,`Total Absent Marks: ${summary.totalAbsent}`]);
-  if(aiSummary && typeof aiSummary === 'object'){
+
+  // --- Data rows (codes + color fills) ---
+  let rIdx = 4;
+  for (const r of enriched) {
+    ws.getCell(rIdx, 1).value = r.name || '';
+    ws.getCell(rIdx, 2).value = r.position || '';
+    ws.getCell(rIdx, 1).border = border;
+    ws.getCell(rIdx, 2).border = border;
+
+    dayCols.forEach((dayKey, i) => {
+      const c = firstDayCol + i;
+      const code = r.days?.[dayKey]?.code || '';   // e.g. "P", "A", "L", ...
+      const cell = ws.getCell(rIdx, c);
+      cell.value = code;
+      cell.alignment = { horizontal: 'center' };
+      cell.border = border;
+      const argb = colorMap[code];
+      if (argb) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
+    });
+
+    rIdx++;
+  }
+
+  // --- Legend (right after the days) ---
+  ws.getCell(3, legendLabelCol).value = 'LEGEND';
+  ws.getCell(3, legendLabelCol).font = { bold: true, size: 12 };
+  const legendItems = [
+    ['A','ABSENT'],
+    ['P','PRESENT'],
+    ['L','7:01 ONWARDS'],
+    ['EO','EARLY OUT'],
+    ['SE','SICK OR EMERGENCY LEAVE'],
+    ['AL','APPROVED LEAVE'],
+    ['R','RESCUE'],
+    ['HD','HALFDAY'],
+  ];
+  legendItems.forEach((pair, idx) => {
+    const [code, label] = pair;
+    const row = 4 + idx;
+    const sw = ws.getCell(row, legendSwatchCol);
+    sw.value = code;
+    sw.alignment = { horizontal: 'center' };
+    sw.border = border;
+    const argb = colorMap[code];
+    if (argb) sw.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb } };
+    ws.getCell(row, legendLabelCol).value = label;
+  });
+
+  // Freeze panes at first data row / first day col
+  ws.views = [{ state: 'frozen', xSplit: firstDayCol - 1, ySplit: 3 }];
+
+  // (Optional) AI Summary sheet—unchanged if you still want it
+  if (aiSummary && typeof aiSummary === 'object') {
     const aiSheet = wb.addWorksheet('AI Summary');
     aiSheet.addRow(['Insights']);
-    (aiSummary.insights||[]).forEach(i => aiSheet.addRow([i]));
+    (aiSummary.insights || []).forEach(i => aiSheet.addRow([i]));
     aiSheet.addRow([]);
     aiSheet.addRow(['Top Absent']);
-    (aiSummary.top_absent||[]).forEach(t => aiSheet.addRow([`${t.name}: ${t.absent}`]));
+    (aiSummary.top_absent || []).forEach(t => aiSheet.addRow([`${t.name}: ${t.absent}`]));
     aiSheet.addRow([]);
     aiSheet.addRow(['Average Attendance', aiSummary.average_attendance]);
     aiSheet.getColumn(1).width = 60;
   }
+
   return wb.xlsx.writeBuffer();
 }
 
 // Shared AI summary helper (Gemini) -> structured JSON or null
 async function generateAttendanceAiSummary(projectName, enriched, summary){
   if(!GEMINI_API_KEY_ATT) return null;
+
   const plain = enriched.slice(0,50).map(e => ({ name: e.name, totals: e.totals, rate: e.attendanceRate }));
-  const prompt = `You are an attendance analyst. Given JSON of attendance counts per worker and overall summary, produce:\n- 3 key insights\n- top 3 most absent employees (name & absent days)\n- average attendance percentage stated clearly\nReturn STRICT JSON with keys: insights (string[]), top_absent ({name, absent}[]), average_attendance (number).\nProject: ${projectName}\nSummary: ${JSON.stringify(summary)}\nRows: ${JSON.stringify(plain)}`;
-  const modelEndpoints = [
+  const prompt = `You are an attendance analyst. Given JSON of attendance counts per worker and overall summary, produce:
+- 3 key insights
+- top 3 most absent employees (name & absent days)
+- average attendance percentage stated clearly
+Return STRICT JSON with keys: insights (string[]), top_absent ({name, absent}[]), average_attendance (number).
+Project: ${projectName}
+Summary: ${JSON.stringify(summary)}
+Rows: ${JSON.stringify(plain)}`;
+
+  const endpoints = [
     'v1beta/models/gemini-1.5-flash-latest:generateContent',
     'v1beta/models/gemini-1.5-pro-latest:generateContent',
     'v1beta/models/gemini-pro:generateContent'
   ];
-  for(const ep of modelEndpoints){
-    try {
-      const aiRes = await axios.post(`https://generativelanguage.googleapis.com/${ep}?key=${GEMINI_API_KEY_ATT}`, { contents:[{ parts:[{ text: prompt }]}]});
-      const raw = aiRes.data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      try { return JSON.parse(raw); } catch { return { raw }; }
-    } catch(e){
-      if(ep === modelEndpoints[modelEndpoints.length-1]){
-        console.warn('Attendance AI summary failed (all models):', e.message);
-      } else {
-        console.warn(`AI model endpoint failed (${ep}), trying next:`, e.message);
+
+  for(const ep of endpoints){
+    try{
+      const { data } = await axios.post(
+        `https://generativelanguage.googleapis.com/${ep}?key=${GEMINI_API_KEY_ATT}`,
+        { contents:[{ parts:[{ text: prompt }]}]}
+      );
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const cleaned = coerceJson(text);            // <-- use your existing coerceJson()
+      const parsed = JSON.parse(cleaned);
+
+      // validate shape
+      if (Array.isArray(parsed.insights) && Array.isArray(parsed.top_absent)) {
+        return parsed;
       }
+    } catch(e){
+      // try the next endpoint
     }
   }
-  return null;
+  return null; // caller will fallback
 }
+
 
 // Handle generic attendance upload
 exports.uploadAttendance = async (req,res) => {
@@ -2233,7 +2401,9 @@ exports.uploadAttendance = async (req,res) => {
     const inputPath = `attendance/${project._id}/input-${ts}-${req.file.originalname}`;
     const outputPath = `attendance/${project._id}/output-${ts}-${req.file.originalname}`;
     const up1 = await supabase.storage.from('documents').upload(inputPath, buf, { upsert:true, contentType: req.file.mimetype });
-    const workbookBuf = await buildAttendanceWorkbook(parsed, aiSummary);
+   const workbookBuf = await buildAttendanceWorkbook(parsed, aiSummary, {
+  sourceFilename: req.file?.originalname,  // <-- lets us render APRIL 2025 if present
+});
     const up2 = await supabase.storage.from('documents').upload(outputPath, Buffer.from(workbookBuf), { upsert:true, contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     if(up1.error || up2.error) return res.status(500).json({ message:'Failed to store files' });
     project.attendanceReports = project.attendanceReports || [];

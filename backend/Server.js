@@ -142,6 +142,11 @@ socket.on('leaveChat', (chatId) => {
       message: 'Test notification',
       type: 'general',
     });
+    // Presence: send full snapshot and broadcast online event
+    try {
+      socket.emit('presenceSnapshot', Array.from(userSockets.keys()));
+      socket.broadcast.emit('userOnline', userId);
+    } catch (e) { /* ignore */ }
   } else {
     console.log('No user ID found in socket handshake');
   }
@@ -167,6 +172,19 @@ socket.on('leaveChat', (chatId) => {
     const room = `project:${String(projectIdOrRoom)}`;
     console.log('[socket] leaveProject', socket.id, '->', room);
     socket.leave(room);
+  });
+
+  // Presence: client can request a snapshot
+  socket.on('getPresence', () => {
+    try { socket.emit('presenceSnapshot', Array.from(userSockets.keys())); } catch {}
+  });
+
+  // Client marks chat read (lightweight; no DB persistence yet)
+  socket.on('markChatRead', ({ chatId, timestamp }) => {
+    if (!chatId) return;
+    const ts = timestamp || Date.now();
+    // Echo back to requester and optionally to others later if needed
+    try { socket.emit('chatReadReceipt', { chatId: String(chatId), timestamp: ts }); } catch {}
   });
 
   socket.on('messageSeen', async ({ messageId, userId: seenBy }) => {
@@ -210,6 +228,10 @@ socket.on('leaveChat', (chatId) => {
         removeUserSocket(userId, socket.id);
         console.log(`User ${userId} disconnected with socket ID: ${socket.id}`);
         console.log(`Socket disconnected due to: ${reason}`);
+        // If user fully offline (no sockets left) broadcast offline
+        if (!userSockets.has(String(userId))) {
+          try { socket.broadcast.emit('userOffline', userId); } catch {}
+        }
         return;
       }
 

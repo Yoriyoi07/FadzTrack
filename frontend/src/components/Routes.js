@@ -94,7 +94,6 @@ import StaffChat from './chats/StaffChat';
 // HR-SITE
 import HrSiteCurrentProject from './hrSite/HrSiteCurrentProject';
 import HrSiteAllProjects from './hrSite/HrSiteAllProjects';
-import HrSiteAttendanceReport from './hrSite/HrSiteAttendanceReport';
 import HrSiteChat from './chats/HrSiteChat';
 
 // SHARED / REUSABLE
@@ -228,7 +227,6 @@ const AppRoutes = ({ forceUserUpdate }) => {
         <Route path="/hr-site/chat" element={<HrSiteChat />} />
         <Route path="/hr-site/chat/:chatId" element={<HrSiteChat />} />
         <Route path="/hr-site/all-projects" element={<HrSiteAllProjects />} />
-        <Route path="/hr-site/attendance-report" element={<HrSiteAttendanceReport />} />
       </Route>
 
       {/* Shared protected routes (multiple roles) */}

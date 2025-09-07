@@ -160,8 +160,11 @@ export default function ProjectView(props) {
   const [showCompleteConfirm,setShowCompleteConfirm]=useState(false);
   const [statusUpdating,setStatusUpdating]=useState(false);
   // Load attendance reports when Attendance tab selected
-  useEffect(()=>{ if(activeTab!=='Attendance' || !project?._id) return; (async()=>{ try { const list=await api.get(`/projects/${project._id}/attendance`,{ headers:{Authorization:`Bearer ${token}`}}); const reps=list.data?.reports||[]; setAttendanceReports(reps); // pick latest AI summary
-    if(reps.length){ const latest = reps[reps.length-1]; setAttendanceAI(latest.ai||null);} else setAttendanceAI(null); } catch { setAttendanceReports([]); } })(); },[activeTab,project?._id,token]);
+useEffect(() => {
+  if (activeTab !== 'Attendance' || !project?._id) return;
+  loadAttendance(project._id);
+}, [activeTab, project?._id, token]);
+
   // Realtime socket refs
   const socketRef = useRef(null);
   const joinedProjectRef = useRef(null);
@@ -303,6 +306,78 @@ export default function ProjectView(props) {
   const justCreated = !!(location.state && location.state.justCreated);
   const [showFlash, setShowFlash] = useState(justCreated);
   useEffect(()=>{ if(justCreated){ const t=setTimeout(()=> setShowFlash(false),6000); return ()=> clearTimeout(t);} },[justCreated]);
+
+// Resolve attendance uploader name from known fields or fall back to projectUsers
+// Robust uploader name resolver for attendance rows
+const resolveAttendanceUploaderName = (r) => {
+  // Direct string fields the backend might send
+  if (r?.uploadedByName && typeof r.uploadedByName === 'string' && r.uploadedByName.trim()) return r.uploadedByName.trim();
+  if (r?.uploaderName) return r.uploaderName;
+  if (r?.generatedByName) return r.generatedByName;
+
+  // If backend sent nested user objects
+  const readName = (obj) => {
+    if (!obj || typeof obj !== 'object') return null;
+    for (const k of ['name','fullName','displayName','username']) {
+      if (typeof obj[k] === 'string' && obj[k].trim()) return obj[k].trim();
+    }
+    if (typeof obj.email === 'string' && obj.email) return obj.email.split('@')[0];
+    return null;
+  };
+  const nestedName = readName(r?.uploadedBy) || readName(r?.uploader) || readName(r?.user);
+  if (nestedName) return nestedName;
+
+  // Try to match by ID against projectUsers we fetched earlier
+  const candidateId =
+    r?.generatedBy ||
+    r?.uploadedBy?._id ||
+    r?.uploader?._id ||
+    r?.user?._id ||
+    r?.uploadedById ||
+    r?.uploaderId ||
+    r?.userId ||
+    r?.uploadedBy ||
+    r?.uploader;
+
+  if (candidateId) {
+    const match = projectUsers.find(
+      u => String(u._id) === String(candidateId) || String(u.id) === String(candidateId)
+    );
+  if (match?.name) return match.name;
+  if (match?.fullName) return match.fullName;
+  if (match?.displayName) return match.displayName;
+
+    // If it was you
+    if (user && String(user._id) === String(candidateId) && user.name) return user.name;
+
+    // Last-resort: readable fallback from the ID
+    const tail = String(candidateId).slice(-6);
+    return tail ? `User •••${tail}` : 'Unknown';
+  }
+
+  return 'Unknown';
+};
+
+
+  // ---- Attendance helpers ----
+const loadAttendance = async (pid = project?._id) => {
+  if (!pid) return;
+  try {
+    const { data } = await api.get(`/projects/${pid}/attendance`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const reps = data?.reports || [];
+    setAttendanceReports(reps);
+    const latest = reps[reps.length - 1];
+    // accept various backend keys just in case
+    setAttendanceAI(latest?.ai || latest?.ai_summary || latest?.summary || null);
+  } catch {
+    setAttendanceReports([]);
+    setAttendanceAI(null);
+  }
+};
+
+
 
   // Always include staff-view-root so unified overview card styles apply for every role
   const rootRoleClass = `pm-view-root staff-view-root ${role==='staff'?'is-staff':''} ${role==='ceo'?'ceo-view-root':''}`;
@@ -1545,10 +1620,15 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                 <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',marginBottom:16}}>
                   <label style={{background:'#0f172a',color:'#fff',padding:'8px 14px',borderRadius:8,fontSize:14,cursor: attUploading? 'not-allowed':'pointer',opacity: attUploading? .6:1}}>
                     {attUploading? 'Uploading...' : 'Upload Schedule (.xlsx)'}
-                    <input type="file" accept=".xls,.xlsx" style={{display:'none'}} disabled={attUploading} onChange={async e=>{ const f=e.target.files?.[0]; if(!f||!project?._id) return; setAttError(''); setAttUploading(true); try { const fd=new FormData(); fd.append('schedule',f); await api.post(`/projects/${project._id}/attendance/upload`,fd,{ headers:{Authorization:`Bearer ${token}`}}); // refresh list
-                      const list=await api.get(`/projects/${project._id}/attendance`,{ headers:{Authorization:`Bearer ${token}`}}); setAttendanceReports(list.data?.reports||[]); } catch(err){ setAttError('Upload failed'); } finally { setAttUploading(false); e.target.value=''; } }} />
+                    <input type="file" accept=".xls,.xlsx" style={{display:'none'}} disabled={attUploading} onChange={async e=>{ const f=e.target.files?.[0]; if(!f||!project?._id) return; setAttError(''); setAttUploading(true); try { const fd=new FormData(); fd.append('schedule',f); await api.post(`/projects/${project._id}/attendance/upload`, fd, { headers:{ Authorization:`Bearer ${token}` } });
+await loadAttendance(project._id); } catch(err){ setAttError('Upload failed'); } finally { setAttUploading(false); e.target.value=''; } }} />
                   </label>
-                  <button onClick={async()=>{ if(!project?._id) return; try { const list=await api.get(`/projects/${project._id}/attendance`,{ headers:{Authorization:`Bearer ${token}`}}); setAttendanceReports(list.data?.reports||[]); } catch { setAttError('Refresh failed'); } }} style={{background:'#334155',color:'#fff',border:'none',padding:'8px 14px',borderRadius:8,cursor:'pointer'}}>Refresh</button>
+                 <button
+  onClick={() => loadAttendance(project._id)}
+  style={{background:'#334155',color:'#fff',border:'none',padding:'8px 14px',borderRadius:8,cursor:'pointer'}}
+>
+  Refresh
+</button>
                   {attError && <span style={{color:'#b91c1c',fontWeight:600}}>{attError}</span>}
                 </div>
                 {attendanceReports.length===0 ? (
@@ -1567,12 +1647,14 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                       {attendanceReports.slice().reverse().map((r,i)=>(
                         <tr key={i} style={{borderTop:'1px solid #eee'}}>
                           <td style={{padding:'8px'}}>{r.originalName}</td>
-                          <td style={{padding:'8px'}}>{r.uploadedByName || r.uploaderName || '—'}</td>
+                          <td style={{padding:'8px'}}>{resolveAttendanceUploaderName(r)}</td>
                           <td style={{padding:'8px'}}>{r.generatedAt? new Date(r.generatedAt).toLocaleString(): 'N/A'}</td>
                           <td style={{padding:'8px',display:'flex',gap:8}}>
                             <button onClick={async()=>{ try { const {data}=await api.get(`/projects/${project._id}/attendance-signed-url`,{ params:{ path:r.inputPath}, headers:{Authorization:`Bearer ${token}`}}); if(data?.signedUrl) window.open(data.signedUrl,'_blank'); } catch {} }} className="btn small">View Excel</button>
                             <button onClick={async()=>{ try { const {data}=await api.get(`/projects/${project._id}/attendance-signed-url`,{ params:{ path:r.outputPath}, headers:{Authorization:`Bearer ${token}`}}); if(data?.signedUrl) window.open(data.signedUrl,'_blank'); } catch {} }} className="btn small primary">Download AI Attendace Report</button>
-                            <button onClick={async()=>{ if(!window.confirm('Delete this attendance report?')) return; try { const {data}=await api.delete(`/projects/${project._id}/attendance/${r._id}`,{ headers:{Authorization:`Bearer ${token}`}}); setAttendanceReports(data?.reports||[]); } catch { alert('Delete failed'); } }} className="btn small danger" style={{background:'#fee2e2',color:'#b91c1c'}}>Delete</button>
+                            <button onClick={async()=>{ if(!window.confirm('Delete this attendance report?')) return; try { await api.delete(`/projects/${project._id}/attendance/${r._id}`, { headers:{ Authorization:`Bearer ${token}` } });
+await loadAttendance(project._id);
+} catch { alert('Delete failed'); } }} className="btn small danger" style={{background:'#fee2e2',color:'#b91c1c'}}>Delete</button>
                           </td>
                         </tr>
                       ))}

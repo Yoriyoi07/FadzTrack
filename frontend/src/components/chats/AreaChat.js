@@ -159,6 +159,9 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   const [picProjectId, setPicProjectId] = useState(null);
   // Track which long messages are expanded (to avoid truncation)
   const [expandedLongMessages, setExpandedLongMessages] = useState(new Set());
+  // Real-time presence (Set of userIds online) and per-chat last read timestamps
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
+  const [lastRead, setLastRead] = useState({}); // { chatId: epochMs }
 
   // helper: consistent display name for a user
   function getDisplayName(u) {
@@ -499,6 +502,18 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   socket.current.on('chatMembersUpdated', onMembersUpdated);
   socket.current.on('chatCreated', onChatCreated);
 
+    // Presence + read receipt listeners
+    socket.current.on('presenceSnapshot', (ids=[]) => {
+      try { setOnlineUsers(new Set(ids.map(String))); } catch {}
+    });
+    socket.current.on('userOnline', (id) => { if(!id) return; setOnlineUsers(prev => { const n=new Set(prev); n.add(String(id)); return n; }); });
+    socket.current.on('userOffline', (id) => { if(!id) return; setOnlineUsers(prev => { const n=new Set(prev); n.delete(String(id)); return n; }); });
+    socket.current.on('chatReadReceipt', ({ chatId, timestamp }) => {
+      if (chatId && timestamp) setLastRead(lr => ({ ...lr, [chatId]: timestamp }));
+    });
+    // Request initial presence data
+    try { socket.current.emit('getPresence'); } catch {}
+
     return () => {
       socket.current.off('receiveMessage', onReceive);
       socket.current.off('messageSeen', onSeen);
@@ -506,6 +521,10 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   socket.current.off('messageReaction', onReaction);
   socket.current.off('chatMembersUpdated', onMembersUpdated);
   socket.current.off('chatCreated', onChatCreated);
+  socket.current.off('presenceSnapshot');
+  socket.current.off('userOnline');
+  socket.current.off('userOffline');
+  socket.current.off('chatReadReceipt');
       socket.current.disconnect();
     };
   }, [userId]);
@@ -675,6 +694,10 @@ const AreaChat = ({ baseSegment = 'am' }) => {
     setNewMessage(drafts[chatToOpen._id] || '');
     setSearchQuery(''); setSearchResults([]); setPendingFiles([]);
   navigate(`/${baseSegment}/chat/${chatToOpen._id}`);
+  // Mark read locally & notify server
+  const lmTs = (chatToOpen?.lastMessage && (Date.parse(chatToOpen.lastMessage.timestamp) || chatToOpen.lastMessage.tsNum || Date.now())) || Date.now();
+  setLastRead(prev => ({ ...prev, [chatToOpen._id]: lmTs }));
+  try { socket.current && socket.current.emit('markChatRead', { chatId: chatToOpen._id, timestamp: lmTs }); } catch {}
   };
 
   // SEND — text + files (multipart) with optimistic temp message
@@ -1026,14 +1049,57 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                 if (!preview) preview = '(no messages yet)';
                 preview = preview.length > 60 ? preview.slice(0,57) + '…' : preview;
                 const timeStr = item.lastMessage?.timestamp ? formatTime(item.lastMessage.timestamp) : '';
+                // Determine unread: lastMessage exists and either (a) current user not in seen array OR (b) lastMessage.sender not current user and timestamp newer than a stored read marker (if provided)
+                const lastMsg = item.lastMessage;
+                const seenArr = Array.isArray(lastMsg?.seen) ? lastMsg.seen : [];
+                // Unread: lastMessage exists, not by me, and (a) I haven't seen or (b) its timestamp newer than stored lastRead
+                let isUnread = false;
+                if (lastMsg && lastMsg.sender !== userId) {
+                  const hasSeenArr = seenArr.some(s => (s.userId || s._id) === userId);
+                  const lmTime = (typeof lastMsg.timestamp === 'number' ? lastMsg.timestamp : (lastMsg.timestamp ? Date.parse(lastMsg.timestamp) : lastMsg.tsNum)) || 0;
+                  const lr = lastRead[item._id] || 0;
+                  isUnread = (!hasSeenArr) || (lmTime > lr);
+                }
+                // Highlight brand new chats (no messages yet) as 'new'
+                const isNewChat = !lastMsg;
+                // Presence: assume for 1-1 chat we can check other.online || other.isOnline; for groups show nothing for now
+                const isOnline = !isGroup && other && onlineUsers.has(String(other._id));
                 return (
-                  <div key={item._id} className={`modern-chat-item ${selectedChat?._id === item._id ? 'active' : ''}`} onClick={() => openChat(item)}>
-                    <div className="modern-chat-avatar">{isGroup ? <FaUsers /> : name.charAt(0).toUpperCase()}</div>
-                    <div className="modern-chat-info">
-                      <div className="modern-chat-name">{name}</div>
-                      <div className="modern-chat-preview">{preview}</div>
+                  <div
+                    key={item._id}
+                    className={`modern-chat-item ${selectedChat?._id === item._id ? 'active' : ''} ${isUnread ? 'unread' : ''} ${isNewChat ? 'new-chat' : ''}`}
+                    onClick={() => openChat(item)}
+                    style={isUnread ? { background:'#eff6ff' } : undefined}
+                  >
+                    <div className="modern-chat-avatar" style={{ position:'relative' }}>
+                      {isGroup ? <FaUsers /> : name.charAt(0).toUpperCase()}
+                      {!isGroup && (
+                        <span
+                          className="presence-dot"
+                          style={{
+                            position:'absolute',
+                            bottom: -2,
+                            right: -2,
+                            width:10,
+                            height:10,
+                            borderRadius:'50%',
+                            background: isOnline ? '#10b981' : '#9ca3af',
+                            border:'2px solid #fff',
+                            boxSizing:'content-box'
+                          }}
+                          title={isOnline ? 'Online' : 'Offline'}
+                        />
+                      )}
                     </div>
-                    {timeStr && <div className="modern-chat-time">{timeStr}</div>}
+                    <div className="modern-chat-info">
+                      <div className="modern-chat-name" style={isUnread ? { fontWeight:600 } : undefined}>
+                        {name}
+                        {isNewChat && <span style={{ marginLeft:6, fontSize:10, background:'#2563eb', color:'#fff', padding:'2px 6px', borderRadius:12 }}>NEW</span>}
+                      </div>
+                      <div className="modern-chat-preview" style={isUnread ? { fontWeight:500, color:'#1e3a8a' } : undefined}>{preview}</div>
+                    </div>
+                    {timeStr && <div className="modern-chat-time" style={isUnread ? { fontWeight:600 } : undefined}>{timeStr}</div>}
+                    {isUnread && <div style={{ width:8, height:8, borderRadius:'50%', background:'#2563eb', marginLeft:8 }} />}
                   </div>
                 );
               })

@@ -67,7 +67,6 @@ const ROLE_NAV = {
     { to:'/hr-site/current-project', label:'Project', icon:<FaEye/>, match:'/hr-site/current-project' },
     { to:'/hr-site/chat', label:'Chat', icon:<FaComments/>, match:'/hr-site/chat' },
     { to:'/hr-site/all-projects', label:'My Projects', icon:<FaProjectDiagram/>, match:'/hr-site/all-projects' },
-    { to:'/hr-site/attendance-report', label:'Attendance', icon:<FaClipboardList/>, match:'/hr-site/attendance-report' }
   ],
   hr: ()=> [
     { to:'/hr/dash', label:'Dashboard', icon:<FaTachometerAlt/>, match:'/hr/dash' },
