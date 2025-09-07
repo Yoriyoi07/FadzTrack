@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import AppHeader from '../layout/AppHeader';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  FaUsers, FaPaperPlane, FaCheck, FaTachometerAlt, FaComments, FaBoxes,
+  FaUsers, FaPaperPlane, FaTachometerAlt, FaComments, FaBoxes,
   FaClipboardList, FaChartBar, FaProjectDiagram, FaReply, FaShare, FaTrash,
   FaSearch, FaTimes, FaArrowUp, FaArrowDown, FaEllipsisH, FaCalendarAlt, FaEye, FaExchangeAlt, FaMapMarkerAlt
 } from 'react-icons/fa';
@@ -1305,8 +1305,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                                   </div>
                                 )}
 
-                                {/* Seen tick (DMs) */}
-                                {!selectedChat.isGroup && isLastOwn && seenByRecipient && <FaCheck className="message-tick" />}
+                                {/* Removed single-check seen tick per request */}
                               </div>
 
                               <div className="modern-message-time">
