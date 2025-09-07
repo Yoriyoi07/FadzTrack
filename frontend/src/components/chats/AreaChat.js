@@ -24,7 +24,6 @@ const NAV_CONFIG = {
     { to: '/reports', icon: FaChartBar, label: 'Reports' },
   ],
   pm: [
-    { to: '/pm', icon: FaTachometerAlt, label: 'Dashboard', activeMatch: /^\/pm(?!\/)/ },
     { to: '/pm/chat', icon: FaComments, label: 'Chat', activeMatch: /^\/pm\/chat/ },
     { to: '/pm/request/placeholder', icon: FaBoxes, label: 'Material', activeMatch: /^\/pm\/request/ },
     { to: '/pm/manpower-list', icon: FaUsers, label: 'Manpower', activeMatch: /^\/pm\/manpower/ },
@@ -163,6 +162,14 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [lastRead, setLastRead] = useState({}); // { chatId: epochMs }
 
+  // Hydrate persisted read markers (so navigating away & back keeps chats read)
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('chatLastRead') || '{}');
+      if (stored && typeof stored === 'object') setLastRead(stored);
+    } catch {}
+  }, []);
+
   // helper: consistent display name for a user
   function getDisplayName(u) {
     return u?.name || `${u?.firstname || ''} ${u?.lastname || ''}`.trim() || u?.email || '';
@@ -249,19 +256,34 @@ const AreaChat = ({ baseSegment = 'am' }) => {
       const n = Date.parse(t);
       return isNaN(n) ? 0 : n;
     };
-    let sorted = [...(list || [])].sort((a, b) => {
-      const diff = getTs(b) - getTs(a);
+    // We don't want brand new / empty chats (no lastMessage) to jump to the top just because they were created.
+    // Priority order:
+    // 1. Chats WITH a lastMessage (sorted by lastMessage timestamp / seq as before)
+    // 2. Chats WITHOUT a lastMessage (keep their original relative order)
+    const withIndex = [...(list || [])].map((c, idx) => ({ c, idx }));
+    let sorted = withIndex.sort((a, b) => {
+      const aHas = !!a.c?.lastMessage;
+      const bHas = !!b.c?.lastMessage;
+      if (aHas && !bHas) return -1; // a first
+      if (!aHas && bHas) return 1;  // b first
+      if (!aHas && !bHas) return a.idx - b.idx; // preserve original order for both empty
+      // both have lastMessage -> original ordering logic
+      const diff = getTs(b.c) - getTs(a.c);
       if (diff !== 0) return diff;
-      const sa = a?.lastMessage?.seq || 0;
-      const sb = b?.lastMessage?.seq || 0;
-      return sb - sa; // higher seq (newer update) first
-    });
+      const sa = a.c?.lastMessage?.seq || 0;
+      const sb = b.c?.lastMessage?.seq || 0;
+      return sb - sa;
+    }).map(x => x.c);
     if (pinnedNewChatId) {
       const idx = sorted.findIndex(c => c._id === pinnedNewChatId);
       if (idx > -1) {
         const pinned = sorted[idx];
         if (!pinned.lastMessage) {
-          sorted = [pinned, ...sorted.filter(c => c._id !== pinnedNewChatId)];
+          // Now that empty chats no longer float to top automatically, we also remove special pinning behavior.
+          // Leave it in place only if you still want manual pin; otherwise just clear the pin state.
+          // So we simply keep order and clear pin.
+          sorted = sorted; // no-op
+          setPinnedNewChatId(null);
         } else {
           setPinnedNewChatId(null);
         }
@@ -493,7 +515,9 @@ const AreaChat = ({ baseSegment = 'am' }) => {
       const raw = chatObj.lastMessage?.timestamp || chatObj.lastMessage?.createdAt || chatObj.lastMessage?.updatedAt;
       let num = typeof raw === 'number' ? raw : (raw ? Date.parse(raw) : 0);
       chatObj = chatObj.lastMessage ? { ...chatObj, lastMessage: { ...chatObj.lastMessage, tsNum: num, seq: ++seqRef.current } } : chatObj;
-      setChatList(list => sortChatList([chatObj, ...list.filter(c => c._id !== chatObj._id)]));
+    // If no lastMessage yet, don't insert into visible list (Messenger-like behavior)
+    if (!chatObj.lastMessage) return;
+    setChatList(list => sortChatList([chatObj, ...list.filter(c => c._id !== chatObj._id)]));
     };
 
     const onReaction = ({ messageId, reactions }) => {
@@ -557,13 +581,12 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   const reloadChats = async () => {
     try {
       const { data } = await api.get('/chats', { headers });
-    const withTs = (data || []).map(c => {
+      const withTs = (data || []).map(c => {
         if (c?.lastMessage) {
           const lm = c.lastMessage;
           const raw = lm.timestamp || lm.createdAt || lm.updatedAt;
           let num = typeof raw === 'number' ? raw : (raw ? Date.parse(raw) : 0);
           if (!num) num = 0;
-          // If no textual content but attachments exist, synthesize preview token
           let content = lm.content || '';
           if ((!content || /^https?:\/\//.test(content)) && Array.isArray(lm.attachments) && lm.attachments.length) {
             const allImages = lm.attachments.every(a => (a?.mimetype||'').startsWith('image/'));
@@ -571,11 +594,13 @@ const AreaChat = ({ baseSegment = 'am' }) => {
             if (allImages) content = count === 1 ? '🖼 Photo' : `🖼 ${count} Photos`;
             else content = count === 1 ? '📎 Attachment' : `📎 ${count} Files`;
           }
-      return { ...c, lastMessage: { ...lm, content, tsNum: num, attachments: lm.attachments || [] } };
+          return { ...c, lastMessage: { ...lm, content, tsNum: num, attachments: lm.attachments || [] } };
         }
         return c;
       });
-	setChatList(sortChatList(withTs));
+      // Filter out chats with no lastMessage so empty conversations are hidden
+      const visible = withTs.filter(c => !!c.lastMessage);
+      setChatList(sortChatList(visible));
     } catch { setChatList([]); }
   };
   useEffect(() => { if (token) reloadChats(); }, [token, headers]);
@@ -702,6 +727,11 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   // Mark read locally & notify server
   const lmTs = (chatToOpen?.lastMessage && (Date.parse(chatToOpen.lastMessage.timestamp) || chatToOpen.lastMessage.tsNum || Date.now())) || Date.now();
   setLastRead(prev => ({ ...prev, [chatToOpen._id]: lmTs }));
+  try {
+    const existing = JSON.parse(localStorage.getItem('chatLastRead') || '{}');
+    existing[chatToOpen._id] = lmTs;
+    localStorage.setItem('chatLastRead', JSON.stringify(existing));
+  } catch {}
   // Optimistically add current user to lastMessage.seen so unread clears instantly
   setChatList(prev => prev.map(c => {
     if (c._id === chatToOpen._id) {
