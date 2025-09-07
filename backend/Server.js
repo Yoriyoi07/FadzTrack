@@ -45,27 +45,28 @@ const allowedOrigins = [
 ];
 
 function norm(url = '') {
-  try {
-    const u = new URL(url);
-    return `${u.protocol}//${u.host}`;
-  } catch {
-    return url;
-  }
+  try { const u = new URL(url); return `${u.protocol}//${u.host}`; }
+  catch { return (url || '').replace(/\/+$/, ''); } // trim trailing slashes if any
 }
 
 const allowedSet = new Set(allowedOrigins.map(norm));
+const corsDelegate = (req, cb) => {
+  const origin = req.headers.origin;
+  const o = norm(origin);
+  const ok = !origin || allowedSet.has(o);
 
-const corsOptions = {
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true);
-    const o = norm(origin);
-    if (allowedSet.has(o)) return cb(null, true);
-    return cb(new Error(`Not allowed by CORS: ${origin}`));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization','X-Requested-With'],
-  optionsSuccessStatus: 204
+  // DEBUG (remove later)
+  if (req.method === 'OPTIONS') {
+    console.log('[CORS preflight]', { origin, normalized: o, ok, allowed: [...allowedSet] });
+  }
+
+  cb(null, {
+    origin: ok,                               // true | false
+    credentials: true,
+    methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+    // omit allowedHeaders so 'cors' reflects what browser asked for
+    optionsSuccessStatus: 204,
+  });
 };
 
 app.use(cors(corsOptions));
