@@ -19,6 +19,11 @@ const ACCESS_TTL_SEC  = Number(process.env.ACCESS_TTL_SEC  || 900);             
 const REFRESH_TTL_SEC = Number(process.env.REFRESH_TTL_SEC || 30 * 24 * 60 * 60);      // 30d
 const TRUST_TTL_SEC   = Number(process.env.TRUST_TTL_SEC   || 30 * 24 * 60 * 60);      // 30d
 
+// Frontend base URL (production domain default, overridable via env)
+const FRONTEND_BASE_URL = process.env.FRONTEND_URL || 'https://fadztrack.online';
+// Short refresh lifetime (when user does NOT remember device)
+const SHORT_REFRESH = Number(process.env.SHORT_REFRESH_TTL_SEC || 7 * 24 * 60 * 60); // 7d
+
 // in-memory 2FA codes
 const twoFACodes = {};
 
@@ -173,9 +178,8 @@ async function registerUser(req, res) {
       name, email: email.toLowerCase(), phone, role, password: hashedPassword, status: 'Inactive'
     });
 
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
     const activationToken = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
-    const activationLink = `${FRONTEND_URL}/activate-account?token=${activationToken}`;
+  const activationLink = `${FRONTEND_BASE_URL}/activate-account?token=${activationToken}`;
 
     await sendEmailLink(
       user.email,
@@ -185,7 +189,7 @@ async function registerUser(req, res) {
       'Activate Account'
     );
 
-    res.status(201).json({ msg: 'Activation link sent to email', user: { name, email, role, phone } });
+  res.status(201).json({ msg: 'Activation link sent to email', activationLink, user: { name, email, role, phone } });
   } catch (err) {
     res.status(500).json({ msg: 'Registration failed', err });
   }
@@ -215,9 +219,8 @@ async function resetPasswordRequest(req, res) {
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) return res.status(404).json({ msg: 'Email not found' });
 
-    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
     const resetToken = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '15m' });
-    const resetLink = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
+  const resetLink = `${FRONTEND_BASE_URL}/reset-password?token=${resetToken}`;
 
     await sendEmailLink(
       user.email,
@@ -227,7 +230,7 @@ async function resetPasswordRequest(req, res) {
       'Reset Password'
     );
 
-    res.json({ msg: 'Password reset link sent to email' });
+  res.json({ msg: 'Password reset link sent to email', resetLink });
   } catch (err) {
     res.status(500).json({ msg: 'Failed to send reset email' });
   }
@@ -418,7 +421,7 @@ const newRefresh = jwt.sign(
   REFRESH_SECRET,
   { expiresIn: `${baseTtl}s` }
 );
-+setRefreshCookie(req, res, newRefresh, baseTtl);
+setRefreshCookie(req, res, newRefresh, baseTtl);
 
     const accessToken = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: `${ACCESS_TTL_SEC}s` });
     return res.json({ accessToken });
