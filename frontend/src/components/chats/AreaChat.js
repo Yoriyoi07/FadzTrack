@@ -148,6 +148,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   const [showAddMembers, setShowAddMembers] = useState(false);
   const [availableMembers, setAvailableMembers] = useState([]);
   const [selectedNewMembers, setSelectedNewMembers] = useState([]);
+  const [addMembersSearch, setAddMembersSearch] = useState('');
   // collapse/expand members list (only for group chats)
   const [showMembersList, setShowMembersList] = useState(false);
   // media viewer (lightbox)
@@ -158,6 +159,11 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   const [picProjectId, setPicProjectId] = useState(null);
   // Track which long messages are expanded (to avoid truncation)
   const [expandedLongMessages, setExpandedLongMessages] = useState(new Set());
+
+  // helper: consistent display name for a user
+  function getDisplayName(u) {
+    return u?.name || `${u?.firstname || ''} ${u?.lastname || ''}`.trim() || u?.email || '';
+  }
 
   const toggleExpandLong = (id) => {
     setExpandedLongMessages(prev => {
@@ -171,6 +177,13 @@ const AreaChat = ({ baseSegment = 'am' }) => {
       .flatMap(m => m.attachments || [])
       .filter(a => a && a.mime && a.mime.startsWith('image/') && a.url)
   ), [messages]);
+  
+  // Filtered list for Add Members modal (non-destructive filtering)
+  const filteredAvailableMembers = useMemo(() => {
+    if (!addMembersSearch.trim()) return availableMembers;
+    const q = addMembersSearch.trim().toLowerCase();
+    return availableMembers.filter(u => getDisplayName(u).toLowerCase().includes(q));
+  }, [availableMembers, addMembersSearch]);
   // Map for quick lookup of an image attachment's index within mediaImages (by URL)
   const mediaImageIndexByUrl = useMemo(() => {
     const map = new Map();
@@ -286,8 +299,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
     return () => { document.removeEventListener('click', onDocClick); document.removeEventListener('keydown', onKey); };
   }, []);
 
-  // helpers
-  const getDisplayName = (u) => u?.name || `${u?.firstname || ''} ${u?.lastname || ''}`.trim() || u?.email || '';
+  // helpers (getDisplayName moved above for earlier usage)
   // Show seconds so chats ordered within the same minute are distinguishable
   const formatTime = (ts) => {
     if (!ts) return '';
@@ -951,9 +963,6 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                 <button className="popover-item" onClick={()=>{ close(); setForwardMessage(msg); setForwardTargets([]); setShowForwardModal(true); }}>
                   Forward
                 </button>
-                <button className="popover-item" onClick={()=>{ close(); alert('Report submitted (stub)'); }}>
-                  Report
-                </button>
               </>
             );
           })()}
@@ -1361,7 +1370,6 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                         <button className="action-btn add-members-btn" onClick={() => setShowAddMembers(true)}>
                           <FaUsers /><span>Add Members</span>
                         </button>
-                        <button className="action-btn share-link-btn"><span>Share Link</span></button>
                         <button className="action-btn leave-btn" onClick={handleLeaveGroup}><span>Leave Group</span></button>
                       </>
                     )}
@@ -1372,7 +1380,6 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                     {selectedChat.isGroup ? (
                       <>
                         <div className="detail-item"><span className="detail-label">Group Name</span><span className="detail-value">{selectedChat.name}</span></div>
-                        <div className="detail-item"><span className="detail-label">Join Code</span><span className="detail-value code">{selectedChat.joinCode}</span></div>
                         <div className="detail-item"><span className="detail-label">Members</span><span className="detail-value">{uniqueMembers.length} people</span></div>
                       </>
                     ) : (
@@ -1458,25 +1465,25 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                 {/* Add Members Modal */}
                 {showAddMembers && (
                   <div className="add-members-modal">
-                    <div className="modal-header">
-                      <h4>Add Members</h4>
-                      <button className="close-modal-btn" onClick={() => setShowAddMembers(false)}>×</button>
-                    </div>
-                    <div className="modal-content">
-                      <div className="search-container">
+                    <div className="modal-header add-members-header" style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                        <h4 style={{ flex:1, margin:0 }}>Add Members</h4>
+                        <button className="close-modal-btn" onClick={() => setShowAddMembers(false)} aria-label="Close">×</button>
+                      </div>
+                      <div className="search-row" style={{ width:'100%' }}>
                         <input
                           type="text"
                           placeholder="Search users..."
                           className="search-input"
-                          onChange={(e) => {
-                            const q = e.target.value.toLowerCase();
-                            const filtered = availableMembers.filter(u => getDisplayName(u).toLowerCase().includes(q));
-                            setAvailableMembers(filtered);
-                          }}
+                          value={addMembersSearch}
+                          onChange={(e) => setAddMembersSearch(e.target.value)}
+                          style={{ width:'100%' }}
                         />
                       </div>
+                    </div>
+                    <div className="modal-content">
                       <div className="users-list">
-                        {availableMembers.map((u, i) => (
+                        {filteredAvailableMembers.map((u, i) => (
                           <label key={`${u._id}-${i}`} className="user-checkbox-item">
                             <input
                               type="checkbox"
@@ -1491,6 +1498,9 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                             <span className="user-name">{getDisplayName(u)}</span>
                           </label>
                         ))}
+                        {filteredAvailableMembers.length === 0 && (
+                          <div style={{ fontSize:12, opacity:.6, padding:'4px 2px' }}>No users found.</div>
+                        )}
                       </div>
                       <div className="modal-actions">
                         <button className="add-members-submit-btn" onClick={addMembersToGroup} disabled={selectedNewMembers.length === 0}>

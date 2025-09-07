@@ -169,10 +169,40 @@ api.interceptors.response.use(
 );
 
 /* -------------------- init from existing token (if any) -------------------- */
-const existing = localStorage.getItem('token');
-if (existing) {
-  setAuthHeader(existing);
-  scheduleProactiveRefresh(existing);
-}
+(async function bootstrapAuth() {
+  const existing = localStorage.getItem('token');
+  if (existing) {
+    setAuthHeader(existing);
+    scheduleProactiveRefresh(existing);
+    return;
+  }
+  try {
+    // If a valid refresh cookie exists (HTTP-only), get a new access token
+    const { data } = await refreshClient.post('/auth/refresh-token', {});
+    const newToken = data?.accessToken;
+    if (newToken) {
+      localStorage.setItem('token', newToken);
+      setAuthHeader(newToken);
+      scheduleProactiveRefresh(newToken);
+    }
+  } catch {
+    // no refresh cookie or it’s expired — user will see login
+  }
+})();
 
-export default api;
+// Refresh when user returns to the tab or regains connectivity
+window.addEventListener('online', () => {
+  refreshAccessToken().catch(() => {});
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    refreshAccessToken().catch(() => {});
+  }
+});
+
+// Optional: export a manual trigger if you want to call it elsewhere
+export async function triggerRefresh() {
+  try { return await refreshAccessToken(); } catch { return null; }
+}
+ 
+ export default api;

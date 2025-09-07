@@ -14,9 +14,10 @@ const isProd = process.env.NODE_ENV === 'production';
 const TRUST_COOKIE = 'mfa_trust';
 
 // lifetimes
-const ACCESS_TTL_SEC  = Number(process.env.ACCESS_TTL_SEC  || (isProd ? 900 : 900));               // 15m
-const REFRESH_TTL_SEC = Number(process.env.REFRESH_TTL_SEC || (isProd ? 7*24*60*60 : 7*24*60*60)); // 7d
-const TRUST_TTL_SEC   = Number(process.env.TRUST_TTL_SEC   || 30 * 24 * 60 * 60);                  // 30d
+const ACCESS_TTL_SEC  = Number(process.env.ACCESS_TTL_SEC  || 900);                    // 15m
+// Default refresh to 30 days; we’ll optionally shorten this when “remember device” is OFF.
+const REFRESH_TTL_SEC = Number(process.env.REFRESH_TTL_SEC || 30 * 24 * 60 * 60);      // 30d
+const TRUST_TTL_SEC   = Number(process.env.TRUST_TTL_SEC   || 30 * 24 * 60 * 60);      // 30d
 
 // in-memory 2FA codes
 const twoFACodes = {};
@@ -58,10 +59,7 @@ function cookieAttrs(req, { path = '/', maxAge } = {}) {
   const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'http').split(',')[0].trim();
 
   const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
-
-  // Local HTTP: allow non-secure + LAX
-  // Hosted HTTPS (or any non-local): Secure + None
-  const secure   = !isLocal && proto === 'https';
+ const secure   = !isLocal;
   const sameSite = isLocal ? 'lax' : 'none';
 
   return {
@@ -80,9 +78,12 @@ function clearTrustCookie(req, res) {
   res.clearCookie(TRUST_COOKIE, cookieAttrs(req, { path: '/' }));
 }
 
-function setRefreshCookie(req, res, token) {
-  res.cookie('refreshToken', token, cookieAttrs(req, { path: '/api/auth/refresh-token', maxAge: REFRESH_TTL_SEC * 1000 }));
-}
+function setRefreshCookie(req, res, token, maxAgeSec = REFRESH_TTL_SEC) {
+  res.cookie(
+    'refreshToken',
+    token,
+    cookieAttrs(req, { path: '/api/auth/refresh-token', maxAge: maxAgeSec * 1000 })
+ );}
 function clearRefreshCookie(req, res) {
   res.clearCookie('refreshToken', cookieAttrs(req, { path: '/api/auth/refresh-token' }));
 }
@@ -283,8 +284,12 @@ async function loginUser(req, res) {
 
         // Issue tokens now — no 2FA
         const accessToken  = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET,  { expiresIn: `${ACCESS_TTL_SEC}s` });
-        const refreshToken = jwt.sign({ id: user._id, role: user.role, tv: user.tokenVersion }, REFRESH_SECRET, { expiresIn: `${REFRESH_TTL_SEC}s` });
-        setRefreshCookie(req, res, refreshToken);
+        const refreshToken = jwt.sign(
+  { id: user._id, role: user.role, tv: user.tokenVersion, long: 1 },
+  REFRESH_SECRET,
+  { expiresIn: `${REFRESH_TTL_SEC}s` }
+);
+setRefreshCookie(req, res, refreshToken, REFRESH_TTL_SEC);
 
         await logAction({
           action: 'login_trusted',
@@ -336,9 +341,16 @@ async function verify2FACode(req, res) {
     delete twoFACodes[email];
 
     // ✅ Issue tokens
-    const accessToken  = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: `${ACCESS_TTL_SEC}s` });
-    const refreshToken = jwt.sign({ id: user._id, role: user.role, tv: user.tokenVersion }, REFRESH_SECRET, { expiresIn: `${REFRESH_TTL_SEC}s` });
-    setRefreshCookie(req, res, refreshToken);
+const accessToken  = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: `${ACCESS_TTL_SEC}s` });
+    // If user clicked “remember”, give 30d; otherwise a shorter baseline (7d).
+    const SHORT_REFRESH = 7 * 24 * 60 * 60; // 7d
+   const refreshTtlSec = rememberDevice ? REFRESH_TTL_SEC : SHORT_REFRESH;
+const refreshToken  = jwt.sign(
+  { id: user._id, role: user.role, tv: user.tokenVersion, long: rememberDevice ? 1 : 0 },
+      REFRESH_SECRET,
+      { expiresIn: `${refreshTtlSec}s` }
+    );
+    setRefreshCookie(req, res, refreshToken, refreshTtlSec);
 
     // ✅ Create trusted device + cookie if requested
     if (rememberDevice) {
@@ -347,7 +359,7 @@ async function verify2FACode(req, res) {
         userId:    user._id,
         tokenHash: sha256(rawToken),
         uaHash:    sha256(stableUA(req.headers['user-agent'] || '')),
-        ipPrefix:  ipFirstOctet(req), // set '' to disable IP pinning entirely
+        ipPrefix:  ipFirstOctet(req), // consider '' to disable IP pinning if mobility is common
         expiresAt: new Date(Date.now() + TRUST_TTL_SEC * 1000),
       });
       setTrustCookie(req, res, rawToken);
@@ -397,9 +409,16 @@ async function refreshToken(req, res) {
     if (!user) return res.status(401).json({ msg: 'User not found' });
     if (decoded.tv !== user.tokenVersion) return res.status(401).json({ msg: 'Refresh revoked' });
 
-    // rotate refresh
-    const newRefresh = jwt.sign({ id: user._id, role: user.role, tv: user.tokenVersion }, REFRESH_SECRET, { expiresIn: `${REFRESH_TTL_SEC}s` });
-    setRefreshCookie(req, res, newRefresh);
+   
+   // rotate refresh; keep original lifetime type (short vs long)
+const isLong = !!decoded.long;
+const baseTtl = isLong ? REFRESH_TTL_SEC : SHORT_REFRESH;
+const newRefresh = jwt.sign(
+  { id: user._id, role: user.role, tv: user.tokenVersion, long: isLong ? 1 : 0 },
+  REFRESH_SECRET,
+  { expiresIn: `${baseTtl}s` }
+);
++setRefreshCookie(req, res, newRefresh, baseTtl);
 
     const accessToken = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: `${ACCESS_TTL_SEC}s` });
     return res.json({ accessToken });
