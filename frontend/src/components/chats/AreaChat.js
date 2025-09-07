@@ -702,8 +702,30 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   // Mark read locally & notify server
   const lmTs = (chatToOpen?.lastMessage && (Date.parse(chatToOpen.lastMessage.timestamp) || chatToOpen.lastMessage.tsNum || Date.now())) || Date.now();
   setLastRead(prev => ({ ...prev, [chatToOpen._id]: lmTs }));
+  // Optimistically add current user to lastMessage.seen so unread clears instantly
+  setChatList(prev => prev.map(c => {
+    if (c._id === chatToOpen._id) {
+      if (c.lastMessage) {
+        const seen = (c.lastMessage.seen || []).map(String);
+        if (!seen.includes(String(userId))) {
+          return { ...c, lastMessage: { ...c.lastMessage, seen: [...c.lastMessage.seen || [], userId] } };
+        }
+      }
+    }
+    return c;
+  }));
+  // Also patch selectedChat state so its header (if any) reflects seen
+  setSelectedChat(sc => {
+    if (!sc || sc._id !== chatToOpen._id) return sc;
+    if (!sc.lastMessage) return sc;
+    const seen = (sc.lastMessage.seen || []).map(String);
+    if (seen.includes(String(userId))) return sc;
+    return { ...sc, lastMessage: { ...sc.lastMessage, seen: [...sc.lastMessage.seen || [], userId] } };
+  });
   try { socket.current && socket.current.emit('markChatRead', { chatId: chatToOpen._id, timestamp: lmTs }); } catch {}
   // rely on server markChatRead to update lastMessage.seen
+  // Dispatch global event so AppHeader (or others) can refresh unread badge immediately
+  try { window.dispatchEvent(new CustomEvent('chatUnreadChanged', { detail: { chatId: chatToOpen._id, action: 'read' } })); } catch {}
   };
 
   // SEND — text + files (multipart) with optimistic temp message

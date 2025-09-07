@@ -121,6 +121,13 @@ const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false
 
   useEffect(()=>{ fetchUnread(); }, []);
 
+  // React immediately to local optimistic unread changes from AreaChat (custom event)
+  useEffect(()=>{
+    const handler = (e)=>{ if(e?.detail?.action==='read') fetchUnread(); };
+    window.addEventListener('chatUnreadChanged', handler);
+    return ()=> window.removeEventListener('chatUnreadChanged', handler);
+  },[]);
+
   // fetch active project for roles that need it (pic/pm)
   useEffect(()=>{
     let ignore=false; if(!user?._id) return;
