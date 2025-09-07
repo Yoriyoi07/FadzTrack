@@ -92,7 +92,7 @@
   padding: 1rem 1.25rem;
   border: 2px solid #e5e7eb;
   border-radius: 8px;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   font-weight: 600;
   background-color: #ffffff;
   color: #1f2937;
@@ -100,9 +100,9 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   height: 56px;
   box-sizing: border-box;
-  text-align: left;
-  letter-spacing: 0.2em;
-  font-family: 'Inter', sans-serif;
+  text-align: center;
+  letter-spacing: 0.3em;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
 }
 
 .verification-input:focus {
@@ -374,9 +374,10 @@
   }
   
   .verification-input {
-    font-size: 1rem;
+    font-size: 1.25rem;
     height: 52px;
     padding: 0.875rem 1rem;
+    letter-spacing: 0.25em;
   }
   
   .verify-button {
@@ -395,9 +396,10 @@
   }
   
   .verification-input {
-    font-size: 0.875rem;
+    font-size: 1.125rem;
     height: 48px;
     padding: 0.75rem 0.875rem;
+    letter-spacing: 0.2em;
   }
   
   .verify-button {

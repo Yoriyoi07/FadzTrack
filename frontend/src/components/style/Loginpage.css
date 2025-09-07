@@ -38,6 +38,7 @@ body {
   min-width: 0; /* Prevent flex item from expanding */
   flex-shrink: 0; /* Prevent shrinking */
   min-height: 100vh;
+  border-right: 1px solid rgba(0, 31, 139, 0.1);
 }
 
 .left-overlay {
@@ -46,7 +47,12 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.7) 100%);
+  background: linear-gradient(135deg, 
+    rgba(0, 31, 139, 0.2) 0%, 
+    rgba(0, 20, 112, 0.3) 25%, 
+    rgba(0, 15, 85, 0.4) 50%, 
+    rgba(0, 10, 60, 0.5) 75%, 
+    rgba(0, 5, 35, 0.6) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -63,9 +69,10 @@ body {
   font-size: 1.5rem;
   font-weight: 400;
   margin-bottom: 0.5rem;
-  opacity: 0.9;
+  opacity: 1;
   letter-spacing: 0.5px;
-  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 1px 4px rgba(0, 0, 0, 0.6);
+  color: #ffffff;
 }
 
 .brand-text {
@@ -73,17 +80,19 @@ body {
   font-weight: 700;
   margin-bottom: 1rem;
   letter-spacing: -1px;
-  text-shadow: 0 6px 12px rgba(0, 0, 0, 0.6), 0 3px 6px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.9), 0 2px 6px rgba(0, 0, 0, 0.7);
+  color: #ffffff;
 }
 
 .tagline {
   font-size: 1.125rem;
   font-weight: 400;
-  opacity: 0.9;
+  opacity: 1;
   line-height: 1.6;
   max-width: 400px;
   margin: 0 auto;
-  text-shadow: 0 3px 6px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8), 0 1px 3px rgba(0, 0, 0, 0.6);
+  color: #ffffff;
 }
 
 /* Right side with login form */
@@ -93,11 +102,12 @@ body {
   align-items: center;
   justify-content: center;
   padding: 3rem 2rem;
-  background: #ffffff;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   position: relative;
   min-width: 0; /* Prevent flex item from expanding */
   flex-shrink: 0; /* Prevent shrinking */
   min-height: 100vh;
+  box-shadow: -2px 0 20px rgba(0, 31, 139, 0.05);
 }
 
 .login-form-container {
@@ -110,37 +120,36 @@ body {
 }
 
 /* Logo section */
-.logo-section {
+.login-form-container .logo-section {
   text-align: center;
-  margin-bottom: 1.5rem; /* Reduced from 2.5rem to eliminate spacing */
+  margin-bottom: 2rem;
   animation: fadeInDown 0.8s ease-out forwards;
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
   align-items: center;
-  gap: 0; /* Removed gap to bring logo and title as close as possible */
+  gap: 0.5rem;
 }
 
-.right-logo {
-  width: 120px;
-  height: 120px;
-  margin-bottom: 0; /* Removed margin to bring logo and title as close as possible */
+.login-form-container .right-logo {
+  width: 200px;
+  height: 200px;
+  margin: 0 !important;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
 }
 
-.app-title {
+.login-form-container .app-title {
   font-size: 2.25rem;
   font-weight: 700;
   color: #1e293b;
-  margin-bottom: 0.1rem; /* Reduced from 0.25rem to make logo section even more compact */
-  margin-top: -0.5rem; /* Negative margin to pull text closer to logo */
+  margin: 0 !important;
   letter-spacing: -0.5px;
 }
 
-.app-subtitle {
+.login-form-container .app-subtitle {
   font-size: 1rem;
   color: #64748b;
   font-weight: 400;
-  margin-bottom: 0;
+  margin: 0 !important;
 }
 
 /* Form styles */
@@ -198,8 +207,8 @@ body {
   font-weight: 500;
   background-color: #ffffff;
   color: #1f2937;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1);
   height: 56px;
   box-sizing: border-box;
   transform: translate3d(0, 0, 0);
@@ -208,8 +217,9 @@ body {
 .input-field:focus {
   outline: none;
   border-color: #001F8B;
-  box-shadow: 0 0 0 3px rgba(0, 31, 139, 0.1);
+  box-shadow: 0 0 0 3px rgba(0, 31, 139, 0.15), 0 4px 12px rgba(0, 31, 139, 0.1);
   background-color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .input-field::placeholder {
@@ -309,7 +319,7 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 31, 139, 0.3);
+  box-shadow: 0 6px 20px rgba(0, 31, 139, 0.3), 0 2px 8px rgba(0, 31, 139, 0.2);
   position: relative;
   overflow: hidden;
   animation: fadeInUp 0.6s ease-out 0.8s forwards;
@@ -318,8 +328,8 @@ body {
 }
 
 .login-button:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 31, 139, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(0, 31, 139, 0.4), 0 4px 12px rgba(0, 31, 139, 0.3);
 }
 
 .login-button:active:not(:disabled) {
@@ -477,13 +487,13 @@ body {
     max-width: 100%;
   }
   
-  .right-logo {
-    width: 100px;
-    height: 100px;
-    margin-bottom: 1rem;
+  .login-form-container .right-logo {
+    width: 180px;
+    height: 180px;
+    margin: 0 !important;
   }
   
-  .app-title {
+  .login-form-container .app-title {
     font-size: 2rem;
   }
   
@@ -527,20 +537,25 @@ body {
     padding: 1rem 0.75rem;
   }
   
+  .login-form-container {
+    padding: 0;
+  }
+  
   .logo-section {
     margin-bottom: 2rem;
   }
   
-  .right-logo {
-    width: 80px;
-    height: 80px;
+  .login-form-container .right-logo {
+    width: 160px;
+    height: 160px;
+    margin: 0 !important;
   }
   
-  .app-title {
+  .login-form-container .app-title {
     font-size: 1.75rem;
   }
   
-  .app-subtitle {
+  .login-form-container .app-subtitle {
     font-size: 0.875rem;
   }
   

@@ -7,7 +7,8 @@ import { FaEye, FaEyeSlash, FaEnvelope, FaLock } from "react-icons/fa";
 import "./style/Loginpage.css";
 import backgroundImage from "../assets/images/login_picture.png";
 import TwoFactorAuth from "./TwoFactorAuth";
-import FadzLogo from "../assets/images/FadzLogo1.png";
+// Using company logo from public folder
+const FadzLogo = "/images/Fadz-logo.png";
 
 const LoginPage = ({ forceUserUpdate }) => {
   const [showPassword, setShowPassword] = useState(false);
