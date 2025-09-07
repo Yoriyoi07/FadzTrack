@@ -308,12 +308,11 @@
 /* Structured grid with named areas for stable layout */
 .pm-dashboard .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  /* Side-by-side chats & requests under welcome */
+  grid-template-columns: repeat(3, 1fr);
+  /* Three equal columns for chats, requests, and chart in same row */
   grid-template-areas:
-    "welcome welcome"
-    "chats requests"
-    "chart chart";
+    "welcome welcome welcome"
+    "chats requests chart";
   gap: 1.75rem;
   align-items: start;
   width: 100%;
@@ -327,10 +326,10 @@
 .pm-dashboard .requests-card { grid-area: requests; }
 .pm-dashboard .chart-card { grid-area: chart; }
 
-/* Large screens: allow three middle columns if very wide */
+/* Large screens: maintain three equal columns */
 @media (min-width: 1700px) {
   .pm-dashboard .dashboard-grid {
-    grid-template-columns: 1.2fr 1fr 1fr; /* wider welcome row then two content cols below */
+    grid-template-columns: repeat(3, 1fr); /* three equal columns */
     grid-template-areas:
       "welcome welcome welcome"
       "chats requests chart";
@@ -338,19 +337,30 @@
   .pm-dashboard .chart-card { align-self: stretch; }
 }
 
-/* Medium screens fallback: two columns */
+/* Medium screens: maintain three columns with smaller gap */
 @media (max-width: 1300px) {
   .pm-dashboard .dashboard-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     grid-template-areas:
-      "welcome welcome"
-      "chats requests"
-      "chart chart";
+      "welcome welcome welcome"
+      "chats requests chart";
+    gap: 1.25rem;
+  }
+}
+
+/* Tablet screens: maintain three columns with smaller gap */
+@media (max-width: 1100px) {
+  .pm-dashboard .dashboard-grid {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-areas:
+      "welcome welcome welcome"
+      "chats requests chart";
+    gap: 1rem;
   }
 }
 
 /* Small screens: single column stacking */
-@media (max-width: 900px) {
+@media (max-width: 700px) {
   .pm-dashboard .dashboard-grid {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -358,6 +368,7 @@
       "chats"
       "requests"
       "chart";
+    gap: 1rem;
   }
 }
 
@@ -373,6 +384,7 @@
   transition: box-shadow .25s ease, transform .25s ease;
   position: relative;
   isolation: isolate; /* ensure pseudo elements layer safely */
+  min-height: 400px; /* Ensure consistent card heights */
 }
 
 /* Single top gradient bar (removed earlier left stripe + duplicate definition) */
@@ -559,28 +571,28 @@
 
 /* ===================== CHART CARD ===================== */
 .pm-dashboard .chart-card {
-  grid-column: 1 / -1;
+  /* Removed grid-column: 1 / -1; to allow proper grid-area positioning */
 }
 
 .pm-dashboard .chart-container {
-  height: 200px;
+  height: 300px;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 200px;
+  min-height: 300px;
 }
 
 @media (max-width: 768px) {
   .pm-dashboard .chart-container {
-    height: 180px;
-    min-height: 180px;
+    height: 250px;
+    min-height: 250px;
   }
 }
 
 @media (max-width: 480px) {
   .pm-dashboard .chart-container {
-    height: 150px;
-    min-height: 150px;
+    height: 200px;
+    min-height: 200px;
   }
 }
 
@@ -1512,13 +1524,8 @@
 
 @media (max-width: 1200px) {
   .pm-dashboard .dashboard-grid {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-  
-  .pm-dashboard .chats-card,
-  .pm-dashboard .requests-card {
-    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
   }
   
   .pm-dashboard .project-stats {
