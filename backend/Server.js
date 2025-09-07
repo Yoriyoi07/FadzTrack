@@ -40,6 +40,8 @@ const allowedOrigins = [
   defaultFE,
   'http://localhost:3000',
   'https://fadztrack.vercel.app',
+  'https://www.fadztrack.online',
+  'https://fadztrack.online',
 ];
 
 function norm(url = '') {
@@ -62,7 +64,8 @@ const corsOptions = {
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type','Authorization','X-Requested-With'],
+  optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));

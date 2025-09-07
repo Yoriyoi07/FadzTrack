@@ -2,7 +2,11 @@
 import axios from 'axios';
 
 // Prefer HTTPS in prod; trim trailing slashes
-const baseURL = (process.env.REACT_APP_API_URL || 'https://fadztrack.onrender.com/api').replace(/\/+$/, '');
+const baseURL = (
+  process.env.REACT_APP_API_URL ||
+  process.env.REACT_APP_API_BASE_URL ||
+  'https://fadztrack.onrender.com/api'
+).replace(/\/+$/, '');
 
 const api = axios.create({
   baseURL,
