@@ -163,7 +163,7 @@ router.post('/', uploadMulter.any(), async (req, res) => {
              `📎 ${files[0].name}`)
           : `📎 ${files.length} attachments`);
 
-      chat.lastMessage = { content: preview, timestamp: msg.createdAt };
+  chat.lastMessage = { content: preview, timestamp: msg.createdAt, sender: userId, seen: [userId] };
       await chat.save();
 
       // Socket broadcast
@@ -182,10 +182,7 @@ router.post('/', uploadMulter.any(), async (req, res) => {
         });
 
         // also refresh left sidebar previews
-        io.emit('chatUpdated', {
-          chatId: String(conversation),
-          lastMessage: chat.lastMessage
-        });
+  io.emit('chatUpdated', { chatId: String(conversation), lastMessage: chat.lastMessage });
       }
 
   return res.status(201).json(msg);

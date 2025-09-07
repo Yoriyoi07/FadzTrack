@@ -13,7 +13,8 @@ router.get('/', async (req, res) => {
     const userId = req.user.id;
     const chats = await Chat.find({ users: userId })
       .sort({ 'lastMessage.timestamp': -1 })
-      .populate('users', 'firstname lastname email name');
+      .populate('users', 'firstname lastname email name')
+      .lean();
     return res.json(chats);
   } catch (err) {
     console.error('❌ GET /api/chats error:', err);

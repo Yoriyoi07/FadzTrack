@@ -14,7 +14,9 @@ const ChatSchema = new Schema({
   },
   lastMessage: {
     content:   { type: String },
-    timestamp: { type: Date }
+    timestamp: { type: Date },
+    sender:    { type: Schema.Types.ObjectId, ref: 'User' },
+    seen:      [{ type: Schema.Types.ObjectId, ref: 'User' }]
   }
 }, { timestamps: true });
 

@@ -4,6 +4,7 @@ import NotificationBell from '../NotificationBell';
 import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaBoxes, FaUsers, FaClipboardList as FaLogs, FaChartBar, FaExchangeAlt } from 'react-icons/fa';
 import '../style/pic_style/PicHeader.css'; // reuse base styles
 import api from '../../api/axiosInstance';
+import { io } from 'socket.io-client';
 
 /**
  * Generic multi-role header modeled after PicHeader.
@@ -87,6 +88,38 @@ const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false
   const roleName = (user?.role || user?.userType || user?.position || user?.designation || roleSegment).toString();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [activeProject, setActiveProject] = useState(null);
+  const [unreadChats, setUnreadChats] = useState(0);
+  const [socketRef, setSocketRef] = useState(null);
+
+  // lightweight socket just for chatUpdated events (avoid duplicating full AreaChat logic)
+  useEffect(()=>{
+    const token = localStorage.getItem('token');
+    let s;
+    try { s = io('/', { path:'/socket.io', transports:['websocket','polling'], auth:{ userId: user?._id } }); setSocketRef(s); } catch {}
+    const handle = (payload) => {
+      if(!payload || !payload.chatId) return; // just refetch counts lazily
+      fetchUnread();
+    };
+    if (s) s.on('chatUpdated', handle);
+    return ()=>{ if (s) { s.off('chatUpdated', handle); s.disconnect(); } };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id]);
+
+  const fetchUnread = async () => {
+    try {
+      const { data } = await api.get('/chats');
+      const uid = user?._id;
+      const count = (data||[]).filter(c => {
+        if(!c.lastMessage) return false;
+        if(String(c.lastMessage.sender) === String(uid)) return false;
+        const seen = (c.lastMessage.seen||[]).map(String);
+        return !seen.includes(String(uid));
+      }).length;
+      setUnreadChats(count);
+    } catch { setUnreadChats(0); }
+  };
+
+  useEffect(()=>{ fetchUnread(); }, []);
 
   // fetch active project for roles that need it (pic/pm)
   useEffect(()=>{
@@ -149,7 +182,8 @@ const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false
               const path = location.pathname.replace(/\/$/,'');
               const match = item.match.replace(/\/$/,'');
               const active = path === match || (!isRoot && path.startsWith(match + '/'));
-              return <Link key={item.to} to={item.to} className={`pp-link${active?' active':''}`}>{item.icon}<span>{item.label}</span></Link>;
+              const isChat = /\/chat$/.test(item.to);
+              return <Link key={item.to} to={item.to} className={`pp-link${active?' active':''}`}>{item.icon}<span>{item.label}</span>{isChat && unreadChats>0 && <span className="chat-unread-badge">{unreadChats>99?'99+':unreadChats}</span>}</Link>;
             })}
           </nav>
         </div>

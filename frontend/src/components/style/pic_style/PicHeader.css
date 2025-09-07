@@ -19,3 +19,6 @@
 .pic-header .pp-dropdown button{background:transparent;border:none;color:var(--text);font-size:.78rem;padding:.45rem .9rem;width:100%;text-align:left;cursor:pointer;border-radius:6px}
 .pic-header .pp-dropdown button:hover{background:var(--primary)}
 @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* Chat unread badge */
+.pic-header .pp-link .chat-unread-badge{position:absolute;top:-6px;right:-6px;background:#e02424;color:#fff;font-size:.55rem;font-weight:700;min-width:18px;height:18px;padding:0 5px;border-radius:30px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px -1px rgba(0,0,0,.45)}

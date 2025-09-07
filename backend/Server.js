@@ -181,10 +181,26 @@ socket.on('leaveChat', (chatId) => {
 
   // Client marks chat read (lightweight; no DB persistence yet)
   socket.on('markChatRead', ({ chatId, timestamp }) => {
-    if (!chatId) return;
+    if (!chatId || !userId) return;
     const ts = timestamp || Date.now();
-    // Echo back to requester and optionally to others later if needed
-    try { socket.emit('chatReadReceipt', { chatId: String(chatId), timestamp: ts }); } catch {}
+    (async () => {
+      try {
+        const chat = await Chat.findById(chatId);
+        if (!chat || !chat.lastMessage) {
+          socket.emit('chatReadReceipt', { chatId: String(chatId), timestamp: ts });
+          return;
+        }
+        const already = (chat.lastMessage.seen || []).some(u => String(u) === String(userId));
+        if (!already && String(chat.lastMessage.sender) !== String(userId)) {
+          chat.lastMessage.seen = [...(chat.lastMessage.seen || []), userId];
+          await chat.save();
+          io.emit('chatUpdated', { chatId: String(chat._id), lastMessage: chat.lastMessage });
+        }
+        socket.emit('chatReadReceipt', { chatId: String(chatId), timestamp: ts });
+      } catch (e) {
+        socket.emit('chatReadReceipt', { chatId: String(chatId), timestamp: ts, error: true });
+      }
+    })();
   });
 
   socket.on('messageSeen', async ({ messageId, userId: seenBy }) => {
@@ -210,13 +226,26 @@ socket.on('leaveChat', (chatId) => {
         timestamp: ts,
       });
 
-      io.emit('chatUpdated', {
-        chatId: String(msg.conversation),
-        lastMessage: {
-          content: msg.message || (msg.fileUrl || '') || '',
-          timestamp: msg.createdAt,
-        },
-      });
+      // Also add viewer to chat.lastMessage.seen if message corresponds to chat.lastMessage (supports legacy chats without sender field)
+      try {
+        const chat = await Chat.findById(msg.conversation);
+        if (chat && chat.lastMessage) {
+          const isSameSender = chat.lastMessage.sender && String(chat.lastMessage.sender) === String(msg.senderId);
+          const tsMatch = chat.lastMessage.timestamp && msg.createdAt && new Date(chat.lastMessage.timestamp).getTime() === new Date(msg.createdAt).getTime();
+          if (!chat.lastMessage.sender && tsMatch) {
+            // Backfill missing sender for legacy record
+            chat.lastMessage.sender = msg.senderId;
+          }
+          if (isSameSender || tsMatch) {
+          const alreadyIn = (chat.lastMessage.seen||[]).some(u => String(u) === String(seenBy));
+          if (!alreadyIn) {
+            chat.lastMessage.seen = [...(chat.lastMessage.seen||[]), seenBy];
+            await chat.save();
+            io.emit('chatUpdated', { chatId: String(msg.conversation), lastMessage: chat.lastMessage });
+          }
+          }
+        }
+      } catch (e) { /* ignore */ }
     } catch (err) {
       console.error('socket messageSeen error (updateOne path):', err);
     }

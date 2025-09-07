@@ -475,7 +475,12 @@ const AreaChat = ({ baseSegment = 'am' }) => {
 
     const onChatUpdated = ({ chatId: cId, lastMessage }) => {
       const ts = (typeof lastMessage?.timestamp === 'number' ? lastMessage.timestamp : Date.parse(lastMessage?.timestamp)) || Date.now();
-      setChatList(list => sortChatList(list.map(c => (c._id === cId ? { ...c, lastMessage: { ...lastMessage, tsNum: ts, seq: ++seqRef.current } } : c))));
+      setChatList(list => sortChatList(list.map(c => {
+        if (c._id !== cId) return c;
+        const prevSeen = c.lastMessage?.seen || [];
+        const mergedSeen = lastMessage?.seen ? lastMessage.seen : prevSeen;
+        return { ...c, lastMessage: { ...lastMessage, seen: mergedSeen, tsNum: ts, seq: ++seqRef.current } };
+      })));
     };
 
     const onMembersUpdated = ({ chatId: cid, users, name }) => {
@@ -698,6 +703,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   const lmTs = (chatToOpen?.lastMessage && (Date.parse(chatToOpen.lastMessage.timestamp) || chatToOpen.lastMessage.tsNum || Date.now())) || Date.now();
   setLastRead(prev => ({ ...prev, [chatToOpen._id]: lmTs }));
   try { socket.current && socket.current.emit('markChatRead', { chatId: chatToOpen._id, timestamp: lmTs }); } catch {}
+  // rely on server markChatRead to update lastMessage.seen
   };
 
   // SEND — text + files (multipart) with optimistic temp message
@@ -1055,10 +1061,14 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                 // Unread: lastMessage exists, not by me, and (a) I haven't seen or (b) its timestamp newer than stored lastRead
                 let isUnread = false;
                 if (lastMsg && lastMsg.sender !== userId) {
-                  const hasSeenArr = seenArr.some(s => (s.userId || s._id) === userId);
+                  const hasSeenArr = seenArr.map(s=>String(s.userId||s._id||s)).includes(String(userId));
                   const lmTime = (typeof lastMsg.timestamp === 'number' ? lastMsg.timestamp : (lastMsg.timestamp ? Date.parse(lastMsg.timestamp) : lastMsg.tsNum)) || 0;
                   const lr = lastRead[item._id] || 0;
-                  isUnread = (!hasSeenArr) || (lmTime > lr);
+                  if (lr && lmTime <= lr) {
+                    isUnread = false;
+                  } else {
+                    isUnread = (!hasSeenArr) || (lmTime > lr);
+                  }
                 }
                 // Highlight brand new chats (no messages yet) as 'new'
                 const isNewChat = !lastMsg;
