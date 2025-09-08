@@ -19,11 +19,18 @@ const ACCESS_TTL_SEC  = Number(process.env.ACCESS_TTL_SEC  || 900);             
 const REFRESH_TTL_SEC = Number(process.env.REFRESH_TTL_SEC || 30 * 24 * 60 * 60);      // 30d
 const TRUST_TTL_SEC   = Number(process.env.TRUST_TTL_SEC   || 30 * 24 * 60 * 60);      // 30d
 
-// Frontend base URL (production domain default, overridable via env)
-const PROD_DOMAIN = 'https://fadztrack.online';
-const FRONTEND_BASE_URL = (process.env.FORCE_PROD_LINKS === 'true')
-  ? PROD_DOMAIN
-  : (process.env.FRONTEND_URL || PROD_DOMAIN);
+// Frontend base URL logic:
+// Always prefer the canonical custom domain in production (avoid accidentally sending vercel.app links).
+// You can override with PROD_PUBLIC_URL (preferred) or FORCE_PROD_LINKS=true.
+// If developing locally, FRONTEND_URL can still point to http://localhost:3000.
+const PROD_PRIMARY_DOMAIN = process.env.PROD_PUBLIC_URL || 'https://fadztrack.online';
+function computeFrontendBase() {
+  if (process.env.FORCE_PROD_LINKS === 'true' || process.env.NODE_ENV === 'production') {
+    return PROD_PRIMARY_DOMAIN;
+  }
+  return process.env.FRONTEND_URL || PROD_PRIMARY_DOMAIN;
+}
+const FRONTEND_BASE_URL = computeFrontendBase().replace(/\/+$/, '');
 // Short refresh lifetime (when user does NOT remember device)
 const SHORT_REFRESH = Number(process.env.SHORT_REFRESH_TTL_SEC || 7 * 24 * 60 * 60); // 7d
 
@@ -198,7 +205,8 @@ async function registerUser(req, res) {
       name, email: email.toLowerCase(), phone, role, password: hashedPassword, status: 'Inactive'
     });
 
-    const activationToken = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+  const activationToken = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+  // Activation link always uses canonical domain in production (see FRONTEND_BASE_URL logic above)
   const activationLink = `${FRONTEND_BASE_URL}/activate-account?token=${activationToken}`;
 
     const mailResult = await sendEmailLink(
@@ -242,7 +250,8 @@ async function resetPasswordRequest(req, res) {
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) return res.status(404).json({ msg: 'Email not found' });
 
-    const resetToken = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+  const resetToken = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+  // Password reset link (same domain logic)
   const resetLink = `${FRONTEND_BASE_URL}/reset-password?token=${resetToken}`;
 
     const mailResult = await sendEmailLink(
