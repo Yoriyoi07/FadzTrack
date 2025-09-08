@@ -399,6 +399,41 @@ body {
   .nav-link { gap: 5px; padding: 6px 6px; }
 }
 
+/* Status change confirmation modal */
+.status-modal-overlay-IT {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.status-modal-IT {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem 1.75rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 18px 40px -8px rgba(2,6,23,0.25), 0 0 0 1px rgba(0,0,0,0.04);
+  animation: modalFadeIn 0.22s ease;
+  font-family: 'Inter', sans-serif;
+}
+.status-modal-IT h3 { margin: 0 0 .75rem; font-size: 1.15rem; font-weight: 600; color:#111827; }
+.status-modal-IT p { font-size: 0.9rem; color: #374151; line-height: 1.4; }
+.status-modal-actions-IT { margin-top: 1.25rem; display: flex; gap: .75rem; justify-content: flex-end; }
+.confirm-btn-IT, .cancel-btn-IT {
+  border: none; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: .82rem; line-height: 1; transition: background-color .18s ease, box-shadow .18s ease, transform .12s ease; width: 84px; padding:.55rem 0; display:inline-flex; align-items:center; justify-content:center;
+}
+.cancel-btn-IT:hover, .cancel-btn-IT:focus { background:#e5e7eb !important; color:#374151 !important; }
+.cancel-btn-IT:active { background:#dfe3e7 !important; }
+.confirm-btn-IT { background:#2563eb; color:#fff; }
+.confirm-btn-IT:hover { background:#1d4ed8; }
+.cancel-btn-IT { background:#f3f4f6; color:#374151; }
+.cancel-btn-IT:hover { background:#e5e7eb; }
+.confirm-btn-IT:active, .cancel-btn-IT:active { transform: translateY(1px); }
+@keyframes modalFadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+
 
 /* Media queries for responsiveness */
 @media (max-width: 768px) {

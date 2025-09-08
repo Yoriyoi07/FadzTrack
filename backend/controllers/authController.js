@@ -171,6 +171,13 @@ async function updateUserStatus(req, res) {
   try {
     const user = await User.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
     if (!user) return res.status(404).json({ msg: 'User not found' });
+    // Emit realtime status change if socket.io available
+    try {
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('userStatusChanged', { userId: String(user._id), status: user.status });
+      }
+    } catch (e) { /* ignore socket errors */ }
     res.json({ msg: 'Status updated', user });
   } catch (err) {
     res.status(500).json({ msg: 'Server error' });

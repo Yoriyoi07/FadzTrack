@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
+import { io } from 'socket.io-client';
 import { exportAccountsPdf } from '../../utils/accountsPdf';
 import '../style/it_style/It_Dash.css';
 import { FaFilePdf } from 'react-icons/fa';
 import AppHeader from '../layout/AppHeader';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const ItDash = () => {
   const [user, setUser] = useState(() => {
@@ -15,6 +18,7 @@ const ItDash = () => {
   const [userId, setUserId] = useState(() => user?._id);
 
   const [accounts, setAccounts] = useState([]);
+  const socketRef = useRef(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOption, setSortOption] = useState('Newest');
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,6 +29,7 @@ const ItDash = () => {
   const [resendLoading, setResendLoading] = useState(false);
   const [resendError, setResendError] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
+  const [pendingStatusChange, setPendingStatusChange] = useState(null); // { account, newStatus }
   const navigate = useNavigate();
   // Unified header removes need for local profile menu / collapse state
 
@@ -104,6 +109,35 @@ const handleLogout = () => {
     fetchAccounts();
   }, [selectedUser]);
 
+  // Realtime status updates via socket.io
+  useEffect(() => {
+    // Only connect once
+    if (socketRef.current) return;
+    try {
+      // Derive socket base from API base env or window location (mirrors AreaChat logic simplified)
+      let socketBase = (process.env.REACT_APP_SOCKET_URL || '').trim();
+      if(!socketBase){
+        const apiUrl = (process.env.REACT_APP_API_URL || '').trim();
+        if(apiUrl) socketBase = apiUrl.replace(/\/api\/?$/, '');
+      }
+      if(!socketBase && typeof window !== 'undefined') socketBase = window.location.origin;
+      if(socketBase.endsWith('/')) socketBase = socketBase.replace(/\/+$/, '');
+      const s = io(socketBase, { transports: ['websocket'] });
+      socketRef.current = s;
+      s.on('userStatusChanged', ({ userId, status }) => {
+        setAccounts(prev => prev.map(a => a.id === userId ? { ...a, status } : a));
+        setSelectedUser(prev => prev && prev.id === userId ? { ...prev, status } : prev);
+      });
+      s.on('disconnect', () => {/* silent */});
+    } catch (e) {
+      console.error('Socket init failed (IT dashboard):', e);
+    }
+    return () => {
+      try { socketRef.current && socketRef.current.disconnect(); } catch {}
+      socketRef.current = null;
+    };
+  }, []);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let fieldValue = value;
@@ -132,7 +166,7 @@ const handleLogout = () => {
 
   const handleSaveAccount = async () => {
     if (!isFormValid()) {
-      alert('Please correct the errors before submitting');
+      toast.error('Please correct the errors before submitting');
       return;
     }
     try {
@@ -151,7 +185,7 @@ const handleLogout = () => {
             ? { ...account, ...data.user }
             : account
         ));
-        alert('Account updated successfully!');
+        toast.success('Account updated successfully');
       } else {
         // Create user and send activation link automatically
         response = await api.post('/auth/register', {
@@ -169,7 +203,7 @@ const handleLogout = () => {
           email: data.user.email,
           status: data.user.status
         }]);
-        alert('Account created successfully and activation email sent!');
+        toast.success('Account created & activation email sent');
       }
 
       setNewAccount({
@@ -184,7 +218,7 @@ const handleLogout = () => {
       setResendError('');
     } catch (error) {
       console.error('Error saving account:', error);
-      alert('Failed to save account. Please try again.');
+      toast.error('Failed to save account');
     }
   };
 
@@ -197,7 +231,7 @@ const handleLogout = () => {
     setResendLoading(true);
     try {
       await api.post('/auth/reset-password-request', { email: newAccount.email });
-      alert('Password reset link resent successfully!');
+      toast.success('Password reset link sent');
     } catch (error) {
       console.error('Error resending reset link:', error);
       setResendError('Failed to resend password reset link.');
@@ -205,32 +239,30 @@ const handleLogout = () => {
       setResendLoading(false);
     }
   };
-
-  const handleToggleAccountStatus = async (account) => {
+  const openStatusChangeConfirm = (account) => {
     const newStatus = account.status === 'Active' ? 'Inactive' : 'Active';
-    if (newStatus === 'Inactive') {
-      const confirm = window.confirm(`Are you sure you want to deactivate ${account.name}'s account?`);
-      if (!confirm) return;
-    }
-    if (newStatus === 'Active') {
-      const confirm = window.confirm(`Are you sure you want to activate ${account.name}'s account?`);
-      if (!confirm) return;
-    }
+    setPendingStatusChange({ account, newStatus });
+  };
+
+  const confirmStatusChange = async () => {
+    if (!pendingStatusChange) return;
+    const { account, newStatus } = pendingStatusChange;
     try {
       const response = await api.put(`/auth/users/${account.id}/status`, { status: newStatus });
       if (response.data) {
-        setAccounts(prevAccounts =>
-          prevAccounts.map(a =>
-            a.id === account.id ? { ...a, status: newStatus } : a
-          )
-        );
-        alert(`Account ${newStatus === 'Inactive' ? 'disabled' : 'enabled'} successfully.`);
+        setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, status: newStatus } : a));
+        setSelectedUser(prev => prev && prev.id === account.id ? { ...prev, status: newStatus } : prev);
+        toast.success(`Account ${newStatus === 'Inactive' ? 'disabled' : 'enabled'}`);
       }
-    } catch (error) {
-      console.error('Failed to toggle account status:', error);
-      alert('An error occurred. Please try again.');
+    } catch (e) {
+      console.error('Failed to toggle account status:', e);
+      toast.error('Failed to update status');
+    } finally {
+      setPendingStatusChange(null);
     }
   };
+
+  const cancelStatusChange = () => setPendingStatusChange(null);
 
   const filteredAccounts = accounts.filter(account => {
     return (account.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -277,7 +309,7 @@ const handleLogout = () => {
       });
     } catch (e) {
       console.error('Export failed', e);
-      alert('Failed to export PDF.');
+  toast.error('Failed to export PDF');
     } finally {
       setExporting(false);
     }
@@ -529,7 +561,7 @@ const handleLogout = () => {
                         <td>
                           <button
                             className={`status-toggle-button-IT ${account.status === 'Active' ? 'deactivate-IT' : 'activate-IT'}`}
-                            onClick={() => handleToggleAccountStatus(account)}
+                            onClick={() => openStatusChangeConfirm(account)}
                           >
                             {account.status === 'Active' ? 'Disable' : 'Enable'}
                           </button>
@@ -580,6 +612,23 @@ const handleLogout = () => {
           </div>
         </main>
       </div>
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar newestOnTop closeOnClick draggable pauseOnHover theme="colored" />
+      {pendingStatusChange && (
+        <div className="status-modal-overlay-IT">
+          <div className="status-modal-IT">
+            <h3>{pendingStatusChange.newStatus === 'Inactive' ? 'Deactivate Account' : 'Activate Account'}</h3>
+            <p>
+              {pendingStatusChange.newStatus === 'Inactive'
+                ? `Are you sure you want to deactivate ${pendingStatusChange.account.name}'s account? They will be prevented from logging in.`
+                : `Activate ${pendingStatusChange.account.name}'s account? They will regain access.`}
+            </p>
+            <div className="status-modal-actions-IT">
+              <button className="confirm-btn-IT" onClick={confirmStatusChange}>Yes</button>
+              <button className="cancel-btn-IT" onClick={cancelStatusChange}>No</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
