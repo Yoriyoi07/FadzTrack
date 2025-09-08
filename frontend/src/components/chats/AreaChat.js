@@ -9,7 +9,7 @@ import {
 } from 'react-icons/fa';
 import { io } from 'socket.io-client';
 import EmojiPicker from 'emoji-picker-react';
-import api from '../../api/axiosInstance';
+import api, { API_BASE_URL } from '../../api/axiosInstance';
 import '../style/am_style/AreaChat.css';
 
 // Map role/baseSegment to its navigation links so reused chat shows correct menu.
@@ -82,11 +82,11 @@ const NAV_CONFIG = {
 // 3. Fallback to window.location.origin
 let _derivedSocketBase = (process.env.REACT_APP_SOCKET_URL || '').trim();
 if(!_derivedSocketBase){
-  const apiEnv = (process.env.REACT_APP_API_URL || '').trim();
-  if(apiEnv){ _derivedSocketBase = apiEnv.replace(/\/?api\/?$/,''); }
+  // derive from exported API_BASE_URL (already normalized)
+  const apiBase = API_BASE_URL || '';
+  if(apiBase){ _derivedSocketBase = apiBase.replace(/\/?api\/?$/,''); }
 }
 if(!_derivedSocketBase && typeof window !== 'undefined') _derivedSocketBase = window.location.origin;
-// Ensure no trailing slash
 if(_derivedSocketBase.endsWith('/')) _derivedSocketBase = _derivedSocketBase.replace(/\/+$/,'');
 const SOCKET_URL  = _derivedSocketBase || '/';
 const SOCKET_PATH = process.env.REACT_APP_SOCKET_PATH || '/socket.io';

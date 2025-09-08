@@ -2,23 +2,23 @@
 import axios from 'axios';
 
 // Prefer HTTPS in prod; trim trailing slashes
-const baseURL = (
+export const API_BASE_URL = (
   process.env.REACT_APP_API_URL ||
   process.env.REACT_APP_API_BASE_URL ||
   (process.env.NODE_ENV === 'development' ? 'http://localhost:5000/api' : 'https://fadztrack.onrender.com/api')
 ).replace(/\/+$/, '');
 
 const api = axios.create({
-  baseURL,
+  baseURL: API_BASE_URL,
   withCredentials: true, // send cookies (refresh, trust)
 });
 
 // Debug: Log the base URL being used
-console.log('API Base URL:', baseURL);
+console.log('API Base URL:', API_BASE_URL);
 
 // Plain client for refresh (no interceptors to avoid recursion)
 const refreshClient = axios.create({
-  baseURL,
+  baseURL: API_BASE_URL,
   withCredentials: true,
 });
 
