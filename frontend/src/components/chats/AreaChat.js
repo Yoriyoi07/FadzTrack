@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   FaUsers, FaPaperPlane, FaTachometerAlt, FaComments, FaBoxes,
   FaClipboardList, FaChartBar, FaProjectDiagram, FaReply, FaShare, FaTrash,
-  FaSearch, FaTimes, FaArrowUp, FaArrowDown, FaEllipsisH, FaCalendarAlt, FaEye, FaExchangeAlt, FaMapMarkerAlt
+  FaSearch, FaTimes, FaArrowUp, FaArrowDown, FaEllipsisH, FaCalendarAlt, FaEye, FaExchangeAlt, FaMapMarkerAlt, FaSignOutAlt, FaUserPlus
 } from 'react-icons/fa';
 import { io } from 'socket.io-client';
 import EmojiPicker from 'emoji-picker-react';
@@ -62,6 +62,7 @@ const NAV_CONFIG = {
     { to: '/hr/mlist', icon: FaUsers, label: 'Manpower', activeMatch: /^\/hr\/mlist/ },
     { to: '/hr/movement', icon: FaExchangeAlt, label: 'Movement', activeMatch: /^\/hr\/movement/ },
     { to: '/hr/project-records', icon: FaProjectDiagram, label: 'Projects', activeMatch: /^\/hr\/project-records/ },
+    { to: '/hr/attendance', icon: FaCalendarAlt, label: 'Attendance', activeMatch: /^\/hr\/attendance/ },
   ],
   staff: [
     { to: '/staff/current-project', icon: FaProjectDiagram, label: 'Project', activeMatch: /^\/staff\/current-project/ },
@@ -1133,7 +1134,8 @@ const AreaChat = ({ baseSegment = 'am' }) => {
       { to: '/hr/chat', label: 'Chat', icon: <FaComments/>, match: '/hr/chat' },
       { to: '/hr/mlist', label: 'Manpower', icon: <FaUsers/>, match: '/hr/mlist' },
       { to: '/hr/movement', label: 'Movement', icon: <FaExchangeAlt/>, match: '/hr/movement' },
-  { to: '/hr/project-records', label: 'Projects', icon: <FaProjectDiagram/>, match: '/hr/project-records' }
+      { to: '/hr/project-records', label: 'Projects', icon: <FaProjectDiagram/>, match: '/hr/project-records' },
+      { to: '/hr/attendance', label: 'Attendance', icon: <FaCalendarAlt/>, match: '/hr/attendance' }
     ] : undefined}
   />
 
@@ -1601,9 +1603,11 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                     {selectedChat.isGroup && (
                       <>
                         <button className="action-btn add-members-btn" onClick={() => setShowAddMembers(true)}>
-                          <FaUsers /><span>Add Members</span>
+                          <FaUserPlus />
                         </button>
-                        <button className="action-btn leave-btn" onClick={handleLeaveGroup}><span>Leave Group</span></button>
+                        <button className="action-btn leave-btn" onClick={handleLeaveGroup}>
+                          <FaSignOutAlt />
+                        </button>
                       </>
                     )}
                   </div>
