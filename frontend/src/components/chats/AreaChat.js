@@ -76,7 +76,19 @@ const NAV_CONFIG = {
   ],
 };
 
-const SOCKET_URL  = process.env.REACT_APP_SOCKET_URL  || '/';
+// Robust socket base resolution:
+// 1. Explicit REACT_APP_SOCKET_URL
+// 2. Derive from REACT_APP_API_URL stripping trailing /api
+// 3. Fallback to window.location.origin
+let _derivedSocketBase = (process.env.REACT_APP_SOCKET_URL || '').trim();
+if(!_derivedSocketBase){
+  const apiEnv = (process.env.REACT_APP_API_URL || '').trim();
+  if(apiEnv){ _derivedSocketBase = apiEnv.replace(/\/?api\/?$/,''); }
+}
+if(!_derivedSocketBase && typeof window !== 'undefined') _derivedSocketBase = window.location.origin;
+// Ensure no trailing slash
+if(_derivedSocketBase.endsWith('/')) _derivedSocketBase = _derivedSocketBase.replace(/\/+$/,'');
+const SOCKET_URL  = _derivedSocketBase || '/';
 const SOCKET_PATH = process.env.REACT_APP_SOCKET_PATH || '/socket.io';
 
 // Generic chat component now parameterized by baseSegment so other roles reuse it safely.
@@ -244,6 +256,15 @@ const AreaChat = ({ baseSegment = 'am' }) => {
 
   // Consistent ordering helper: newest lastMessage (with fallbacks) first, plus pin logic
   const sortChatList = (list) => {
+    // A chat only counts as having a real last message if it has: non-empty content OR attachments OR a sender id.
+    const hasRealLastMessage = (c) => {
+      const lm = c?.lastMessage;
+      if (!lm) return false;
+      const hasContent = typeof lm.content === 'string' && lm.content.trim().length > 0;
+      const hasAttachments = Array.isArray(lm.attachments) && lm.attachments.length > 0;
+      const hasSender = !!lm.sender; // legacy empty chats often have no sender
+      return hasContent || hasAttachments || hasSender;
+    };
     const getTs = (c) => {
   // Prefer a precomputed numeric timestamp for reliable ordering
   if (c?.lastMessage?.tsNum) return c.lastMessage.tsNum;
@@ -262,8 +283,8 @@ const AreaChat = ({ baseSegment = 'am' }) => {
     // 2. Chats WITHOUT a lastMessage (keep their original relative order)
     const withIndex = [...(list || [])].map((c, idx) => ({ c, idx }));
     let sorted = withIndex.sort((a, b) => {
-      const aHas = !!a.c?.lastMessage;
-      const bHas = !!b.c?.lastMessage;
+      const aHas = hasRealLastMessage(a.c);
+      const bHas = hasRealLastMessage(b.c);
       if (aHas && !bHas) return -1; // a first
       if (!aHas && bHas) return 1;  // b first
       if (!aHas && !bHas) return a.idx - b.idx; // preserve original order for both empty
@@ -414,6 +435,23 @@ const AreaChat = ({ baseSegment = 'am' }) => {
       transports: ['websocket', 'polling'], auth: { userId }
     });
 
+    // Diagnostics for production connection issues
+    socket.current.on('connect_error', (err) => {
+      // If websocket failed first, allow engine.io to fallback to polling automatically; log once
+      console.warn('[socket] connect_error', SOCKET_URL, err?.message);
+    });
+    socket.current.on('error', (err) => {
+      console.warn('[socket] error', err);
+    });
+    socket.current.on('reconnect_attempt', (n) => {
+      // ensure both transports remain allowed
+      try { socket.current.io.opts.transports = ['websocket','polling']; } catch {}
+      if (n === 1) console.info('[socket] reconnect attempt');
+    });
+    socket.current.on('reconnect_failed', () => {
+      console.error('[socket] reconnect failed');
+    });
+
   // Helper: normalize an incoming socket message so that we don't display
   // raw attachment URLs (e.g. signed Supabase URLs) as the text content
   // when the user only sent files/images with no accompanying message.
@@ -450,7 +488,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
             const count = attachments.length;
             content = allImages ? (count === 1 ? '� Photo' : `🖼 ${count} Photos`) : (count === 1 ? '�📎 Attachment' : `📎 ${count} Files`);
           }
-          return { ...c, lastMessage: { content, timestamp: msg.timestamp || tsNum, tsNum, seq: ++seqRef.current, attachments } };
+          return { ...c, lastMessage: { content, timestamp: msg.timestamp || tsNum, tsNum, seq: ++seqRef.current, attachments, sender: msg.sender } };
         });
         if (!found) return list; // chat not yet in list (will be added by chatCreated event)
         return sortChatList(updated);
@@ -515,8 +553,8 @@ const AreaChat = ({ baseSegment = 'am' }) => {
       const raw = chatObj.lastMessage?.timestamp || chatObj.lastMessage?.createdAt || chatObj.lastMessage?.updatedAt;
       let num = typeof raw === 'number' ? raw : (raw ? Date.parse(raw) : 0);
       chatObj = chatObj.lastMessage ? { ...chatObj, lastMessage: { ...chatObj.lastMessage, tsNum: num, seq: ++seqRef.current } } : chatObj;
-    // If no lastMessage yet, don't insert into visible list (Messenger-like behavior)
-    if (!chatObj.lastMessage) return;
+  // If no lastMessage yet and NOT a group, don't insert (hide empty 1-1). Allow empty groups to appear.
+  if (!chatObj.lastMessage && !chatObj.isGroup) return;
     setChatList(list => sortChatList([chatObj, ...list.filter(c => c._id !== chatObj._id)]));
     };
 
@@ -598,8 +636,16 @@ const AreaChat = ({ baseSegment = 'am' }) => {
         }
         return c;
       });
-      // Filter out chats with no lastMessage so empty conversations are hidden
-      const visible = withTs.filter(c => !!c.lastMessage);
+      // Filter out empty direct chats but keep group chats even if empty
+      const visible = withTs.filter(c => {
+        const lm = c.lastMessage;
+        if (!lm) return !!c.isGroup; // include empty groups, exclude empty DMs
+        if (c.isGroup) return true; // always show groups once created
+        const hasContent = typeof lm.content === 'string' && lm.content.trim().length > 0;
+        const hasAttachments = Array.isArray(lm.attachments) && lm.attachments.length > 0;
+        const hasSender = !!lm.sender;
+        return hasContent || hasAttachments || hasSender; // for DMs require real message
+      });
       setChatList(sortChatList(visible));
     } catch { setChatList([]); }
   };
@@ -1013,10 +1059,39 @@ const AreaChat = ({ baseSegment = 'am' }) => {
             </div>
             <div className="modal-buttons">
               <button className="btn-create" disabled={!forwardTargets.length} onClick={() => {
-                if (!forwardMessage) return; 
-                Promise.all(forwardTargets.map(cid => api.post('/messages', { conversation: cid, content: forwardMessage.content, forwardOf: forwardMessage._id }, { headers })))
-                  .then(()=> { setShowForwardModal(false); setForwardMessage(null); setForwardTargets([]); if (!forwardTargets.includes(selectedChat?._id)) reloadChats(); })
-                  .catch(()=>alert('Forward failed'));
+                if (!forwardMessage) return;
+                const run = async () => {
+                  try {
+                    for (const cid of forwardTargets) {
+                      const atts = Array.isArray(forwardMessage.attachments) ? forwardMessage.attachments : [];
+                      if (atts.length) {
+                        // Re-upload each attachment by fetching the existing URL & appending as File
+                        const fd = new FormData();
+                        fd.append('conversation', cid);
+                        if (forwardMessage.content) fd.append('content', forwardMessage.content);
+                        fd.append('forwardOf', forwardMessage._id);
+                        for (const att of atts) {
+                          if (!att?.url) continue;
+                          try {
+                            const res = await fetch(att.url);
+                            const blob = await res.blob();
+                            const nameGuess = att.name || att.url.split('?')[0].split('/').pop() || 'attachment';
+                            const file = new File([blob], nameGuess, { type: blob.type || att.mime || 'application/octet-stream' });
+                            fd.append('files', file);
+                          } catch { /* ignore individual attachment failure */ }
+                        }
+                        await api.post('/messages', fd, { headers: { ...headers, 'Content-Type': 'multipart/form-data' } });
+                      } else {
+                        await api.post('/messages', { conversation: cid, content: forwardMessage.content, forwardOf: forwardMessage._id }, { headers });
+                      }
+                    }
+                    setShowForwardModal(false); setForwardMessage(null); setForwardTargets([]);
+                    if (!forwardTargets.includes(selectedChat?._id)) reloadChats();
+                  } catch (e) {
+                    alert('Forward failed');
+                  }
+                };
+                run();
               }}>Forward</button>
               <button className="btn-cancel" onClick={() => { setShowForwardModal(false); setForwardMessage(null); setForwardTargets([]); }}>Cancel</button>
             </div>
@@ -1434,6 +1509,37 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                           }
                         }}
                         onKeyDown={handleKeyDown}
+                        onPaste={async (e) => {
+                          try {
+                            const items = e.clipboardData?.items || [];
+                            const files = [];
+                            for (const it of items) {
+                              if (it.kind === 'file' && it.type.startsWith('image/')) {
+                                const f = it.getAsFile();
+                                if (f) files.push(f);
+                              }
+                            }
+                            // If no file items but there is a textual image URL, attempt fetch & convert
+                            if (!files.length) {
+                              const text = e.clipboardData.getData('text/plain');
+                              if (text && /^https?:\/\//i.test(text) && /(\.png|\.jpe?g|\.gif|\.webp|\.bmp|\.svg)(\?|#|$)/i.test(text)) {
+                                try {
+                                  const resp = await fetch(text, { mode: 'cors' });
+                                  const blob = await resp.blob();
+                                  if (blob && blob.type.startsWith('image/')) {
+                                    const fname = 'pasted-' + Date.now() + (blob.type === 'image/png' ? '.png' : '.img');
+                                    const file = new File([blob], fname, { type: blob.type });
+                                    files.push(file);
+                                  }
+                                } catch { /* ignore */ }
+                              }
+                            }
+                            if (files.length) {
+                              e.preventDefault();
+                              setPendingFiles(prev => [...prev, ...files]);
+                            }
+                          } catch { /* ignore */ }
+                        }}
                       />
 
                       {/* Emoji */}
@@ -1524,9 +1630,9 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                       </div>
 
                       {showInfoTab === 'media' && (
-                        <div className="info-media-grid" style={{ maxHeight:200, overflowY:'auto', display:'flex', flexWrap:'wrap', gap:6 }}>
+                        <div className="info-media-grid" style={{ maxHeight:200, overflowY:'auto', display:'flex', flexWrap:'wrap', gap:6, paddingTop:6 }}>
                           {mediaImages.map((a,i) => (
-                            <div key={i} className="info-media-item" style={{ width:60, height:60, overflow:'hidden', borderRadius:4, cursor:'pointer' }} onClick={() => openMediaViewer(i)}>
+                            <div key={i} className="info-media-item" style={{ width:60, height:60, overflow:'hidden', borderRadius:4, cursor:'pointer', background:'#f8f9fa', border:'1px solid #e5e7eb' }} onClick={() => openMediaViewer(i)}>
                               <img src={a.url} alt={a.name} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                             </div>
                           ))}
@@ -1535,10 +1641,13 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                       )}
 
                       {showInfoTab === 'files' && (
-                        <div className="info-files-list">
+                        <div className="info-files-list" style={{ maxHeight:200, overflowY:'auto', display:'flex', flexDirection:'column', gap:4, paddingTop:6 }}>
                           {messages.flatMap(m => (m.attachments || [])).filter(a => !(a.mime && a.mime.startsWith('image/'))).map((a, i) => (
-                            <a key={i} href={a.url} download style={{ textDecoration: 'none', color: '#0b5fff' }}>📎 {a.name}</a>
+                            <a key={i} href={a.url} download style={{ textDecoration: 'none', color: '#0b5fff', fontSize:12, background:'#f8f9fa', padding:'4px 6px', borderRadius:6, border:'1px solid #e5e7eb' }}>📎 {a.name}</a>
                           ))}
+                          {messages.flatMap(m => (m.attachments || [])).filter(a => !(a.mime && a.mime.startsWith('image/'))).length === 0 && (
+                            <div style={{ fontSize:12, opacity:.6 }}>No files</div>
+                          )}
                         </div>
                       )}
                     </div>

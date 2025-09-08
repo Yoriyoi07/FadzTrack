@@ -5,6 +5,7 @@ require('dotenv').config();
 const cookieParser = require('cookie-parser');
 const http = require('http');
 const socketio = require('socket.io');
+const helmet = require('helmet');
 
 // Routes
 const geminiRoutes = require('./route/gemini');
@@ -74,6 +75,69 @@ app.options('*', cors(corsDelegate));
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// ------------------------------------------------------------
+// Security Headers (Helmet + fine‑tuned policies)
+// ------------------------------------------------------------
+// NOTE: Adjust directives (e.g., img-src, connect-src) as needed when adding new CDNs/features.
+// Use environment FRONTEND_URL allow-list for CSP origins.
+
+const feOrigins = Array.from(allowedSet);
+// Build basic directive lists
+const self = "'self'";
+const none = "'none'";
+
+// Allow websocket connections to same origins
+const wsOrigins = feOrigins.map(o => o.replace(/^http/, 'ws'));
+
+app.use(helmet({
+  xssFilter: false, // deprecated header automatically removed in Helmet v7
+  crossOriginResourcePolicy: { policy: 'same-site' },
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginEmbedderPolicy: false, // may block Canvas/Worker use otherwise
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      'default-src': [self],
+      'base-uri': [self],
+      'font-src': [self, 'https:', 'data:'],
+      'img-src': [self, 'data:', 'blob:', 'https:'],
+      'script-src': [self, 'https:', 'blob:'],
+      'script-src-attr': [none],
+      'style-src': [self, 'https:', "'unsafe-inline'"], // inline styles often in React build
+      'connect-src': [self, ...feOrigins, ...wsOrigins, 'https://api.openai.com', 'https://*.supabase.co'],
+      'frame-ancestors': [self], // mitigates clickjacking (also mirrors X-Frame-Options)
+      'object-src': [none],
+      'upgrade-insecure-requests': [],
+    },
+  },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  frameguard: { action: 'sameorigin' },
+  hsts: process.env.NODE_ENV === 'production' ? {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true,
+  } : false,
+}));
+
+// Additional explicit headers (Helmet covers most but we ensure scan passes)
+app.use((req, res, next) => {
+  // X-Content-Type-Options (helmet sets via noSniff but be explicit)
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  // Permissions-Policy (formerly Feature-Policy) – tighten as needed
+  res.setHeader('Permissions-Policy', [
+    'accelerometer=()',
+    'camera=()',
+    'geolocation=()',
+    'microphone=()',
+    'payment=()',
+    'usb=()',
+    'fullscreen=(self)',
+    'clipboard-read=(self)',
+    'clipboard-write=(self)'
+  ].join(', '));
+  next();
+});
 
 // MongoDB connection
 mongoose

@@ -479,6 +479,9 @@
   position: relative;
 }
 
+/* Ensure hovered message (and its floating controls) sit above adjacent messages */
+.modern-message-wrapper:hover, .modern-message-wrapper:focus-within { z-index: 15; }
+
 .modern-message-wrapper.own {
   align-items: flex-end;
 }
@@ -582,10 +585,17 @@
 .msg-action-popover .popover-item:active { background:#303133; }
 
 /* Floating outside layer (Messenger-like) */
-.msg-floating-layer { position: absolute; top: -42px; display:flex; align-items:center; gap:6px; opacity:0; pointer-events:none; transition:opacity .16s ease, transform .16s ease; }
+.msg-floating-layer { position: absolute; top: -42px; display:flex; align-items:center; gap:6px; opacity:0; pointer-events:none; transition:opacity .16s ease, transform .16s ease; z-index:50; }
 .modern-message-wrapper:hover .msg-floating-layer { opacity:1; pointer-events:auto; transform:translateY(-2px); }
 .msg-floating-layer.other { left: 0; }
 .msg-floating-layer.own { right: 0; flex-direction: row-reverse; }
+
+/* Ensure first message (near top) still shows controls: place them below instead of above */
+.modern-chat-messages .modern-message-wrapper:first-child .msg-floating-layer { top: auto; bottom: -42px; }
+.modern-chat-messages .modern-message-wrapper:first-child:hover .msg-floating-layer { transform:translateY(2px); }
+@media (max-width:700px){
+  .modern-chat-messages .modern-message-wrapper:first-child .msg-floating-layer { bottom: -50px; }
+}
 
 .msg-reaction-palette { background:#fff; border:1px solid #e4e6ea; padding:6px 8px; border-radius:28px; display:flex; gap:6px; box-shadow:0 4px 18px rgba(0,0,0,.15); }
 .react-quick { all:unset; cursor:pointer; font-size:20px; line-height:1; display:flex; align-items:center; justify-content:center; width:28px; height:28px; transition:transform .15s ease; }
