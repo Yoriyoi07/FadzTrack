@@ -6,6 +6,7 @@ import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import NotificationBell from '../NotificationBell';
 import api from '../../api/axiosInstance';
+import { SOCKET_URL as SOCKET_ORIGIN, SOCKET_PATH } from '../../utils/socketConfig';
 import { exportProjectDetails } from '../../utils/projectPdf';
 import {
   FaRegCommentDots, FaRegFileAlt, FaRegListAlt, FaDownload, FaCalendarAlt, FaMapMarkerAlt,
@@ -18,8 +19,7 @@ import "../style/pm_style/Pm_ViewProjects_Wide.css";
 // Staff style sheet (safe to load globally; selectors are namespaced under .staff-view-root)
 import "../style/staff_style/Staff_ViewProject.css";
 
-const SOCKET_ORIGIN = (process.env.REACT_APP_API_URL || 'http://localhost:5000').replace('/api', '');
-const SOCKET_PATH = '/socket.io';
+// Centralized socket origin/path from utils/socketConfig
 
 function extractOriginalNameFromPath(path) {
   const base = (path || '').split('/').pop() || '';

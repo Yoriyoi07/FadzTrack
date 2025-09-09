@@ -10,6 +10,7 @@ import {
 import { io } from 'socket.io-client';
 import EmojiPicker from 'emoji-picker-react';
 import api, { API_BASE_URL } from '../../api/axiosInstance';
+import { SOCKET_URL, SOCKET_PATH } from '../../utils/socketConfig';
 import '../style/am_style/AreaChat.css';
 
 // Map role/baseSegment to its navigation links so reused chat shows correct menu.
@@ -77,20 +78,7 @@ const NAV_CONFIG = {
   ],
 };
 
-// Robust socket base resolution:
-// 1. Explicit REACT_APP_SOCKET_URL
-// 2. Derive from REACT_APP_API_URL stripping trailing /api
-// 3. Fallback to window.location.origin
-let _derivedSocketBase = (process.env.REACT_APP_SOCKET_URL || '').trim();
-if(!_derivedSocketBase){
-  // derive from exported API_BASE_URL (already normalized)
-  const apiBase = API_BASE_URL || '';
-  if(apiBase){ _derivedSocketBase = apiBase.replace(/\/?api\/?$/,''); }
-}
-if(!_derivedSocketBase && typeof window !== 'undefined') _derivedSocketBase = window.location.origin;
-if(_derivedSocketBase.endsWith('/')) _derivedSocketBase = _derivedSocketBase.replace(/\/+$/,'');
-const SOCKET_URL  = _derivedSocketBase || '/';
-const SOCKET_PATH = process.env.REACT_APP_SOCKET_PATH || '/socket.io';
+// Socket base and path are centralized in utils/socketConfig
 
 // Generic chat component now parameterized by baseSegment so other roles reuse it safely.
 const AreaChat = ({ baseSegment = 'am' }) => {

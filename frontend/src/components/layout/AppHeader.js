@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import NotificationBell from '../NotificationBell';
 import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaBoxes, FaUsers, FaClipboardList as FaLogs, FaChartBar, FaExchangeAlt, FaCalendarAlt } from 'react-icons/fa';
 import '../style/pic_style/PicHeader.css'; // reuse base styles
-import api from '../../api/axiosInstance';
+import api, { API_BASE_URL } from '../../api/axiosInstance';
+import api, { API_BASE_URL } from '../../api/axiosInstance';
+import { SOCKET_URL, SOCKET_PATH } from '../../utils/socketConfig';
 import { io } from 'socket.io-client';
 
 /**
@@ -91,11 +93,17 @@ const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false
   const [unreadChats, setUnreadChats] = useState(0);
   const [socketRef, setSocketRef] = useState(null);
 
+  // Resolve Socket.IO base (reuse logic similar to AreaChat)
+  // Use centralized socket config
+
   // lightweight socket just for chatUpdated events (avoid duplicating full AreaChat logic)
   useEffect(()=>{
     const token = localStorage.getItem('token');
     let s;
-    try { s = io('/', { path:'/socket.io', transports:['websocket','polling'], auth:{ userId: user?._id } }); setSocketRef(s); } catch {}
+    try {
+      s = io(SOCKET_URL, { path: SOCKET_PATH, transports:['websocket','polling'], auth:{ userId: user?._id } });
+      setSocketRef(s);
+    } catch {}
     const handle = (payload) => {
       if(!payload || !payload.chatId) return; // just refetch counts lazily
       fetchUnread();
@@ -120,6 +128,33 @@ const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false
   };
 
   useEffect(()=>{ fetchUnread(); }, []);
+
+  // Window focus tracking for title badge
+  const baseTitleRef = useRef(typeof document !== 'undefined' ? document.title : 'FadzTrack');
+  const [windowFocused, setWindowFocused] = useState(true);
+  useEffect(() => {
+    const onFocus = () => setWindowFocused(true);
+    const onBlur  = () => setWindowFocused(false);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, []);
+
+  // Update tab title with unread count when unfocused
+  useEffect(() => {
+    try {
+      const base = baseTitleRef.current || 'FadzTrack';
+      if (!windowFocused && unreadChats > 0) {
+        const n = unreadChats > 99 ? '99+' : String(unreadChats);
+        document.title = `(${n}) ${base}`;
+      } else {
+        document.title = base;
+      }
+    } catch {}
+  }, [unreadChats, windowFocused]);
 
   // React immediately to local optimistic unread changes from AreaChat (custom event)
   useEffect(()=>{

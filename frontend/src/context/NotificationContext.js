@@ -2,15 +2,13 @@ import React, { createContext, useContext, useEffect, useState, useRef } from "r
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import api from "../api/axiosInstance";
+import { SOCKET_URL, SOCKET_PATH } from "../utils/socketConfig";
 
 const NotificationContext = createContext();
 
 export const useNotifications = () => useContext(NotificationContext);
 
-const socketUrl =
-  process.env.NODE_ENV === "production"
-    ? "https://fadztrack.onrender.com"
-    : "http://localhost:5000";
+// Use centralized socket URL/path
 
 export const NotificationProvider = ({ children, userId }) => {
   const [notifications, setNotifications] = useState([]);
@@ -48,7 +46,7 @@ export const NotificationProvider = ({ children, userId }) => {
   useEffect(() => {
     if (!userId) return;
 
-    const socket = io(socketUrl, { transports: ["websocket"] });
+  const socket = io(SOCKET_URL, { path: SOCKET_PATH, transports: ["websocket","polling"], withCredentials: true });
     socketRef.current = socket;
 
     socket.on("connect", () => {

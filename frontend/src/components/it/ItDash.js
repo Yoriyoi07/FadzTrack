@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import { io } from 'socket.io-client';
+import { SOCKET_URL, SOCKET_PATH } from '../../utils/socketConfig';
 import { exportAccountsPdf } from '../../utils/accountsPdf';
 import '../style/it_style/It_Dash.css';
 import { FaFilePdf } from 'react-icons/fa';
@@ -114,15 +115,8 @@ const handleLogout = () => {
     // Only connect once
     if (socketRef.current) return;
     try {
-      // Derive socket base from API base env or window location (mirrors AreaChat logic simplified)
-      let socketBase = (process.env.REACT_APP_SOCKET_URL || '').trim();
-      if(!socketBase){
-        const apiUrl = (process.env.REACT_APP_API_URL || '').trim();
-        if(apiUrl) socketBase = apiUrl.replace(/\/api\/?$/, '');
-      }
-      if(!socketBase && typeof window !== 'undefined') socketBase = window.location.origin;
-      if(socketBase.endsWith('/')) socketBase = socketBase.replace(/\/+$/, '');
-      const s = io(socketBase, { transports: ['websocket'] });
+  // Use centralized socket config
+  const s = io(SOCKET_URL, { path: SOCKET_PATH, transports: ['websocket','polling'] });
       socketRef.current = s;
       s.on('userStatusChanged', ({ userId, status }) => {
         setAccounts(prev => prev.map(a => a.id === userId ? { ...a, status } : a));
