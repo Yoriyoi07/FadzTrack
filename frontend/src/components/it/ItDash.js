@@ -329,6 +329,18 @@ const handleLogout = () => {
         return a.name.localeCompare(b.name);
       case 'Z-A':
         return b.name.localeCompare(a.name);
+      case 'Active': {
+        const aActive = a.accountStatus === 'Active';
+        const bActive = b.accountStatus === 'Active';
+        if (aActive !== bActive) return aActive ? -1 : 1; // Active first
+        return a.name.localeCompare(b.name);
+      }
+      case 'Inactive': {
+        const aInactive = a.accountStatus === 'Inactive';
+        const bInactive = b.accountStatus === 'Inactive';
+        if (aInactive !== bInactive) return aInactive ? -1 : 1; // Inactive first
+        return a.name.localeCompare(b.name);
+      }
       default:
         return 0;
     }
@@ -560,6 +572,8 @@ const handleLogout = () => {
                       <option value="Oldest">Oldest</option>
                       <option value="A-Z">A-Z</option>
                       <option value="Z-A">Z-A</option>
+                      <option value="Active">Active</option>
+                      <option value="Inactive">Inactive</option>
                     </select>
                   </div>
                   <button
@@ -639,7 +653,6 @@ const handleLogout = () => {
                       </tr>
                     ))}
                   </tbody>
-                            setErrors({});
                 </table>
               </div>
               <div className="pagination-IT">
