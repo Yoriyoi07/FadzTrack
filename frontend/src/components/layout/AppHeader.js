@@ -4,7 +4,6 @@ import NotificationBell from '../NotificationBell';
 import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaBoxes, FaUsers, FaClipboardList as FaLogs, FaChartBar, FaExchangeAlt, FaCalendarAlt } from 'react-icons/fa';
 import '../style/pic_style/PicHeader.css'; // reuse base styles
 import api, { API_BASE_URL } from '../../api/axiosInstance';
-import api, { API_BASE_URL } from '../../api/axiosInstance';
 import { SOCKET_URL, SOCKET_PATH } from '../../utils/socketConfig';
 import { io } from 'socket.io-client';
 
