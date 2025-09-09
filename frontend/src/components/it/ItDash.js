@@ -108,7 +108,7 @@ const handleLogout = () => {
           phone: user.phone,
           email: user.email,
           // Separate lifecycle status from presence
-          accountStatus: user.status || 'Active',
+          accountStatus: user.status === 'Active' ? 'Active' : 'Inactive',
           presence: 'offline'
         }));
         setAccounts(formattedAccounts);
@@ -132,8 +132,9 @@ const handleLogout = () => {
       socketRef.current = s;
       // Lifecycle status changed (Active/Inactive)
       s.on('userStatusChanged', ({ userId, status }) => {
-        setAccounts(prev => prev.map(a => a.id === userId ? { ...a, accountStatus: status } : a));
-        setSelectedUser(prev => prev && prev.id === userId ? { ...prev, accountStatus: status } : prev);
+        const normalized = status === 'Active' ? 'Active' : 'Inactive';
+        setAccounts(prev => prev.map(a => a.id === userId ? { ...a, accountStatus: normalized } : a));
+        setSelectedUser(prev => prev && prev.id === userId ? { ...prev, accountStatus: normalized } : prev);
       });
       // Presence snapshot and live updates
       s.on('presenceSnapshot', (ids = []) => {
@@ -242,7 +243,7 @@ const handleLogout = () => {
           position: data.user.role,
           phone: data.user.phone,
           email: data.user.email,
-          accountStatus: data.user.status || 'Active',
+          accountStatus: data.user.status === 'Active' ? 'Active' : 'Inactive',
           presence: 'offline'
         }]);
         toast.success('Account created & activation email sent');
@@ -292,8 +293,9 @@ const handleLogout = () => {
     try {
       const response = await api.put(`/auth/users/${account.id}/status`, { status: newStatus });
       if (response.data) {
-        setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, accountStatus: newStatus } : a));
-        setSelectedUser(prev => prev && prev.id === account.id ? { ...prev, accountStatus: newStatus } : prev);
+        const normalized = newStatus === 'Active' ? 'Active' : 'Inactive';
+        setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, accountStatus: normalized } : a));
+        setSelectedUser(prev => prev && prev.id === account.id ? { ...prev, accountStatus: normalized } : prev);
         toast.success(`Account ${newStatus === 'Inactive' ? 'disabled' : 'enabled'}`);
       }
     } catch (e) {
