@@ -62,7 +62,16 @@ const ItDash = () => {
         if (!value.trim()) errorMsg = 'Position is required';
         break;
       case 'phone':
-        if (!/^\d{11}$/.test(value)) errorMsg = 'Phone must be 11 digits';
+        // Be lenient while typing: only enforce full rule at 11 digits; always require starting with 09
+        if (!value) {
+          errorMsg = '';
+        } else if (!value.startsWith('09')) {
+          errorMsg = 'Phone must start with 09 and be 11 digits';
+        } else if (value.length < 11) {
+          errorMsg = '';
+        } else if (!/^09\d{9}$/.test(value)) {
+          errorMsg = 'Phone must start with 09 and be 11 digits';
+        }
         break;
       case 'email':
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errorMsg = 'Invalid email';
@@ -98,11 +107,14 @@ const handleLogout = () => {
           position: user.role,
           phone: user.phone,
           email: user.email,
-          status: user.status || 'Active'
+          // Separate lifecycle status from presence
+          accountStatus: user.status || 'Active',
+          presence: 'offline'
         }));
         setAccounts(formattedAccounts);
-         if (!selectedUser && formattedAccounts.length > 0) {
-        setSelectedUser(formattedAccounts[0]);}
+        if (!selectedUser && formattedAccounts.length > 0) {
+          setSelectedUser(formattedAccounts[0]);
+        }
       } catch (error) {
         console.error('Error fetching accounts:', error);
       }
@@ -110,7 +122,7 @@ const handleLogout = () => {
     fetchAccounts();
   }, [selectedUser]);
 
-  // Realtime status updates via socket.io
+  // Realtime presence + lifecycle updates via socket.io
   useEffect(() => {
     // Only connect once
     if (socketRef.current) return;
@@ -118,9 +130,26 @@ const handleLogout = () => {
   // Use centralized socket config
   const s = io(SOCKET_URL, { path: SOCKET_PATH, transports: ['websocket','polling'] });
       socketRef.current = s;
+      // Lifecycle status changed (Active/Inactive)
       s.on('userStatusChanged', ({ userId, status }) => {
-        setAccounts(prev => prev.map(a => a.id === userId ? { ...a, status } : a));
-        setSelectedUser(prev => prev && prev.id === userId ? { ...prev, status } : prev);
+        setAccounts(prev => prev.map(a => a.id === userId ? { ...a, accountStatus: status } : a));
+        setSelectedUser(prev => prev && prev.id === userId ? { ...prev, accountStatus: status } : prev);
+      });
+      // Presence snapshot and live updates
+      s.on('presenceSnapshot', (ids = []) => {
+        const set = new Set((ids || []).map(String));
+        setAccounts(prev => prev.map(a => ({ ...a, presence: set.has(String(a.id)) ? 'online' : 'offline' })));
+        setSelectedUser(prev => prev ? { ...prev, presence: set.has(String(prev.id)) ? 'online' : 'offline' } : prev);
+      });
+      s.on('userOnline', (userId) => {
+        const uid = String(userId);
+        setAccounts(prev => prev.map(a => String(a.id) === uid ? { ...a, presence: 'online' } : a));
+        setSelectedUser(prev => prev && String(prev.id) === uid ? { ...prev, presence: 'online' } : prev);
+      });
+      s.on('userOffline', (userId) => {
+        const uid = String(userId);
+        setAccounts(prev => prev.map(a => String(a.id) === uid ? { ...a, presence: 'offline' } : a));
+        setSelectedUser(prev => prev && String(prev.id) === uid ? { ...prev, presence: 'offline' } : prev);
       });
       s.on('disconnect', () => {/* silent */});
     } catch (e) {
@@ -132,29 +161,40 @@ const handleLogout = () => {
     };
   }, []);
 
+  // Reset to first page whenever search or sort changes to avoid empty pages
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortOption]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     let fieldValue = value;
 
-    if (name === "phone") {
-      fieldValue = fieldValue.replace(/\D/g, '').slice(0, 11);
+    if (name === 'phone') {
+      // Keep only digits, preserve leading zeros, enforce max length 11
+      fieldValue = (value || '').replace(/\D/g, '').slice(0, 11);
+      // If user started typing and it doesn't start with 09, guide them
+      // but don't auto-prepend; validation will handle error
     }
-    setNewAccount((prev) => ({
-      ...prev,
-      [name]: fieldValue
-    }));
+    setNewAccount(prev => ({ ...prev, [name]: fieldValue }));
     validateField(name, fieldValue);
   };
 
   const isFormValid = () => {
     const fieldNames = ['name', 'position', 'phone', 'email'];
+    const nextErrors = { ...errors };
     let valid = true;
-    fieldNames.forEach((field) => {
-      validateField(field, newAccount[field]);
-      if (newAccount[field] === '' || errors[field]) {
-        valid = false;
-      }
-    });
+    for (const field of fieldNames) {
+      const value = newAccount[field] ?? '';
+      let msg = '';
+      if (field === 'name' && !value.trim()) msg = 'Name is required';
+      if (field === 'position' && !value.trim()) msg = 'Position is required';
+      if (field === 'phone' && !/^09\d{9}$/.test(value)) msg = 'Phone must start with 09 and be 11 digits';
+      if (field === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) msg = 'Invalid email';
+      nextErrors[field] = msg;
+      if (msg) valid = false;
+    }
+    setErrors(nextErrors);
     return valid;
   };
 
@@ -176,7 +216,14 @@ const handleLogout = () => {
         data = response.data;
         setAccounts(accounts.map(account =>
           account.id === editingAccount.id
-            ? { ...account, ...data.user }
+            ? {
+                ...account,
+                name: data.user?.name ?? newAccount.name,
+                position: data.user?.role ?? newAccount.position,
+                phone: data.user?.phone ?? newAccount.phone,
+                email: data.user?.email ?? newAccount.email,
+                accountStatus: data.user?.status ?? account.accountStatus
+              }
             : account
         ));
         toast.success('Account updated successfully');
@@ -195,7 +242,8 @@ const handleLogout = () => {
           position: data.user.role,
           phone: data.user.phone,
           email: data.user.email,
-          status: data.user.status
+          accountStatus: data.user.status || 'Active',
+          presence: 'offline'
         }]);
         toast.success('Account created & activation email sent');
       }
@@ -234,7 +282,7 @@ const handleLogout = () => {
     }
   };
   const openStatusChangeConfirm = (account) => {
-    const newStatus = account.status === 'Active' ? 'Inactive' : 'Active';
+    const newStatus = account.accountStatus === 'Active' ? 'Inactive' : 'Active';
     setPendingStatusChange({ account, newStatus });
   };
 
@@ -244,8 +292,8 @@ const handleLogout = () => {
     try {
       const response = await api.put(`/auth/users/${account.id}/status`, { status: newStatus });
       if (response.data) {
-        setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, status: newStatus } : a));
-        setSelectedUser(prev => prev && prev.id === account.id ? { ...prev, status: newStatus } : prev);
+        setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, accountStatus: newStatus } : a));
+        setSelectedUser(prev => prev && prev.id === account.id ? { ...prev, accountStatus: newStatus } : prev);
         toast.success(`Account ${newStatus === 'Inactive' ? 'disabled' : 'enabled'}`);
       }
     } catch (e) {
@@ -258,11 +306,15 @@ const handleLogout = () => {
 
   const cancelStatusChange = () => setPendingStatusChange(null);
 
+  const lowerSearch = searchTerm.toLowerCase();
   const filteredAccounts = accounts.filter(account => {
-    return (account.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.position?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      account.email?.toLowerCase().includes(searchTerm.toLowerCase()));
+    const phoneStr = String(account.phone ?? '');
+    return (
+      (account.name ?? '').toLowerCase().includes(lowerSearch) ||
+      (account.position ?? '').toLowerCase().includes(lowerSearch) ||
+      phoneStr.toLowerCase().includes(lowerSearch) ||
+      (account.email ?? '').toLowerCase().includes(lowerSearch)
+    );
   });
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -283,6 +335,8 @@ const handleLogout = () => {
   });
   const currentAccounts = sortedAccounts.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredAccounts.length / itemsPerPage);
+  const startIndex = filteredAccounts.length === 0 ? 0 : indexOfFirstItem + 1;
+  const endIndex = indexOfFirstItem + currentAccounts.length;
 
   const goToPage = (pageNumber) => {
     if (pageNumber > 0 && pageNumber <= totalPages) {
@@ -314,7 +368,17 @@ const handleLogout = () => {
       return (
         <>
           <h2>Dashboard</h2>
-          <button className="new-account-btn-IT" onClick={() => setShowCreateAccount(true)}>
+          <button
+            className="new-account-btn-IT"
+            onClick={() => {
+              setShowCreateAccount(true);
+              setIsEditing(false);
+              setEditingAccount(null);
+              setNewAccount({ name: '', position: '', phone: '', email: '' });
+              setErrors({});
+              setResendError('');
+            }}
+          >
             Create New Account
           </button>
           <div className="user-profile-large-IT">
@@ -325,8 +389,13 @@ const handleLogout = () => {
           <p className="user-email-IT">{selectedUser?.email || '-'}</p>
           <p className="user-position-IT">{selectedUser?.position || '-'}</p>
           <div className="status-indicator-IT">
-            <span className={`status-IT ${(selectedUser?.status || 'active').toLowerCase()}-IT`}>
-              {selectedUser?.status || 'Active'}
+            <span className={`status-IT ${(selectedUser?.accountStatus || 'active').toLowerCase()}-IT`}>
+              {selectedUser?.accountStatus || 'Active'}
+            </span>
+          </div>
+          <div className="status-indicator-IT" style={{ marginTop: 8 }}>
+            <span className={`status-IT ${(selectedUser?.presence || 'offline')}-IT`}>
+              {(selectedUser?.presence || 'offline').replace(/^./, c=>c.toUpperCase())}
             </span>
           </div>
         </div>
@@ -372,9 +441,9 @@ const handleLogout = () => {
           <div className="form-group-IT">
             <label className="form-label-IT">Phone Number</label>
             <input
-              type="number"
+              type="tel"
               name="phone"
-              placeholder="Enter Phone Number"
+              placeholder="09xxxxxxxxx"
               value={newAccount.phone}
               onChange={handleInputChange}
               className="form-control-IT"
@@ -463,7 +532,7 @@ const handleLogout = () => {
                   <div className="stat-icon-IT devices-IT">💻</div>
                   <div className="stat-info-IT">
                     <div className="stat-label-IT">Total Active</div>
-                    <div className="stat-number-IT">{accounts.filter(a => a.status === 'Active').length}</div>
+                    <div className="stat-number-IT">{accounts.filter(a => a.accountStatus === 'Active').length}</div>
                   </div>
                 </div>
               </div>
@@ -511,6 +580,7 @@ const handleLogout = () => {
                       <th>Position</th>
                       <th>Phone Number</th>
                       <th>Email</th>
+                      <th>Presence</th>
                       <th>Status</th>
                       <th></th>
                       <th></th>
@@ -528,9 +598,14 @@ const handleLogout = () => {
                         <td>{account.phone}</td>
                         <td>{account.email}</td>
                         <td>
-                          <span className={`status-badge-IT ${account.status?.toLowerCase() || ''}-IT`}>
-                          {account.status || 'Unknown'}
-                        </span>
+                          <span className={`status-badge-IT ${(account.presence || 'offline')}-IT`}>
+                            {(account.presence || 'offline').replace(/^./, c=>c.toUpperCase())}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`status-badge-IT ${(account.accountStatus || 'active').toLowerCase()}-IT`}>
+                            {account.accountStatus || 'Unknown'}
+                          </span>
                         </td>
                         <td>
                           <button
@@ -546,6 +621,7 @@ const handleLogout = () => {
                               email: account.email
                             });
                             setResendError('');
+                            setErrors({});
                             setSelectedUser(account); 
                           }}
                         >
@@ -554,20 +630,21 @@ const handleLogout = () => {
                         </td>
                         <td>
                           <button
-                            className={`status-toggle-button-IT ${account.status === 'Active' ? 'deactivate-IT' : 'activate-IT'}`}
+                            className={`status-toggle-button-IT ${account.accountStatus === 'Active' ? 'deactivate-IT' : 'activate-IT'}`}
                             onClick={() => openStatusChangeConfirm(account)}
                           >
-                            {account.status === 'Active' ? 'Disable' : 'Enable'}
+                            {account.accountStatus === 'Active' ? 'Disable' : 'Enable'}
                           </button>
                         </td>
                       </tr>
                     ))}
                   </tbody>
+                            setErrors({});
                 </table>
               </div>
               <div className="pagination-IT">
                 <span className="pagination-info-IT">
-                  Showing data 1 to {currentAccounts.length} of {filteredAccounts.length} entries.
+                  Showing data {startIndex} to {endIndex} of {filteredAccounts.length} entries.
                 </span>
                 <div className="pagination-controls-IT">
                   <button
