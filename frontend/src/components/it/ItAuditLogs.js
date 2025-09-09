@@ -277,8 +277,8 @@ const ItAuditLog = () => {
       await new Promise((resolve, reject) => {
         logoImg.onload = () => {
           try {
-            // Add logo to top left (scaled down)
-            doc.addImage(logoImg, 'PNG', 20, 20, 30, 30);
+            // Add logo to top left (increased size)
+            doc.addImage(logoImg, 'PNG', 20, 20, 50, 50);
             resolve();
           } catch (error) {
             console.warn('Could not add logo to PDF:', error);
@@ -292,13 +292,13 @@ const ItAuditLog = () => {
       });
 
       // Add company name and title
-      doc.setFontSize(24);
+      doc.setFontSize(26); // increased font size
       doc.setFont('helvetica', 'bold');
-      doc.text('FadzTrack', 60, 35);
+      doc.text('FadzTrack', 80, 40); // adjusted position for larger logo
       
-      doc.setFontSize(18);
+      doc.setFontSize(20); // increased font size
       doc.setFont('helvetica', 'bold');
-      doc.text('IT Audit Logs Report', 60, 50);
+      doc.text('IT Audit Logs Report', 80, 55); // adjusted position
       
       // Add export details
       doc.setFontSize(10);

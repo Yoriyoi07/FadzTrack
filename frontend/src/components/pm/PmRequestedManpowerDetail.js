@@ -77,6 +77,11 @@ export default function PmRequestedManpowerDetail() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
   const [busy, setBusy] = useState(false);
+  
+  // Confirmation modal states
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [archiveReason, setArchiveReason] = useState('');
 
   // manpower selection (from THIS PM's project)
   const [availableManpowers, setAvailableManpowers] = useState([]);
@@ -234,26 +239,36 @@ export default function PmRequestedManpowerDetail() {
   };
 
   const handleEdit = () => navigate(`/pm/request-manpower/edit/${id}`);
-  const handleCancel = async () => {
-    if (!window.confirm('Are you sure you want to cancel this request?')) return;
+  
+  const handleCancel = () => {
+    setShowCancelConfirm(true);
+  };
+
+  const confirmCancel = async () => {
+    setBusy(true);
     try {
       await api.delete(`/manpower-requests/${id}`);
       navigate('/pm/manpower-list');
     } catch {
       alert('Cancel failed.');
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleArchive = async () => {
-    const reason = window.prompt('Please provide a reason for archiving this request (optional):');
-    if (reason === null) return; // User cancelled
-    
+  const handleArchive = () => {
+    setShowArchiveConfirm(true);
+  };
+
+  const confirmArchive = async () => {
     setBusy(true);
     try {
-      await api.put(`/manpower-requests/${id}/archive`, { reason });
+      await api.put(`/manpower-requests/${id}/archive`, { reason: archiveReason });
       alert('Request archived successfully.');
       const { data } = await api.get(`/manpower-requests/${id}`);
       setRequest(data);
+      setShowArchiveConfirm(false);
+      setArchiveReason('');
     } catch (e) {
       alert(e?.response?.data?.message || 'Failed to archive request.');
     } finally {
@@ -753,6 +768,137 @@ export default function PmRequestedManpowerDetail() {
           <AuditTrail requestId={request._id} />
         </div>
       </main>
+      
+      {/* Cancel Confirmation Modal */}
+      {showCancelConfirm && (
+        <div className="modal-overlay">
+          <div className="modal small">
+            <h3>Confirm Request Cancellation</h3>
+            
+            <div style={{
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '16px'
+            }}>
+              <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
+                <span style={{fontSize: '20px'}}>⚠️</span>
+                <strong style={{color: '#dc2626'}}>Cancellation Warning</strong>
+              </div>
+              <p style={{color: '#dc2626', margin: 0, fontSize: '14px'}}>
+                This will permanently cancel the manpower request. This action cannot be undone.
+              </p>
+            </div>
+
+            <div style={{marginBottom: '16px'}}>
+              <p style={{marginBottom: '8px', fontWeight: '600'}}>Request Details:</p>
+              <div style={{backgroundColor: '#f9fafb', padding: '12px', borderRadius: '6px', fontSize: '14px'}}>
+                <p style={{margin: '0 0 4px 0'}}><strong>Project:</strong> {request?.project?.projectName || 'Unknown'}</p>
+                <p style={{margin: '0 0 4px 0'}}><strong>Manpower Requested:</strong> {request?.manpowers?.map(m => `${m.quantity} ${m.type}`).join(', ') || 'Unknown'}</p>
+                <p style={{margin: '0 0 4px 0'}}><strong>Status:</strong> {request?.status || 'Unknown'}</p>
+                <p style={{margin: '0'}}><strong>Created:</strong> {request?.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'Unknown'}</p>
+              </div>
+            </div>
+
+            <p style={{marginBottom: '16px', fontSize: '14px', lineHeight: '1.5'}}>
+              Are you sure you want to <strong>cancel</strong> this manpower request?
+            </p>
+
+            <div className="modal-actions" style={{display:'flex',gap:'0.5rem',justifyContent:'flex-end'}}>
+              <button 
+                className="btn" 
+                onClick={() => setShowCancelConfirm(false)}
+              >
+                Keep Request
+              </button>
+              <button 
+                className="btn primary" 
+                disabled={busy}
+                onClick={confirmCancel}
+                style={{backgroundColor: '#dc2626'}}
+              >
+                {busy ? 'Cancelling...' : 'Yes, Cancel Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Archive Confirmation Modal */}
+      {showArchiveConfirm && (
+        <div className="modal-overlay">
+          <div className="modal small">
+            <h3>Archive Manpower Request</h3>
+            
+            <div style={{
+              backgroundColor: '#fffbeb',
+              border: '1px solid #fed7aa',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '16px'
+            }}>
+              <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
+                <span style={{fontSize: '20px'}}>📁</span>
+                <strong style={{color: '#ea580c'}}>Archive Request</strong>
+              </div>
+              <p style={{color: '#ea580c', margin: 0, fontSize: '14px'}}>
+                This will archive the request for record-keeping purposes. The request will be marked as archived but preserved in the system.
+              </p>
+            </div>
+
+            <div style={{marginBottom: '16px'}}>
+              <p style={{marginBottom: '8px', fontWeight: '600'}}>Request Details:</p>
+              <div style={{backgroundColor: '#f9fafb', padding: '12px', borderRadius: '6px', fontSize: '14px'}}>
+                <p style={{margin: '0 0 4px 0'}}><strong>Project:</strong> {request?.project?.projectName || 'Unknown'}</p>
+                <p style={{margin: '0 0 4px 0'}}><strong>Manpower Requested:</strong> {request?.manpowers?.map(m => `${m.quantity} ${m.type}`).join(', ') || 'Unknown'}</p>
+                <p style={{margin: '0 0 4px 0'}}><strong>Status:</strong> {request?.status || 'Unknown'}</p>
+                <p style={{margin: '0'}}><strong>Created:</strong> {request?.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'Unknown'}</p>
+              </div>
+            </div>
+
+            <div style={{marginBottom: '16px'}}>
+              <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px'}}>
+                Archive Reason (Optional):
+              </label>
+              <textarea
+                value={archiveReason}
+                onChange={(e) => setArchiveReason(e.target.value)}
+                placeholder="Enter reason for archiving this request..."
+                style={{
+                  width: '100%',
+                  minHeight: '80px',
+                  padding: '8px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+
+            <div className="modal-actions" style={{display:'flex',gap:'0.5rem',justifyContent:'flex-end'}}>
+              <button 
+                className="btn" 
+                onClick={() => {
+                  setShowArchiveConfirm(false);
+                  setArchiveReason('');
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn primary" 
+                disabled={busy}
+                onClick={confirmArchive}
+                style={{backgroundColor: '#ea580c'}}
+              >
+                {busy ? 'Archiving...' : 'Archive Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -104,15 +104,15 @@ export async function exportAccountsPdf(rows = [], options = {}) {
   const logo = await loadImageDataURLWithSize(logoPath);
   let titleX = marginX;
   if (logo?.dataUrl) {
-    const { w: drawW, h: drawH } = fitInside(logo.w, logo.h, 140, 40);
-    doc.addImage(logo.dataUrl, 'PNG', marginX, y - 8, drawW, drawH, undefined, 'FAST');
-    titleX = marginX + drawW + 10;
+    const { w: drawW, h: drawH } = fitInside(logo.w, logo.h, 180, 60); // increased size
+    doc.addImage(logo.dataUrl, 'PNG', marginX, y - 12, drawW, drawH, undefined, 'FAST');
+    titleX = marginX + drawW + 16; // more spacing
   }
 
   doc.setFont(bodyFont, headStyle);
-  doc.setFontSize(18);
+  doc.setFontSize(20); // increased font size
   doc.setTextColor(20);
-  doc.text(String(companyName), titleX, y + 10);
+  doc.text(String(companyName), titleX, y + 16);
 
   doc.setFont(bodyFont, 'normal');
   doc.setFontSize(12);

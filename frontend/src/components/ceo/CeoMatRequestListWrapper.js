@@ -10,6 +10,8 @@ const CeoMatRequestListWrapper = () => (
     rootClass="ceo-request-list"
     headerTitle="Material Requests"
     headerSubtitle="Organization-wide material requests overview"
+    enableExport={true}
+    exportTitle="Material Requests Export (CEO View)"
   />
 );
 

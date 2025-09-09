@@ -4,6 +4,8 @@ import AppHeader from '../layout/AppHeader';
 import { Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import { truncateWords, getStatusBadge, computeApprovalSteps } from './materialStatusUtils';
+import { FaDownload } from 'react-icons/fa';
+import { exportMaterialRequestsPdf } from '../../utils/materialRequestsPdfEnhanced';
 
 // Generic list view for PM / AM roles
 const MaterialRequestListView = ({
@@ -15,7 +17,9 @@ const MaterialRequestListView = ({
   headerTitle = 'Material Requests',
   headerSubtitle = 'All material requests',
   customHeader = null,
-  disableHeader = false
+  disableHeader = false,
+  enableExport = false,
+  exportTitle = 'Material Requests Export'
 }) => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +29,7 @@ const MaterialRequestListView = ({
   const [sortBy, setSortBy] = useState('latest');
   const [viewMode, setViewMode] = useState('card'); // 'card' or 'list'
   const [currentPage, setCurrentPage] = useState(1);
+  const [exporting, setExporting] = useState(false);
   // PIC specific state (active project + nudge cooldowns)
   const [activeProject, setActiveProject] = useState(null);
   const [nudgeCooldowns, setNudgeCooldowns] = useState({});
@@ -32,6 +37,10 @@ const MaterialRequestListView = ({
   const isPICRole = role === 'Person in Charge';
   const storedUser = (()=>{ try { return JSON.parse(localStorage.getItem('user')||'null'); } catch { return null; } })();
   const userId = storedUser?._id;
+  
+  // Confirmation modal state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [requestToDelete, setRequestToDelete] = useState(null);
 
   // Load cooldowns from localStorage (PIC only)
   // Load persisted cooldowns once (don't filter out expired until display to keep stability if system clock shifts)
@@ -118,18 +127,44 @@ const MaterialRequestListView = ({
 
   const [pendingNudges, setPendingNudges] = useState({}); // transient disable while awaiting server
   const [deletingId, setDeletingId] = useState(null);
-  
-  const handleDeleteArchived = async (requestId) => {
-    if (!window.confirm('Are you sure you want to permanently delete this archived request? This action cannot be undone.')) {
-      return;
-    }
-    
-    setDeletingId(requestId);
+
+  const handleExportPdf = async () => {
+    if (!enableExport) return;
     try {
-      await api.delete(`/requests/${requestId}/archived`);
+      setExporting(true);
+      await exportMaterialRequestsPdf(sortedRequests, {
+        companyName: 'FadzTrack',
+        logoPath: `${process.env.PUBLIC_URL || ''}/images/Fadz-logo.png`,
+        exporterName: storedUser?.name || 'Unknown',
+        exporterRole: storedUser?.role || '',
+        filters: { filter, searchTerm, sortBy },
+        reportTitle: exportTitle,
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export PDF');
+    } finally {
+      setExporting(false);
+    }
+  };
+  
+  const handleDeleteArchived = (requestId) => {
+    const request = requests.find(r => r._id === requestId);
+    setRequestToDelete(request);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteArchived = async () => {
+    if (!requestToDelete) return;
+    
+    setDeletingId(requestToDelete._id);
+    try {
+      await api.delete(`/requests/${requestToDelete._id}/archived`);
       // Refresh the requests list
       const res = await api.get(fetchUrl);
       setRequests(Array.isArray(res.data) ? res.data : []);
+      setShowDeleteConfirm(false);
+      setRequestToDelete(null);
     } catch (error) {
       alert('Failed to delete archived request: ' + (error?.response?.data?.message || error.message));
     } finally {
@@ -438,6 +473,17 @@ const MaterialRequestListView = ({
                   </svg>
                 </button>
               </div>
+              {enableExport && (
+                <button
+                  onClick={handleExportPdf}
+                  disabled={exporting || sortedRequests.length === 0}
+                  className="btn-primary export-btn"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', minWidth: 'auto' }}
+                >
+                  <FaDownload />
+                  {exporting ? 'Exporting...' : 'Export PDF'}
+                </button>
+              )}
               {isPICRole && activeProject && (
                 <button onClick={()=>window.location.href = `/pic/projects/${activeProject._id}/request`} className="view-details-btn" style={{marginLeft:'0.5rem'}}>
                   + New Request
@@ -467,6 +513,65 @@ const MaterialRequestListView = ({
             </div>) }
         </div>
       </main>
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && requestToDelete && (
+        <div className="modal-overlay">
+          <div className="modal small">
+            <h3>Confirm Permanent Deletion</h3>
+            
+            <div style={{
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '16px'
+            }}>
+              <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
+                <span style={{fontSize: '20px'}}>⚠️</span>
+                <strong style={{color: '#dc2626'}}>Permanent Deletion Warning</strong>
+              </div>
+              <p style={{color: '#dc2626', margin: 0, fontSize: '14px'}}>
+                This action cannot be undone. The archived request will be permanently removed from the system.
+              </p>
+            </div>
+
+            <div style={{marginBottom: '16px'}}>
+              <p style={{marginBottom: '8px', fontWeight: '600'}}>Request Details:</p>
+              <div style={{backgroundColor: '#f9fafb', padding: '12px', borderRadius: '6px', fontSize: '14px'}}>
+                <p style={{margin: '0 0 4px 0'}}><strong>Project:</strong> {requestToDelete.project?.projectName || 'Unknown'}</p>
+                <p style={{margin: '0 0 4px 0'}}><strong>Requester:</strong> {requestToDelete.createdBy?.name || 'Unknown'}</p>
+                <p style={{margin: '0 0 4px 0'}}><strong>Status:</strong> {requestToDelete.status || 'Unknown'}</p>
+                <p style={{margin: '0'}}><strong>Created:</strong> {requestToDelete.createdAt ? new Date(requestToDelete.createdAt).toLocaleDateString() : 'Unknown'}</p>
+              </div>
+            </div>
+
+            <p style={{marginBottom: '16px', fontSize: '14px', lineHeight: '1.5'}}>
+              Are you sure you want to <strong>permanently delete</strong> this archived material request?
+            </p>
+
+            <div className="modal-actions" style={{display:'flex',gap:'0.5rem',justifyContent:'flex-end'}}>
+              <button 
+                className="btn" 
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setRequestToDelete(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn primary" 
+                disabled={deletingId === requestToDelete._id}
+                onClick={confirmDeleteArchived}
+                style={{backgroundColor: '#dc2626'}}
+              >
+                {deletingId === requestToDelete._id ? 'Deleting...' : 'Yes, Delete Permanently'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

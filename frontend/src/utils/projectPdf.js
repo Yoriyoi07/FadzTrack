@@ -144,17 +144,17 @@ export async function exportProjectDetails(project, opts = {}) {
   let titleX = marginX;
 
   if (logo?.dataUrl) {
-    const targetH = 36; // fixed height
+    const targetH = 60; // increased height for larger logo
     const r = (logo.w && logo.h) ? logo.w / logo.h : 1;
-    const targetW = Math.min(160, Math.max(60, targetH * r)); // clamp a bit
-    doc.addImage(logo.dataUrl, 'PNG', marginX, y - 8, targetW, targetH, undefined, 'FAST');
-    titleX = marginX + targetW + 12; // place text after the logo
+    const targetW = Math.min(200, Math.max(100, targetH * r)); // increased width limits
+    doc.addImage(logo.dataUrl, 'PNG', marginX, y - 12, targetW, targetH, undefined, 'FAST');
+    titleX = marginX + targetW + 16; // place text after the logo with more spacing
   }
 
   doc.setFont(bodyFont, headStyle);
-  doc.setFontSize(18);
+  doc.setFontSize(20); // increased font size for better visibility
   doc.setTextColor(20);
-  doc.text('Fadz Construction Inc.', titleX, y + 12);
+  doc.text('Fadz Construction Inc.', titleX, y + 16);
 
   doc.setFont(bodyFont, 'normal');
   doc.setFontSize(12);
@@ -300,16 +300,16 @@ export const generateProjectPDF = async (data) => {
     try {
       const logoData = await loadImageDataURLWithSize(companyLogo);
       if (logoData?.dataUrl) {
-        // Resize logo to fit nicely in header
-        const maxLogoHeight = 20;
-        const maxLogoWidth = 60;
+        // Resize logo to fit nicely in header - increased size
+        const maxLogoHeight = 35;
+        const maxLogoWidth = 100;
         const { w: logoW, h: logoH } = fitInside(logoData.w, logoData.h, maxLogoWidth, maxLogoHeight);
         
         logoWidth = logoW;
         logoHeight = logoH;
         
         pdf.addImage(logoData.dataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight, undefined, 'FAST');
-        logoX += logoWidth + 10; // Add space after logo
+        logoX += logoWidth + 15; // Add more space after logo
       }
     } catch (error) {
       console.warn('Failed to load company logo:', error);
@@ -317,9 +317,9 @@ export const generateProjectPDF = async (data) => {
   }
 
   // Header with company name
-  pdf.setFontSize(24);
+  pdf.setFontSize(26); // increased font size
   pdf.setTextColor(30, 41, 59);
-  pdf.text(companyName || 'Projects', logoX, logoY + 15);
+  pdf.text(companyName || 'Projects', logoX, logoY + 18);
 
   // Export information
   pdf.setFontSize(12);

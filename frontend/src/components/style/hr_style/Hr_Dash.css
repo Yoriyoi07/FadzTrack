@@ -2165,28 +2165,37 @@
   margin-bottom: 1.5rem;
 }
 
+.hr-dashboard .filters-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .hr-dashboard .search-bar {
   position: relative;
-  margin-bottom: 1rem;
+  flex: 1;
+  min-width: 300px;
 }
 
 .hr-dashboard .search-icon {
   position: absolute;
-  left: 1rem;
+  left: 1.25rem;
   top: 50%;
   transform: translateY(-50%);
   color: #64748b;
-  font-size: 1rem;
+  font-size: 1.1rem;
 }
 
 .hr-dashboard .search-input {
   width: 100%;
-  padding: 0.75rem 1rem 0.75rem 2.75rem;
+  padding: 1rem 1.25rem 1rem 3rem;
   border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 1rem;
+  border-radius: 10px;
+  font-size: 1.1rem;
   transition: all 0.2s ease;
   background: #f8fafc;
+  min-height: 50px;
 }
 
 .hr-dashboard .search-input:focus {
@@ -2200,6 +2209,8 @@
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .hr-dashboard .filter-toggle {
@@ -2282,6 +2293,135 @@
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* New Filter Styles */
+.hr-dashboard .date-sort-buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.hr-dashboard .sort-btn {
+  padding: 0.5rem 0.75rem;
+  background: #f1f5f9;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hr-dashboard .sort-btn:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+.hr-dashboard .sort-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.hr-dashboard .project-filter {
+  padding: 0.5rem 0.75rem;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 150px;
+}
+
+.hr-dashboard .project-filter:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.hr-dashboard .date-filter-dropdown {
+  position: relative;
+}
+
+.hr-dashboard .date-filter-select {
+  padding: 0.5rem 0.75rem;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.hr-dashboard .date-filter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.hr-dashboard .custom-date-range {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.hr-dashboard .date-input {
+  padding: 0.375rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  color: #374151;
+  transition: all 0.2s ease;
+}
+
+.hr-dashboard .date-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.hr-dashboard .custom-date-range span {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+/* Search Bar Responsive Design */
+@media (max-width: 768px) {
+  .hr-dashboard .filters-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  
+  .hr-dashboard .search-bar {
+    min-width: auto;
+  }
+  
+  .hr-dashboard .filter-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .hr-dashboard .search-input {
+    font-size: 1rem;
+    padding: 0.875rem 1rem 0.875rem 2.75rem;
+    min-height: 45px;
+  }
+  
+  .hr-dashboard .search-icon {
+    left: 1rem;
+    font-size: 1rem;
+  }
 }
 
 /* Reports Table */

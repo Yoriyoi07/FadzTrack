@@ -95,8 +95,9 @@ const projectSchema = new mongoose.Schema({
     inputPath: String,     // stored raw uploaded schedule file path
     outputPath: String,    // generated attendance workbook path
     generatedAt: Date,
-  generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  ai: mongoose.Schema.Types.Mixed
+    generatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    uploadedByName: String,  // name of user who uploaded the attendance file
+    ai: mongoose.Schema.Types.Mixed
   }],
 
   location: { type: mongoose.Schema.Types.ObjectId, ref: 'Location', required: true },

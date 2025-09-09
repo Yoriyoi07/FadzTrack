@@ -13,13 +13,11 @@ import {
   FaSearch,
   FaFilter,
   FaDownload,
-  FaEye,
   FaSort,
   FaSortUp,
   FaSortDown,
   FaFileExcel,
   FaUser,
-  FaMapMarkerAlt,
   FaClock
 } from 'react-icons/fa';
 
@@ -59,6 +57,9 @@ const HrAttendance = ({ forceUserUpdate }) => {
   const [sortBy, setSortBy] = useState('generatedAt');
   const [sortOrder, setSortOrder] = useState('desc');
   const [showFilters, setShowFilters] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
 
   // Redirect to login if not logged in
   useEffect(() => {
@@ -67,6 +68,20 @@ const HrAttendance = ({ forceUserUpdate }) => {
       return;
     }
   }, [token, userId, navigate]);
+
+  // Fetch projects for dropdown
+  const fetchProjects = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const { data } = await api.get('/projects', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setProjects(data || []);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  }, [token]);
 
   // Fetch attendance reports
   const fetchAttendanceReports = useCallback(async () => {
@@ -80,6 +95,7 @@ const HrAttendance = ({ forceUserUpdate }) => {
       if (searchTerm) params.append('search', searchTerm);
       if (dateFrom) params.append('dateFrom', dateFrom);
       if (dateTo) params.append('dateTo', dateTo);
+      if (selectedProject) params.append('projectId', selectedProject);
       params.append('sortBy', sortBy);
       params.append('sortOrder', sortOrder);
 
@@ -102,12 +118,13 @@ const HrAttendance = ({ forceUserUpdate }) => {
     } finally {
       setLoading(false);
     }
-  }, [token, searchTerm, dateFrom, dateTo, sortBy, sortOrder]);
+  }, [token, searchTerm, dateFrom, dateTo, selectedProject, sortBy, sortOrder]);
 
   useEffect(() => {
     console.log('HrAttendance component mounted, fetching reports...');
+    fetchProjects();
     fetchAttendanceReports();
-  }, [fetchAttendanceReports]);
+  }, [fetchProjects, fetchAttendanceReports]);
 
   // Handle search
   const handleSearch = (e) => {
@@ -129,8 +146,45 @@ const HrAttendance = ({ forceUserUpdate }) => {
     setSearchTerm('');
     setDateFrom('');
     setDateTo('');
+    setSelectedProject('');
+    setDateFilter('');
     setSortBy('generatedAt');
     setSortOrder('desc');
+  };
+
+  // Handle date filter selection
+  const handleDateFilter = (filter) => {
+    setDateFilter(filter);
+    const now = new Date();
+    
+    switch (filter) {
+      case 'today':
+        setDateFrom(now.toISOString().split('T')[0]);
+        setDateTo(now.toISOString().split('T')[0]);
+        break;
+      case 'week':
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        setDateFrom(weekAgo.toISOString().split('T')[0]);
+        setDateTo(now.toISOString().split('T')[0]);
+        break;
+      case 'month':
+        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        setDateFrom(monthAgo.toISOString().split('T')[0]);
+        setDateTo(now.toISOString().split('T')[0]);
+        break;
+      case 'custom':
+        // Keep existing dateFrom/dateTo values
+        break;
+      default:
+        setDateFrom('');
+        setDateTo('');
+    }
+  };
+
+  // Handle sort by date (recent/oldest)
+  const handleSortByDate = (order) => {
+    setSortBy('generatedAt');
+    setSortOrder(order);
   };
 
   // Format date
@@ -200,53 +254,90 @@ const HrAttendance = ({ forceUserUpdate }) => {
 
           {/* Search and Filters */}
           <div className="filters-section">
-            <div className="search-bar">
-              <FaSearch className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search by project name, file name, or uploaded by..."
-                value={searchTerm}
-                onChange={handleSearch}
-                className="search-input"
-              />
-            </div>
-            
-            <div className="filter-controls">
-              <button
-                className={`filter-toggle ${showFilters ? 'active' : ''}`}
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <FaFilter />
-                Filters
-              </button>
+            <div className="filters-row">
+              <div className="search-bar">
+                <FaSearch className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search anything in the list..."
+                  value={searchTerm}
+                  onChange={handleSearch}
+                  className="search-input"
+                />
+              </div>
               
-              <button className="clear-filters" onClick={clearFilters}>
-                Clear All
-              </button>
+              <div className="filter-controls">
+                {/* Recent/Oldest Filter */}
+                <div className="date-sort-buttons">
+                  <button
+                    className={`sort-btn ${sortBy === 'generatedAt' && sortOrder === 'desc' ? 'active' : ''}`}
+                    onClick={() => handleSortByDate('desc')}
+                    title="Most Recent"
+                  >
+                    Recent
+                  </button>
+                  <button
+                    className={`sort-btn ${sortBy === 'generatedAt' && sortOrder === 'asc' ? 'active' : ''}`}
+                    onClick={() => handleSortByDate('asc')}
+                    title="Oldest First"
+                  >
+                    Oldest
+                  </button>
+                </div>
+
+                {/* Project Filter Dropdown */}
+                <select
+                  className="project-filter"
+                  value={selectedProject}
+                  onChange={(e) => setSelectedProject(e.target.value)}
+                >
+                  <option value="">All Projects</option>
+                  {projects.map(project => (
+                    <option key={project._id} value={project._id}>
+                      {project.projectName}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Date Range Filter */}
+                <div className="date-filter-dropdown">
+                  <select
+                    className="date-filter-select"
+                    value={dateFilter}
+                    onChange={(e) => handleDateFilter(e.target.value)}
+                  >
+                    <option value="">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">Last 7 Days</option>
+                    <option value="month">Last 30 Days</option>
+                    <option value="custom">Custom Range</option>
+                  </select>
+                </div>
+                
+                <button className="clear-filters" onClick={clearFilters}>
+                  Clear All
+                </button>
+              </div>
             </div>
 
-            {showFilters && (
-              <div className="filter-panel">
-                <div className="filter-row">
-                  <div className="filter-group">
-                    <label>Date From:</label>
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      onChange={(e) => setDateFrom(e.target.value)}
-                      className="filter-input"
-                    />
-                  </div>
-                  <div className="filter-group">
-                    <label>Date To:</label>
-                    <input
-                      type="date"
-                      value={dateTo}
-                      onChange={(e) => setDateTo(e.target.value)}
-                      className="filter-input"
-                    />
-                  </div>
-                </div>
+            {/* Custom Date Range (shown when custom is selected) */}
+            {dateFilter === 'custom' && (
+              <div className="custom-date-range">
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="date-input"
+                  placeholder="From"
+                />
+                <span>to</span>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="date-input"
+                  placeholder="To"
+                />
               </div>
             )}
           </div>
@@ -293,12 +384,6 @@ const HrAttendance = ({ forceUserUpdate }) => {
                       </th>
                       <th 
                         className="sortable"
-                        onClick={() => handleSort('location')}
-                      >
-                        Location {getSortIcon('location')}
-                      </th>
-                      <th 
-                        className="sortable"
                         onClick={() => handleSort('uploadedByName')}
                       >
                         Uploaded By {getSortIcon('uploadedByName')}
@@ -331,12 +416,6 @@ const HrAttendance = ({ forceUserUpdate }) => {
                             <span>{report.originalName}</span>
                           </div>
                         </td>
-                        <td className="location">
-                          <div className="location-info">
-                            <FaMapMarkerAlt className="location-icon" />
-                            <span>{report.location}</span>
-                          </div>
-                        </td>
                         <td className="uploaded-by">
                           <div className="user-info">
                             <FaUser className="user-icon" />
@@ -352,21 +431,21 @@ const HrAttendance = ({ forceUserUpdate }) => {
                         <td className="actions">
                           <div className="action-buttons">
                             <button
-                              className="action-btn view-btn"
-                              title="View Report"
-                              onClick={() => {
-                                // TODO: Implement view functionality
-                                console.log('View report:', report._id);
-                              }}
-                            >
-                              <FaEye />
-                            </button>
-                            <button
                               className="action-btn download-btn"
-                              title="Download Report"
-                              onClick={() => {
-                                // TODO: Implement download functionality
-                                console.log('Download report:', report._id);
+                              title="Download AI Attendance Report"
+                              onClick={async () => {
+                                try {
+                                  const { data } = await api.get(`/projects/${report.projectId}/attendance-signed-url`, {
+                                    params: { path: report.outputPath },
+                                    headers: { Authorization: `Bearer ${token}` }
+                                  });
+                                  if (data?.signedUrl) {
+                                    window.open(data.signedUrl, '_blank');
+                                  }
+                                } catch (error) {
+                                  console.error('Error downloading report:', error);
+                                  alert('Failed to download report');
+                                }
                               }}
                             >
                               <FaDownload />

@@ -10,6 +10,8 @@ const ItMatRequestListWrapper = () => (
     rootClass="it-request-list"
     headerTitle="Material Requests"
     headerSubtitle="All material requests (IT view)"
+    enableExport={true}
+    exportTitle="Material Requests Export (IT View)"
   />
 );
 

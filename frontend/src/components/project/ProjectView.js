@@ -161,6 +161,10 @@ export default function ProjectView(props) {
   const [statusUpdating,setStatusUpdating]=useState(false);
   // Per-report AI dropdown expanded state: { [reportId]: boolean }
   const [openAiRows, setOpenAiRows] = useState({});
+  
+  // File deletion confirmation modal state
+  const [showFileDeleteConfirm, setShowFileDeleteConfirm] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState(null);
   // Load attendance reports when Attendance tab selected
 useEffect(() => {
   if (activeTab !== 'Attendance' || !project?._id) return;
@@ -270,7 +274,25 @@ useEffect(() => {
   const handleMentionSelect=u=>{ if(!textareaRef.current) return; const val=newMessage; const caret=textareaRef.current.selectionStart; const up=val.slice(0,caret); const m=/(^|\s)@(\w*)$/.exec(up); if(!m) return; const before=val.slice(0,m.index+m[1].length); const after=val.slice(caret); const mention=`@${u.name} `; const nv=before+mention+after; setNewMessage(nv); setMentionDropdown({open:false,options:[],query:'',position:{top:0,left:0},activeInputId:null}); setTimeout(()=>{ if(textareaRef.current){ textareaRef.current.focus(); textareaRef.current.selectionStart=textareaRef.current.selectionEnd=(before+mention).length; }},0); };
   const handleLogout=()=>{ localStorage.removeItem('token'); localStorage.removeItem('user'); navigate(basePath); };
   const handleFileUpload=async(files)=>{ if(!perms.uploadFiles) return; if(!files?.length||!project?._id) return; setUploading(true); setUploadProgress(0); setUploadError(''); try { const fd=new FormData(); files.forEach(f=> fd.append('files',f)); const it=setInterval(()=> setUploadProgress(p=> p>=90? (clearInterval(it),90):p+10),200); const res=await api.post(`/projects/${project._id}/documents`,fd,{ headers:{Authorization:`Bearer ${token}`,'Content-Type':'multipart/form-data'} }); clearInterval(it); setUploadProgress(100); if(res.data?.documents) setProject(pr=> ({...pr,documents:res.data.documents})); setTimeout(()=>{ setUploading(false); setUploadProgress(0); },800); } catch { setUploadError('Upload failed'); setUploading(false); setUploadProgress(0);} };
-  const handleDeleteFile=async(doc,i)=>{ if(!perms.deleteFiles) return; if(!project?._id || !window.confirm('Delete this file?')) return; try { const path= typeof doc==='string'? doc : doc.path; await api.delete(`/projects/${project._id}/documents`,{ headers:{Authorization:`Bearer ${token}`}, data:{ path }}); setProject(pr=> ({...pr,documents: pr.documents.filter((_,idx)=> idx!==i)})); } catch { alert('Failed to delete file'); } };
+  const handleDeleteFile=(doc,i)=>{ 
+    if(!perms.deleteFiles) return; 
+    if(!project?._id) return; 
+    setFileToDelete({doc, index: i});
+    setShowFileDeleteConfirm(true);
+  };
+  
+  const confirmDeleteFile=async()=>{ 
+    if(!fileToDelete || !project?._id) return; 
+    try { 
+      const path= typeof fileToDelete.doc==='string'? fileToDelete.doc : fileToDelete.doc.path; 
+      await api.delete(`/projects/${project._id}/documents`,{ headers:{Authorization:`Bearer ${token}`}, data:{ path }}); 
+      setProject(pr=> ({...pr,documents: pr.documents.filter((_,idx)=> idx!==fileToDelete.index)})); 
+      setShowFileDeleteConfirm(false);
+      setFileToDelete(null);
+    } catch { 
+      alert('Failed to delete file'); 
+    } 
+  };
   const canUploadReport = role==='pic' || role==='pm';
   const handleReportUpload = async(file)=>{
     if(!file || !project?._id) return;
@@ -564,12 +586,121 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                   {showCompleteConfirm && status!=='Completed' && (
                     <div className="modal-overlay">
                       <div className="modal small">
-                        <h3>Confirm Completion</h3>
-                        {!completionPreconditionsMet && <p style={{color:'#b91c1c',fontWeight:600}}>Preconditions not met. At least one file and one report are required to complete this project.</p>}
-                        <p>Mark this project as Completed? All members (PM, PIC, Staff, HR-Site) will become available for new assignments.</p>
+                        <h3>Confirm Project Completion</h3>
+                        
+                        {/* Progress Warning Section */}
+                        {completionPreconditionsMet && (
+                          <div style={{marginBottom: '1rem'}}>
+                            {progress < 80 && (
+                              <div style={{
+                                backgroundColor: '#fef2f2',
+                                border: '1px solid #fecaca',
+                                borderRadius: '8px',
+                                padding: '12px',
+                                marginBottom: '12px'
+                              }}>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
+                                  <span style={{fontSize: '20px'}}>⚠️</span>
+                                  <strong style={{color: '#dc2626'}}>High Risk Warning</strong>
+                                </div>
+                                <p style={{color: '#dc2626', margin: 0, fontSize: '14px'}}>
+                                  Project progress is only <strong>{progress}%</strong>. Completing now may result in incomplete deliverables and unsatisfied stakeholders.
+                                </p>
+                              </div>
+                            )}
+                            
+                            {progress >= 80 && progress < 90 && (
+                              <div style={{
+                                backgroundColor: '#fffbeb',
+                                border: '1px solid #fed7aa',
+                                borderRadius: '8px',
+                                padding: '12px',
+                                marginBottom: '12px'
+                              }}>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
+                                  <span style={{fontSize: '20px'}}>⚠️</span>
+                                  <strong style={{color: '#ea580c'}}>Moderate Warning</strong>
+                                </div>
+                                <p style={{color: '#ea580c', margin: 0, fontSize: '14px'}}>
+                                  Project progress is <strong>{progress}%</strong>. Consider completing remaining tasks before marking as complete.
+                                </p>
+                              </div>
+                            )}
+                            
+                            {progress >= 90 && progress < 100 && (
+                              <div style={{
+                                backgroundColor: '#f0f9ff',
+                                border: '1px solid #93c5fd',
+                                borderRadius: '8px',
+                                padding: '12px',
+                                marginBottom: '12px'
+                              }}>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
+                                  <span style={{fontSize: '20px'}}>ℹ️</span>
+                                  <strong style={{color: '#2563eb'}}>Minor Notice</strong>
+                                </div>
+                                <p style={{color: '#2563eb', margin: 0, fontSize: '14px'}}>
+                                  Project progress is <strong>{progress}%</strong>. Almost complete - ensure all final deliverables are ready.
+                                </p>
+                              </div>
+                            )}
+                            
+                            {progress >= 100 && (
+                              <div style={{
+                                backgroundColor: '#f0fdf4',
+                                border: '1px solid #86efac',
+                                borderRadius: '8px',
+                                padding: '12px',
+                                marginBottom: '12px'
+                              }}>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
+                                  <span style={{fontSize: '20px'}}>✅</span>
+                                  <strong style={{color: '#16a34a'}}>Ready for Completion</strong>
+                                </div>
+                                <p style={{color: '#16a34a', margin: 0, fontSize: '14px'}}>
+                                  Project progress is <strong>{progress}%</strong>. All tasks appear to be completed.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Preconditions Warning */}
+                        {!completionPreconditionsMet && (
+                          <div style={{
+                            backgroundColor: '#fef2f2',
+                            border: '1px solid #fecaca',
+                            borderRadius: '8px',
+                            padding: '12px',
+                            marginBottom: '12px'
+                          }}>
+                            <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
+                              <span style={{fontSize: '20px'}}>🚫</span>
+                              <strong style={{color: '#dc2626'}}>Preconditions Not Met</strong>
+                            </div>
+                            <p style={{color: '#dc2626', margin: 0, fontSize: '14px'}}>
+                              At least one file and one report are required to complete this project.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Main Confirmation Message */}
+                        <p style={{marginBottom: '1rem', fontSize: '14px', lineHeight: '1.5'}}>
+                          Mark this project as <strong>Completed</strong>? All members (PM, PIC, Staff, HR-Site) will become available for new assignments.
+                        </p>
+
                         <div className="modal-actions" style={{display:'flex',gap:'0.5rem',justifyContent:'flex-end'}}>
                           <button className="btn" onClick={()=> setShowCompleteConfirm(false)}>Cancel</button>
-                          <button className="btn primary" disabled={statusUpdating || !completionPreconditionsMet} onClick={()=> handleToggleStatus(true)}>Yes, Complete</button>
+                          <button 
+                            className="btn primary" 
+                            disabled={statusUpdating || !completionPreconditionsMet} 
+                            onClick={()=> handleToggleStatus(true)}
+                            style={{
+                              backgroundColor: progress < 80 ? '#dc2626' : progress < 90 ? '#ea580c' : progress < 100 ? '#2563eb' : '#16a34a'
+                            }}
+                          >
+                            {statusUpdating ? 'Completing...' : 'Yes, Complete Project'}
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1717,6 +1848,63 @@ await loadAttendance(project._id);
           </div>
         </div>
       </main>
+      
+      {/* File Delete Confirmation Modal */}
+      {showFileDeleteConfirm && fileToDelete && (
+        <div className="modal-overlay">
+          <div className="modal small">
+            <h3>Confirm File Deletion</h3>
+            
+            <div style={{
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              padding: '12px',
+              marginBottom: '16px'
+            }}>
+              <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
+                <span style={{fontSize: '20px'}}>⚠️</span>
+                <strong style={{color: '#dc2626'}}>File Deletion Warning</strong>
+              </div>
+              <p style={{color: '#dc2626', margin: 0, fontSize: '14px'}}>
+                This will permanently delete the file from the project. This action cannot be undone.
+              </p>
+            </div>
+
+            <div style={{marginBottom: '16px'}}>
+              <p style={{marginBottom: '8px', fontWeight: '600'}}>File Details:</p>
+              <div style={{backgroundColor: '#f9fafb', padding: '12px', borderRadius: '6px', fontSize: '14px'}}>
+                <p style={{margin: '0 0 4px 0'}}><strong>File Name:</strong> {typeof fileToDelete.doc === 'string' ? fileToDelete.doc.split('/').pop() : fileToDelete.doc.originalName || fileToDelete.doc.path?.split('/').pop() || 'Unknown'}</p>
+                <p style={{margin: '0 0 4px 0'}}><strong>Project:</strong> {project?.projectName || 'Unknown'}</p>
+                <p style={{margin: '0'}}><strong>File Path:</strong> {typeof fileToDelete.doc === 'string' ? fileToDelete.doc : fileToDelete.doc.path || 'Unknown'}</p>
+              </div>
+            </div>
+
+            <p style={{marginBottom: '16px', fontSize: '14px', lineHeight: '1.5'}}>
+              Are you sure you want to <strong>permanently delete</strong> this file from the project?
+            </p>
+
+            <div className="modal-actions" style={{display:'flex',gap:'0.5rem',justifyContent:'flex-end'}}>
+              <button 
+                className="btn" 
+                onClick={() => {
+                  setShowFileDeleteConfirm(false);
+                  setFileToDelete(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn primary" 
+                onClick={confirmDeleteFile}
+                style={{backgroundColor: '#dc2626'}}
+              >
+                Yes, Delete File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

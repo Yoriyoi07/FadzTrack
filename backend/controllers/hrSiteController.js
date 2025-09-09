@@ -124,7 +124,7 @@ exports.getAllAttendanceReports = async (req, res) => {
     
     // Get projects with attendance reports
     const projects = await Project.find(query)
-      .select('projectName attendanceReports location startDate endDate')
+      .select('projectName attendanceReports startDate endDate')
       .lean();
     
     // Flatten all attendance reports with project information
@@ -136,7 +136,6 @@ exports.getAllAttendanceReports = async (req, res) => {
             _id: report._id,
             projectId: project._id,
             projectName: project.projectName,
-            location: project.location || 'Unknown',
             originalName: report.originalName,
             inputPath: report.inputPath,
             outputPath: report.outputPath,
@@ -157,8 +156,7 @@ exports.getAllAttendanceReports = async (req, res) => {
       allReports = allReports.filter(report => 
         report.projectName.toLowerCase().includes(searchLower) ||
         report.originalName.toLowerCase().includes(searchLower) ||
-        report.uploadedByName?.toLowerCase().includes(searchLower) ||
-        report.location.toLowerCase().includes(searchLower)
+        report.uploadedByName?.toLowerCase().includes(searchLower)
       );
     }
     

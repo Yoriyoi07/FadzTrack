@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import '../style/ceo_style/Ceo_Dash.css';
 import '../style/ceo_style/Ceo_ManpowerRequest.css';
 import api from '../../api/axiosInstance';
-import { FaSearch } from 'react-icons/fa';
+import { FaSearch, FaDownload } from 'react-icons/fa';
 import AppHeader from '../layout/AppHeader';
+import { exportManpowerRequestsPdf } from '../../utils/manpowerRequestsPdf';
 
 const ITEMS_PER_PAGE = 8;
 
@@ -25,6 +26,7 @@ const HrManpowerRequestList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [layoutView, setLayoutView] = useState('cards');
   const [viewMode, setViewMode] = useState('mine'); // 'mine' or 'others'
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!user || user.role !== 'HR') return;
@@ -93,6 +95,25 @@ const HrManpowerRequestList = () => {
     }
     return items;
   }, [requests, status, searchTerm]);
+
+  // Export function
+  const handleExportPdf = async () => {
+    try {
+      setExporting(true);
+      await exportManpowerRequestsPdf(filteredRequests, {
+        companyName: 'FadzTrack',
+        logoPath: `${process.env.PUBLIC_URL || ''}/images/Fadz-logo.png`,
+        exporterName: user?.name || 'Unknown',
+        exporterRole: user?.role || '',
+        filters: { status, searchTerm },
+      });
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export PDF');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const totalPages = Math.max(1, Math.ceil(filteredRequests.length / ITEMS_PER_PAGE));
   const pageRows = useMemo(() => {
@@ -197,6 +218,21 @@ const HrManpowerRequestList = () => {
                 <FaSearch className="search-icon" />
                 <input type="text" placeholder="Search requests..." value={searchTerm} onChange={(e)=>{setSearchTerm(e.target.value); setCurrentPage(1);}} className="search-input" />
               </div>
+              <button 
+                onClick={handleExportPdf} 
+                disabled={exporting || filteredRequests.length === 0}
+                className="btn-primary export-btn"
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '8px', 
+                  padding: '8px 16px',
+                  minWidth: 'auto'
+                }}
+              >
+                <FaDownload />
+                {exporting ? 'Exporting...' : 'Export PDF'}
+              </button>
             </div>
           </div>
 
