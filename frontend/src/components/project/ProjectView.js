@@ -159,6 +159,8 @@ export default function ProjectView(props) {
   const [attendanceAI,setAttendanceAI]=useState(null);
   const [showCompleteConfirm,setShowCompleteConfirm]=useState(false);
   const [statusUpdating,setStatusUpdating]=useState(false);
+  // Per-report AI dropdown expanded state: { [reportId]: boolean }
+  const [openAiRows, setOpenAiRows] = useState({});
   // Load attendance reports when Attendance tab selected
 useEffect(() => {
   if (activeTab !== 'Attendance' || !project?._id) return;
@@ -1381,7 +1383,7 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                               padding: '10px 12px',
                               borderBottom: '1px solid #eee',
                               background: '#fafafa',
-                              width: 280
+                              width: 380
                             }}
                           >
                             Action
@@ -1389,227 +1391,255 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                         </tr>
                       </thead>
                       <tbody>
+                        {/* Track expanded AI summary panels */}
                         {reports.map(r => {
                           const uploadedAt = r?.uploadedAt ? new Date(r.uploadedAt).toLocaleString() : '—';
                           return (
-                            <tr key={r._id}>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                                  <FaRegFileAlt style={{ marginRight: 6 }} />
-                                  {r?.name || 'Report.pptx'}
-                                </span>
-                              </td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
-                                {r?.uploadedByName || 'Unknown'}
-                              </td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{uploadedAt}</td>
-                              <td
-                                style={{
-                                  padding: '10px 12px',
-                                  borderTop: '1px solid #f1f1f1',
-                                  textTransform: 'capitalize'
-                                }}
-                              >
-                                {r?.status || 'pending'}
-                              </td>
-                              <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
-                                {r?.path ? (
+                            <React.Fragment key={r._id}>
+                              <tr>
+                                <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                    <FaRegFileAlt style={{ marginRight: 6 }} />
+                                    {r?.name || 'Report.pptx'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
+                                  {r?.uploadedByName || 'Unknown'}
+                                </td>
+                                <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>{uploadedAt}</td>
+                                <td
+                                  style={{
+                                    padding: '10px 12px',
+                                    borderTop: '1px solid #f1f1f1',
+                                    textTransform: 'capitalize'
+                                  }}
+                                >
+                                  {r?.status || 'pending'}
+                                </td>
+                                <td style={{ padding: '10px 12px', borderTop: '1px solid #f1f1f1' }}>
+                                  {r?.path ? (
+                                    <button
+                                      onClick={() => openReportSignedPath(project._id, r.path)}
+                                      style={{
+                                        marginRight: 10,
+                                        border: '1px solid #cbd5e1',
+                                        background: '#000000ff',
+                                        padding: '6px 12px',
+                                        borderRadius: 8,
+                                        cursor: 'pointer',
+                                        fontSize: 13,
+                                        fontWeight: 600
+                                      }}
+                                    >
+                                      View PPT
+                                    </button>
+                                  ) : (
+                                    <span style={{ color: '#94a3b8', marginRight: 10, fontSize: 12 }}>No PPT</span>
+                                  )}
+                                  {r?.pdfPath ? (
+                                    <button
+                                      onClick={() => openReportSignedPath(project._id, r.pdfPath)}
+                                      style={{
+                                        marginRight: 10,
+                                        border: '1px solid #cbd5e1',
+                                        background: 'linear-gradient(90deg,#3b82f6,#6366f1)',
+                                        padding: '6px 12px',
+                                        borderRadius: 8,
+                                        cursor: 'pointer',
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        color: '#fff'
+                                      }}
+                                    >
+                                      Download AI PDF
+                                    </button>
+                                  ) : (
+                                    <span style={{ color: '#94a3b8', marginRight: 10, fontSize: 12 }}>No PDF</span>
+                                  )}
+                                  {/* Dropdown toggle for AI summary */}
                                   <button
-                                    onClick={() => openReportSignedPath(project._id, r.path)}
+                                    onClick={() => setOpenAiRows(prev => ({ ...prev, [r._id]: !prev?.[r._id] }))}
                                     style={{
                                       marginRight: 10,
                                       border: '1px solid #cbd5e1',
-                                      background: '#000000ff',
+                                      background: '#ffffff',
                                       padding: '6px 12px',
                                       borderRadius: 8,
-                                      cursor: 'pointer',
-                                      fontSize: 13,
-                                      fontWeight: 600
-                                    }}
-                                  >
-                                    View PPT
-                                  </button>
-                                ) : (
-                                  <span style={{ color: '#94a3b8', marginRight: 10, fontSize: 12 }}>No PPT</span>
-                                )}
-                                {r?.pdfPath ? (
-                                  <button
-                                    onClick={() => openReportSignedPath(project._id, r.pdfPath)}
-                                    style={{
-                                      marginRight: 10,
-                                      border: '1px solid #cbd5e1',
-                                      background: 'linear-gradient(90deg,#3b82f6,#6366f1)',
-                                      padding: '6px 12px',
-                                      borderRadius: 8,
-                                      cursor: 'pointer',
+                                      cursor: r?.ai ? 'pointer' : 'not-allowed',
                                       fontSize: 13,
                                       fontWeight: 600,
-                                      color: '#fff'
+                                      color: r?.ai ? '#0f172a' : '#94a3b8'
                                     }}
+                                    disabled={!r?.ai}
+                                    title={r?.ai ? 'Show AI summary' : 'No AI summary available'}
                                   >
-                                    Download AI PDF
+                                    {openAiRows?.[r._id] ? 'Hide Summary' : 'Show Summary'}
                                   </button>
-                                ) : (
-                                  <span style={{ color: '#94a3b8', marginRight: 10, fontSize: 12 }}>No PDF</span>
-                                )}
-                                {canDeleteReport && (
-                                  <button
-                                    onClick={() => handleDeleteReport(r._id)}
-                                    style={{
-                                      border: '1px solid #dc2626',
-                                      background: '#fee2e2',
-                                      padding: '6px 12px',
-                                      borderRadius: 8,
-                                      cursor: 'pointer',
-                                      fontSize: 13,
-                                      fontWeight: 600,
-                                      color: '#b91c1c'
-                                    }}
-                                  >
-                                    Delete
-                                  </button>
-                                )}
-                              </td>
-                            </tr>
+                                  {canDeleteReport && (
+                                    <button
+                                      onClick={() => handleDeleteReport(r._id)}
+                                      style={{
+                                        border: '1px solid #dc2626',
+                                        background: '#fee2e2',
+                                        padding: '6px 12px',
+                                        borderRadius: 8,
+                                        cursor: 'pointer',
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        color: '#b91c1c'
+                                      }}
+                                    >
+                                      Delete
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                              {openAiRows?.[r._id] && r?.ai && (
+                                <tr>
+                                  <td colSpan={5} style={{ background: '#f8fafc', borderTop: '1px solid #eef2f7' }}>
+                                    <div style={{ padding: 16 }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <h4 style={{ margin: 0 }}>AI Summary</h4>
+                                        <span style={{ fontStyle: 'italic', color: '#64748b', fontSize: 12 }}>AI-generated summary</span>
+                                      </div>
+                                      <div
+                                        style={{
+                                          display: 'grid',
+                                          gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))',
+                                          gap: 16,
+                                          marginTop: 12
+                                        }}
+                                      >
+                                        <div>
+                                          <b>Summary of Work Done</b>
+                                          <ul style={{ marginTop: 6 }}>
+                                            {(r.ai.summary_of_work_done || []).map((x, i) => (
+                                              <li key={i}>{x}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                        <div>
+                                          <b>Completed Tasks</b>
+                                          <ul style={{ marginTop: 6 }}>
+                                            {(r.ai.completed_tasks || []).map((x, i) => (
+                                              <li key={i}>{x}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                        <div>
+                                          <b>Critical Path (3)</b>
+                                          <div style={{ marginTop: 6 }}>
+                                            {(r.ai.critical_path_analysis || []).slice(0, 3).map((c, i) => (
+                                              <div key={i} style={{ marginBottom: 8 }}>
+                                                <b>{`${i + 1}. ${c?.path_type || 'Path ' + (i + 1)}`}</b>
+                                                <ul style={{ marginTop: 4, marginBottom: 4 }}>
+                                                  {c?.risk && (
+                                                    <li>
+                                                      <b>Risk:</b> {c.risk}
+                                                    </li>
+                                                  )}
+                                                  {c?.blockers?.length > 0 && (
+                                                    <li>
+                                                      <b>Blockers:</b> {c.blockers.join('; ')}
+                                                    </li>
+                                                  )}
+                                                  {c?.next?.length > 0 && (
+                                                    <li>
+                                                      <b>Next:</b> {c.next.join('; ')}
+                                                    </li>
+                                                  )}
+                                                </ul>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <b>Task Priorities</b>
+                                          <div style={{ marginTop: 6 }}>
+                                            {Array.isArray(r.ai.task_priorities) && r.ai.task_priorities.length > 0 ? (
+                                              <ol style={{ margin: 0, paddingLeft: 18 }}>
+                                                {r.ai.task_priorities.slice(0, 5).map((t, i) => {
+                                                  const pr = (t.priority || '').toString();
+                                                  const color = /high/i.test(pr)
+                                                    ? '#dc2626'
+                                                    : /medium|med/i.test(pr)
+                                                    ? '#ea580c'
+                                                    : /low/i.test(pr)
+                                                    ? '#0d9488'
+                                                    : '#334155';
+                                                  return (
+                                                    <li key={i} style={{ marginBottom: 8 }}>
+                                                      <div
+                                                        style={{
+                                                          fontWeight: 600,
+                                                          display: 'flex',
+                                                          alignItems: 'center',
+                                                          gap: 6,
+                                                          flexWrap: 'wrap'
+                                                        }}
+                                                      >
+                                                        <span
+                                                          style={{
+                                                            background: color,
+                                                            color: '#fff',
+                                                            fontSize: 11,
+                                                            padding: '2px 6px',
+                                                            borderRadius: 12
+                                                          }}
+                                                        >
+                                                          {pr || 'Priority'}
+                                                        </span>
+                                                        <span>{t.task || t.title || 'Untitled Task'}</span>
+                                                      </div>
+                                                      {(t.impact || t.justification) && (
+                                                        <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
+                                                          {t.impact && (
+                                                            <li>
+                                                              <b>Impact:</b> {t.impact}
+                                                            </li>
+                                                          )}
+                                                          {t.justification && (
+                                                            <li>
+                                                              <b>Reason:</b> {t.justification}
+                                                            </li>
+                                                          )}
+                                                        </ul>
+                                                      )}
+                                                    </li>
+                                                  );
+                                                })}
+                                              </ol>
+                                            ) : (
+                                              <p style={{ margin: 0, color: '#64748b' }}>No prioritized tasks.</p>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <b>PiC Performance</b>
+                                          <p style={{ marginTop: 6 }}>
+                                            {r.ai.pic_performance_evaluation?.text || 'Performance summary unavailable.'}
+                                          </p>
+                                          {typeof r.ai.pic_performance_evaluation?.score === 'number' && (
+                                            <p>Score: {r.ai.pic_performance_evaluation.score}/100</p>
+                                          )}
+                                          <p>
+                                            PiC Contribution: {Math.round(Number(r.ai.pic_contribution_percent) || 0)}%
+                                          </p>
+                                          {typeof r.ai.confidence === 'number' && (
+                                            <p>Model Confidence: {(r.ai.confidence * 100).toFixed(0)}%</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
                         })}
                       </tbody>
                     </table>
-                    {reports[0]?.ai && (
-                      <div style={{ marginTop: 16, padding: 16, border: '1px solid #eee', borderRadius: 10 }}>
-                        <h4 style={{ marginTop: 0 }}>Latest AI Summary</h4>
-                        <div
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))',
-                            gap: 16
-                          }}
-                        >
-                          <div>
-                            <b>Summary of Work Done</b>
-                            <ul style={{ marginTop: 6 }}>
-                              {(reports[0].ai.summary_of_work_done || []).map((x, i) => (
-                                <li key={i}>{x}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <b>Completed Tasks</b>
-                            <ul style={{ marginTop: 6 }}>
-                              {(reports[0].ai.completed_tasks || []).map((x, i) => (
-                                <li key={i}>{x}</li>
-                              ))}
-                            </ul>
-                          </div>
-                          <div>
-                            <b>Critical Path (3)</b>
-                            <div style={{ marginTop: 6 }}>
-                              {(reports[0].ai.critical_path_analysis || [])
-                                .slice(0, 3)
-                                .map((c, i) => (
-                                  <div key={i} style={{ marginBottom: 8 }}>
-                                    <b>{`${i + 1}. ${c?.path_type || 'Path ' + (i + 1)}`}</b>
-                                    <ul style={{ marginTop: 4, marginBottom: 4 }}>
-                                      {c?.risk && (
-                                        <li>
-                                          <b>Risk:</b> {c.risk}
-                                        </li>
-                                      )}
-                                      {c?.blockers?.length > 0 && (
-                                        <li>
-                                          <b>Blockers:</b> {c.blockers.join('; ')}
-                                        </li>
-                                      )}
-                                      {c?.next?.length > 0 && (
-                                        <li>
-                                          <b>Next:</b> {c.next.join('; ')}
-                                        </li>
-                                      )}
-                                    </ul>
-                                  </div>
-                                ))}
-                            </div>
-                          </div>
-                          {/* Task Priorities */}
-                          <div>
-                            <b>Task Priorities</b>
-                            <div style={{ marginTop: 6 }}>
-                              {Array.isArray(reports[0].ai.task_priorities) && reports[0].ai.task_priorities.length > 0 ? (
-                                <ol style={{ margin: 0, paddingLeft: 18 }}>
-                                  {reports[0].ai.task_priorities.slice(0,5).map((t, i) => {
-                                    const pr = (t.priority || '').toString();
-                                    const color = /high/i.test(pr)
-                                      ? '#dc2626'
-                                      : /medium|med/i.test(pr)
-                                      ? '#ea580c'
-                                      : /low/i.test(pr)
-                                      ? '#0d9488'
-                                      : '#334155';
-                                    return (
-                                      <li key={i} style={{ marginBottom: 8 }}>
-                                        <div
-                                          style={{
-                                            fontWeight: 600,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 6,
-                                            flexWrap: 'wrap'
-                                          }}
-                                        >
-                                          <span
-                                            style={{
-                                              background: color,
-                                              color: '#fff',
-                                              fontSize: 11,
-                                              padding: '2px 6px',
-                                              borderRadius: 12
-                                            }}
-                                          >
-                                            {pr || 'Priority'}
-                                          </span>
-                                          <span>{t.task || t.title || 'Untitled Task'}</span>
-                                        </div>
-                                        {(t.impact || t.justification) && (
-                                          <ul style={{ margin: '4px 0 0', paddingLeft: 16 }}>
-                                            {t.impact && (
-                                              <li>
-                                                <b>Impact:</b> {t.impact}
-                                              </li>
-                                            )}
-                                            {t.justification && (
-                                              <li>
-                                                <b>Reason:</b> {t.justification}
-                                              </li>
-                                            )}
-                                          </ul>
-                                        )}
-                                      </li>
-                                    );
-                                  })}
-                                </ol>
-                              ) : (
-                                <p style={{ margin: 0, color: '#64748b' }}>No prioritized tasks.</p>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <b>PiC Performance</b>
-                            <p style={{ marginTop: 6 }}>
-                              {reports[0].ai.pic_performance_evaluation?.text || 'Performance summary unavailable.'}
-                            </p>
-                            {typeof reports[0].ai.pic_performance_evaluation?.score === 'number' && (
-                              <p>Score: {reports[0].ai.pic_performance_evaluation.score}/100</p>
-                            )}
-                            <p>
-                              PiC Contribution: {Math.round(Number(reports[0].ai.pic_contribution_percent) || 0)}%
-                            </p>
-                            {typeof reports[0].ai.confidence === 'number' && (
-                              <p>Model Confidence: {(reports[0].ai.confidence * 100).toFixed(0)}%</p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                    {/* Latest AI Summary block removed per request */}
                   </div>
                 )}
               </div>

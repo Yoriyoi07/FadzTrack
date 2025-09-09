@@ -216,6 +216,7 @@ function buildReportPdfBuffer(ai = {}, meta = {}, logoBuffer = null) {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
+      // Increase top margin to give the header more breathing room
       margins: { top: 60, left: 50, right: 50, bottom: 90 }, // reserve 90px for footer
       bufferPages: true,                                      // let us add footer after body
     });
@@ -226,24 +227,99 @@ function buildReportPdfBuffer(ai = {}, meta = {}, logoBuffer = null) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
 
     /* ---------- helpers ---------- */
-    const drawHeader = () => {
-      // logo (optional)
-      if (logoBuffer) {
-        try { doc.image(logoBuffer, doc.page.width - 110, 18, { width: 60 }); } catch {}
+    // Utility to truncate a string with a middle ellipsis to fit a given width
+    const truncateToWidth = (text, maxWidth) => {
+      if (!text) return '';
+      const ell = '…';
+      const fullW = doc.widthOfString(text);
+      if (fullW <= maxWidth) return text;
+      let leftLen = Math.ceil(text.length * 0.6);
+      let rightLen = Math.max(1, Math.floor(text.length * 0.2));
+      // Boundaries
+      leftLen = Math.max(1, Math.min(text.length - 1, leftLen));
+      rightLen = Math.max(1, Math.min(text.length - leftLen - 1, rightLen));
+      let attempt = text.slice(0, leftLen) + ell + text.slice(text.length - rightLen);
+      // tighten until it fits
+      while (doc.widthOfString(attempt) > maxWidth && (leftLen > 1 || rightLen > 1)) {
+        if (leftLen > rightLen && leftLen > 1) leftLen -= 1; else if (rightLen > 1) rightLen -= 1; else leftLen -= 1;
+        attempt = text.slice(0, leftLen) + ell + text.slice(text.length - rightLen);
+        if (leftLen <= 1 && rightLen <= 1) break;
       }
-      doc
-        .font('Helvetica-Bold').fontSize(20).text('AI Analysis Summary', { align: 'left' })
-        .moveDown(0.3)
-        .font('Helvetica').fontSize(12);
-
-      if (meta.projectName)    doc.text(`Project: ${meta.projectName}`);
-      if (meta.projectLocation)doc.text(`Location: ${meta.projectLocation}`);
-      if (meta.filename)       doc.text(`Source: ${meta.filename}`);
-      doc.text(`Generated: ${new Date().toLocaleString()}`);
-      doc.moveDown(0.6);
-      doc.moveTo(doc.page.margins.left, doc.y).lineTo(doc.page.width - doc.page.margins.right, doc.y).stroke();
-      doc.moveDown(0.6);
+      return attempt;
     };
+
+    const drawHeader = () => {
+    // Absolute-positioned header confined to the top margin.
+    const left = doc.page.margins.left;
+    const right = doc.page.width - doc.page.margins.right;
+    const width = right - left;
+  const headerTop = 18; // draw above the flow area
+  const headerBottom = doc.page.margins.top - 12; // just above the content top
+
+    // Layout constants
+    const logoWidth = 28;
+    const gap = 8;
+      const leftBlockX = left + (logoBuffer ? (logoWidth + gap) : 0);
+      // Two-column layout (left/right)
+      const leftColBaseWidth = Math.floor(width * 0.58);
+      const leftColWidth = Math.max(80, leftColBaseWidth - (leftBlockX - left));
+      const rightColX = left + leftColBaseWidth;
+      const rightColWidth = Math.max(80, width - leftColBaseWidth);
+
+    // Logo at left if available
+    if (logoBuffer) {
+      try { doc.image(logoBuffer, left, headerTop, { width: logoWidth }); } catch {}
+    }
+
+    // Company/project on left; export/meta on right
+  const companyName = String(meta.companyName || 'FadzTrack');
+  const proj = meta.projectName ? `Project: ${meta.projectName}` : '';
+    const exportedBy = meta.exportedBy ? `Exported by: ${String(meta.exportedBy)}` : '';
+    const when = meta.exportDate instanceof Date ? meta.exportDate : new Date();
+  // Short export date without seconds
+  const whenText = `Exported: ${when.toLocaleString(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}`;
+      const sourceRaw = meta.filename ? `Source: ${meta.filename}` : '';
+    const disclaimer = 'AI-generated report. Please verify critical information.';
+
+    // First row
+    let y = headerTop;
+  // Title (truncate if very long to keep to one line)
+  doc.font('Helvetica-Bold').fontSize(12);
+  const titleRaw = companyName + (proj ? ` — ${proj}` : '');
+  const titleTrunc = truncateToWidth(titleRaw, leftColWidth);
+  doc.text(titleTrunc, leftBlockX, y, { width: leftColWidth, align: 'left', lineBreak: false });
+  // Draw right text without wrapping by measuring width and positioning from the right edge
+  const rightTopStr = [exportedBy, whenText].filter(Boolean).join('   |   ');
+  doc.font('Helvetica').fontSize(10);
+  const rtW = doc.widthOfString(rightTopStr);
+  const rtX = Math.max(rightColX, right - rtW);
+  doc.text(rightTopStr, rtX, y, { lineBreak: false });
+
+    // Second row: source (left) and disclaimer (right)
+  y += 16; // a bit more spacing on the second row
+      if (sourceRaw) {
+        // Ensure font/size are active before measuring for truncation
+        doc.font('Helvetica').fontSize(9);
+        const srcTrunc = truncateToWidth(sourceRaw, leftColWidth);
+        doc.fillColor('#555')
+           .text(srcTrunc, leftBlockX, y, { width: leftColWidth, align: 'left', lineBreak: false });
+        doc.fillColor('black');
+      }
+      // Disclaimer on the right, single line
+      doc.font('Helvetica-Oblique').fontSize(9).fillColor('#444');
+      const discW = doc.widthOfString(disclaimer);
+      const discX = Math.max(rightColX, right - discW);
+      doc.text(disclaimer, discX, y, { lineBreak: false });
+    doc.fillColor('black');
+
+    // Divider line at bottom of header area
+    doc.moveTo(left, headerBottom).lineTo(right, headerBottom).stroke();
+
+    // Reset flow start to the top margin for the first page case
+    doc.x = left;
+    doc.y = doc.page.margins.top;
+    doc.font('Helvetica').fontSize(11);
+   };
 
     const section = (title) => {
       doc.moveDown(0.6);
@@ -310,7 +386,7 @@ function buildReportPdfBuffer(ai = {}, meta = {}, logoBuffer = null) {
       doc.text(`Page ${pageNum} of ${pageCount}`, x1, y + 8, { align: 'right' });
     };
 
-    // After all content is written, iterate buffered pages and add footers/headers
+  // After all content is written, iterate buffered pages and add footers/headers
     doc.on('pageAdded', () => {
       // Keep new pages consistent (header is added automatically on first write of that page)
       // Reserve footer space already via bottom margin, so nothing spills over.
@@ -320,7 +396,7 @@ function buildReportPdfBuffer(ai = {}, meta = {}, logoBuffer = null) {
     doc.flushPages();
 
     const range = doc.bufferedPageRange(); // {start, count}
-    for (let i = 0; i < range.count; i++) {
+  for (let i = 0; i < range.count; i++) {
       doc.switchToPage(range.start + i);
       // Add header to every page except the first (first already has it)
       if (i > 0) drawHeader();
@@ -1916,11 +1992,31 @@ exports.uploadProjectReport = async (req, res) => {
     // 5) Build & upload short PDF summary
     let pdfPath = '';
     try {
-      const pdfBuf = await buildReportPdfBuffer(aiJson, {
-        title: 'AI Analysis Summary',
-        projectName: project.projectName,
-        filename: originalName
-      });
+      // Prepare branding/meta
+      const companyName = process.env.COMPANY_NAME || 'FadzTrack';
+      const companyLogoUrl = process.env.COMPANY_LOGO_URL || 'https://fadztrack.online/images/Fadz-logo.png';
+      let logoBuffer = null;
+      try {
+        if (companyLogoUrl) {
+          const resp = await axios.get(companyLogoUrl, { responseType: 'arraybuffer' });
+          logoBuffer = Buffer.from(resp.data);
+        }
+      } catch (e) {
+        // Logo optional; continue without it
+      }
+
+      const pdfBuf = await buildReportPdfBuffer(
+        aiJson,
+        {
+          title: 'AI Analysis Summary',
+          projectName: project.projectName,
+          filename: originalName,
+          companyName,
+          exportedBy: req.user?.name || '',
+          exportDate: new Date()
+        },
+        logoBuffer
+      );
       pdfPath = `${baseDir}/${timestamp}_analysis.pdf`;
       const up3 = await supabase.storage
         .from('documents')
