@@ -1549,7 +1549,12 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                       {showEmojiPicker && (
                         <div className="modern-emoji-picker">
                           {/* emoji-picker-react v4 passes (emojiData, event); use first param */}
-                          <EmojiPicker onEmojiClick={(emojiData) => setNewMessage(m => (m || '') + (emojiData?.emoji || ''))} height={360} width={300} />
+                          <EmojiPicker
+                            emojiStyle="native"
+                            onEmojiClick={(emojiData) => setNewMessage(m => (m || '') + (emojiData?.emoji || ''))}
+                            height={360}
+                            width={300}
+                          />
                         </div>
                       )}
 
