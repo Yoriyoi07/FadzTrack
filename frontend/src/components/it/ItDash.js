@@ -595,7 +595,7 @@ const handleLogout = () => {
                       <th>Phone Number</th>
                       <th>Email</th>
                       <th>Presence</th>
-                      <th>Status</th>
+                      <th>Account Status</th>
                       <th></th>
                       <th></th>
                     </tr>
