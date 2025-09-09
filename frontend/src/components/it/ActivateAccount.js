@@ -15,8 +15,10 @@ const ActivateAccount = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const policyOk = /[A-Z]/.test(password) && /\d/.test(password) && password.length >= 6;
-    if (!password || password !== confirm) {
+    const pass = (password || '').trim();
+    const conf = (confirm || '').trim();
+    const policyOk = /[A-Z]/.test(pass) && /\d/.test(pass) && pass.length >= 6;
+    if (!pass || pass !== conf) {
       setError('Passwords must match and not be empty');
       return;
     }
@@ -25,7 +27,7 @@ const ActivateAccount = () => {
       return;
     }
     try {
-      await api.post('/auth/activate-account', { token, password });
+      await api.post('/auth/activate-account', { token, password: pass });
       alert('Account activated! You can now log in.');
       navigate('/');
     } catch (err) {

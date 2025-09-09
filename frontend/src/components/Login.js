@@ -139,7 +139,7 @@ const LoginPage = ({ forceUserUpdate }) => {
       // Log what we're sending to the server
       console.log("Sending login request with:", { email: email.trim(), password: password ? "***" : "empty" });
       
-      const res = await api.post("/auth/login", { email: email.trim(), password });
+  const res = await api.post("/auth/login", { email: email.trim(), password: (password || '').trim() });
       const { requires2FA, accessToken, token, user } = res.data;
 
       if (requires2FA) { 

@@ -15,8 +15,10 @@ const ResetPassword = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const policyOk = /[A-Z]/.test(password) && /\d/.test(password) && password.length >= 6;
-    if (!password || password !== confirm) {
+    const pass = (password || '').trim();
+    const conf = (confirm || '').trim();
+    const policyOk = /[A-Z]/.test(pass) && /\d/.test(pass) && pass.length >= 6;
+    if (!pass || pass !== conf) {
       setError('Passwords must match and not be empty');
       return;
     }
@@ -25,7 +27,7 @@ const ResetPassword = () => {
       return;
     }
     try {
-      await api.post('/auth/reset-password', { token, newPassword: password });
+      await api.post('/auth/reset-password', { token, newPassword: pass });
       alert('Password reset successful! You can now log in.');
       navigate('/');
     } catch (err) {

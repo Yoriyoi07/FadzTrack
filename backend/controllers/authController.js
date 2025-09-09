@@ -212,7 +212,7 @@ async function registerUser(req, res) {
       name, email: email.toLowerCase(), phone, role, password: hashedPassword, status: 'Inactive'
     });
 
-  const activationToken = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '1h' });
+  const activationToken = jwt.sign({ email: (user.email || '').toLowerCase() }, JWT_SECRET, { expiresIn: '1h' });
   // Activation link always uses canonical domain in production (see FRONTEND_BASE_URL logic above)
   const activationLink = `${FRONTEND_BASE_URL}/activate-account?token=${activationToken}`;
 
@@ -232,16 +232,17 @@ async function registerUser(req, res) {
 
 async function activateAccount(req, res) {
   try {
-    const { token, password } = req.body;
-    if (!passwordMeetsPolicy(password)) {
+  const { token, password } = req.body;
+  const pw = String(password || '').trim();
+  if (!passwordMeetsPolicy(pw)) {
       return res.status(400).json({ msg: 'Password must be at least 6 chars and include at least one uppercase letter and one number.' });
     }
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findOne({ email: decoded.email });
+  const decoded = jwt.verify(token, JWT_SECRET);
+  const user = await User.findOne({ email: (decoded.email || '').toLowerCase() });
     if (!user) return res.status(404).json({ msg: 'User not found' });
     if (user.status === 'Active') return res.status(400).json({ msg: 'Account already activated' });
 
-    user.password = await bcrypt.hash(password, 10);
+  user.password = await bcrypt.hash(pw, 10);
     user.status = 'Active';
     await user.save();
 
@@ -257,7 +258,7 @@ async function resetPasswordRequest(req, res) {
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) return res.status(404).json({ msg: 'Email not found' });
 
-  const resetToken = jwt.sign({ email: user.email }, JWT_SECRET, { expiresIn: '15m' });
+  const resetToken = jwt.sign({ email: (user.email || '').toLowerCase() }, JWT_SECRET, { expiresIn: '15m' });
   // Password reset link (same domain logic)
   const resetLink = `${FRONTEND_BASE_URL}/reset-password?token=${resetToken}`;
 
@@ -277,15 +278,16 @@ async function resetPasswordRequest(req, res) {
 
 async function resetPassword(req, res) {
   try {
-    const { token, newPassword } = req.body;
-    if (!passwordMeetsPolicy(newPassword)) {
+  const { token, newPassword } = req.body;
+  const npw = String(newPassword || '').trim();
+  if (!passwordMeetsPolicy(npw)) {
       return res.status(400).json({ msg: 'Password must be at least 6 chars and include at least one uppercase letter and one number.' });
     }
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findOne({ email: decoded.email });
+  const decoded = jwt.verify(token, JWT_SECRET);
+  const user = await User.findOne({ email: (decoded.email || '').toLowerCase() });
     if (!user) return res.status(404).json({ msg: 'User not found' });
 
-    user.password = await bcrypt.hash(newPassword, 10);
+  user.password = await bcrypt.hash(npw, 10);
     await user.save();
     res.json({ msg: 'Password reset successful' });
   } catch (err) {
@@ -296,12 +298,13 @@ async function resetPassword(req, res) {
 // ───────────── Login / 2FA / Refresh / Logout ─────────────
 async function loginUser(req, res) {
   try {
-    const { email, password } = req.body || {};
-    const user = await User.findOne({ email: (email || '').toLowerCase() });
+  const { email, password } = req.body || {};
+  const user = await User.findOne({ email: (email || '').toLowerCase() });
     if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
     if (user.status !== 'Active') return res.status(403).json({ msg: 'Your account is inactive. Please contact support.' });
 
-    const isMatch = await bcrypt.compare(password, user.password);
+  const pw = String(password || '').trim();
+  const isMatch = await bcrypt.compare(pw, user.password);
     if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
 
     // ✅ Check trusted-device cookie
