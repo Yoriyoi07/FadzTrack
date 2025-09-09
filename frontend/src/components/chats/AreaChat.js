@@ -9,7 +9,6 @@ import {
 } from 'react-icons/fa';
 import { io } from 'socket.io-client';
 import EmojiPicker from 'emoji-picker-react';
-import 'emoji-picker-react/dist/style.css';
 import api, { API_BASE_URL } from '../../api/axiosInstance';
 import '../style/am_style/AreaChat.css';
 
