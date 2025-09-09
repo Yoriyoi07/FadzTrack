@@ -369,6 +369,41 @@ function setupChangeStreams(ioInstance) {
             forwardOf: doc.forwardOf ? String(doc.forwardOf) : null,
           };
           ioInstance.to(String(doc.conversation)).emit('receiveMessage', payload);
+
+          // Fallback: ensure Chats.lastMessage is updated even if the writer (e.g., mobile) didn’t do it
+          try {
+            // Build a preview similar to messageRoutes
+            const atts = Array.isArray(doc.attachments) ? doc.attachments : [];
+            const first = atts[0] || {};
+            const mime = first.mime || first.mimetype || '';
+            const preview = (doc.message && String(doc.message).trim()) || (
+              atts.length === 0 ? '' :
+              (atts.length === 1
+                ? (mime.startsWith('image/') ? '📷 Photo' :
+                   mime.startsWith('video/') ? '🎥 Video' :
+                   mime.startsWith('audio/') ? '🎵 Audio' :
+                   `📎 ${first.name || 'Attachment'}`)
+                : `📎 ${atts.length} attachments`)
+            );
+
+            const lastMessage = {
+              content: preview,
+              timestamp: doc.createdAt || new Date(),
+              sender: doc.senderId,
+              seen: [doc.senderId].filter(Boolean),
+            };
+
+            await Chat.updateOne(
+              { _id: doc.conversation },
+              { $set: { lastMessage } },
+              { timestamps: false }
+            );
+
+            // Emit chatUpdated so sidebars refresh immediately
+            ioInstance.emit('chatUpdated', { chatId: String(doc.conversation), lastMessage });
+          } catch (e) {
+            console.warn('[ChangeStream][Message insert] lastMessage fallback failed:', e?.message || e);
+          }
         } else if (change.operationType === 'update' || change.operationType === 'replace') {
           const doc = change.fullDocument || {};
           const updatedFields = (change.updateDescription && change.updateDescription.updatedFields) || {};
