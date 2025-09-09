@@ -346,6 +346,96 @@ socket.on('leaveChat', (chatId) => {
   });
 });
 
+// ------------------------------------------------------------------
+// MongoDB Change Streams: cross-service real-time sync for chat
+// Requires MongoDB replica set (e.g., Atlas). If unsupported, we log and skip.
+// ------------------------------------------------------------------
+function setupChangeStreams(ioInstance) {
+  try {
+    // watch Messages for inserts and updates (reactions/edits)
+    const msgStream = Message.watch([], { fullDocument: 'updateLookup' });
+    msgStream.on('change', async (change) => {
+      try {
+        if (change.operationType === 'insert') {
+          const doc = change.fullDocument || {};
+          const payload = {
+            _id: String(doc._id),
+            conversation: String(doc.conversation),
+            sender: String(doc.senderId),
+            content: doc.message || (Array.isArray(doc.attachments) && doc.attachments[0]?.url) || '',
+            timestamp: doc.createdAt || new Date(),
+            attachments: doc.attachments || [],
+            replyTo: doc.replyTo ? String(doc.replyTo) : null,
+            forwardOf: doc.forwardOf ? String(doc.forwardOf) : null,
+          };
+          ioInstance.to(String(doc.conversation)).emit('receiveMessage', payload);
+        } else if (change.operationType === 'update' || change.operationType === 'replace') {
+          const doc = change.fullDocument || {};
+          const updatedFields = (change.updateDescription && change.updateDescription.updatedFields) || {};
+          const updatedKeys = Object.keys(updatedFields);
+
+          // If reactions changed, broadcast reactions
+          if (updatedKeys.some(k => k === 'reactions' || k.startsWith('reactions.'))) {
+            ioInstance.to(String(doc.conversation)).emit('messageReaction', {
+              messageId: String(doc._id),
+              reactions: doc.reactions || [],
+            });
+          }
+
+          // If message content or deleted flag changed, broadcast as receiveMessage (update)
+          if (updatedKeys.some(k => k === 'message' || k === 'deleted' || k === 'attachments' || k.startsWith('attachments.'))) {
+            ioInstance.to(String(doc.conversation)).emit('receiveMessage', {
+              _id: String(doc._id),
+              conversation: String(doc.conversation),
+              sender: String(doc.senderId),
+              content: doc.message || '',
+              timestamp: doc.updatedAt || new Date(),
+              attachments: doc.attachments || [],
+              replyTo: doc.replyTo ? String(doc.replyTo) : null,
+              forwardOf: doc.forwardOf ? String(doc.forwardOf) : null,
+            });
+          }
+        }
+      } catch (e) {
+        console.error('[ChangeStream][Message] handler error:', e);
+      }
+    });
+    msgStream.on('error', (err) => console.warn('Message change stream error:', err?.message || err));
+
+    // watch Chats for lastMessage updates
+    const chatStream = Chat.watch([], { fullDocument: 'updateLookup' });
+    chatStream.on('change', (change) => {
+      try {
+        if (change.operationType === 'update' || change.operationType === 'replace') {
+          const updatedFields = (change.updateDescription && change.updateDescription.updatedFields) || {};
+          const keys = Object.keys(updatedFields);
+          if (keys.some(k => k === 'lastMessage' || k.startsWith('lastMessage.'))) {
+            const chatDoc = change.fullDocument || {};
+            io.emit('chatUpdated', { chatId: String(chatDoc._id), lastMessage: chatDoc.lastMessage });
+          }
+        }
+      } catch (e) {
+        console.error('[ChangeStream][Chat] handler error:', e);
+      }
+    });
+    chatStream.on('error', (err) => console.warn('Chat change stream error:', err?.message || err));
+
+    console.log('✅ MongoDB Change Streams initialized');
+  } catch (err) {
+    console.warn('⚠️ Change Streams not available (is MongoDB a replica set/Atlas?). Skipping. Reason:', err?.message || err);
+  }
+}
+
+// Initialize change streams once Socket.IO is ready and DB is connected
+function initChangeStreamsWhenReady() {
+  const start = () => {
+    try { setupChangeStreams(io); } catch (e) { console.warn('Change Streams setup failed:', e?.message || e); }
+  };
+  if (mongoose.connection.readyState === 1) start();
+  else mongoose.connection.once('connected', start);
+}
+initChangeStreamsWhenReady();
+
 // Routes setup
 app.get('/', (req, res) => res.send('API is working'));
 
