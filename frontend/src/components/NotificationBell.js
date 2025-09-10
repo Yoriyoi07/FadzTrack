@@ -6,8 +6,8 @@ import './style/NotificationBell.css';
 
 const NotificationBell = () => {
   const {
-    notifications,
-    unread,
+  notifications,
+  unread,
     markAllRead,
     markAsRead
   } = useNotifications();
@@ -113,17 +113,28 @@ const NotificationBell = () => {
     }
   };
 
+  // Exclude chat/discussion style notifications from bell
+  // Keep discussions/replies/mentions; suppress only real-time chat message notifications if any
+  const filtered = notifications.filter(n => !['chat','chat_message','message'].includes(String(n.type||'').toLowerCase()));
+  const filteredUnread = filtered.filter(n=> n.status==='unread').length;
+
+  // If unread derived differs from context unread (because context still counts chats) adjust markAllRead effect locally
+  const handleBellClick = () => {
+    setOpen(v=> !v);
+    if (filteredUnread > 0) {
+      // mark only filtered unread as read
+      filtered.filter(n=> n.status==='unread').forEach(n=> markAsRead && markAsRead(n._id));
+    }
+  };
+
   return (
     <div className="notif-bell-container" ref={bellRef}>
       <div
         className="notif-bell-icon"
-        onClick={() => {
-          setOpen((v) => !v);
-          if (unread > 0) markAllRead();
-        }}
+        onClick={handleBellClick}
       >
         <FaBell size={22} color="white" />
-        {unread > 0 && <span className="notif-badge">{unread}</span>}
+        {filteredUnread > 0 && <span className="notif-badge">{filteredUnread}</span>}
       </div>
 
       {open && (
@@ -138,10 +149,10 @@ const NotificationBell = () => {
           </div>
 
           <div className="notif-popup-list">
-            {notifications.length === 0 ? (
+            {filtered.length === 0 ? (
               <div className="notif-empty">No notifications</div>
             ) : (
-              notifications.slice(0, 12).map((n, i) => (
+              filtered.slice(0, 12).map((n, i) => (
                 <div
                   className={`notif-item rich${n.status === 'unread' ? ' unread' : ''}`}
                   key={(n && n._id ? String(n._id) : `notif-${i}`) + `-${i}`}

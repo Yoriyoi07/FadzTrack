@@ -7,6 +7,9 @@ const supabase = require('../utils/supabaseClient');
 const path = require('path');
 const { v4: uuid } = require('uuid');
 const MR_BUCKET = 'material-request-photos';
+// Simple in-memory submission debounce to reduce accidental double-click duplicates
+const recentCreateFingerprints = new Map(); // key -> timestamp
+const CREATE_DEBOUNCE_MS = 5000; // 5 seconds
 
 // ========== NUDGE PENDING APPROVER ==========
 exports.nudgePendingApprover = async (req, res) => {
@@ -103,6 +106,24 @@ exports.createMaterialRequest = async (req, res) => {
     const materialsArray = JSON.parse(materials);
     const missingUnit = materialsArray.some(m => !m.unit || m.unit.trim() === '');
     let attachments = [];
+
+    if(!description || !description.trim()) {
+      return res.status(400).json({ message: 'Description is required.' });
+    }
+
+    // Build a lightweight fingerprint (user+project+desc+first material names) to detect accidental rapid duplicates
+    const firstNames = materialsArray.slice(0,3).map(m=> (m.materialName||'').trim().toLowerCase()).join('|');
+    const fp = `${req.user.id}|${project}|${description.trim().toLowerCase()}|${firstNames}`;
+    const now = Date.now();
+    const lastTs = recentCreateFingerprints.get(fp) || 0;
+    if (now - lastTs < CREATE_DEBOUNCE_MS) {
+      return res.status(429).json({ message: 'Duplicate submission detected. Please wait a moment.' });
+    }
+    recentCreateFingerprints.set(fp, now);
+    // Clean old entries occasionally
+    if (recentCreateFingerprints.size > 200) {
+      for (const [k,ts] of recentCreateFingerprints) if (now - ts > CREATE_DEBOUNCE_MS) recentCreateFingerprints.delete(k);
+    }
 
     if (missingUnit) {
       return res.status(400).json({ message: 'Each material must have a unit.' });

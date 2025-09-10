@@ -65,6 +65,7 @@ export default function ItProjects(){
   const [allManpower,setAllManpower]=useState([]);
   const [validationErrors,setValidationErrors]=useState([]);
   const [docFiles,setDocFiles]=useState([]);
+  const [budgetFiles,setBudgetFiles]=useState([]); // dedicated budget PDF(s)
   const [photoFiles,setPhotoFiles]=useState([]);
   // Preview URLs for selected initial files (create mode)
   const [photoPreviews,setPhotoPreviews]=useState([]); // [{name,url,file}]
@@ -477,7 +478,7 @@ export default function ItProjects(){
   ['projectmanager','areamanager','area'].forEach(k=>{ if(!payload[k]) delete payload[k]; }); // area will drop if blank
       
       let createdProject;
-      if(!editingId && (docFiles.length||photoFiles.length)){ 
+      if(!editingId && (docFiles.length||photoFiles.length||budgetFiles.length)){ 
         const fd=new FormData(); 
         Object.entries(payload).forEach(([k,v])=>{ 
           if(Array.isArray(v)) v.forEach(val=>fd.append(k,val)); 
@@ -485,6 +486,7 @@ export default function ItProjects(){
         }); 
         photoFiles.forEach(f=>fd.append('photos',f)); 
         docFiles.forEach(f=>fd.append('documents',f)); 
+        budgetFiles.forEach(f=>fd.append('budgetPdf',f));
         const response = await api.post('/projects', fd, {headers:{'Content-Type':'multipart/form-data'}});
         createdProject = response.data;
       } else if(editingId){ 
@@ -912,6 +914,9 @@ export default function ItProjects(){
                   <label className="uploader" style={{display:'flex',flexDirection:'column',gap:4,marginTop:10}}>Documents
                     <input type="file" multiple onChange={e=> setDocFiles(Array.from(e.target.files||[]))}/>
                   </label>
+                  <label className="uploader" style={{display:'flex',flexDirection:'column',gap:4,marginTop:10}}>Budget PDF(s)
+                    <input type="file" multiple accept="application/pdf" onChange={e=> setBudgetFiles(Array.from(e.target.files||[]))}/>
+                  </label>
                   {docPreviews.length>0 && <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:6}}>
                     {docPreviews.map(d=> (
                       <div key={d.name+Math.random()} style={{display:'flex',alignItems:'center',gap:6,border:'1px solid #e5e7eb',padding:'4px 6px',borderRadius:4,background:'#f8fafc',fontSize:11}}>
@@ -921,8 +926,17 @@ export default function ItProjects(){
                       </div>
                     ))}
                   </div>}
+                  {budgetFiles.length>0 && <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:6}}>
+                    {budgetFiles.map(f=> (
+                      <div key={f.name+Math.random()} style={{display:'flex',alignItems:'center',gap:6,border:'1px solid #e5e7eb',padding:'4px 6px',borderRadius:4,background:'#fffbeb',fontSize:11}}>
+                        <span style={{display:'inline-block',minWidth:28,textAlign:'center',background:'#f59e0b',color:'#fff',borderRadius:4,padding:'2px 4px'}}>PDF</span>
+                        <span style={{maxWidth:140,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={f.name}>{f.name}</span>
+                        <button type="button" onClick={()=> setBudgetFiles(files=> files.filter(x=>x!==f))} style={{background:'transparent',border:'none',color:'#dc2626',cursor:'pointer',fontSize:14,lineHeight:1}}>×</button>
+                      </div>
+                    ))}
+                  </div>}
                 </div>
-                <small style={{display:'block',marginTop:6}}>{photoFiles.length} photo(s), {docFiles.length} document(s) selected</small>
+                <small style={{display:'block',marginTop:6}}>{photoFiles.length} photo(s), {docFiles.length} document(s), {budgetFiles.length} budget PDF(s) selected</small>
               </fieldset>}
               <div style={{gridColumn:'1 / -1',display:'flex',justifyContent:'flex-end',gap:'0.5rem',marginTop:'0.5rem'}}>
                 <button type="button" onClick={()=>setShowForm(false)} disabled={saving}>Cancel</button>

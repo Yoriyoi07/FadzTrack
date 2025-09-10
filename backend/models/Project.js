@@ -93,6 +93,17 @@ const projectSchema = new mongoose.Schema({
   reports: [reportSchema],
   // Parsed totals from uploaded budget PDF (A + B columns)
   parsedBudgetTotals: { type: mongoose.Schema.Types.Mixed },
+  // Initial budget PDF (stored separately from general documents)
+  budgetDocument: { type: mongoose.Schema.Types.Mixed }, // { path, name, uploadedAt, uploadedBy, uploadedByName }
+  // Area Manager uploaded Purchase Orders (new budget deduction flow)
+  purchaseOrders: [{
+    path: String,
+    name: String,
+    amount: Number,
+    uploadedAt: Date,
+    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    uploadedByName: String
+  }],
   // Attendance generated Excel outputs
   attendanceReports: [{
     originalName: String,

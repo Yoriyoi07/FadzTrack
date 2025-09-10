@@ -152,6 +152,20 @@ export default function ProjectView(props) {
   const [project,setProject]=useState(null); const [activeTab,setActiveTab]=useState('Details'); const [status,setStatus]=useState('');
   const [progress,setProgress]=useState(0); const [loading,setLoading]=useState(true); const [picContributions,setPicContributions]=useState(null);
   const [purchaseOrders,setPurchaseOrders]=useState([]); const [totalPO,setTotalPO]=useState(0);
+  const [poUploading,setPoUploading]=useState(false); const [poError,setPoError]=useState('');
+  const [poAmountInputs, setPoAmountInputs] = useState({}); // per-PO temp input text with formatting
+  const formatNumberWithCommas = (numStr)=>{
+    if(!numStr) return '';
+    const cleaned = numStr.replace(/[^0-9.]/g,'');
+    if(!cleaned) return '';
+    // Split integer / decimal
+    const parts = cleaned.split('.');
+    const intPart = parts[0].replace(/^0+(\d)/,'$1');
+    const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g,',');
+    const dec = parts[1] ? parts[1].slice(0,2) : '';
+    return dec ? `${withCommas}.${dec}` : withCommas;
+  };
+  const parseFormattedNumber = (v)=>{ if(!v) return 0; const n=parseFloat(v.replace(/,/g,'')); return isFinite(n)? n:0; };
   const [messages,setMessages]=useState([]); const [loadingMsgs,setLoadingMsgs]=useState(false); const [newMessage,setNewMessage]=useState('');
   // Per-message reply collapse map: { [messageId]: boolean }
   const [collapsedReplies, setCollapsedReplies] = useState({});
@@ -226,7 +240,8 @@ useEffect(() => {
       } catch { if(!cancelled) setProject(null); } finally { if(!cancelled) setLoading(false);} })();
     return ()=> {cancelled=true;};
   },[id,role,userId]);
-  useEffect(()=>{ if(!project?._id) return; let cancelled=false; (async()=>{ try { const res=await api.get('/requests'); if(cancelled) return; const approved=(res.data||[]).filter(r=> String(r?.project?._id||'')===String(project._id) && r.status==='Approved' && r.totalValue); setPurchaseOrders(approved); setTotalPO(approved.reduce((s,r)=> s+(Number(r.totalValue)||0),0)); } catch { if(!cancelled){ setPurchaseOrders([]); setTotalPO(0);} } })(); return ()=> {cancelled=true;}; },[project?._id]);
+  // Populate purchaseOrders from project model (new schema) if present
+  useEffect(()=>{ if(project?.purchaseOrders){ const list = Array.isArray(project.purchaseOrders)? project.purchaseOrders.slice():[]; setPurchaseOrders(list); setTotalPO(list.reduce((s,p)=> s + (Number(p.amount)||0),0)); } },[project?.purchaseOrders]);
   useEffect(()=>{ if(!project?._id || (activeTab!=='Discussions' && activeTab!=='Reports')) return; const controller=new AbortController(); setLoadingMsgs(true); api.get(`/projects/${project._id}/discussions`,{ headers:{Authorization:`Bearer ${token}`}, signal:controller.signal }).then(res=>{ const list=Array.isArray(res.data)?[...res.data].sort((a,b)=> new Date(a.timestamp||0)-new Date(b.timestamp||0)):[]; setMessages(list); }).catch(()=> setMessages([])).finally(()=> setLoadingMsgs(false)); return ()=> controller.abort(); },[project?._id,activeTab,token]);
   // Initialize collapsed state for messages with 3+ replies (only once per message)
   useEffect(()=>{ if(!messages.length) return; setCollapsedReplies(prev=>{ const next={...prev}; let changed=false; messages.forEach(m=>{ const rc=Array.isArray(m.replies)?m.replies.length:0; if(rc>=3 && typeof next[m._id]==='undefined'){ next[m._id]=true; changed=true; } }); return changed?next:prev; }); },[messages]);
@@ -766,6 +781,13 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
               <FaRegListAlt />
               <span>Project Details</span>
             </button>
+            {/* Budget tab – only for PIC, PM, AM, CEO */}
+            {['pic','pm','am','ceo'].includes(role) && (
+              <button className={`project-tab ${activeTab === 'Budget' ? 'active' : ''}`} onClick={() => setActiveTab('Budget')}>
+                <FaMoneyBillWave />
+                <span>Budget</span>
+              </button>
+            )}
             <button className={`project-tab ${activeTab === 'Discussions' ? 'active' : ''}`} onClick={() => setActiveTab('Discussions')}>
               <FaRegCommentDots />
               <span>Discussions</span>
@@ -778,10 +800,12 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
               <FaRegFileAlt />
               <span>Reports</span>
             </button>
-            <button className={`project-tab ${activeTab === 'Attendance' ? 'active' : ''}`} onClick={() => setActiveTab('Attendance')}>
-              <FaRegFileAlt />
-              <span>Attendance</span>
-            </button>
+            {['it','am','pm','ceo','hr','hrsite'].includes(role) && (
+              <button className={`project-tab ${activeTab === 'Attendance' ? 'active' : ''}`} onClick={() => setActiveTab('Attendance')}>
+                <FaRegFileAlt />
+                <span>Attendance</span>
+              </button>
+            )}
           </div>
           <div className="tab-content">
             {/* DETAILS TAB */}
@@ -822,88 +846,7 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                         Remaining: {peso.format(remaining)} (POs: {peso.format(totalPO)})
                       </div>
                     )}
-                    {project?.parsedBudgetTotals && Number(project?.parsedBudgetTotals?.totalAll || 0) > 0 && (
-                      <div style={{marginTop:12, paddingTop:12, borderTop:'1px solid #e2e8f0'}}>
-                        {(()=>{
-                          const totalDeduct = Number(project.parsedBudgetTotals.totalAll || 0);
-                          const original = (Number(budgetNum || 0) + totalDeduct);
-                          const sections = Array.isArray(project.parsedBudgetTotals.sections) ? project.parsedBudgetTotals.sections : [];
-                          const greenItems = Array.isArray(project.parsedBudgetTotals.greenItems) ? project.parsedBudgetTotals.greenItems : [];
-                          // Unified list: include both sections and greenItems
-                          const unified = [
-                            ...sections.map(s => ({ code: s.letter ? (s.letter + '.') : '', title: s.title || '', amount: s.amount })),
-                            ...greenItems.map(g => ({ code: g.code || '', title: g.title || '', amount: g.amount }))
-                          ];
-                          const rawSectionTotal = Number(project.parsedBudgetTotals.sectionTotal || 0);
-                          const rawGreenTotal = Number(project.parsedBudgetTotals.greenTotal || project.parsedBudgetTotals.rowSum || 0);
-                          // Fallback compute if backend stored older shape without sectionTotal/greenTotal
-                          const sectionTotal = rawSectionTotal > 0 ? rawSectionTotal : sections.reduce((s,x)=> s + (Number(x.amount)||0),0);
-                          const greenTotal = rawGreenTotal > 0 ? rawGreenTotal : greenItems.reduce((s,x)=> s + (Number(x.amount)||0),0);
-                          return (
-                            <div>
-                              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:13}}>
-                                <div><span style={{color:'#64748b'}}>Original:</span> <b>{peso.format(original)}</b></div>
-                                <div style={{textAlign:'right'}}><span style={{color:'#64748b'}}>Total Deduction:</span> <b style={{color:'#b91c1c'}}>-{peso.format(totalDeduct)}</b></div>
-                              </div>
-                              <div style={{marginTop:12}}>
-                              </div>
-                              <div style={{marginTop:16}}>
-                                <button
-                                  type="button"
-                                  onClick={()=> setShowSectionBreakdown(s=>!s)}
-                                  style={{
-                                    width:'100%',
-                                    background:'#f1f5f9',
-                                    border:'1px solid #e2e8f0',
-                                    borderRadius:8,
-                                    padding:'10px 14px',
-                                    display:'flex',
-                                    justifyContent:'space-between',
-                                    alignItems:'center',
-                                    cursor:'pointer',
-                                    fontSize:13,
-                                    fontWeight:600,
-                                    color:'#334155'
-                                  }}
-                                >
-                                  <span>Budget Breakdown</span>
-                                  <span style={{display:'flex',alignItems:'center',gap:10}}>
-                                    <span style={{fontSize:11,color:'#64748b',fontWeight:500}}>{peso.format(totalDeduct)}</span>
-                                    <span style={{transition:'transform .25s', transform: showSectionBreakdown ? 'rotate(90deg)':'rotate(0deg)'}}>&#9656;</span>
-                                  </span>
-                                </button>
-                                {showSectionBreakdown && (
-                                  <div style={{marginTop:8, maxHeight:220, overflowY:'auto', border:'1px solid #e2e8f0', borderRadius:8}}>
-                                    <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
-                                      <thead>
-                                        <tr style={{background:'#f8fafc'}}>
-                                          <th style={{textAlign:'left', padding:'8px 10px', borderBottom:'1px solid #e2e8f0'}}>Item</th>
-                                          <th style={{textAlign:'right', padding:'8px 10px', borderBottom:'1px solid #e2e8f0'}}>Amount</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {unified.map((u,idx)=>(
-                                          <tr key={idx}>
-                                            <td style={{padding:'6px 10px', borderBottom:'1px solid #eef2f7'}}>{u.title}</td>
-                                            <td style={{padding:'6px 10px', borderBottom:'1px solid #eef2f7', textAlign:'right'}}>{peso.format(Number(u.amount||0))}</td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                      <tfoot>
-                                        <tr>
-                                          <td style={{padding:'8px 10px', textAlign:'right', fontWeight:700}}>Total</td>
-                                          <td style={{padding:'8px 10px', textAlign:'right', fontWeight:700}}>{peso.format(totalDeduct)}</td>
-                                        </tr>
-                                      </tfoot>
-                                    </table>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    )}
+                    {/* Breakdown removed per request */}
                   </div>
                   <div className="overview-card timeline-card">
                     <div className="card-icon"><FaCalendarAlt /></div>
@@ -1190,6 +1133,144 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+            {/* BUDGET TAB (role restricted) */}
+            {activeTab === 'Budget' && ['pic','pm','am','ceo'].includes(role) && (
+              <div className="budget-tab" style={{textAlign:'left'}}>
+                <h2 style={{margin:'0 0 16px', display:'flex', alignItems:'center', gap:10}}><FaMoneyBillWave /> Project Budget</h2>
+                <div style={{display:'grid', gap:20, gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))'}}>
+                  <div style={{background:'#ffffff',border:'1px solid #e2e8f0',borderRadius:16,padding:20,position:'relative'}}>
+                    <h3 style={{marginTop:0,marginBottom:6,fontSize:16}}>Total Budget</h3>
+                    <div style={{fontSize:30,fontWeight:700,color:'#0f172a'}}>{peso.format(budgetNum||0)}</div>
+                    {totalPO>0 && (
+                      <div style={{marginTop:8,fontSize:13,color:'#475569'}}>Remaining: <b>{peso.format(Math.max(budgetNum - Number(totalPO||0),0))}</b><span style={{color:'#64748b'}}> (POs: {peso.format(totalPO)})</span></div>
+                    )}
+                    {project?.parsedBudgetTotals && Number(project?.parsedBudgetTotals?.totalAll || 0) > 0 && (
+                      <div style={{marginTop:18,paddingTop:14,borderTop:'1px solid #e2e8f0'}}>
+                        {(()=>{
+                          const totalDeduct = Number(project.parsedBudgetTotals.totalAll || 0);
+                          const original = (Number(budgetNum || 0) + totalDeduct);
+                          const sections = Array.isArray(project.parsedBudgetTotals.sections) ? project.parsedBudgetTotals.sections : [];
+                          const greenItems = Array.isArray(project.parsedBudgetTotals.greenItems) ? project.parsedBudgetTotals.greenItems : [];
+                          const unified = [
+                            ...sections.map(s => ({ code: s.letter ? (s.letter + '.') : '', title: s.title || '', amount: s.amount })),
+                            ...greenItems.map(g => ({ code: g.code || '', title: g.title || '', amount: g.amount }))
+                          ];
+                          return (
+                            <div>
+                              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:13}}>
+                                <div><span style={{color:'#64748b'}}>Original:</span> <b>{peso.format(original)}</b></div>
+                                <div style={{textAlign:'right'}}><span style={{color:'#64748b'}}>Total Deduction:</span> <b style={{color:'#b91c1c'}}>-{peso.format(totalDeduct)}</b></div>
+                              </div>
+                              <div style={{marginTop:16}}>
+                                <button
+                                  type="button"
+                                  onClick={()=> setShowSectionBreakdown(s=>!s)}
+                                  style={{
+                                    width:'100%',background:'#f1f5f9',border:'1px solid #e2e8f0',borderRadius:8,padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer',fontSize:13,fontWeight:600,color:'#334155'
+                                  }}
+                                >
+                                  <span>Budget Breakdown</span>
+                                  <span style={{display:'flex',alignItems:'center',gap:10}}>
+                                    <span style={{fontSize:11,color:'#64748b',fontWeight:500}}>{peso.format(totalDeduct)}</span>
+                                    <span style={{transition:'transform .25s', transform: showSectionBreakdown ? 'rotate(90deg)':'rotate(0deg)'}}>&#9656;</span>
+                                  </span>
+                                </button>
+                                {showSectionBreakdown && (
+                                  <div style={{marginTop:8,maxHeight:260,overflowY:'auto',border:'1px solid #e2e8f0',borderRadius:8}}>
+                                    <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                                      <thead>
+                                        <tr style={{background:'#f8fafc'}}>
+                                          <th style={{textAlign:'left',padding:'8px 10px',borderBottom:'1px solid #e2e8f0'}}>Item</th>
+                                          <th style={{textAlign:'right',padding:'8px 10px',borderBottom:'1px solid #e2e8f0'}}>Amount</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {unified.map((u,idx)=>(
+                                          <tr key={idx}>
+                                            <td style={{padding:'6px 10px',borderBottom:'1px solid #eef2f7'}}>{u.title}</td>
+                                            <td style={{padding:'6px 10px',borderBottom:'1px solid #eef2f7',textAlign:'right'}}>{peso.format(Number(u.amount||0))}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                      <tfoot>
+                                        <tr>
+                                          <td style={{padding:'8px 10px',textAlign:'right',fontWeight:700}}>Total</td>
+                                          <td style={{padding:'8px 10px',textAlign:'right',fontWeight:700}}>{peso.format(totalDeduct)}</td>
+                                        </tr>
+                                      </tfoot>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                  {/* AM Purchase Orders */}
+                  <div style={{background:'#ffffff',border:'1px solid #e2e8f0',borderRadius:16,padding:20,display:'flex',flexDirection:'column',gap:16}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <h3 style={{margin:0,fontSize:16}}>Purchase Orders</h3>
+                      {role==='am' && (
+                        <form onSubmit={async e=>{ e.preventDefault(); if(!project?._id) return; const form=e.currentTarget; const files=Array.from(form.poFiles.files||[]); if(!files.length){ setPoError('Select at least one file'); return;} setPoError(''); setPoUploading(true); try { const fd=new FormData(); files.forEach(f=> fd.append('poFiles',f)); const {data}=await api.post(`/projects/${project._id}/purchase-orders/files`,fd); if(data?.purchaseOrders){ setPurchaseOrders(data.purchaseOrders); setTotalPO(data.purchaseOrders.reduce((s,p)=> s+(Number(p.amount)||0),0)); } if(typeof data?.budget!=='undefined'){ setProject(p=> ({...p,budget:data.budget,purchaseOrders:data.purchaseOrders})); } form.reset(); } catch(err){ setPoError(err?.response?.data?.message||'Upload failed'); } finally { setPoUploading(false);} }} style={{display:'flex',gap:8,alignItems:'center'}}>
+                          <input name="poFiles" type="file" multiple accept="application/pdf,image/*" style={{fontSize:12}} />
+                          <button disabled={poUploading} style={{background:'#0f172a',color:'#fff',border:'none',padding:'8px 12px',borderRadius:8,fontSize:13,fontWeight:600,cursor:poUploading?'not-allowed':'pointer',opacity:poUploading?.6:1}}>{poUploading? 'Uploading...':'Upload Document/s'}</button>
+                        </form>
+                      )}
+                    </div>
+                    {poError && <div style={{color:'#b91c1c',fontSize:12}}>{poError}</div>}
+                    {purchaseOrders.length===0 ? (
+                      <div style={{fontSize:13,color:'#64748b'}}>No purchase orders yet.</div>
+                    ) : (
+                      <div style={{display:'flex',flexDirection:'column',gap:8,maxHeight:260,overflowY:'auto'}}>
+                        {purchaseOrders.map((po,i)=>(
+                          <div key={po._id||i} style={{display:'flex',flexDirection:'column',gap:6,padding:'8px 10px',border:'1px solid #e2e8f0',borderRadius:8,fontSize:13,background:'#f8fafc'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:12}}>
+                              <button
+                                onClick={()=> po.path && openSignedPath(po.path)}
+                                style={{background:'transparent',border:'none',color:'#2563eb',cursor: po.path? 'pointer':'not-allowed',textAlign:'left',flex:1,fontSize:13,padding:0}}
+                                title={po.path? 'View PO file':'No file path'}
+                                disabled={!po.path}
+                              >
+                                {po.name || po.path?.split('/').pop() || 'PO File'}
+                              </button>
+                              {po.amount ? (
+                                <span style={{fontWeight:600,whiteSpace:'nowrap'}}>{peso.format(Number(po.amount)||0)}</span>
+                              ) : role==='am' ? (
+                                <form onSubmit={async e=>{ e.preventDefault(); if(!project?._id) return; const raw=poAmountInputs[po._id]||''; const amt=parseFormattedNumber(raw); if(!amt){ alert('Enter valid amount'); return;} const remainingBudget = Number(project.budget||0); if(amt>remainingBudget){ alert('Amount exceeds remaining budget'); return;} try { const {data}=await api.patch(`/projects/${project._id}/purchase-orders/${po._id}/amount`,{ amount: amt }); if(data?.purchaseOrders){ setPurchaseOrders(data.purchaseOrders); setTotalPO(data.purchaseOrders.reduce((s,p)=> s+(Number(p.amount)||0),0)); } if(typeof data?.budget!=='undefined'){ setProject(p=> ({...p,budget:data.budget,purchaseOrders:data.purchaseOrders})); } setPoAmountInputs(p=> ({...p,[po._id]:''})); } catch(err){ alert(err?.response?.data?.message||'Set amount failed'); } }} style={{display:'flex',alignItems:'center',gap:6}}>
+                                  <div style={{display:'flex',alignItems:'center',background:'#fff',border:'1px solid #cbd5e1',borderRadius:6,padding:'2px 6px'}}>
+                                    <span style={{fontSize:12,color:'#64748b',marginRight:4}}>₱</span>
+                                    <input
+                                      name="amount"
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={poAmountInputs[po._id] || ''}
+                                      onChange={e=>{ const formatted=formatNumberWithCommas(e.target.value); setPoAmountInputs(p=> ({...p,[po._id]:formatted})); }}
+                                      placeholder="0.00"
+                                      style={{width:90,padding:'2px 0',border:'none',outline:'none',fontSize:12,background:'transparent'}}
+                                    />
+                                  </div>
+                                  <button style={{background:'#0f172a',color:'#fff',border:'none',padding:'6px 10px',borderRadius:6,fontSize:12,fontWeight:600,cursor:'pointer'}}>Set</button>
+                                </form>
+                              ) : (
+                                <span style={{color:'#64748b',fontStyle:'italic'}}>Pending total</span>
+                              )}
+                              {role==='am' && (
+                                <button onClick={async()=>{ if(!window.confirm('Delete this PO?')) return; try { const {data}=await api.delete(`/projects/${project._id}/purchase-orders/${po._id}`); if(data?.purchaseOrders){ setPurchaseOrders(data.purchaseOrders); setTotalPO(data.purchaseOrders.reduce((s,p)=> s+(Number(p.amount)||0),0)); } if(typeof data?.budget!=='undefined'){ setProject(p=> ({...p,budget:data.budget,purchaseOrders:data.purchaseOrders})); } } catch(err){ alert(err?.response?.data?.message||'Delete failed'); } }} style={{background:'#fee2e2',color:'#b91c1c',border:'1px solid #fca5a5',padding:'6px 10px',borderRadius:6,fontSize:12,cursor:'pointer'}}>Delete</button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        <div style={{marginTop:4,textAlign:'right',fontSize:13}}>
+                          <b>Total Deducted:</b> {peso.format(totalPO)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
             {/* DISCUSSIONS TAB */}
@@ -1915,7 +1996,7 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                 )}
               </div>
             )}
-            {activeTab === 'Attendance' && (
+            {activeTab === 'Attendance' && ['it','am','pm','ceo','hr','hrsite'].includes(role) && (
               <div className="attendance-tab" style={{textAlign:'left'}}>
                 <h3 style={{margin:'0 0 16px'}}>Attendance Reports</h3>
                 <div style={{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',marginBottom:16}}>

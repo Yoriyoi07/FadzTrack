@@ -97,6 +97,12 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
   const progressPct = Math.min(100, Math.round((completedCount/(totalCount||1))*100));
   const statusBadge = getStatusBadge(materialRequest.status, meta.isReceived);
   const canAct = canUserActOnRequest(materialRequest, userRole);
+  // Denial info
+  const isDenied = /denied/i.test(materialRequest.status||'');
+  let denialApproval = null;
+  if(isDenied && Array.isArray(materialRequest.approvals)){
+    denialApproval = [...materialRequest.approvals].reverse().find(a=>a.decision==='denied');
+  }
   // PIC role specific capabilities
   const lowerRole = (userRole||'').toLowerCase();
   const isPIC = lowerRole === 'person in charge';
@@ -172,6 +178,26 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
             </div>
             <div className="mrd-modern-body">
               <div className="mrd-col-main">
+                {isDenied && denialApproval && (
+                  <div style={{
+                    background:'#fef2f2',
+                    border:'1px solid #fecaca',
+                    padding:'14px 18px',
+                    borderRadius:12,
+                    marginBottom:18,
+                    color:'#991b1b',
+                    lineHeight:1.4,
+                    fontSize:14
+                  }} role="alert" aria-live="polite">
+                    <div style={{fontWeight:600,marginBottom:6,display:'flex',alignItems:'center',gap:8}}>
+                      <i className="fas fa-ban"/> Request Denied{denialApproval.role?` by ${denialApproval.role}`:''}
+                    </div>
+                    <div style={{whiteSpace:'pre-wrap'}}>{denialApproval.reason || 'No reason provided.'}</div>
+                    {denialApproval.user?.name && (
+                      <div style={{marginTop:8,fontSize:11,opacity:.7}}>By: {denialApproval.user.name} • {new Date(denialApproval.date||denialApproval.updatedAt||denialApproval.createdAt||materialRequest.updatedAt).toLocaleString()}</div>
+                    )}
+                  </div>
+                )}
                 {/* Info */}
         <section className="mrd-section flat" aria-labelledby="info-h">
                   <h3 id="info-h" className="mrd-section-title"><i className="fas fa-info-circle"/> Information</h3>
@@ -182,9 +208,7 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
                     {meta.isReceived && <div className="mrd-field"><dt>Received</dt><dd>{new Date(materialRequest.receivedAt || materialRequest.receivedDate).toLocaleString()}</dd></div>}
                     <div className="mrd-field"><dt>Status</dt><dd>{statusBadge}</dd></div>
                     <div className="mrd-field"><dt>Project</dt><dd>{materialRequest.project?.projectName||'—'}</dd></div>
-          {typeof materialRequest.totalValue === 'number' && <div className="mrd-field"><dt>PO Total</dt><dd>₱{materialRequest.totalValue.toLocaleString()}</dd></div>}
-                    {typeof materialRequest.project?.budget === 'number' && <div className="mrd-field"><dt>Remaining Budget</dt><dd>₱{materialRequest.project.budget.toLocaleString()} {typeof materialRequest.totalValue==='number' && <span style={{marginLeft:6,fontSize:11,padding:'2px 6px',borderRadius:12,background:'#f1f5f9',color:'#475569'}}>−₱{materialRequest.totalValue.toLocaleString()}</span>}</dd></div>}
-          {materialRequest.purchaseOrder && <div className="mrd-field"><dt>Purchase Order</dt><dd>{materialRequest.purchaseOrderSignedUrl ? <a href={materialRequest.purchaseOrderSignedUrl} target="_blank" rel="noopener noreferrer">Open PO</a> : materialRequest.purchaseOrder}</dd></div>}
+          {typeof materialRequest.project?.budget === 'number' && <div className="mrd-field"><dt>Project Budget</dt><dd>₱{materialRequest.project.budget.toLocaleString()}</dd></div>}
                   </dl>
                 </section>
                 {/* Requester */}

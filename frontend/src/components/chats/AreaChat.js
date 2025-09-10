@@ -248,16 +248,36 @@ const AreaChat = ({ baseSegment = 'am' }) => {
     // A chat only counts as having a real last message if it has: non-empty content OR attachments OR a sender id.
     const hasRealLastMessage = (c) => {
       const lm = c?.lastMessage;
+      // For group chats we want even an "empty" synthetic placeholder (no content/attachments/sender)
+      // to count so ordering uses its timestamp and places it among active chats.
+      if (c?.isGroup) {
+        if (!lm) return true; // no lastMessage yet (we may synthesize elsewhere) -> include
+        const hasContentG = typeof lm.content === 'string' && lm.content.trim().length > 0;
+        const hasAttG = Array.isArray(lm.attachments) && lm.attachments.length > 0;
+        const hasSenderG = !!lm.sender;
+        // If it's still empty placeholder, still treat as real for ordering.
+        if (!hasContentG && !hasAttG && !hasSenderG) return true;
+        return true; // normal non-empty group message
+      }
+      // Direct chats: only count if there is a meaningful lastMessage
       if (!lm) return false;
       const hasContent = typeof lm.content === 'string' && lm.content.trim().length > 0;
       const hasAttachments = Array.isArray(lm.attachments) && lm.attachments.length > 0;
-      const hasSender = !!lm.sender; // legacy empty chats often have no sender
+      const hasSender = !!lm.sender;
       return hasContent || hasAttachments || hasSender;
     };
     const getTs = (c) => {
-  // Prefer a precomputed numeric timestamp for reliable ordering
-  if (c?.lastMessage?.tsNum) return c.lastMessage.tsNum;
-  let t = c?.lastMessage?.timestamp || c?.lastMessage?.createdAt || c?.lastMessage?.updatedAt || c?.updatedAt || c?.createdAt;
+      // Prefer a precomputed numeric timestamp for reliable ordering
+      if (c?.lastMessage?.tsNum) return c.lastMessage.tsNum;
+      // For empty group chats (no lastMessage) use createdAt so they sort by creation time.
+      if (!c?.lastMessage && c?.isGroup) {
+        const created = c.createdAt || c.updatedAt;
+        if (created) {
+          const num = typeof created === 'number' ? created : Date.parse(created);
+          return isNaN(num) ? 0 : num;
+        }
+      }
+      let t = c?.lastMessage?.timestamp || c?.lastMessage?.createdAt || c?.lastMessage?.updatedAt || c?.updatedAt || c?.createdAt;
       if (!t && c?._id && /^[a-f0-9]{24}$/.test(c._id)) {
         t = parseInt(c._id.substring(0,8),16) * 1000;
       }
@@ -266,23 +286,26 @@ const AreaChat = ({ baseSegment = 'am' }) => {
       const n = Date.parse(t);
       return isNaN(n) ? 0 : n;
     };
-    // We don't want brand new / empty chats (no lastMessage) to jump to the top just because they were created.
-    // Priority order:
-    // 1. Chats WITH a lastMessage (sorted by lastMessage timestamp / seq as before)
-    // 2. Chats WITHOUT a lastMessage (keep their original relative order)
+    // Updated priority:
+    // - Chats with a real lastMessage OR (empty group chats) participate in chronological ordering.
+    // - Empty direct chats (no lastMessage) stay at the bottom in original order.
     const withIndex = [...(list || [])].map((c, idx) => ({ c, idx }));
     let sorted = withIndex.sort((a, b) => {
       const aHas = hasRealLastMessage(a.c);
       const bHas = hasRealLastMessage(b.c);
-      if (aHas && !bHas) return -1; // a first
-      if (!aHas && bHas) return 1;  // b first
-      if (!aHas && !bHas) return a.idx - b.idx; // preserve original order for both empty
+      if (aHas && !bHas) return -1;
+      if (!aHas && bHas) return 1;
+      if (!aHas && !bHas) return a.idx - b.idx; // both empty non-group (DM) chats
       // both have lastMessage -> original ordering logic
       const diff = getTs(b.c) - getTs(a.c);
       if (diff !== 0) return diff;
       const sa = a.c?.lastMessage?.seq || 0;
       const sb = b.c?.lastMessage?.seq || 0;
-      return sb - sa;
+  if (sb !== sa) return sb - sa;
+  // Final deterministic fallback: group chats before direct if otherwise identical
+  if (a.c.isGroup && !b.c.isGroup) return -1;
+  if (!a.c.isGroup && b.c.isGroup) return 1;
+  return 0;
     }).map(x => x.c);
     if (pinnedNewChatId) {
       const idx = sorted.findIndex(c => c._id === pinnedNewChatId);
@@ -542,8 +565,20 @@ const AreaChat = ({ baseSegment = 'am' }) => {
       const raw = chatObj.lastMessage?.timestamp || chatObj.lastMessage?.createdAt || chatObj.lastMessage?.updatedAt;
       let num = typeof raw === 'number' ? raw : (raw ? Date.parse(raw) : 0);
       chatObj = chatObj.lastMessage ? { ...chatObj, lastMessage: { ...chatObj.lastMessage, tsNum: num, seq: ++seqRef.current } } : chatObj;
-  // If no lastMessage yet and NOT a group, don't insert (hide empty 1-1). Allow empty groups to appear.
-  if (!chatObj.lastMessage && !chatObj.isGroup) return;
+      // If no lastMessage yet and NOT a group, don't insert (hide empty 1-1). Allow empty groups to appear.
+      if (!chatObj.lastMessage && !chatObj.isGroup) return;
+      // For empty group chats add synthetic timestamp based on createdAt/_id for ordering
+      if (!chatObj.lastMessage && chatObj.isGroup) {
+        let created = chatObj.createdAt || chatObj.updatedAt;
+        if (!created && /^[a-f0-9]{24}$/.test(chatObj._id)) {
+          created = new Date(parseInt(chatObj._id.substring(0,8),16) * 1000).toISOString();
+        }
+        let tsNum = 0;
+        if (created) {
+          tsNum = typeof created === 'number' ? created : Date.parse(created) || 0;
+        }
+        chatObj = { ...chatObj, lastMessage: { content: '', timestamp: created, tsNum, seq: ++seqRef.current, sender: null, attachments: [], seen: [] } };
+      }
     setChatList(list => sortChatList([chatObj, ...list.filter(c => c._id !== chatObj._id)]));
     };
 
@@ -623,17 +658,30 @@ const AreaChat = ({ baseSegment = 'am' }) => {
           }
           return { ...c, lastMessage: { ...lm, content, tsNum: num, attachments: lm.attachments || [] } };
         }
+        // No lastMessage: if it's a group, synthesize one so ordering treats creation as activity
+        if (c?.isGroup) {
+          let created = c.createdAt || c.updatedAt;
+          if (!created && /^[a-f0-9]{24}$/.test(c._id || '')) {
+            created = new Date(parseInt(c._id.substring(0,8),16) * 1000).toISOString();
+          }
+          let tsNum = 0;
+          if (created) {
+            tsNum = typeof created === 'number' ? created : (Date.parse(created) || 0);
+          }
+          if (!tsNum) tsNum = Date.now(); // fallback ensure it floats
+          return { ...c, lastMessage: { content: '', timestamp: created || new Date().toISOString(), tsNum, seq: ++seqRef.current, sender: null, attachments: [], seen: [] } };
+        }
         return c;
       });
-      // Filter out empty direct chats but keep group chats even if empty
+      // Visible chats: include all groups (even empty) and only DMs with a real lastMessage
       const visible = withTs.filter(c => {
+        if (c.isGroup) return true;
         const lm = c.lastMessage;
-        if (!lm) return !!c.isGroup; // include empty groups, exclude empty DMs
-        if (c.isGroup) return true; // always show groups once created
+        if (!lm) return false;
         const hasContent = typeof lm.content === 'string' && lm.content.trim().length > 0;
         const hasAttachments = Array.isArray(lm.attachments) && lm.attachments.length > 0;
         const hasSender = !!lm.sender;
-        return hasContent || hasAttachments || hasSender; // for DMs require real message
+        return hasContent || hasAttachments || hasSender;
       });
       setChatList(sortChatList(visible));
     } catch { setChatList([]); }
@@ -886,9 +934,24 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   const createGroup = async () => {
     const members = [userId, ...selectedUsers];
     const { data: newChat } = await api.post('/chats', { name: groupName, users: members, isGroup: true }, { headers });
-    await reloadChats();
+    // Inject synthetic lastMessage if backend returns none
+    let enriched = newChat;
+    if (enriched && !enriched.lastMessage) {
+      let created = enriched.createdAt || enriched.updatedAt;
+      if (!created && /^[a-f0-9]{24}$/.test(enriched._id || '')) {
+        created = new Date(parseInt(enriched._id.substring(0,8),16) * 1000).toISOString();
+      }
+      let tsNum = 0;
+      if (created) tsNum = typeof created === 'number' ? created : (Date.parse(created) || 0);
+      if (!tsNum) tsNum = Date.now();
+      enriched = { ...enriched, lastMessage: { content: '', timestamp: created || new Date().toISOString(), tsNum, seq: ++seqRef.current, sender: null, attachments: [], seen: [] } };
+    }
+    // Optimistically add to list at correct sorted position
+    setChatList(list => sortChatList([enriched, ...list.filter(c => c._id !== enriched._id)]));
     setShowGroupModal(false); setGroupName(''); setUserSearch(''); setSelectedUsers([]);
-  setSelectedChat(newChat); navigate(`/${baseSegment}/chat/${newChat._id}`);
+    setSelectedChat(enriched); navigate(`/${baseSegment}/chat/${enriched._id}`);
+    // Refresh from server (keeps order but ensures any server-side fields are present)
+    reloadChats();
   };
 
   const startEditGroupName = () => { setNewGroupName(selectedChat.name); setEditingGroupName(true); };

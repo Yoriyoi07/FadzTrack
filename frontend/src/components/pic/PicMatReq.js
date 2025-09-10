@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import NotificationBell from '../NotificationBell';
@@ -24,6 +24,9 @@ const PicMatReq = () => {
   const [previewImages, setPreviewImages] = useState([]);
   const [materials, setMaterials] = useState([{ id: 1, materialName: '', quantity: '', unit: '' }]);
   const [formData, setFormData] = useState({ description: '' });
+  const [errors, setErrors] = useState({ description:'', materials:'', global:'' });
+  const [submitting, setSubmitting] = useState(false);
+  const submitLockRef = useRef(false);
   const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     const user = storedUser ? JSON.parse(storedUser) : null;
@@ -120,48 +123,50 @@ const PicMatReq = () => {
     navigate('/');
   };
 
+  const validate = () => {
+    const newErrors = { description:'', materials:'', global:'' };
+    if(!formData.description.trim()) newErrors.description = 'Description is required';
+    const validMaterials = materials.filter(m => m.materialName.trim() && m.quantity.trim() && m.unit.trim());
+    if(validMaterials.length === 0) newErrors.materials = 'Add at least one complete material row';
+    // Highlight incomplete rows
+    if(materials.some(m => (m.materialName||'').trim() && (!m.quantity.trim() || !m.unit.trim()))) {
+      newErrors.materials = newErrors.materials || 'Complete all fields in each row';
+    }
+    setErrors(newErrors);
+    return { ok: !newErrors.description && !newErrors.materials, validMaterials };
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!token) {
-      alert('No token, please log in again.');
+    if(submitLockRef.current || submitting) return; // prevent double click
+    if(!token){
+      setErrors(prev=>({...prev, global:'Session expired. Please login.'}));
       navigate('/');
       return;
     }
-
-    const validMaterials = materials.filter(m => m.materialName.trim() && m.quantity.trim() && m.unit.trim());
-    if (validMaterials.length === 0) {
-      alert('Please add at least one material with quantity and unit');
-      return;
-    }
-
+    const { ok, validMaterials } = validate();
+    if(!ok) return;
+    submitLockRef.current = true; setSubmitting(true); setErrors(prev=>({...prev, global:''}));
     const data = new FormData();
     uploadedFiles.forEach(file => data.append('attachments', file));
-    data.append('description', formData.description);
+    data.append('description', formData.description.trim());
     data.append('materials', JSON.stringify(validMaterials));
     data.append('project', projectId);
-
     try {
-      const res = await api.post('/requests', data, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (res.data.msg === 'Invalid token') {
-        alert('Session expired. Please login again.');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        navigate('/');
-        return;
+      const res = await api.post('/requests', data, { headers: { Authorization: `Bearer ${token}` } });
+      if(res?.data?.msg === 'Invalid token'){
+        setErrors(prev=>({...prev, global:'Session expired. Please login.'}));
+        localStorage.removeItem('token'); localStorage.removeItem('user'); navigate('/'); return;
       }
-
-      alert('✅ Material request submitted successfully!');
+      // Soft success UI reset
       setFormData({ description: '' });
       setMaterials([{ id: 1, materialName: '', quantity: '', unit: '' }]);
-      setUploadedFiles([]);
-      setPreviewImages([]);
-    } catch (err) {
-      alert('❌ Upload failed');
-    }
+      setUploadedFiles([]); setPreviewImages([]);
+      setErrors({ description:'', materials:'', global:'Request submitted successfully.' });
+    } catch(err){
+      const apiMsg = err?.response?.data?.message || 'Submission failed';
+      setErrors(prev=>({...prev, global: apiMsg }));
+    } finally { submitLockRef.current = false; setSubmitting(false); }
   };
 
   return (
@@ -281,6 +286,7 @@ const PicMatReq = () => {
                   >
                     + Add Material
                   </button>
+                  {errors.materials && <div style={{marginTop:8,color:'#dc2626',fontSize:12,fontWeight:500}}>{errors.materials}</div>}
                 </div>
               </div>
                 
@@ -350,13 +356,15 @@ const PicMatReq = () => {
                   rows="6"
                   placeholder="Provide a detailed description of your request"
                 />
+                {errors.description && <div style={{marginTop:4,color:'#dc2626',fontSize:12,fontWeight:500}}>{errors.description}</div>}
               </div>
                 
-              <div className="form-actions-picmatreq">
-                <button onClick={handleSubmit} className="publish-button-picmatreq">
-                  Publish Request
+              {errors.global && <div style={{marginTop:12,fontSize:13,color: errors.global.includes('successfully')? '#16a34a':'#dc2626',fontWeight:500}}>{errors.global}</div>}
+              <div className="form-actions-picmatreq" style={{marginTop:16}}>
+                <button onClick={handleSubmit} disabled={submitting} className="publish-button-picmatreq" style={{opacity: submitting? .6:1,cursor: submitting? 'not-allowed':'pointer'}}>
+                  {submitting? 'Submitting...' : 'Publish Request'}
                 </button>
-                </div>
+              </div>
               </div>
             </div>
           </div>

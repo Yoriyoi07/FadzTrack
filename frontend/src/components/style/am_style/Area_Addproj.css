@@ -511,6 +511,30 @@ ul.available-list .empty { font-size:.75rem; color:#6f7f91; padding:6px 4px; tex
 .meta-card .area-addproj-form-group { position:relative; }
 .meta-card .area-addproj-form-group input, .meta-card .area-addproj-form-group select { padding-top:.75rem; padding-bottom:.55rem; }
 
+/* Currency input wrapper (budget) */
+.currency-field { display:flex; align-items:center; background:#fff; border:1px solid #cbd5e1; border-radius:8px; padding:4px 8px; line-height:1; transition:border-color .2s, box-shadow .2s; }
+.currency-field:focus-within { border-color:#0b5fff; box-shadow:0 0 0 3px rgba(11,95,255,0.18); }
+.currency-field input { background:transparent; box-shadow:none; padding:4px 0 3px; margin:0; }
+.currency-field input:focus { box-shadow:none; }
+/* Prevent overflow for very large numbers */
+.currency-field { max-width: 100%; }
+.currency-field input { width:100%; min-width:0; }
+
+/* === Modal (CSV Help) === */
+.aa-modal-overlay { position:fixed; inset:0; background:rgba(15,23,42,0.45); backdrop-filter:blur(2px); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
+.aa-modal { width:100%; max-width:560px; background:#ffffff; border:1px solid #e2e8f0; border-radius:20px; box-shadow:0 20px 48px -12px rgba(15,23,42,0.4),0 8px 24px -8px rgba(15,23,42,0.3); display:flex; flex-direction:column; max-height:85vh; }
+.aa-modal-header { padding:20px 26px 10px; border-bottom:1px solid #eef2f7; }
+.aa-modal-header h3 { margin:0; font-size:1.05rem; letter-spacing:.4px; color:#0f172a; }
+.aa-modal-body { padding:14px 26px 4px; overflow-y:auto; font-size:13px; line-height:1.45; }
+.aa-modal-body strong { font-weight:600; }
+.aa-modal-footer { padding:16px 26px 22px; display:flex; justify-content:flex-end; gap:10px; }
+.aa-btn-primary { background:#0b5fff; color:#fff; border:none; border-radius:10px; padding:10px 20px; font-size:.8rem; font-weight:600; cursor:pointer; box-shadow:0 6px 16px -4px rgba(11,95,255,.4); }
+.aa-btn-primary:hover { background:#094bcc; }
+.aa-btn-primary:focus { outline:3px solid rgba(11,95,255,.4); outline-offset:2px; }
+.aa-modal pre { margin:8px 0 0; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+.aa-modal-body ul { padding-left:18px; }
+.aa-modal-body li { margin-bottom:4px; }
+
 /* Slight gradient background behind full form for subtle depth */
 .am-dashboard body, .am-dashboard { background:linear-gradient(180deg,#f5f7fb,#eef2f7); }
 

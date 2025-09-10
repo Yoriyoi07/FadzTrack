@@ -40,10 +40,15 @@ router.get('/unassigned-staff', controller.getUnassignedStaff);
 router.get('/unassigned-hrsite', controller.getUnassignedHR);
 
 /* ---------- CRUD ---------- */
+// Added budgetPdf field (dedicated budget document(s)) so controller can detect & parse budget
 router.post(
   '/',
   verifyToken,
-  upload.fields([{ name: 'photos', maxCount: 10 }, { name: 'documents', maxCount: 10 }]),
+  upload.fields([
+    { name: 'photos', maxCount: 10 },
+    { name: 'documents', maxCount: 10 },
+    { name: 'budgetPdf', maxCount: 5 } // allow multiple; controller uses first for parsing
+  ]),
   controller.addProject
 );
 router.get('/', controller.getAllProjects);
@@ -84,5 +89,11 @@ router.post('/:id/attendance/upload', verifyToken, upload.single('schedule'), co
 router.get('/:id/attendance', verifyToken, controller.listAttendanceReports);
 router.get('/:id/attendance-signed-url', verifyToken, controller.getAttendanceSignedUrl);
 router.delete('/:id/attendance/:reportId', verifyToken, controller.deleteAttendanceReport);
+
+/* ---------- Budget / Purchase Orders (Area Manager) ---------- */
+router.post('/:id/purchase-orders', verifyToken, upload.single('poFile'), controller.addPurchaseOrder);
+router.post('/:id/purchase-orders/files', verifyToken, upload.array('poFiles', 10), controller.addPurchaseOrderFiles);
+router.patch('/:id/purchase-orders/:poId/amount', verifyToken, controller.updatePurchaseOrderAmount);
+router.delete('/:id/purchase-orders/:poId', verifyToken, controller.deletePurchaseOrder);
 
 module.exports = router;

@@ -482,8 +482,9 @@ exports.addProject = async (req, res) => {
 
  
 
-    let photos = [];
-    let documentsUrls = [];
+  let photos = [];
+  let documentsUrls = [];
+  let budgetDocument = null; // store dedicated budget PDF metadata
 
     // public photos
     if (req.files && req.files.photos) {
@@ -499,9 +500,11 @@ exports.addProject = async (req, res) => {
       }
     }
 
-  // private docs (store as objects w/ metadata)
-    if (req.files && req.files.documents) {
-      for (let file of req.files.documents) {
+  // private docs (store as objects w/ metadata) & separate budgetPdf
+    if (req.files && (req.files.documents || req.files.budgetPdf)) {
+      const docFiles = [...(req.files.documents || [])];
+      if (req.files.budgetPdf) docFiles.push(...req.files.budgetPdf);
+      for (let file of docFiles) {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const safeName = (file.originalname || 'file').trim();
         const filePath = `project-documents/project-${Date.now()}/${timestamp}_${safeName}`;
@@ -511,29 +514,43 @@ exports.addProject = async (req, res) => {
           .upload(filePath, file.buffer, { contentType: file.mimetype, upsert: true });
 
         if (!error && data) {
-          documentsUrls.push({
+          const meta = {
             path: filePath,
             name: safeName,
             uploadedBy: String(req.user?.id || req.user?._id || ''),
             uploadedByName: req.user?.name || '',
             uploadedAt: new Date()
-          });
+          };
+          if (/budget|boq|bill\s*of\s*quantities|costs|cost\s*breakdown/i.test(safeName) && /\.pdf$/i.test(safeName) && !budgetDocument) {
+            budgetDocument = meta;
+          } else {
+            documentsUrls.push(meta);
+          }
         }
       }
     }
 
   // If a budget is provided and a budget PDF was uploaded, parse it and deduct detected section totals (letters, numbers, roman numerals)
-    let adjustedBudget = Number(budget) || 0;
-    let parsedBudgetTotals = null; // { sections: [{letter,title,amount}], totalAll }
+  let adjustedBudget = Number(budget) || 0;
+  let parsedBudgetTotals = null; // { sections: [{letter,title,amount}], totalAll }
+  let parsedBudgetTotalAll = 0;
     try {
-      const budgetDoc = (req.files?.documents || []).find(f => /budget|boq|bill\s*of\s*quantities|costs|cost\s*breakdown/i.test(f.originalname || ''))
-                      || (req.files?.documents || [])[0];
-      if (budgetDoc && /\.pdf$/i.test(budgetDoc.originalname || '')) {
-        const { sections, greenItems, totalAll, sectionTotal, rowSum, autoDeductEligible, confidenceSummary } = await sumBudgetFromPdfBuffer(budgetDoc.buffer);
+      // REQUIRE at least one explicit budgetPdf file
+      if(!req.files?.budgetPdf || !req.files.budgetPdf.length){
+        return res.status(400).json({ message: 'Budget PDF is required' });
+      }
+      const budgetFile = req.files.budgetPdf[0];
+      if (budgetFile && /\.pdf$/i.test(budgetFile.originalname || '')) {
+        const { sections, greenItems, totalAll, sectionTotal, rowSum, autoDeductEligible, confidenceSummary } = await sumBudgetFromPdfBuffer(budgetFile.buffer);
         if (Number.isFinite(totalAll) && totalAll > 0) {
           parsedBudgetTotals = { sections, greenItems, sectionTotal, greenTotal: rowSum, totalAll, autoDeductEligible, confidenceSummary };
+          parsedBudgetTotalAll = Number(totalAll) || 0;
+          // Reject if parsed total exceeds provided numeric budget
+          if(parsedBudgetTotalAll > adjustedBudget){
+            return res.status(400).json({ message: 'Parsed budget total exceeds provided project budget', parsedTotal: parsedBudgetTotalAll, providedBudget: adjustedBudget });
+          }
           if (autoDeductEligible) {
-            adjustedBudget = Math.max(0, adjustedBudget - totalAll);
+            adjustedBudget = Math.max(0, adjustedBudget - parsedBudgetTotalAll);
           }
         }
       }
@@ -555,7 +572,8 @@ exports.addProject = async (req, res) => {
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       manpower: manpowerIds, areamanager, area, photos,
-      documents: documentsUrls,
+  documents: documentsUrls,
+  ...(budgetDocument ? { budgetDocument } : {}),
       // Store parsed totals as a system document entry for transparency
   ...(parsedBudgetTotals ? { parsedBudgetTotals } : {}),
       // Persist the adjusted budget if any deduction occurred
@@ -691,6 +709,143 @@ exports.addProject = async (req, res) => {
       }
     } catch (_) {}
   }
+};
+
+/* --- AREA MANAGER: Upload Purchase Order & Deduct Budget --- */
+exports.addPurchaseOrder = async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const { totalValue } = req.body; // numeric deduction amount
+    if (!projectId) return res.status(400).json({ message: 'Missing project id' });
+    if (!req.user || !['AM','AreaManager','areamanager','am'].includes((req.user.role||'').toLowerCase())) {
+      // Soft role match (case-insensitive) – front-end uses 'am'
+      if (String(req.user?._id) !== String(req.user?.areamanager)) {
+        // fallback simple denial
+      }
+    }
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+    // Role enforcement: uploader must match project's area manager (if defined)
+    if (project.areamanager && String(project.areamanager) !== String(req.user.id)) {
+      return res.status(403).json({ message: 'Not authorized to upload PO for this project' });
+    }
+  const amount = Number(totalValue);
+    if (!isFinite(amount) || amount <= 0) return res.status(400).json({ message: 'Invalid total value' });
+  if (amount > Number(project.budget||0)) return res.status(400).json({ message: 'Amount exceeds remaining project budget' });
+    if (!req.file) return res.status(400).json({ message: 'Missing PO file' });
+
+    // Upload to Supabase
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const safeName = (req.file.originalname || 'po.pdf').trim();
+    const filePath = `project-pos/${projectId}/${timestamp}_${safeName}`;
+    const { data, error } = await supabase.storage.from('documents').upload(filePath, req.file.buffer, { contentType: req.file.mimetype || 'application/octet-stream', upsert: true });
+    if (error || !data) return res.status(500).json({ message: 'Failed to store PO file' });
+
+    // Deduct budget
+    const before = Number(project.budget || 0);
+    project.budget = Math.max(0, before - amount);
+    project.purchaseOrders = project.purchaseOrders || [];
+    project.purchaseOrders.push({
+      path: filePath,
+      name: safeName,
+      amount,
+      uploadedAt: new Date(),
+      uploadedBy: req.user.id,
+      uploadedByName: req.user.name || ''
+    });
+    await project.save();
+
+    try {
+      await logAction({
+        action: 'UPLOAD_PURCHASE_ORDER',
+        performedBy: req.user.id,
+        performedByRole: req.user.role,
+        description: `Area Manager uploaded PO and deducted ${amount} from budget`,
+        meta: { projectId: project._id, projectName: project.projectName, amount, budgetBefore: before, budgetAfter: project.budget }
+      });
+    } catch {}
+
+    return res.json({ message: 'PO uploaded', budget: project.budget, purchaseOrders: project.purchaseOrders });
+  } catch (e) {
+    console.error('addPurchaseOrder failed', e);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+/* --- AREA MANAGER: Upload PO files only (no amount yet) --- */
+exports.addPurchaseOrderFiles = async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    if (!projectId) return res.status(400).json({ message: 'Missing project id' });
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message: 'Project not found' });
+    if (project.areamanager && String(project.areamanager) !== String(req.user.id)) return res.status(403).json({ message: 'Not authorized' });
+    if (!req.files || !req.files.length) return res.status(400).json({ message: 'No files provided' });
+    project.purchaseOrders = project.purchaseOrders || [];
+    for (const f of req.files) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const safeName = (f.originalname || 'po.pdf').trim();
+      const filePath = `project-pos/${projectId}/${timestamp}_${safeName}`;
+      const { data, error } = await supabase.storage.from('documents').upload(filePath, f.buffer, { contentType: f.mimetype || 'application/octet-stream', upsert: true });
+      if (!error && data) {
+        project.purchaseOrders.push({
+          path: filePath,
+          name: safeName,
+          amount: null,
+          uploadedAt: new Date(),
+          uploadedBy: req.user.id,
+          uploadedByName: req.user.name || ''
+        });
+      }
+    }
+    await project.save();
+    try { await logAction({ action:'UPLOAD_PO_FILES', performedBy:req.user.id, performedByRole:req.user.role, description:`Uploaded ${req.files.length} PO file(s) (no amount yet)`, meta:{ projectId:project._id, projectName:project.projectName, count:req.files.length } }); } catch {}
+    return res.json({ message:'PO files uploaded', purchaseOrders: project.purchaseOrders, budget: project.budget });
+  } catch(e){ console.error('addPurchaseOrderFiles failed', e); return res.status(500).json({ message:'Server error' }); }
+};
+
+/* --- AREA MANAGER: Set amount for a PO (deduct budget once) --- */
+exports.updatePurchaseOrderAmount = async (req, res) => {
+  try {
+    const { id: projectId, poId } = req.params;
+    const { amount } = req.body;
+    if (!projectId || !poId) return res.status(400).json({ message:'Missing ids' });
+    const val = Number(amount);
+    if (!isFinite(val) || val <= 0) return res.status(400).json({ message:'Invalid amount' });
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message:'Project not found' });
+    if (project.areamanager && String(project.areamanager) !== String(req.user.id)) return res.status(403).json({ message:'Not authorized' });
+    const po = (project.purchaseOrders || []).find(p => String(p._id) === String(poId));
+    if (!po) return res.status(404).json({ message:'PO not found' });
+    if (po.amount && po.amount > 0) return res.status(400).json({ message:'Amount already set' });
+  const before = Number(project.budget || 0);
+  if (val > before) return res.status(400).json({ message: 'Amount exceeds remaining project budget' });
+    project.budget = Math.max(0, before - val);
+    po.amount = val;
+    await project.save();
+    try { await logAction({ action:'SET_PO_AMOUNT', performedBy:req.user.id, performedByRole:req.user.role, description:`Set PO amount ${val}`, meta:{ projectId:project._id, projectName:project.projectName, poId, amount:val, budgetBefore:before, budgetAfter:project.budget } }); } catch {}
+    return res.json({ message:'Amount set', purchaseOrders: project.purchaseOrders, budget: project.budget });
+  } catch(e){ console.error('updatePurchaseOrderAmount failed', e); return res.status(500).json({ message:'Server error' }); }
+};
+
+/* --- AREA MANAGER: Delete a PO (restore budget if amount deducted) --- */
+exports.deletePurchaseOrder = async (req, res) => {
+  try {
+    const { id: projectId, poId } = req.params;
+    if (!projectId || !poId) return res.status(400).json({ message:'Missing ids' });
+    const project = await Project.findById(projectId);
+    if (!project) return res.status(404).json({ message:'Project not found' });
+    if (project.areamanager && String(project.areamanager) !== String(req.user.id)) return res.status(403).json({ message:'Not authorized' });
+    const idx = (project.purchaseOrders || []).findIndex(p => String(p._id) === String(poId));
+    if (idx === -1) return res.status(404).json({ message:'PO not found' });
+    const po = project.purchaseOrders[idx];
+    const before = Number(project.budget || 0);
+    if (po.amount && po.amount > 0) project.budget = before + Number(po.amount);
+    project.purchaseOrders.splice(idx,1);
+    await project.save();
+    try { await logAction({ action:'DELETE_PO', performedBy:req.user.id, performedByRole:req.user.role, description:`Deleted PO (restored ${po.amount||0})`, meta:{ projectId:project._id, projectName:project.projectName, poId, restored: po.amount||0, budgetAfter: project.budget } }); } catch {}
+    return res.json({ message:'PO deleted', purchaseOrders: project.purchaseOrders, budget: project.budget });
+  } catch(e){ console.error('deletePurchaseOrder failed', e); return res.status(500).json({ message:'Server error' }); }
 };
 
 /* --- UPDATE PROJECT --- */

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +13,7 @@ const AreaAddproj = () => {
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id;
   const [documents, setDocuments] = useState([]);
+  const [budgetFiles, setBudgetFiles] = useState([]); // dedicated budget PDF(s)
   const [userName, setUserName] = useState(user?.name || 'ALECK');
   // Unified header: remove local profile menu/collapse state
   const [eligiblePMs, setEligiblePMs] = useState([]);
@@ -43,6 +43,8 @@ const AreaAddproj = () => {
   const [photos, setPhotos] = useState([]);
   const [isPhotoDrag, setIsPhotoDrag] = useState(false);
   const [isDocDrag, setIsDocDrag] = useState(false);
+  const [isBudgetDrag, setIsBudgetDrag] = useState(false); // drag state for budget PDFs
+  const [showCsvHelp, setShowCsvHelp] = useState(false); // CSV guide modal
 
   const [formData, setFormData] = useState({
     projectName: '',
@@ -58,6 +60,8 @@ const AreaAddproj = () => {
     projectmanager: '',
     areamanager: userId || ''
   });
+  // Formatted display value for budget (with commas) separate from raw budget in formData
+  const [budgetDisplay, setBudgetDisplay] = useState('');
 
   useEffect(() => {
     setFormData(prev => ({
@@ -168,6 +172,36 @@ const AreaAddproj = () => {
     }));
   };
 
+  // Clear-all helpers (ensure uniqueness when returning to available pools)
+  const uniqueById = (arr) => {
+    const m = new Map();
+    arr.forEach(o => { if(o && o._id) m.set(o._id, o); });
+    return Array.from(m.values());
+  };
+  const handleClearPICs = () => {
+    if(!assignedPICs.length) return;
+    setAvailablePICs(prev => uniqueById([...prev, ...assignedPICs]));
+    setAssignedPICs([]);
+    setFormData(prev => ({...prev, pic: []}));
+  };
+  const handleClearStaffAll = () => {
+    if(!assignedStaff.length) return;
+    setAvailableStaff(prev => uniqueById([...prev, ...assignedStaff]));
+    setAssignedStaff([]);
+    setFormData(prev => ({...prev, staff: []}));
+  };
+  const handleClearHRAll = () => {
+    if(!assignedHR.length) return;
+    setAvailableHR(prev => uniqueById([...prev, ...assignedHR]));
+    setAssignedHR([]);
+    setFormData(prev => ({...prev, hrsite: []}));
+  };
+  const handleClearManpowerAll = () => {
+    if(!assignedManpower.length) return;
+    setAvailableManpower(prev => uniqueById([...prev, ...assignedManpower]));
+    setAssignedManpower([]);
+  };
+
   // Fetch locations (if needed)
   useEffect(() => {
     if (userId) {
@@ -184,11 +218,45 @@ const AreaAddproj = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if(name === 'budget') return; // handled by handleBudgetChange
     setFormData(prevState => ({
       ...prevState,
       [name]: value
     }));
   };
+
+  // Budget formatting handler (adds commas, keeps raw numeric in formData.budget)
+  const handleBudgetChange = (e) => {
+    let val = e.target.value || '';
+    // Keep only digits and optional decimal point
+    val = val.replace(/[^0-9.]/g,'');
+    // If multiple decimals, keep first
+    const parts = val.split('.');
+    if(parts.length > 2) {
+      val = parts[0] + '.' + parts.slice(1).join('');
+    }
+    const [intPartRaw, decPartRaw] = val.split('.');
+  // Limit integer digits to 15 to prevent absurdly long numbers stretching perceived layout
+  const intPartLimited = (intPartRaw || '').slice(0,15);
+  const intPart = intPartLimited.replace(/^0+(\d)/,'$1');
+    const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const decPart = typeof decPartRaw === 'string' ? decPartRaw.slice(0,2) : undefined; // limit to 2 decimals
+    const formatted = decPart !== undefined && decPart.length>0 ? `${withCommas}.${decPart}` : withCommas;
+    setBudgetDisplay(formatted);
+  const rawForState = decPart !== undefined && decPart.length>0 ? `${intPartLimited}.${decPart}` : intPartLimited;
+  setFormData(prev => ({ ...prev, budget: rawForState })); // raw numeric (no commas)
+  };
+  // Initialize display when raw budget changes programmatically
+  useEffect(()=>{
+    if(formData.budget === ''){ setBudgetDisplay(''); return; }
+    const parts = String(formData.budget).split('.');
+    const intPart = parts[0] || '0';
+    const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const dec = parts[1] ? '.'+parts[1] : '';
+    const nextFormatted = withCommas + dec;
+    if(nextFormatted !== budgetDisplay) setBudgetDisplay(nextFormatted);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.budget]);
 
   // Helpers formatting
   const formatBytes = (bytes) => {
@@ -225,6 +293,28 @@ const AreaAddproj = () => {
   const handleDocDragOver = (e) => { e.preventDefault(); setIsDocDrag(true); };
   const handleDocDragLeave = (e) => { e.preventDefault(); setIsDocDrag(false); };
   const handleDocDrop = (e) => { e.preventDefault(); setIsDocDrag(false); onDocsSelected(e.dataTransfer.files); };
+
+  // Budget PDF handlers (single style consistent with others but can take multiple; first parsed)
+  const onBudgetSelected = useCallback(files => {
+    if (!files) return;
+    const list = Array.from(files).filter(f => f.type === 'application/pdf');
+    if (!list.length) return;
+    setBudgetFiles(prev => {
+      // Avoid duplicate names (same size) being added twice
+      const existingKeys = new Set(prev.map(f => `${f.name}|${f.size}`));
+      const merged = [...prev];
+      list.forEach(f => {
+        const key = `${f.name}|${f.size}`;
+        if (!existingKeys.has(key)) merged.push(f);
+      });
+      return merged;
+    });
+  }, []);
+  const handleBudgetInput = (e) => { onBudgetSelected(e.target.files); };
+  const handleRemoveBudget = (index) => { setBudgetFiles(prev => prev.filter((_,i)=>i!==index)); };
+  const handleBudgetDragOver = (e) => { e.preventDefault(); setIsBudgetDrag(true); };
+  const handleBudgetDragLeave = (e) => { e.preventDefault(); setIsBudgetDrag(false); };
+  const handleBudgetDrop = (e) => { e.preventDefault(); setIsBudgetDrag(false); onBudgetSelected(e.dataTransfer.files); };
 
   // Manpower assign
   const filteredAvailableManpower = availableManpower.filter(mp =>
@@ -346,6 +436,7 @@ const AreaAddproj = () => {
   if (!formData.projectmanager) { toast.error('Project Manager is required.'); return; }
   if (!formData.pic.length) { toast.error('At least one PIC must be assigned.'); return; }
   if (!formData.manpower.length) { toast.error('At least one manpower entry must be assigned.'); return; }
+  if (!budgetFiles.length) { toast.error('A Budget PDF is required.'); return; }
     if (new Date(formData.endDate) < new Date(formData.startDate)) {
       toast.error("End date cannot be before start date.");
       return;
@@ -364,7 +455,8 @@ const AreaAddproj = () => {
       }
     });
     photos.forEach(file => form.append('photos', file));
-    documents.forEach(file => form.append('documents', file));
+  documents.forEach(file => form.append('documents', file));
+  budgetFiles.forEach(file => form.append('budgetPdf', file));
 
     try {
       const { data } = await api.post('/projects', form, {
@@ -391,6 +483,14 @@ const AreaAddproj = () => {
     localStorage.removeItem('user');
     navigate('/');
   };
+
+  // Close CSV help with ESC
+  useEffect(()=>{
+    if(!showCsvHelp) return;
+    const onKey = (e)=> { if(e.key==='Escape') setShowCsvHelp(false); };
+    window.addEventListener('keydown', onKey);
+    return ()=> window.removeEventListener('keydown', onKey);
+  },[showCsvHelp]);
 
   return (
     <div>
@@ -447,15 +547,21 @@ const AreaAddproj = () => {
                 </div>
                 <div className="area-addproj-form-group">
                   <label htmlFor="budget">Budget</label>
-                  <input
-                    type="number"
-                    id="budget"
-                    name="budget"
-                    placeholder="Enter Budget Details"
-                    value={formData.budget}
-                    onChange={handleChange}
-                    required
-                  />
+                  <div className="currency-field">
+                    <span style={{fontSize:14,color:'#64748b',marginRight:4}}>₱</span>
+                    <input
+                      type="text"
+                      id="budget"
+                      name="budget"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={budgetDisplay}
+                      onChange={handleBudgetChange}
+                      style={{flex:1,border:'none',outline:'none',background:'transparent'}}
+                      required
+                    />
+                  </div>
+                  {/* Removed raw value helper per request */}
                 </div>
                 <div className="area-addproj-form-group">
                   <label htmlFor="location">Location</label>
@@ -505,8 +611,13 @@ const AreaAddproj = () => {
               {/* PIC */}
               <section className="assign-card" aria-labelledby="pic-heading">
                 <header className="assign-card-header">
-                  <h4 id="pic-heading">PICs <span className="count-chip">{assignedPICs.length}</span></h4>
-                  <span className="muted">Select & add</span>
+                  <h4 id="pic-heading">Person In Charge <span className="count-chip">{assignedPICs.length}</span></h4>
+                  <div className="muted" style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span>Select & add</span>
+                    {assignedPICs.length>0 && (
+                      <button type="button" onClick={handleClearPICs} className="clear-btn" style={{background:'transparent',border:'1px solid #ccc',padding:'2px 6px',borderRadius:4,cursor:'pointer',fontSize:12}}>Clear All</button>
+                    )}
+                  </div>
                 </header>
                 <div className="assign-body">
                   <div className="search-row">
@@ -539,7 +650,12 @@ const AreaAddproj = () => {
               <section className="assign-card" aria-labelledby="staff-heading">
                 <header className="assign-card-header">
                   <h4 id="staff-heading">Staff <span className="count-chip">{assignedStaff.length}</span></h4>
-                  <span className="muted">Support roles</span>
+                  <div className="muted" style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span>Support roles</span>
+                    {assignedStaff.length>0 && (
+                      <button type="button" onClick={handleClearStaffAll} className="clear-btn" style={{background:'transparent',border:'1px solid #ccc',padding:'2px 6px',borderRadius:4,cursor:'pointer',fontSize:12}}>Clear All</button>
+                    )}
+                  </div>
                 </header>
                 <div className="assign-body">
                   <div className="search-row">
@@ -572,7 +688,12 @@ const AreaAddproj = () => {
               <section className="assign-card" aria-labelledby="hr-heading">
                 <header className="assign-card-header">
                   <h4 id="hr-heading">HR - Site <span className="count-chip">{assignedHR.length}</span></h4>
-                  <span className="muted">Site HR</span>
+                  <div className="muted" style={{display:'flex',alignItems:'center',gap:8}}>
+                    <span>Site HR</span>
+                    {assignedHR.length>0 && (
+                      <button type="button" onClick={handleClearHRAll} className="clear-btn" style={{background:'transparent',border:'1px solid #ccc',padding:'2px 6px',borderRadius:4,cursor:'pointer',fontSize:12}}>Clear All</button>
+                    )}
+                  </div>
                 </header>
                 <div className="assign-body">
                   <div className="search-row">
@@ -634,17 +755,19 @@ const AreaAddproj = () => {
                     value={searchManpower}
                     onChange={e=>setSearchManpower(e.target.value)}
                   />
+                  {assignedManpower.length>0 && (
+                    <button type="button" onClick={handleClearManpowerAll} className="clear-btn" style={{marginLeft:6,background:'transparent',border:'1px solid #ccc',padding:'4px 8px',borderRadius:4,cursor:'pointer',fontSize:12}}>Clear All</button>
+                  )}
                   <div className="csv-uploader">
                     <input id="csvUpload" type="file" accept=".csv" style={{display:'none'}} onChange={handleCSVUpload} />
                     <button type="button" onClick={()=>document.getElementById('csvUpload').click()} className="area-addproj-csv-upload-btn small">CSV</button>
-                    <button 
-                      type="button" 
-                      onClick={() => alert('CSV Quick Assign Format:\n\nThis will MATCH existing unassigned manpower already in the system and add them to this project. It WILL NOT create new manpower.\n\nRequired columns (case-insensitive):\n- Name\n- Position\n\nRules:\n• Each (Name, Position) pair must exactly match an existing unassigned manpower record.\n• Duplicates inside the CSV are ignored (first wins).\n• Rows with names or positions missing are skipped.\n• Extra columns are ignored.\n\nExample:\nName,Position\nJohn Doe,Engineer\nJane Smith,Manager\nMike Johnson,Technician\n')}
+                    <button
+                      type="button"
+                      onClick={()=> setShowCsvHelp(true)}
                       className="area-addproj-csv-upload-btn small"
-                      style={{ marginLeft: '5px', backgroundColor: '#17a2b8', borderColor: '#17a2b8' }}
+                      style={{ marginLeft: '5px', backgroundColor: '#17a2b8', borderColor: '#17a2b8', position:'relative' }}
                       title="CSV Format Guide"
-                    >
-                      ?
+                    >?
                     </button>
                   </div>
                 </div>
@@ -731,6 +854,40 @@ const AreaAddproj = () => {
                     </ul>
                   )}
                 </div>
+                <div className="uploader-block">
+                  <h5>Budget PDF(s)</h5>
+                  <div
+                    className={`dropzone ${isBudgetDrag? 'drag' : ''}`}
+                    onDragOver={handleBudgetDragOver}
+                    onDragLeave={handleBudgetDragLeave}
+                    onDrop={handleBudgetDrop}
+                    onClick={()=>document.getElementById('budgetPdfInput').click()}
+                  >
+                    <input
+                      id="budgetPdfInput"
+                      type="file"
+                      accept="application/pdf"
+                      multiple
+                      style={{display:'none'}}
+                      onChange={handleBudgetInput}
+                    />
+                    <p><strong>Click or Drag & Drop</strong> budget PDFs here</p>
+                    <span className="hint">PDF only • First file parsed for auto budget deduction</span>
+                  </div>
+                  {budgetFiles.length>0 && (
+                    <ul className="doc-list">
+                      {budgetFiles.map((file,i)=>(
+                        <li key={file.name + i} className="doc-item">
+                          <span className="ext-pill">PDF</span>
+                          <span className="doc-name" title={file.name}>{file.name}</span>
+                          <span className="size">{formatBytes(file.size)}</span>
+                          <button type="button" className="remove" onClick={()=>handleRemoveBudget(i)} aria-label="Remove budget PDF">×</button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <small style={{display:'block',marginTop:4}}>{budgetFiles.length || 0} budget PDF{budgetFiles.length===1?'':'s'} selected</small>
+                </div>
               </div>
             </div>
 
@@ -742,6 +899,38 @@ const AreaAddproj = () => {
           </form>
         </div>
       </main>
+      {showCsvHelp && (
+        <div className="aa-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="csv-help-title">
+          <div className="aa-modal" role="document">
+            <div className="aa-modal-header">
+              <h3 id="csv-help-title">CSV Quick Assign Format</h3>
+            </div>
+            <div className="aa-modal-body">
+              <p>This will <strong>MATCH</strong> existing unassigned manpower already in the system and add them to this project. It will <strong>NOT</strong> create new manpower.</p>
+              <p style={{marginTop:12,marginBottom:4,fontWeight:600,fontSize:13}}>Required columns (case-insensitive):</p>
+              <ul style={{marginTop:0,marginLeft:18,fontSize:13}}>
+                <li>Name</li>
+                <li>Position</li>
+              </ul>
+              <p style={{marginTop:12,marginBottom:4,fontWeight:600,fontSize:13}}>Rules:</p>
+              <ul style={{marginTop:0,marginLeft:18,fontSize:13,lineHeight:1.4}}>
+                <li>Each (Name, Position) pair must exactly match an existing <em>unassigned</em> manpower record.</li>
+                <li>Duplicates inside the CSV are ignored (first wins).</li>
+                <li>Rows with missing name or position are skipped.</li>
+                <li>Extra columns are ignored.</li>
+              </ul>
+              <p style={{marginTop:14,marginBottom:4,fontWeight:600,fontSize:13}}>Example:</p>
+<pre style={{background:'#0f172a',color:'#f1f5f9',padding:'10px 12px',borderRadius:8,fontSize:12,overflowX:'auto'}}>Name,Position
+John Doe,Engineer
+Jane Smith,Manager
+Mike Johnson,Technician</pre>
+            </div>
+            <div className="aa-modal-footer">
+              <button type="button" onClick={()=> setShowCsvHelp(false)} className="aa-btn-primary" autoFocus>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
