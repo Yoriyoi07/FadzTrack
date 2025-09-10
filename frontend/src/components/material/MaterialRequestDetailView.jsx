@@ -27,12 +27,13 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
   const user = (()=>{ try {return JSON.parse(localStorage.getItem('user'))||null;}catch{return null;} })();
   const userId = user?._id; const userRole = user?.role;
 
-  useEffect(()=>{ let mounted=true; setLoading(true); setError(''); const ctrl=new AbortController();
+  const fetchRequest = useCallback(()=>{ let mounted=true; setLoading(true); setError(''); const ctrl=new AbortController();
     axiosInstance.get(`/requests/${id}`,{signal:ctrl.signal}).then(r=>{ if(!mounted) return; setMaterialRequest(r.data); })
       .catch(e=>{ if(!mounted) return; if(e.name==='CanceledError') return; setError(e?.response?.data?.message||'Failed to load'); })
       .finally(()=>mounted && setLoading(false));
     return ()=>{ mounted=false; ctrl.abort(); };
   },[id]);
+  useEffect(()=>{ const cleanup = fetchRequest(); return cleanup; },[fetchRequest]);
 
   // Fetch signed URLs once request (and its attachments) are loaded
   useEffect(()=>{
@@ -155,7 +156,8 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
                 {materialRequest.description && <p className="mrd-desc" style={{marginTop:8}}>{materialRequest.description}</p>}
                 <div className="mrd-summary-tags">
                   <span className="mrd-meta">Created {new Date(materialRequest.createdAt).toLocaleDateString()}</span>
-                  {materialRequest.project?.projectName && <span className="mrd-meta">{materialRequest.project.projectName}</span>}
+                    {materialRequest.project?.projectName && <span className="mrd-meta">{materialRequest.project.projectName}</span>}
+                    {typeof materialRequest.project?.budget === 'number' && <span className="mrd-meta">Remaining Budget: ₱{materialRequest.project.budget.toLocaleString()}</span>}
                   {materialRequest.project?.location && <span className="mrd-meta">{materialRequest.project.location?.name || materialRequest.project.location?.toString?.() || '—'}</span>}
                 </div>
                 <div className="mrd-progress" aria-label="Approval progress">
@@ -171,7 +173,7 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
             <div className="mrd-modern-body">
               <div className="mrd-col-main">
                 {/* Info */}
-                <section className="mrd-section flat" aria-labelledby="info-h">
+        <section className="mrd-section flat" aria-labelledby="info-h">
                   <h3 id="info-h" className="mrd-section-title"><i className="fas fa-info-circle"/> Information</h3>
                   <dl className="mrd-fields two-col">
                     <div className="mrd-field"><dt>Request #</dt><dd>{materialRequest.requestNumber||'—'}</dd></div>
@@ -180,6 +182,9 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
                     {meta.isReceived && <div className="mrd-field"><dt>Received</dt><dd>{new Date(materialRequest.receivedAt || materialRequest.receivedDate).toLocaleString()}</dd></div>}
                     <div className="mrd-field"><dt>Status</dt><dd>{statusBadge}</dd></div>
                     <div className="mrd-field"><dt>Project</dt><dd>{materialRequest.project?.projectName||'—'}</dd></div>
+          {typeof materialRequest.totalValue === 'number' && <div className="mrd-field"><dt>PO Total</dt><dd>₱{materialRequest.totalValue.toLocaleString()}</dd></div>}
+                    {typeof materialRequest.project?.budget === 'number' && <div className="mrd-field"><dt>Remaining Budget</dt><dd>₱{materialRequest.project.budget.toLocaleString()} {typeof materialRequest.totalValue==='number' && <span style={{marginLeft:6,fontSize:11,padding:'2px 6px',borderRadius:12,background:'#f1f5f9',color:'#475569'}}>−₱{materialRequest.totalValue.toLocaleString()}</span>}</dd></div>}
+          {materialRequest.purchaseOrder && <div className="mrd-field"><dt>Purchase Order</dt><dd>{materialRequest.purchaseOrderSignedUrl ? <a href={materialRequest.purchaseOrderSignedUrl} target="_blank" rel="noopener noreferrer">Open PO</a> : materialRequest.purchaseOrder}</dd></div>}
                   </dl>
                 </section>
                 {/* Requester */}
@@ -260,7 +265,7 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
                 {(canAct || canEditPIC || canMarkReceived) && (
                   <section className="mrd-section flat" aria-labelledby="act-h">
                     <h3 id="act-h" className="mrd-section-title"><i className="fas fa-gavel"/> Actions</h3>
-                    {canAct && <div className="mrd-action-block"><ApproveDenyActions requestData={materialRequest} userId={userId} userRole={userRole} onBack={handleBack} /></div>}
+                    {canAct && <div className="mrd-action-block"><ApproveDenyActions requestData={materialRequest} userId={userId} userRole={userRole} onBack={handleBack} onActionComplete={fetchRequest} /></div>}
                     {(canEditPIC || canMarkReceived) && (
                       <div className="mrd-action-block" style={{display:'flex',flexDirection:'column',gap:12}}>
                         {canEditPIC && <button onClick={handleEdit} className="btn-secondary"><i className="fas fa-edit"/> Edit Request</button>}

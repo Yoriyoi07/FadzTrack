@@ -14,7 +14,6 @@ const formatDateTime = (dateVal) => {
   );
 };
 
-
 const ApproveDenyActions = ({
   requestData,
   userId,
@@ -39,31 +38,67 @@ const ApproveDenyActions = ({
 
   const showApproveDeny = isPendingForMe && !hasActed;
 
-  // CEO step removed
+  // NEW: PO fields only for AM at final approval stage
+  const isAMFinalApproval = status === 'Pending Area Manager' && roleKey === 'AM';
+  const [poFile, setPoFile] = useState(null);
+  const [poTotal, setPoTotal] = useState('');
 
   // Modal state
   const [showDenyReason, setShowDenyReason] = useState(false);
   const [denyReason, setDenyReason] = useState('');
-  // Approve
-const handleApprove = async () => {
-  if (!window.confirm('Are you sure you want to APPROVE this request?')) return;
-  const token = localStorage.getItem('token');
-  try {
-    const payload = { decision: 'approved' };
-    const headers = { Authorization: `Bearer ${token}` };
-    await api.post(
-      `/requests/${requestData._id}/approve`,
-      payload,
-      { headers }
-    );
-    alert('Request approved.');
-    if (onActionComplete) onActionComplete();
-    else onBack();
-  } catch (err) {
-    alert('Failed to approve request.');
-    console.error(err);
-  }
-};
+
+  // Approve with optional PO
+  const handleApprove = async () => {
+    if (!window.confirm('Are you sure you want to APPROVE this request?')) return;
+
+    if (isAMFinalApproval) {
+      if (!poFile) {
+        alert('Please attach a Purchase Order file.');
+        return;
+      }
+      if (!poTotal || isNaN(Number(poTotal)) || Number(poTotal) < 0) {
+        alert('Enter a valid PO Total (non-negative number).');
+        return;
+      }
+    }
+
+    const token = localStorage.getItem('token');
+    try {
+      let payload; let headers;
+      if (isAMFinalApproval) {
+        payload = new FormData();
+        payload.append('decision', 'approved');
+        payload.append('totalValue', poTotal);
+        payload.append('purchaseOrder', poFile); // field name must match multer.single
+        headers = { Authorization: `Bearer ${token}` };
+      } else {
+        payload = { decision: 'approved' };
+        headers = { Authorization: `Bearer ${token}` };
+      }
+      const res = await api.post(
+        `/requests/${requestData._id}/approve`,
+        payload,
+        { headers }
+      );
+      let extra='';
+      if(res?.data){
+        const d = res.data;
+        if(d.prevBudget !== undefined && d.newBudget !== undefined){
+          extra += `\nBudget: ₱${Number(d.prevBudget).toLocaleString()} → ₱${Number(d.newBudget).toLocaleString()}`;
+          if(d.deduction !== undefined) extra += ` (−₱${Number(d.deduction).toLocaleString()})`;
+        } else if(d.projectBudget !== undefined) {
+          extra += ` Remaining Budget: ₱${Number(d.projectBudget).toLocaleString()}`;
+        }
+        if(d.overBudget) extra += `\nWARNING: PO total exceeded available budget.`;
+      }
+      alert('Request approved.' + extra);
+      if (onActionComplete) onActionComplete();
+      else onBack();
+    } catch (err) {
+      alert('Failed to approve request.');
+      console.error(err);
+    }
+  };
 
 
   // Deny
@@ -131,8 +166,6 @@ const handleApprove = async () => {
     approveLabel = 'Validate';
   }
 
-  // CEO summary removed
-
   return (
     <>
       {/* Denied Banner */}
@@ -174,10 +207,44 @@ const handleApprove = async () => {
         </div>
       )}
 
-      {/* CEO fields removed */}
+      {/* PO input section for AM final approval */}
+      {isAMFinalApproval && showApproveDeny && (
+        <div style={{
+          background: '#f6f9fc',
+          border: '1px solid #d9e2ec',
+          padding: '16px 20px',
+          borderRadius: 8,
+          marginBottom: 20,
+          maxWidth: 600
+        }}>
+          <h4 style={{ margin: '0 0 12px' }}>Purchase Order Details</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <label style={{ fontWeight: 500 }}>PO Total Value (₱)</label>
+              <input
+                type="number"
+                min="0"
+                value={poTotal}
+                onChange={e => setPoTotal(e.target.value)}
+                placeholder="Enter total PO value"
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid #ccc', borderRadius: 6 }}
+              />
+            </div>
+            <div>
+              <label style={{ fontWeight: 500 }}>Attach Purchase Order (PDF/Image)</label>
+              <input
+                type="file"
+                accept="application/pdf,image/*"
+                onChange={e => setPoFile(e.target.files?.[0] || null)}
+              />
+            </div>
+            <small style={{ color: '#555' }}>These will be saved upon approval and deducted from the project budget.</small>
+          </div>
+        </div>
+      )}
 
       {/* Action Buttons */}
-  <div className="action-buttons unified">
+      <div className="action-buttons unified">
         <button onClick={onBack} className="back-btn">Back</button>
         {showApproveDeny && (
           <>

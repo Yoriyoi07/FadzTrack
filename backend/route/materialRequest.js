@@ -34,8 +34,8 @@ router.get('/:id/attachments/signed', verifyToken, controller.getMaterialRequest
 // DELETE
 router.delete('/:id', verifyToken, controller.deleteMaterialRequest);
 
-// APPROVE
-router.post('/:id/approve', verifyToken, controller.approveMaterialRequest);
+// APPROVE (allow optional purchase order upload at AM stage)
+router.post('/:id/approve', verifyToken, upload.single('purchaseOrder'), controller.approveMaterialRequest);
 
 
 // MARK AS RECEIVED

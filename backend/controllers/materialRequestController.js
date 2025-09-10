@@ -201,11 +201,21 @@ exports.getMaterialRequestById = async (req, res) => {
   try {
     await exports.updateRequestStatuses();
     const request = await MaterialRequest.findById(req.params.id)
-      .populate({ path: 'project', select: 'projectName location', populate: { path: 'location', select: 'name region' } })
+      .populate({ path: 'project', select: 'projectName location budget', populate: { path: 'location', select: 'name region' } })
       .populate('createdBy', 'name role email')
       .populate('approvals.user', 'name role');
     if (!request) return res.status(404).json({ message: 'Not found' });
-    res.json(request);
+    // If there's a purchaseOrder stored, generate a signed URL (short-lived) for client preview/downloading
+    let poSignedUrl = null;
+    try {
+      if (request.purchaseOrder) {
+        const { data, error } = await supabase.storage.from(MR_BUCKET).createSignedUrl(request.purchaseOrder, 60 * 10); // 10 min
+        if (!error) poSignedUrl = data?.signedUrl || null; else console.warn('[PO SIGNED URL] failed', error.message);
+      }
+    } catch (e) { console.warn('[PO SIGNED URL] exception', e); }
+    const json = request.toObject();
+    if (poSignedUrl) json.purchaseOrderSignedUrl = poSignedUrl;
+    res.json(json);
   } catch (err) {
     res.status(500).json({ message: 'Error fetching material request' });
   }
@@ -371,7 +381,7 @@ exports.approveMaterialRequest = async (req, res) => {
     if (currentStatus === 'Pending Project Manager' && isPM) {
       nextStatus = decision === 'approved' ? 'Pending Area Manager' : 'Denied by Project Manager';
     } else if (currentStatus === 'Pending Area Manager' && isAM) {
-      // After AM approval, directly mark as Approved (CEO removed)
+      // After AM approval, directly mark as Approved (CEO removed). If approved and PO data provided, store it.
       nextStatus = decision === 'approved' ? 'Approved' : 'Denied by Area Manager';
     } else {
       console.log('403: Unauthorized or invalid state', {currentStatus, isPM, isAM});
@@ -386,8 +396,54 @@ exports.approveMaterialRequest = async (req, res) => {
       reason,
       timestamp: new Date()
     });
+    // Handle Purchase Order upload only when AM approves (final approval)
+    let poStoredKey = null;
+    let suppliedTotalValue = null;
+    if (decision === 'approved' && isAM && nextStatus === 'Approved') {
+      // Accept totalValue and purchase order file
+      if (req.body.totalValue) {
+        const parsed = Number(req.body.totalValue);
+        if (!isNaN(parsed) && parsed >= 0) suppliedTotalValue = parsed; else suppliedTotalValue = null;
+      }
+      if (req.file) {
+        try {
+          const ext = path.extname(req.file.originalname) || '';
+          const key = `purchase-orders/${Date.now()}-${uuid()}${ext}`;
+          const { error: upErr } = await supabase.storage.from(MR_BUCKET).upload(key, req.file.buffer, { upsert:false, contentType: req.file.mimetype });
+          if (upErr) {
+            console.error('[PO UPLOAD] Failed upload', req.file.originalname, upErr.message);
+          } else {
+            poStoredKey = key;
+          }
+        } catch (e) { console.error('[PO UPLOAD] exception', e); }
+      }
+      if (poStoredKey) request.purchaseOrder = poStoredKey;
+      if (typeof suppliedTotalValue === 'number') request.totalValue = suppliedTotalValue;
+    }
+
     request.status = nextStatus;
     await request.save();
+
+    // Deduct budget after final approval if we have a total value and project has a numeric budget
+    // Track budgets for response payload
+    let prevBudget = null; let newBudget = null;
+  if (decision === 'approved' && isAM && nextStatus === 'Approved' && typeof request.totalValue === 'number') {
+      try {
+        if (typeof project.budget === 'number') {
+          prevBudget = project.budget;
+          project.budget = Math.max(0, prevBudget - request.totalValue);
+          newBudget = project.budget;
+          await project.save();
+          await logAction({
+            action: 'DEDUCT_PROJECT_BUDGET_PO',
+            performedBy: req.user.id,
+            performedByRole: req.user.role,
+      description: `Deducted PO value ${request.totalValue} from project ${project.projectName} (prev ${prevBudget} new ${project.budget})${request.totalValue > prevBudget ? ' (OVER BUDGET)' : ''}`,
+      meta: { requestId: request._id, projectId: project._id, poValue: request.totalValue, prevBudget, newBudget, overBudget: request.totalValue > prevBudget }
+          });
+        }
+      } catch (bdErr) { console.error('[BUDGET DEDUCT] failed', bdErr); }
+    }
 
     // NOTIFY NEXT APPROVER
     if (decision === 'approved') {
@@ -450,7 +506,25 @@ exports.approveMaterialRequest = async (req, res) => {
       meta: { requestId: request._id }
     });
 
-    res.status(200).json({ message: `Request ${decision} by ${userRole}` });
+  // Include updated project budget snapshot (if available) & signed URL for PO if newly added
+  let poSignedUrl = null;
+  try {
+    if (request.purchaseOrder) {
+      const { data, error } = await supabase.storage.from(MR_BUCKET).createSignedUrl(request.purchaseOrder, 60 * 10);
+      if (!error) poSignedUrl = data?.signedUrl || null;
+    }
+  } catch (e) { /* swallow */ }
+  const deduction = (typeof request.totalValue === 'number') ? request.totalValue : null;
+  res.status(200).json({
+    message: `Request ${decision} by ${userRole}`,
+    request,
+    projectBudget: request.project?.budget,
+    purchaseOrderSignedUrl: poSignedUrl,
+    prevBudget,
+    newBudget,
+    deduction,
+    overBudget: (typeof prevBudget === 'number' && typeof deduction === 'number') ? deduction > prevBudget : null
+  });
   } catch (error) {
     console.error('Approval error:', error);
     res.status(500).json({ message: 'Failed to process approval' });
