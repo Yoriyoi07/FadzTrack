@@ -183,6 +183,10 @@ async function updateUserStatus(req, res) {
         const ev = presenceStatus === 'online' ? 'userOnline' : 'userOffline';
         io.emit(ev, String(user._id));
       }
+      // Emit account lifecycle status changes for real-time dashboards
+      if (io && accountStatus) {
+        io.emit('userStatusChanged', { userId: String(user._id), status: user.accountStatus || accountStatus });
+      }
     } catch (e) { /* ignore socket errors */ }
     res.json({ msg: 'Status updated', user });
   } catch (err) {

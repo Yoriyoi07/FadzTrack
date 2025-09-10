@@ -7,7 +7,7 @@ import { exportAccountsPdf } from '../../utils/accountsPdf';
 import '../style/it_style/It_Dash.css';
 import { FaFilePdf } from 'react-icons/fa';
 import AppHeader from '../layout/AppHeader';
-import { ToastContainer, toast } from 'react-toastify';
+import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 const ItDash = () => {
@@ -107,9 +107,9 @@ const handleLogout = () => {
           position: user.role,
           phone: user.phone,
           email: user.email,
-          // Separate lifecycle status from presence
-          accountStatus: user.status === 'Active' ? 'Active' : 'Inactive',
-          presence: 'offline'
+          // Use split fields when available; fall back to legacy status
+          accountStatus: user.accountStatus || (user.status === 'Active' ? 'Active' : 'Inactive'),
+          presence: user.presenceStatus || 'offline'
         }));
         setAccounts(formattedAccounts);
         if (!selectedUser && formattedAccounts.length > 0) {
@@ -128,7 +128,7 @@ const handleLogout = () => {
     if (socketRef.current) return;
     try {
   // Use centralized socket config
-  const s = io(SOCKET_URL, { path: SOCKET_PATH, transports: ['websocket','polling'] });
+  const s = io(SOCKET_URL, { path: SOCKET_PATH, transports: ['websocket','polling'], auth: { userId: userId || (user && user._id) } });
       socketRef.current = s;
       // Lifecycle status changed (Active/Inactive)
       s.on('userStatusChanged', ({ userId, status }) => {
@@ -206,7 +206,7 @@ const handleLogout = () => {
     }
     try {
       let response, data;
-      if (isEditing) {
+  if (isEditing) {
         // Update user info WITHOUT password
         response = await api.put(`/auth/users/${editingAccount.id}`, {
           name: newAccount.name,
@@ -223,7 +223,7 @@ const handleLogout = () => {
                 position: data.user?.role ?? newAccount.position,
                 phone: data.user?.phone ?? newAccount.phone,
                 email: data.user?.email ?? newAccount.email,
-                accountStatus: data.user?.status ?? account.accountStatus
+        accountStatus: data.user?.accountStatus || (data.user?.status === 'Active' ? 'Active' : 'Inactive') || account.accountStatus
               }
             : account
         ));
@@ -243,8 +243,8 @@ const handleLogout = () => {
           position: data.user.role,
           phone: data.user.phone,
           email: data.user.email,
-          accountStatus: data.user.status === 'Active' ? 'Active' : 'Inactive',
-          presence: 'offline'
+      accountStatus: data.user.accountStatus || (data.user.status === 'Active' ? 'Active' : 'Inactive'),
+      presence: data.user.presenceStatus || 'offline'
         }]);
         toast.success('Account created & activation email sent');
       }
@@ -291,7 +291,7 @@ const handleLogout = () => {
     if (!pendingStatusChange) return;
     const { account, newStatus } = pendingStatusChange;
     try {
-      const response = await api.put(`/auth/users/${account.id}/status`, { status: newStatus });
+  const response = await api.put(`/auth/users/${account.id}/status`, { accountStatus: newStatus, status: newStatus });
       if (response.data) {
         const normalized = newStatus === 'Active' ? 'Active' : 'Inactive';
         setAccounts(prev => prev.map(a => a.id === account.id ? { ...a, accountStatus: normalized } : a));
@@ -698,7 +698,7 @@ const handleLogout = () => {
           </div>
         </main>
       </div>
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar newestOnTop closeOnClick draggable pauseOnHover theme="colored" />
+  {/* ToastContainer removed here; a single global container is rendered in App.js to avoid duplicate instances causing runtime errors */}
       {pendingStatusChange && (
         <div className="status-modal-overlay-IT">
           <div className="status-modal-IT">

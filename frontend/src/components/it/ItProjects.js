@@ -72,6 +72,7 @@ export default function ItProjects(){
   const [areasByManager,setAreasByManager]=useState({}); // retained in case future use, but Area selection removed
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [deleteConfirm,setDeleteConfirm]=useState(null); // {id,name}
   // Area-style assignment UI states
   const [assignedPICs,setAssignedPICs]=useState([]);
   const [searchPIC,setSearchPIC]=useState('');
@@ -540,7 +541,19 @@ export default function ItProjects(){
       setSaving(false);
     } 
   }
-  async function remove(id){ if(!window.confirm('Delete this project? This cannot be undone.')) return; try{ await api.delete(`/projects/${id}`); setProjects(prev=>prev.filter(p=>p._id!==id)); }catch{ alert('Delete failed'); } }
+  function requestDelete(p){
+    setDeleteConfirm({ id:p._id, name:p.projectName });
+  }
+  async function confirmDelete(){
+    if(!deleteConfirm) return;
+    const {id} = deleteConfirm;
+    try{
+      await api.delete(`/projects/${id}`);
+      setProjects(prev=>prev.filter(p=>p._id!==id));
+    }catch{ alert('Delete failed'); }
+    finally{ setDeleteConfirm(null); }
+  }
+  function cancelDelete(){ setDeleteConfirm(null); }
   async function loadAudit(projectId){ setAuditLoading(true); setAuditProjectId(projectId); try{ const {data}=await api.get('/audit-logs',{params:{projectId}}); setAuditLogs(data||[]);}catch{ setAuditLogs([]);} finally{ setAuditLoading(false); setShowAudit(true);} }
 
   // Export function
@@ -746,7 +759,7 @@ export default function ItProjects(){
                       <button className="action-btn view-btn" onClick={(e)=>{e.stopPropagation();navigate(`/it/projects/${project._id}`);}} title="View"><FaEye/></button>
                       <button className="action-btn edit-btn" onClick={(e)=>{e.stopPropagation();openEdit(project);}} title="Edit"><FaEdit/></button>
                       <button className="action-btn audit-btn" onClick={(e)=>{e.stopPropagation();loadAudit(project._id);}} title="Audit">🕑</button>
-                      <button className="action-btn delete-btn" onClick={(e)=>{e.stopPropagation();remove(project._id);}} title="Delete"><FaTrash/></button>
+                      <button className="action-btn delete-btn" onClick={(e)=>{e.stopPropagation();requestDelete(project);}} title="Delete"><FaTrash/></button>
                     </div>
                   </div>
                   <div className="project-content">
@@ -916,6 +929,19 @@ export default function ItProjects(){
                 <button type="submit" disabled={saving}>{saving?'Saving...':'Save Project'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="modal-overlay" onClick={e=>{ if(e.target.classList.contains('modal-overlay')) cancelDelete();}}>
+          <div className="modal-card" style={{maxWidth:420,textAlign:'center'}}>
+            <h2 style={{marginTop:0}}>Delete Project</h2>
+            <p style={{fontSize:14,lineHeight:1.4}}>Are you sure you want to permanently delete <strong>{deleteConfirm.name||'this project'}</strong>? This action cannot be undone.</p>
+            <div style={{display:'flex',justifyContent:'center',gap:'0.75rem',marginTop:'1rem'}}>
+              <button onClick={cancelDelete}>No, Keep</button>
+              <button onClick={confirmDelete} style={{background:'#dc2626',color:'#fff'}}>Yes, Delete</button>
+            </div>
           </div>
         </div>
       )}

@@ -325,7 +325,7 @@ export default function PmRequestedManpowerDetail() {
         <div className="form-container" style={{ maxWidth:900, margin:'40px auto', background:'#fff', borderRadius:16, padding:'32px 40px', boxShadow:'0 4px 16px rgba(0,0,0,0.06)' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:24 }}>
             <div>
-              <h2 style={{ margin:0, fontSize:30, fontWeight:700 }}>Manpower Request #{(request._id || '').slice(-5)}</h2>
+              <h2 style={{ margin:0, fontSize:30, fontWeight:700 }}>Manpower Request</h2>
               <div style={{ marginTop:8, fontSize:14, color:'#4b5563' }}>
                 Project: <strong>{request.project?.projectName || 'N/A'}</strong> &nbsp;•&nbsp; Requested by {request.createdBy?.name}
               </div>
