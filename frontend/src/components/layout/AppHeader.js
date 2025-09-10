@@ -221,7 +221,13 @@ const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false
               const isRoot = ['/pic','/pm','/am','/ceo','/it','/staff','/hr-site'].includes(item.match);
               const path = location.pathname.replace(/\/$/,'');
               const match = item.match.replace(/\/$/,'');
-              const active = path === match || (!isRoot && path.startsWith(match + '/'));
+              // Special case: PIC new material request route (/pic/projects/:id/request) should highlight 'Requests'
+              const picMatReq = /^\/pic\/projects\/[^/]+\/request(\/|$)?/.test(path);
+              let active = path === match || (!isRoot && path.startsWith(match + '/'));
+              if(picMatReq){
+                if(/\/pic\/requests$/.test(match) && item.label==='Requests') active = true; // force Requests active
+                if(/\/pic\/projects$/.test(match) && item.label==='My Projects') active = false; // prevent My Projects active
+              }
               const isChat = /\/chat$/.test(item.to);
               return <Link key={item.to} to={item.to} className={`pp-link${active?' active':''}`}>{item.icon}<span>{item.label}</span>{isChat && unreadChats>0 && <span className="chat-unread-badge">{unreadChats>99?'99+':unreadChats}</span>}</Link>;
             })}

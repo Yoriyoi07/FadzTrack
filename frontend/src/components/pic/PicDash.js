@@ -201,6 +201,7 @@ const handleLogout = () => {
          {/* Center Content */}
          <div className="main1">
           <div className="main-content-container">
+              <div className="pic-section-stack">
                          {/* Welcome Section */}
              <div className="welcome-section">
                <div className="welcome-title">Welcome back, {userName}! 👋</div>
@@ -212,98 +213,74 @@ const handleLogout = () => {
 
                                        {/* Project Analytics Section - Side by Side Layout */}
               {project ? (
-                <div className="project-analytics-section">
+                <div className="project-analytics-section enhanced">
                   <h2 className="analytics-title">Project Analytics</h2>
                   
-                  <div className="analytics-grid">
-                    {/* Left Side - Work Progress Trend Chart */}
-                    <div className="chart-section">
-                      <div className="chart-card">
-                        <h3>Work Progress Trend</h3>
+                  <div className="analytics-flex single-column">
+                    <div className="analytics-block chart-block full-width">
+                      <div className="chart-card gradient-border">
+                        <div className="card-head-row">
+                          <h3>Work Progress Trend</h3>
+                          {reports.length > 1 && (
+                            <span className="mini-trend-note">Last {Math.min(6, reports.length)} reports</span>
+                          )}
+                        </div>
                         {reports.length > 0 ? (
-                          <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={reports.slice(0, 6).reverse().map((report, index) => ({
+                          <ResponsiveContainer width="100%" height={360}>
+                            <LineChart data={reports.slice(0, 6).reverse().map(report => ({
                               name: new Date(report.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                               completedTasks: report.ai?.completed_tasks?.length || 0,
                               workItems: report.ai?.summary_of_work_done?.length || 0,
                               contribution: report.ai?.pic_contribution_percent || 0
                             }))}>
-                              <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="name" />
-                              <YAxis />
-                              <Tooltip />
-                              <Line type="monotone" dataKey="completedTasks" stroke="#10b981" strokeWidth={2} name="Completed Tasks" />
-                              <Line type="monotone" dataKey="workItems" stroke="#3b82f6" strokeWidth={2} name="Work Items" />
-                              <Line type="monotone" dataKey="contribution" stroke="#f59e0b" strokeWidth={2} name="Contribution %" />
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                              <YAxis tick={{ fontSize: 12 }} />
+                              <Tooltip contentStyle={{ fontSize: 12 }} />
+                              <Line type="monotone" dataKey="completedTasks" stroke="#10b981" strokeWidth={2} name="Completed" dot={{ r:3 }} />
+                              <Line type="monotone" dataKey="workItems" stroke="#3b82f6" strokeWidth={2} name="Work Items" dot={{ r:3 }} />
+                              <Line type="monotone" dataKey="contribution" stroke="#f59e0b" strokeWidth={2} name="Contribution %" dot={{ r:3 }} />
                             </LineChart>
                           </ResponsiveContainer>
                         ) : (
-                          <div className="no-data-state">
-                            <span>No report data available</span>
+                          <div className="no-data-state alt">
+                            <div className="skeleton-chart" />
+                            <span>No report data yet</span>
                           </div>
                         )}
                       </div>
                     </div>
-
-                    {/* Right Side - Metrics Grid */}
-                    <div className="metrics-section">
-                      <div className="metrics-grid">
-                        <div className="metric-card">
+                    <div className="metrics-row-inline">
+                      {([{
+                        label: 'Completed Task',
+                        value: reports[0]?.ai?.completed_tasks?.length || 0,
+                        desc: 'Tasks in latest report',
+                        icon: <FaClipboardList />, bg: 'linear-gradient(135deg,#10b981,#059669)'
+                      },{
+                        label: 'PIC Contribution',
+                        value: reports[0]?.ai?.pic_contribution_percent != null ? `${reports[0].ai.pic_contribution_percent}%` : 'N/A',
+                        desc: 'Contribution (latest)',
+                        icon: <FaEye />, bg: 'linear-gradient(135deg,#8b5cf6,#7c3aed)'
+                      },{
+                        label: 'Latest Report',
+                        value: reports[0] ? new Date(reports[0].uploadedAt).toLocaleDateString() : 'No Reports',
+                        desc: 'Date of latest upload',
+                        icon: <FaProjectDiagram />, bg: 'linear-gradient(135deg,#f59e0b,#d97706)'
+                      },{
+                        label: 'Total Reports',
+                        value: reports.length,
+                        desc: 'All submitted reports',
+                        icon: <FaClipboardList />, bg: 'linear-gradient(135deg,#06b6d4,#0891b2)'
+                      }]).map((m,i)=> (
+                        <div className="metric-card compact inline" key={i}>
                           <div className="metric-header">
-                            <span className="metric-title">Completed Task</span>
-                            <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
-                              <FaClipboardList />
-                            </div>
+                            <span className="metric-title">{m.label}</span>
+                            <div className="metric-icon" style={{ background:m.bg }}>{m.icon}</div>
                           </div>
-                          <div className="metric-value">
-                            {reports.length > 0 && reports[0]?.ai?.completed_tasks 
-                              ? reports[0].ai.completed_tasks.length 
-                              : 0}
-                          </div>
-                          <div className="metric-description">Tasks completed from latest report</div>
+                          <div className="metric-value small">{m.value}</div>
+                          <div className="metric-description small">{m.desc}</div>
                         </div>
-
-                        <div className="metric-card">
-                          <div className="metric-header">
-                            <span className="metric-title">PIC Contribution</span>
-                            <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' }}>
-                              <FaEye />
-                            </div>
-                          </div>
-                          <div className="metric-value">
-                            {reports.length > 0 && reports[0]?.ai?.pic_contribution_percent 
-                              ? `${reports[0].ai.pic_contribution_percent}%`
-                              : 'N/A'}
-                          </div>
-                          <div className="metric-description">Contribution percentage from latest report</div>
-                        </div>
-
-                        <div className="metric-card">
-                          <div className="metric-header">
-                            <span className="metric-title">Latest Report</span>
-                            <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}>
-                              <FaProjectDiagram />
-                            </div>
-                          </div>
-                          <div className="metric-value">
-                            {reports.length > 0 
-                              ? new Date(reports[0].uploadedAt).toLocaleDateString()
-                              : 'No Reports'}
-                          </div>
-                          <div className="metric-description">Date of latest report</div>
-                        </div>
-
-                        <div className="metric-card">
-                          <div className="metric-header">
-                            <span className="metric-title">Total Reports</span>
-                            <div className="metric-icon" style={{ background: 'linear-gradient(135deg, #06b6d4, #0891b2)' }}>
-                              <FaClipboardList />
-                            </div>
-                          </div>
-                          <div className="metric-value">{reports.length}</div>
-                          <div className="metric-description">Number of reports submitted</div>
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -322,65 +299,70 @@ const handleLogout = () => {
 
              
 
-                                       {/* Material Requests - PMDash Style */}
+                                      {/* Material Requests - Modernized UI */}
               {project && (
-                <div className="dashboard-card requests-card">
-                                     <div className="card-header">
-                     <h3 className="card-title">Material Requests</h3>
-                     <div className="card-actions">
-                       <button className="quick-request-btn" onClick={() => navigate(`/pic/projects/${project._id}/request`)}>
-                         <FaBoxes />
-                         <span>Quick Request</span>
-                       </button>
-                       {/* Updated to point to the dedicated material requests list */}
-                       <Link to="/pic/requests" className="view-all-link">
-                         View All <FaArrowRight />
-                       </Link>
-                     </div>
-                   </div>
-                  <div className="requests-content">
+                <div className="material-requests-panel gradient-border">
+                  <div className="mr-panel-head">
+                    <div className="mr-head-left">
+                      <h3 className="mr-title">Material Requests</h3>
+                      <div className="mr-sub">Recent activity · <span>{requests.length}</span> total</div>
+                    </div>
+                    <div className="mr-actions">
+                      <button className="mr-quick-btn" onClick={() => navigate(`/pic/projects/${project._id}/request`)}>
+                        <FaBoxes /> <span>New Request</span>
+                      </button>
+                      <Link to="/pic/requests" className="mr-view-all">View All <FaArrowRight /></Link>
+                    </div>
+                  </div>
+                  <div className="mr-list-wrapper">
                     {requests.length === 0 ? (
-                      <div className="empty-state">
-                        <FaBoxes />
-                        <span>No material requests found</span>
-                        <p>All requests have been processed or none are pending</p>
+                      <div className="mr-empty">
+                        <div className="mr-empty-icon"><FaBoxes /></div>
+                        <div className="mr-empty-title">No material requests</div>
+                        <div className="mr-empty-desc">Create a new request to get started</div>
                       </div>
                     ) : (
-                                             <div className="requests-list">
-                         {/* Updated legacy detail link to new unified detail route */}
-                         {requests.slice(0, 3).map(request => (
-                           <Link to={`/pic/material-request/${request._id}`} key={request._id} className="request-item">
-                             <div className="request-icon">
-                               <FaBoxes />
-                             </div>
-                             <div className="request-details">
-                               <h4 className="request-title">
-                                 {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
-                               </h4>
-                               <p className="request-description">{request.description || 'No description provided'}</p>
-                               <div className="request-meta">
-                                 <span className="request-project">{request.project?.projectName}</span>
-                                 <span className="request-date">
-                                   {new Date(request.createdAt).toLocaleDateString()}
-                                 </span>
-                               </div>
-                             </div>
-                             <div className="request-status">
-                               {getStatusIcon(request.status)}
-                               <span className={`status-text ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
-                                 {request.status}
-                               </span>
-                             </div>
-                             <div className="request-action">
-                               <span className="view-details">View Details →</span>
-                             </div>
-                           </Link>
-                         ))}
-                       </div>
+                      <div className="mr-list">
+                        {requests.slice(0,4).map(req => {
+                          const mats = req.materials || [];
+                          const shown = mats.slice(0,2);
+                          const extra = mats.length - shown.length;
+                          const created = new Date(req.createdAt);
+                          const now = Date.now();
+                          const diffDays = (now - created.getTime())/86400000;
+                          const relative = diffDays < 1 ? 'Today' : diffDays < 2 ? 'Yesterday' : created.toLocaleDateString();
+                          const statusSlug = (req.status||'').replace(/\s+/g,'-').toLowerCase();
+                          return (
+                            <Link to={`/pic/material-request/${req._id}`} key={req._id} className={`mr-item status-${statusSlug}`}>
+                              <div className="mr-left">
+                                <div className="mr-icon"><FaBoxes /></div>
+                                <div className="mr-main">
+                                  <div className="mr-top-row">
+                                    <div className="mr-material-badges">
+                                      {shown.map((m,i)=>(
+                                        <span key={i} className="mr-mat">{m.materialName}<span className="q">×{m.quantity}</span></span>
+                                      ))}
+                                      {extra>0 && <span className="mr-mat more">+{extra} more</span>}
+                                    </div>
+                                    <span className={`mr-status-badge ${statusSlug}`}>{req.status}</span>
+                                  </div>
+                                  <div className="mr-desc">{req.description || 'No description provided'}</div>
+                                  <div className="mr-meta">
+                                    <span className="mr-project">{req.project?.projectName}</span>
+                                    <span className="mr-date" title={created.toLocaleString()}>{relative}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="mr-action">Open →</div>
+                            </Link>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
                 </div>
               )}
+            </div>
           </div>
         </div>
       </div>
