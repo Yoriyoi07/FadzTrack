@@ -1237,6 +1237,27 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                   }
                 }
                 if (!preview) preview = '(no messages yet)';
+
+                // Sender prefix (show who sent last message). For own message show "You:".
+                let senderPrefix = '';
+                if (item.lastMessage && (preview !== '(no messages yet)')) {
+                  const rawSender = item.lastMessage.sender;
+                  const senderId = typeof rawSender === 'string' ? rawSender : (rawSender && rawSender._id);
+                  if (senderId) {
+                    if (String(senderId) === String(userId)) {
+                      senderPrefix = 'You: ';
+                    } else {
+                      // find sender in chat users list
+                      const senderUser = (item.users || []).find(u => u._id === senderId);
+                      if (senderUser) {
+                        const disp = getDisplayName(senderUser) || '';
+                        senderPrefix = (disp.split(' ')[0] || disp) + ': ';
+                      }
+                    }
+                  }
+                }
+
+                preview = senderPrefix + preview;
                 preview = preview.length > 60 ? preview.slice(0,57) + '…' : preview;
                 const timeStr = item.lastMessage?.timestamp ? formatTime(item.lastMessage.timestamp) : '';
                 // Determine unread: lastMessage exists and either (a) current user not in seen array OR (b) lastMessage.sender not current user and timestamp newer than a stored read marker (if provided)
