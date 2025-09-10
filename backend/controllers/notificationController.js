@@ -30,8 +30,6 @@ exports.createAndEmitNotification = async ({
           return { title:'Manpower Request Submitted', severity:'info', icon:'users-plus', actionUrl: requestId?`/pm/requested-manpower/${requestId}`:undefined };
         }
         case 'pending_approval': {
-          // Route dynamically based on recipient role (if available in meta.recipientRole)
-          // Fallback: PM path
           let base = '/pm/material-request/';
           if(meta && meta.recipientRole){
             const r = String(meta.recipientRole).toLowerCase();
@@ -41,10 +39,39 @@ exports.createAndEmitNotification = async ({
           }
           return { title:'Approval Needed', severity:'warning', icon:'clipboard-check', actionUrl: requestId?`${base}${requestId}`:undefined };
         }
-  case 'approved': return { title:'Request Fully Approved', severity:'success', icon:'check-circle', actionUrl: requestId?`/pic/material-request/${requestId}`:undefined };
-  case 'manpower_request_approved': return { title:'Manpower Request Approved', severity:'success', icon:'check-circle', actionUrl: requestId?`/pm/requested-manpower/${requestId}`:undefined };
-        case 'denied': return { title:'Request Denied', severity:'error', icon:'x-circle', actionUrl: requestId?`/pic/material-request/${requestId}`:undefined };
-        case 'nudge': return { title:'Reminder Sent', severity:'info', icon:'bell-ring', actionUrl: requestId?`/pm/material-request/${requestId}`:undefined };
+        case 'approved': {
+          let base = '/pic/material-request/';
+          if(meta && meta.recipientRole){
+            const r = String(meta.recipientRole).toLowerCase();
+            if(r.includes('project manager')) base = '/pm/material-request/';
+            else if(r.includes('area')) base = '/am/material-request/';
+            else if(r.includes('ceo')) base = '/ceo/material-request/';
+            else if(r.includes('it')) base = '/it/material-request/';
+          }
+          return { title:'Request Fully Approved', severity:'success', icon:'check-circle', actionUrl: requestId?`${base}${requestId}`:undefined };
+        }
+        case 'manpower_request_approved': return { title:'Manpower Request Approved', severity:'success', icon:'check-circle', actionUrl: requestId?`/pm/requested-manpower/${requestId}`:undefined };
+        case 'denied': {
+          let base = '/pic/material-request/';
+          if(meta && meta.recipientRole){
+            const r = String(meta.recipientRole).toLowerCase();
+            if(r.includes('project manager')) base = '/pm/material-request/';
+            else if(r.includes('area')) base = '/am/material-request/';
+            else if(r.includes('ceo')) base = '/ceo/material-request/';
+            else if(r.includes('it')) base = '/it/material-request/';
+          }
+          return { title:'Request Denied', severity:'error', icon:'x-circle', actionUrl: requestId?`${base}${requestId}`:undefined };
+        }
+        case 'nudge': {
+          let base = '/pm/material-request/';
+          if(meta && meta.recipientRole){
+            const r = String(meta.recipientRole).toLowerCase();
+            if(r.includes('area')) base = '/am/material-request/';
+            else if(r.includes('ceo')) base = '/ceo/material-request/';
+            else if(r.includes('pic')) base = '/pic/material-request/';
+          }
+          return { title:'Reminder Sent', severity:'info', icon:'bell-ring', actionUrl: requestId?`${base}${requestId}`:undefined };
+        }
   case 'project_created': return { title:'New Project Assignment', severity:'info', icon:'folder-plus', actionUrl: projectId?`/pic/${projectId}`:undefined };
         default: return { title: t.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()), severity:'info', icon:'info' };
       }

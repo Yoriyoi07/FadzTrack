@@ -663,10 +663,10 @@ exports.approveMaterialRequest = async (req, res) => {
           type: 'approved',
           toUserId: requestorId,
           fromUserId: req.user.id,
-      message: `Your material request for project "${project.projectName}" is fully approved and awaiting receipt confirmation.`,
+          message: `Your material request for project "${project.projectName}" is fully approved and awaiting receipt confirmation.`,
           projectId: project._id,
           requestId: request._id,
-          meta: { approvedBy: req.user.name },
+          meta: { approvedBy: req.user.name, recipientRole: 'PIC' },
           req
         });
       }
@@ -685,7 +685,7 @@ exports.approveMaterialRequest = async (req, res) => {
         message: `Your material request for project "${project.projectName}" was denied by the ${userRole}${reason ? `: ${reason}` : ''}.`,
         projectId: project._id,
         requestId: request._id,
-        meta: { deniedBy: req.user.name, deniedRole: userRole, reason },
+        meta: { deniedBy: req.user.name, deniedRole: userRole, reason, recipientRole: 'PIC' },
         req
       });
     }
