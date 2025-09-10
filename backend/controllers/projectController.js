@@ -11,6 +11,7 @@ const { Server } = require("socket.io");
 const { createAndEmitNotification } = require('../controllers/notificationController');
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
+const { sumBudgetFromPdfBuffer } = require('../utils/budgetPdf');
 // Reuse axios for AI summary of attendance
 // (Gemini key pulled from env like other AI usage in file)
 const GEMINI_API_KEY_ATT = process.env.GEMINI_API_KEY;
@@ -149,6 +150,29 @@ function extractNameFromDoc(d) {
   if (typeof d === 'object' && d?.name) return d.name;
   const p = extractPathFromDoc(d) || '';
   return extractOriginalNameFromPath(p);
+}
+
+// Coerce id(s) from body into an array of string ids
+function coerceIdArray(val) {
+  if (val == null) return [];
+  if (Array.isArray(val)) return val.map(v => String(v)).filter(Boolean);
+  if (typeof val === 'string') {
+    const s = val.trim();
+    if (!s) return [];
+    // Try JSON array
+    if ((s.startsWith('[') && s.endsWith(']')) || (s.startsWith('"') && s.endsWith('"'))) {
+      try {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed)) return parsed.map(v => String(v)).filter(Boolean);
+        if (typeof parsed === 'string') return [parsed];
+      } catch (_) {}
+    }
+    // Try comma-separated
+    if (s.includes(',')) return s.split(',').map(t => t.trim()).filter(Boolean);
+    return [s];
+  }
+  // Fallback: wrap unknowns
+  return [String(val)].filter(Boolean);
 }
 
 /* ===== NEW HELPERS: duration parsing + CPA shaping ===== */
@@ -475,7 +499,7 @@ exports.addProject = async (req, res) => {
       }
     }
 
-    // private docs (store as objects w/ metadata)
+  // private docs (store as objects w/ metadata)
     if (req.files && req.files.documents) {
       for (let file of req.files.documents) {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -498,16 +522,54 @@ exports.addProject = async (req, res) => {
       }
     }
 
+  // If a budget is provided and a budget PDF was uploaded, parse it and deduct detected section totals (letters, numbers, roman numerals)
+    let adjustedBudget = Number(budget) || 0;
+    let parsedBudgetTotals = null; // { sections: [{letter,title,amount}], totalAll }
+    try {
+      const budgetDoc = (req.files?.documents || []).find(f => /budget|boq|bill\s*of\s*quantities|costs|cost\s*breakdown/i.test(f.originalname || ''))
+                      || (req.files?.documents || [])[0];
+      if (budgetDoc && /\.pdf$/i.test(budgetDoc.originalname || '')) {
+        const { sections, greenItems, totalAll, sectionTotal, rowSum, autoDeductEligible, confidenceSummary } = await sumBudgetFromPdfBuffer(budgetDoc.buffer);
+        if (Number.isFinite(totalAll) && totalAll > 0) {
+          parsedBudgetTotals = { sections, greenItems, sectionTotal, greenTotal: rowSum, totalAll, autoDeductEligible, confidenceSummary };
+          if (autoDeductEligible) {
+            adjustedBudget = Math.max(0, adjustedBudget - totalAll);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Budget PDF parse failed:', e.message);
+    }
+
+    const manpowerIds = coerceIdArray(manpower);
+
     const newProject = new Project({
       projectName,
       pic, staff, hrsite,
       projectmanager, contractor, budget, location,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
-      manpower, areamanager, photos,
-      documents: documentsUrls
+      manpower: manpowerIds, areamanager, photos,
+      documents: documentsUrls,
+      // Store parsed totals as a system document entry for transparency
+  ...(parsedBudgetTotals ? { parsedBudgetTotals } : {}),
+      // Persist the adjusted budget if any deduction occurred
+      ...(adjustedBudget !== undefined ? { budget: adjustedBudget } : {})
     });
     const savedProject = await newProject.save();
+
+    // Log budget deduction (if any)
+  if (parsedBudgetTotals) {
+      try {
+        await logAction({
+          action: 'BUDGET_DEDUCTION_FROM_PDF',
+          performedBy: req.user.id,
+          performedByRole: req.user.role,
+  description: parsedBudgetTotals?.autoDeductEligible ? `Applied initial budget deduction (A–Z sections + green items)` : `Parsed budget PDF (auto deduction skipped - low confidence)`,
+      meta: { projectId: savedProject._id, projectName: savedProject.projectName, parsedBudgetTotals, originalBudget: Number(budget) || 0, adjustedBudget },
+        });
+      } catch (_) {}
+    }
 
     await logAction({
       action: 'ADD_PROJECT',
@@ -537,7 +599,7 @@ exports.addProject = async (req, res) => {
     }
 
     await Manpower.updateMany(
-      { _id: { $in: manpower } },
+      { _id: { $in: manpowerIds } },
       { $set: { assignedProject: savedProject._id } }
     );
 
@@ -657,6 +719,29 @@ exports.updateProject = async (req, res) => {
     const updatedProject = await Project.findByIdAndUpdate(id, updates, { new: true });
     if (!updatedProject) return res.status(404).json({ message: 'Project not found' });
 
+    // If project became Cancelled or soft-deleted via update, free up manpower
+    const becameCancelled = String(existing.status) !== 'Cancelled' && String(updatedProject.status) === 'Cancelled';
+    const becameDeleted = !existing.isDeleted && !!updatedProject.isDeleted;
+    if (becameCancelled || becameDeleted) {
+      try {
+        const resUnassign = await Manpower.updateMany(
+          { assignedProject: id },
+          { $set: { assignedProject: null } }
+        );
+        try {
+          await logAction({
+            action: 'UNASSIGN_MANPOWER_ON_PROJECT_CANCEL',
+            performedBy: req.user.id,
+            performedByRole: req.user.role,
+            description: `Unassigned ${resUnassign?.modifiedCount || 0} manpower due to project cancellation/update`,
+            meta: { projectId: updatedProject._id, projectName: updatedProject.projectName, count: resUnassign?.modifiedCount || 0, context: 'project' }
+          });
+        } catch (_) {}
+      } catch (e) {
+        console.warn('Unassign manpower (update) failed:', e.message);
+      }
+    }
+
     await logAction({
       action: 'UPDATE_PROJECT',
       performedBy: req.user.id,
@@ -705,17 +790,32 @@ exports.deleteProject = async (req, res) => {
     }
     
     // Soft delete the project
-    const updatedProject = await Project.findByIdAndUpdate(
-      id,
-      {
-        isDeleted: true,
-        deletedAt: new Date(),
-        deletedBy: req.user.id,
-        deletionReason: reason,
-        status: 'Cancelled' // Set status to Cancelled for soft-deleted projects
-      },
-      { new: true }
-    );
+    const updatedProject = await Project.findByIdAndUpdate(id, {
+      isDeleted: true,
+      deletedAt: new Date(),
+      deletedBy: req.user.id,
+      deletionReason: reason,
+      status: 'Cancelled' // Set status to Cancelled for soft-deleted projects
+    }, { new: true });
+
+    // Unassign all manpower tied to this project so they can be reassigned elsewhere
+    try {
+      const resUnassign = await Manpower.updateMany(
+        { assignedProject: id },
+        { $set: { assignedProject: null } }
+      );
+      try {
+        await logAction({
+          action: 'UNASSIGN_MANPOWER_ON_PROJECT_CANCEL',
+          performedBy: req.user.id,
+          performedByRole: req.user.role,
+          description: `Unassigned ${resUnassign?.modifiedCount || 0} manpower from cancelled project ${project.projectName}`,
+          meta: { projectId: project._id, projectName: project.projectName, count: resUnassign?.modifiedCount || 0, context: 'project' }
+        });
+      } catch (_) {}
+    } catch (e) {
+      console.warn('Unassign manpower (cancel) failed:', e.message);
+    }
 
     await logAction({
       action: 'SOFT_DELETE_PROJECT',
@@ -922,8 +1022,9 @@ exports.getAssignedProjectsAllRoles = async (req, res) => {
 /* --- GET UNASSIGNED USERS --- */
 exports.getUnassignedPICs = async (req, res) => {
   try {
-    const candidates = await User.find({ role: 'Person in Charge' }, 'name role');
-    // Only treat users as "busy" if they are on an ongoing project (completed projects free them up)
+    // Support both role labels used in DB: 'PIC' and 'Person in Charge'
+    const candidates = await User.find({ role: { $in: ['Person in Charge', 'PIC'] } }, 'name role');
+    // Only treat users as "busy" if they are on an ongoing, not-deleted project
     const projects = await Project.find({ isDeleted: { $ne: true }, status: 'Ongoing' }, 'pic status');
     const assigned = new Set();
     projects.forEach(p => Array.isArray(p.pic) && p.pic.forEach(id => assigned.add(id.toString())));

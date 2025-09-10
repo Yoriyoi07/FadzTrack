@@ -15,7 +15,11 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  // Legacy combined status (kept for backward compatibility). Avoid using directly in new code.
   status: { type: String, default: 'Active' },
+  // New: split account vs presence status
+  accountStatus: { type: String, enum: ['Active','Inactive'], default: 'Active' },
+  presenceStatus: { type: String, enum: ['online','offline'], default: 'offline' },
   locations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Location' }],
   tokenVersion: { type: Number, default: 0 },
   rememberedDevices: [rememberedDeviceSchema],

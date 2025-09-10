@@ -45,7 +45,20 @@ async function openReportSignedPath(projectId, path) {
   } catch (e) { console.error('Failed to open report file', e); alert('Failed to open report file.'); }
 }
 async function fetchSignedUrlsForImages(files){ const imgs=files.filter(f=>{ const name= typeof f==='string'? extractOriginalNameFromPath(f) : f.name || extractOriginalNameFromPath(f.path); return ['JPG','JPEG','PNG','GIF','BMP','SVG'].includes(getFileType(name));}); const out={}; for(const f of imgs){ const p= typeof f==='string'? f : f.path; try { const {data}=await api.get(`/photo-signed-url?path=${encodeURIComponent(p)}`); if(data?.signedUrl) out[p]=data.signedUrl; } catch{} } return out; }
-function generateFileThumbnail(fileName,filePath,fileType,signedUrl){ const isImg=['JPG','JPEG','PNG','GIF','BMP','SVG'].includes(fileType); if(isImg){ const src=signedUrl||filePath; return <div className="file-thumbnail image-thumbnail"><img src={src} alt={fileName} onError={(e)=>{e.target.style.display='none'; e.target.nextSibling.style.display='flex';}} /><div className="fallback-icon" style={{display:'none'}}>🖼️</div></div>; } const map={ PDF:['#ff6b6b','#ee5a52','📄'], DOC:['#4ecdc4','#44a08d','📝'], DOCX:['#4ecdc4','#44a08d','📝'], XLS:['#45b7d1','#96c93d','📊'], XLSX:['#45b7d1','#96c93d','📊'], PPT:['#f093fb','#f5576c','📈'], PPTX:['#f093fb','#f5576c','📈'], TXT:['#a8edea','#fed6e3','📄'], RTF:['#a8edea','#fed6e3','📄'], CSV:['#ffecd2','#fcb69f','📊'], FILE:['#667eea','#764ba2','📁'] }; const s=map[fileType]||map.FILE; return <div className="file-thumbnail document-thumbnail" style={{background:`linear-gradient(135deg,${s[0]},${s[1]})`}}><span className="thumbnail-icon">{s[2]}</span><span className="thumbnail-extension">{fileType}</span></div>; }
+function generateFileThumbnail(fileName,filePath,fileType,signedUrl){
+  const SIZE_H = 100; // height only; width fills parent tile
+  const baseTileStyle={width:'100%',height:SIZE_H,overflow:'hidden',borderRadius:8,position:'relative',display:'flex',alignItems:'center',justifyContent:'center',background:'#f1f5f9',boxShadow:'0 0 0 1px #e2e8f0 inset'};
+  const isImg=['JPG','JPEG','PNG','GIF','BMP','SVG'].includes(fileType);
+  if(isImg){
+    if(!signedUrl){
+      return <div className="file-thumbnail image-thumbnail" style={baseTileStyle}><span style={{fontSize:34,lineHeight:1,color:'#94a3b8'}}>🖼️</span></div>;
+    }
+    return <div className="file-thumbnail image-thumbnail" style={baseTileStyle}><img src={signedUrl} alt={fileName} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}} /></div>;
+  }
+  const map={ PDF:['#ff6b6b','#ee5a52','📄'], DOC:['#4ecdc4','#44a08d','📝'], DOCX:['#4ecdc4','#44a08d','📝'], XLS:['#45b7d1','#96c93d','📊'], XLSX:['#45b7d1','#96c93d','📊'], PPT:['#f093fb','#f5576c','📈'], PPTX:['#f093fb','#f5576c','📈'], TXT:['#a8edea','#fed6e3','📄'], RTF:['#a8edea','#fed6e3','📄'], CSV:['#ffecd2','#fcb69f','📊'], FILE:['#667eea','#764ba2','📁'] };
+  const s=map[fileType]||map.FILE;
+  return <div className="file-thumbnail document-thumbnail" style={{...baseTileStyle,background:`linear-gradient(135deg,${s[0]},${s[1]})`,flexDirection:'column',color:'#fff'}}><span className="thumbnail-icon" style={{fontSize:34,lineHeight:1}}>{s[2]}</span><span className="thumbnail-extension" style={{fontSize:11,marginTop:6,fontWeight:600,letterSpacing:.5}}>{fileType}</span></div>;
+}
 function renderMessageText(text='',me=''){ const slug=(me||'').trim().toLowerCase().replace(/\s+/g,''); if(!slug||!text) return text; const re=new RegExp(`@${slug}\\b`,'gi'); const parts=text.split(re); if(parts.length===1) return text; return parts.map((p,i)=> i===0? p : <React.Fragment key={i}><span style={{background:'#f6c343',color:'#3a2f00',padding:'2px 6px',borderRadius:4,fontWeight:'bold',fontSize:'0.9em'}}>@{me}</span>{p}</React.Fragment>); }
 function isMentioned(text='',me=''){ const slug=(me||'').trim().toLowerCase().replace(/\s+/g,''); if(!slug||!text) return false; return text.toLowerCase().replace(/\s+/g,'').includes(`@${slug}`); }
 function readContractor(p){
@@ -158,6 +171,18 @@ export default function ProjectView(props) {
   const [attError,setAttError]=useState('');
   const [attendanceAI,setAttendanceAI]=useState(null);
   const [showCompleteConfirm,setShowCompleteConfirm]=useState(false);
+  // UI toggle for estimated material cost (green items)
+  const [showEstimatedMaterial,setShowEstimatedMaterial]=useState(false);
+  const [showSectionBreakdown,setShowSectionBreakdown]=useState(true);
+  const [imagePreview,setImagePreview]=useState(null); // {src,name}
+
+  // Close image preview with ESC
+  useEffect(()=>{
+    if(!imagePreview) return;
+    const onKey = (e)=>{ if(e.key === 'Escape') setImagePreview(null); };
+    window.addEventListener('keydown', onKey);
+    return ()=> window.removeEventListener('keydown', onKey);
+  },[imagePreview]);
   const [statusUpdating,setStatusUpdating]=useState(false);
   // Per-report AI dropdown expanded state: { [reportId]: boolean }
   const [openAiRows, setOpenAiRows] = useState({});
@@ -476,6 +501,23 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
           <NotificationBell />
         </div>
   </header>) }
+
+    {imagePreview && (
+      <div
+        onClick={()=> setImagePreview(null)}
+        style={{
+          position:'fixed',inset:0,background:'rgba(15,23,42,.85)',zIndex:1000,
+          display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:20
+        }}
+      >
+        <div style={{maxWidth:'90%',maxHeight:'80%',position:'relative'}}>
+          <img src={imagePreview.src} alt={imagePreview.name} style={{maxWidth:'100%',maxHeight:'100%',objectFit:'contain',borderRadius:12,boxShadow:'0 10px 28px -4px rgba(0,0,0,.6)'}} />
+          <div style={{marginTop:12,textAlign:'center',color:'#f1f5f9',fontSize:14}}>{imagePreview.name}</div>
+          <button onClick={(e)=>{e.stopPropagation(); setImagePreview(null);}} style={{position:'absolute',top:8,right:8,background:'rgba(0,0,0,.55)',color:'#fff',border:'none',borderRadius:8,padding:'6px 10px',cursor:'pointer'}}>Close</button>
+        </div>
+        <div style={{marginTop:16,color:'#94a3b8',fontSize:12}}>Click anywhere or press ESC to close</div>
+      </div>
+    )}
       <main className="dashboard-main">
         {showFlash && (
           <div role="status" aria-live="polite" className="project-flash-banner" style={{
@@ -778,6 +820,88 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                     {totalPO>0 && (
                       <div className="remaining-budget" style={{marginTop:6,fontSize:12}}>
                         Remaining: {peso.format(remaining)} (POs: {peso.format(totalPO)})
+                      </div>
+                    )}
+                    {project?.parsedBudgetTotals && Number(project?.parsedBudgetTotals?.totalAll || 0) > 0 && (
+                      <div style={{marginTop:12, paddingTop:12, borderTop:'1px solid #e2e8f0'}}>
+                        {(()=>{
+                          const totalDeduct = Number(project.parsedBudgetTotals.totalAll || 0);
+                          const original = (Number(budgetNum || 0) + totalDeduct);
+                          const sections = Array.isArray(project.parsedBudgetTotals.sections) ? project.parsedBudgetTotals.sections : [];
+                          const greenItems = Array.isArray(project.parsedBudgetTotals.greenItems) ? project.parsedBudgetTotals.greenItems : [];
+                          // Unified list: include both sections and greenItems
+                          const unified = [
+                            ...sections.map(s => ({ code: s.letter ? (s.letter + '.') : '', title: s.title || '', amount: s.amount })),
+                            ...greenItems.map(g => ({ code: g.code || '', title: g.title || '', amount: g.amount }))
+                          ];
+                          const rawSectionTotal = Number(project.parsedBudgetTotals.sectionTotal || 0);
+                          const rawGreenTotal = Number(project.parsedBudgetTotals.greenTotal || project.parsedBudgetTotals.rowSum || 0);
+                          // Fallback compute if backend stored older shape without sectionTotal/greenTotal
+                          const sectionTotal = rawSectionTotal > 0 ? rawSectionTotal : sections.reduce((s,x)=> s + (Number(x.amount)||0),0);
+                          const greenTotal = rawGreenTotal > 0 ? rawGreenTotal : greenItems.reduce((s,x)=> s + (Number(x.amount)||0),0);
+                          return (
+                            <div>
+                              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,fontSize:13}}>
+                                <div><span style={{color:'#64748b'}}>Original:</span> <b>{peso.format(original)}</b></div>
+                                <div style={{textAlign:'right'}}><span style={{color:'#64748b'}}>Total Deduction:</span> <b style={{color:'#b91c1c'}}>-{peso.format(totalDeduct)}</b></div>
+                              </div>
+                              <div style={{marginTop:12}}>
+                              </div>
+                              <div style={{marginTop:16}}>
+                                <button
+                                  type="button"
+                                  onClick={()=> setShowSectionBreakdown(s=>!s)}
+                                  style={{
+                                    width:'100%',
+                                    background:'#f1f5f9',
+                                    border:'1px solid #e2e8f0',
+                                    borderRadius:8,
+                                    padding:'10px 14px',
+                                    display:'flex',
+                                    justifyContent:'space-between',
+                                    alignItems:'center',
+                                    cursor:'pointer',
+                                    fontSize:13,
+                                    fontWeight:600,
+                                    color:'#334155'
+                                  }}
+                                >
+                                  <span>Budget Breakdown</span>
+                                  <span style={{display:'flex',alignItems:'center',gap:10}}>
+                                    <span style={{fontSize:11,color:'#64748b',fontWeight:500}}>{peso.format(totalDeduct)}</span>
+                                    <span style={{transition:'transform .25s', transform: showSectionBreakdown ? 'rotate(90deg)':'rotate(0deg)'}}>&#9656;</span>
+                                  </span>
+                                </button>
+                                {showSectionBreakdown && (
+                                  <div style={{marginTop:8, maxHeight:220, overflowY:'auto', border:'1px solid #e2e8f0', borderRadius:8}}>
+                                    <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
+                                      <thead>
+                                        <tr style={{background:'#f8fafc'}}>
+                                          <th style={{textAlign:'left', padding:'8px 10px', borderBottom:'1px solid #e2e8f0'}}>Item</th>
+                                          <th style={{textAlign:'right', padding:'8px 10px', borderBottom:'1px solid #e2e8f0'}}>Amount</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {unified.map((u,idx)=>(
+                                          <tr key={idx}>
+                                            <td style={{padding:'6px 10px', borderBottom:'1px solid #eef2f7'}}>{u.title}</td>
+                                            <td style={{padding:'6px 10px', borderBottom:'1px solid #eef2f7', textAlign:'right'}}>{peso.format(Number(u.amount||0))}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                      <tfoot>
+                                        <tr>
+                                          <td style={{padding:'8px 10px', textAlign:'right', fontWeight:700}}>Total</td>
+                                          <td style={{padding:'8px 10px', textAlign:'right', fontWeight:700}}>{peso.format(totalDeduct)}</td>
+                                        </tr>
+                                      </tfoot>
+                                    </table>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -1105,31 +1229,39 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                             )}
                             {Array.isArray(msg.attachments) && msg.attachments.length > 0 && (
                               <div className="message-attachments">
+                                <div style={{display:'flex',flexWrap:'wrap',gap:16}}>
                                 {msg.attachments.map((att, i) => {
                                   const name = att.name || extractOriginalNameFromPath(att.path);
                                   const t = getFileType(name);
+                                  const isImage = ['JPG','JPEG','PNG','GIF','BMP','SVG'].includes(t);
                                   return (
-                                    <div key={i} className="attachment-item">
-                                      <div className="attachment-thumbnail">
+                                    <div key={i} className="attachment-item" style={{width:160,background:'#ffffff',border:'1px solid #e2e8f0',borderRadius:12,padding:8,boxSizing:'border-box',display:'flex',flexDirection:'column',alignItems:'center'}}>
+                                      <div className="attachment-thumbnail" style={{cursor:isImage?'zoom-in':'pointer'}}
+                                        onClick={e=>{
+                                          e.preventDefault();
+                                          if(isImage){
+                                            setImagePreview({ src: fileSignedUrls[att.path] || att.path, name });
+                                          } else {
+                                            openSignedPath(att.path);
+                                          }
+                                        }}
+                                      >
                                         {generateFileThumbnail(name, att.path, t, fileSignedUrls[att.path])}
                                       </div>
-                                      <div className="attachment-info">
+                                      <div className="attachment-info" style={{marginTop:8,minHeight:42,width:'100%',textAlign:'center',display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
                                         <a
                                           href="#"
-                                          onClick={e => {
-                                            e.preventDefault();
-                                            openSignedPath(att.path);
-                                          }}
+                                          onClick={e => { e.preventDefault(); openSignedPath(att.path); }}
                                           className="attachment-name"
                                           title={name}
-                                        >
-                                          {name}
-                                        </a>
-                                        <span className="attachment-type">{t}</span>
+                                          style={{display:'-webkit-box',fontSize:12,overflow:'hidden',textOverflow:'ellipsis',WebkitLineClamp:2,WebkitBoxOrient:'vertical',lineHeight:'1.2em',wordBreak:'break-word',overflowWrap:'anywhere',width:'100%'}}
+                                        >{name}</a>
+                                        <span className="attachment-type" style={{fontSize:10,background:'#f1f5f9',padding:'2px 6px',borderRadius:6,display:'inline-block',marginTop:4,alignSelf:'center'}}>{t}</span>
                                       </div>
                                     </div>
                                   );
                                 })}
+                                </div>
                               </div>
                             )}
                           </div>
@@ -1155,31 +1287,39 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                                       )}
                                       {Array.isArray(r.attachments) && r.attachments.length > 0 && (
                                         <div className="reply-attachments">
+                                          <div style={{display:'flex',flexWrap:'wrap',gap:16}}>
                                           {r.attachments.map((att, i) => {
                                             const name = att.name || extractOriginalNameFromPath(att.path);
                                             const t = getFileType(name);
+                                            const isImage = ['JPG','JPEG','PNG','GIF','BMP','SVG'].includes(t);
                                             return (
-                                              <div key={i} className="attachment-item">
-                                                <div className="attachment-thumbnail">
+                                              <div key={i} className="attachment-item" style={{width:160,background:'#ffffff',border:'1px solid #e2e8f0',borderRadius:12,padding:8,boxSizing:'border-box',display:'flex',flexDirection:'column',alignItems:'center'}}>
+                                                <div className="attachment-thumbnail" style={{cursor:isImage?'zoom-in':'pointer'}}
+                                                  onClick={e=>{
+                                                    e.preventDefault();
+                                                    if(isImage){
+                                                      setImagePreview({ src: fileSignedUrls[att.path] || att.path, name });
+                                                    } else {
+                                                      openSignedPath(att.path);
+                                                    }
+                                                  }}
+                                                >
                                                   {generateFileThumbnail(name, att.path, t, fileSignedUrls[att.path])}
                                                 </div>
-                                                <div className="attachment-info">
+                                                <div className="attachment-info" style={{marginTop:8,minHeight:42,width:'100%',textAlign:'center',display:'flex',flexDirection:'column',justifyContent:'space-between'}}>
                                                   <a
                                                     href="#"
-                                                    onClick={e => {
-                                                      e.preventDefault();
-                                                      openSignedPath(att.path);
-                                                    }}
+                                                    onClick={e => { e.preventDefault(); openSignedPath(att.path); }}
                                                     className="attachment-name"
                                                     title={name}
-                                                  >
-                                                    {name}
-                                                  </a>
-                                                  <span className="attachment-type">{t}</span>
+                                                    style={{display:'-webkit-box',fontSize:12,overflow:'hidden',textOverflow:'ellipsis',WebkitLineClamp:2,WebkitBoxOrient:'vertical',lineHeight:'1.2em',wordBreak:'break-word',overflowWrap:'anywhere',width:'100%'}}
+                                                  >{name}</a>
+                                                  <span className="attachment-type" style={{fontSize:10,background:'#f1f5f9',padding:'2px 6px',borderRadius:6,display:'inline-block',marginTop:4,alignSelf:'center'}}>{t}</span>
                                                 </div>
                                               </div>
                                             );
                                           })}
+                                          </div>
                                         </div>
                                       )}
                                     </div>
@@ -1415,7 +1555,7 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                               <tr key={i} className="table-row">
                                 <td className="table-cell file-name">
                                   <div className="file-info">
-                                    <div className="file-thumbnail-container">
+                                    <div className="file-thumbnail-container" style={{width:160,height:110}}>
                                       {generateFileThumbnail(fileName, filePath, type, fileSignedUrls[filePath])}
                                     </div>
                                     <span className="file-name-text" title={fileName}>

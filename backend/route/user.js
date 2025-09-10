@@ -185,12 +185,14 @@ router.get('/unassigned-pms', async (req, res) => {
           from: 'projects',
           let: { pm_id: '$_id' },
           pipeline: [
+      // ignore soft-deleted projects
+      { $match: { isDeleted: { $ne: true } } },
             {
               $match: {
                 $expr: {
                   $and: [
                     { $eq: ['$projectmanager', '$$pm_id'] },
-                    { $eq: ['$status', 'Ongoing'] }
+        { $eq: ['$status', 'Ongoing'] }
                   ]
                 }
               }

@@ -138,7 +138,7 @@ async function sendTwoFACode(email, code) {
 // ───────────── Users CRUD ─────────────
 async function getAllUsers(req, res) {
   try {
-    const users = await User.find({}, 'name role phone email status');
+  const users = await User.find({}, 'name role phone email accountStatus presenceStatus status');
     res.json(users);
   } catch (err) {
     res.status(500).json({ msg: 'Failed to get users', err });
@@ -169,13 +169,19 @@ async function updateUser(req, res) {
 
 async function updateUserStatus(req, res) {
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
+    const { accountStatus, presenceStatus, status } = req.body || {};
+    const update = {};
+    if (accountStatus) update.accountStatus = accountStatus;
+    if (presenceStatus) update.presenceStatus = presenceStatus;
+    if (status) update.status = status; // legacy field if clients still send it
+    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!user) return res.status(404).json({ msg: 'User not found' });
-    // Emit realtime status change if socket.io available
+    // Emit realtime presence change only when presenceStatus provided
     try {
       const io = req.app.get('io');
-      if (io) {
-        io.emit('userStatusChanged', { userId: String(user._id), status: user.status });
+      if (io && presenceStatus) {
+        const ev = presenceStatus === 'online' ? 'userOnline' : 'userOffline';
+        io.emit(ev, String(user._id));
       }
     } catch (e) { /* ignore socket errors */ }
     res.json({ msg: 'Status updated', user });
@@ -240,10 +246,11 @@ async function activateAccount(req, res) {
   const decoded = jwt.verify(token, JWT_SECRET);
   const user = await User.findOne({ email: (decoded.email || '').toLowerCase() });
     if (!user) return res.status(404).json({ msg: 'User not found' });
-    if (user.status === 'Active') return res.status(400).json({ msg: 'Account already activated' });
+  if (user.accountStatus === 'Active') return res.status(400).json({ msg: 'Account already activated' });
 
   user.password = await bcrypt.hash(pw, 10);
-    user.status = 'Active';
+    user.accountStatus = 'Active';
+    user.status = 'Active'; // keep legacy in sync
     await user.save();
 
     res.json({ msg: 'Account activated successfully' });
@@ -301,7 +308,7 @@ async function loginUser(req, res) {
   const { email, password } = req.body || {};
   const user = await User.findOne({ email: (email || '').toLowerCase() });
     if (!user) return res.status(400).json({ msg: 'Invalid credentials' });
-    if (user.status !== 'Active') return res.status(403).json({ msg: 'Your account is inactive. Please contact support.' });
+  if (user.accountStatus !== 'Active') return res.status(403).json({ msg: 'Your account is inactive. Please contact support.' });
 
   const pw = String(password || '').trim();
   const isMatch = await bcrypt.compare(pw, user.password);
@@ -350,7 +357,7 @@ setRefreshCookie(req, res, refreshToken, REFRESH_TTL_SEC);
         return res.json({
           requires2FA: false,
           accessToken,
-          user: { id: user._id, email: user.email, name: user.name, role: user.role, status: user.status }
+          user: { id: user._id, email: user.email, name: user.name, role: user.role, accountStatus: user.accountStatus, presenceStatus: user.presenceStatus }
         });
       }
     }
@@ -423,7 +430,7 @@ const refreshToken  = jwt.sign(
 
     return res.json({
       accessToken,
-      user: { id: user._id, email: user.email, name: user.name, role: user.role, status: user.status }
+  user: { id: user._id, email: user.email, name: user.name, role: user.role, accountStatus: user.accountStatus, presenceStatus: user.presenceStatus }
     });
   } catch (err) {
     res.status(500).json({ msg: '2FA verification error', err });

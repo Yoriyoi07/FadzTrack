@@ -208,6 +208,8 @@ socket.on('leaveChat', (chatId) => {
     });
     // Presence: send full snapshot and broadcast online event
     try {
+      // Update presence field (non-blocking)
+      try { require('./models/User').updateOne({ _id: userId }, { $set: { presenceStatus: 'online' } }).lean && null; } catch {}
       socket.emit('presenceSnapshot', Array.from(userSockets.keys()));
       socket.broadcast.emit('userOnline', userId);
     } catch (e) { /* ignore */ }
@@ -323,7 +325,11 @@ socket.on('leaveChat', (chatId) => {
         console.log(`Socket disconnected due to: ${reason}`);
         // If user fully offline (no sockets left) broadcast offline
         if (!userSockets.has(String(userId))) {
-          try { socket.broadcast.emit('userOffline', userId); } catch {}
+          try {
+            // Update presence field (non-blocking)
+            try { require('./models/User').updateOne({ _id: userId }, { $set: { presenceStatus: 'offline' } }).lean && null; } catch {}
+            socket.broadcast.emit('userOffline', userId);
+          } catch {}
         }
         return;
       }

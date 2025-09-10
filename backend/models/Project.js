@@ -89,6 +89,8 @@ const projectSchema = new mongoose.Schema({
 
   // Reports tab (AI)
   reports: [reportSchema],
+  // Parsed totals from uploaded budget PDF (A + B columns)
+  parsedBudgetTotals: { type: mongoose.Schema.Types.Mixed },
   // Attendance generated Excel outputs
   attendanceReports: [{
     originalName: String,
