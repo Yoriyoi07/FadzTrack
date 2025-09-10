@@ -41,6 +41,30 @@ import {
 const emptyForm = { projectName:'', contractor:'', budget:'', location:'', startDate:'', endDate:'', status:'Ongoing', projectmanager:'', areamanager:'', area:'', pic:[], staff:[], hrsite:[], manpower:[] };
 
 export default function ItProjects(){
+  const [formData, setFormData] = useState(emptyForm);
+  // ...existing code...
+  const [budgetDisplay, setBudgetDisplay] = useState('');
+
+  useEffect(() => {
+    if (formData.budget === '') { setBudgetDisplay(''); return; }
+    const parts = String(formData.budget).split('.');
+    const intPart = parts[0] || '0';
+    const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const dec = parts[1] ? '.'+parts[1] : '';
+    const nextFormatted = withCommas + dec;
+    if(nextFormatted !== budgetDisplay) setBudgetDisplay(nextFormatted);
+  }, [formData.budget]);
+
+  const handleBudgetChange = (e) => {
+    let val = e.target.value.replace(/,/g, '');
+    // Allow only numbers and one decimal
+    val = val.replace(/[^\d.]/g, '');
+    const parts = val.split('.');
+    let intPartLimited = parts[0].replace(/^0+(?!$)/, '');
+    let decPart = parts[1] !== undefined ? parts[1].slice(0, 2) : undefined;
+    const rawForState = decPart !== undefined && decPart.length>0 ? `${intPartLimited}.${decPart}` : intPartLimited;
+    setFormData(prev => ({ ...prev, budget: rawForState }));
+  };
   const navigate = useNavigate();
   const user = useMemo(()=> JSON.parse(localStorage.getItem('user')||'{}'), []);
   const [profileMenuOpen,setProfileMenuOpen]=useState(false);
@@ -52,7 +76,7 @@ export default function ItProjects(){
   const [error,setError]=useState('');
   // Removed legacy search & page state (superseded by unified layout states below)
   const [showForm,setShowForm]=useState(false);
-  const [formData,setFormData]=useState(emptyForm);
+  // ...existing code...
   const [editingId,setEditingId]=useState(null);
   const [saving,setSaving]=useState(false);
   const [allLocations,setAllLocations]=useState([]);
@@ -529,9 +553,20 @@ export default function ItProjects(){
           setShowSuccessMessage(true);
           setTimeout(() => setShowSuccessMessage(false), 5000);
         }
-      } else if (editingId) {
+              const response = await api.post('/projects', {headers:{'Content-Type':'multipart/form-data'}});
         setSuccessMessage(`Project updated successfully!`);
-        setShowSuccessMessage(true);
+                // If photoFiles are selected, upload as FormData
+                if (photoFiles.length > 0) {
+                  const fd = new FormData();
+                  Object.entries(payload).forEach(([k,v])=>{
+                    if(Array.isArray(v)) v.forEach(val=>fd.append(k,val));
+                    else fd.append(k,v);
+                  });
+                  photoFiles.forEach(f=>fd.append('photos',f));
+                  await api.patch(`/projects/${editingId}`, fd, {headers:{'Content-Type':'multipart/form-data'}});
+                } else {
+                  await api.patch(`/projects/${editingId}`, payload);
+                }
         setTimeout(() => setShowSuccessMessage(false), 3000);
       }
       
@@ -809,7 +844,18 @@ export default function ItProjects(){
                 <legend>Core</legend>
                 <label>Project Name<input name="projectName" value={formData.projectName} onChange={handleChange} required/></label>
                 <label>Contractor<input name="contractor" value={formData.contractor} onChange={handleChange}/></label>
-                <label>Budget<input name="budget" type="number" min="0" value={formData.budget} onChange={handleChange}/></label>
+                <label>Budget
+                  <input
+                    name="budget"
+                    type="text"
+                    inputMode="decimal"
+                    min="0"
+                    value={budgetDisplay}
+                    onChange={handleBudgetChange}
+                    placeholder="0.00"
+                    autoComplete="off"
+                  />
+                </label>
                 <label>Status<select name="status" value={formData.status} onChange={handleChange}><option value="Ongoing">Ongoing</option><option value="Completed">Completed</option></select></label>
                 <label>Location<select name="location" value={formData.location} onChange={handleChange} required><option value="">-- select --</option>{allLocations.map(l=> <option key={l._id} value={l._id}>{l.name} {l.region?`(${l.region})`:''}</option>)}</select></label>
                 <label>Start Date<input name="startDate" type="date" value={formData.startDate} onChange={handleChange} required/></label>
@@ -897,7 +943,7 @@ export default function ItProjects(){
                 </div>
               </fieldset>
               {/* Initial Files (column 3 when creating) */}
-              {!editingId && <fieldset className="section" style={{gridColumn:'3 / 4', alignSelf:'start'}}>
+              <fieldset className="section" style={{gridColumn:'3 / 4', alignSelf:'start'}}>
                 <legend>Initial Files (optional)</legend>
                 <div className="flex-column gap-sm">
                   <label className="uploader" style={{display:'flex',flexDirection:'column',gap:4}}>Photos
@@ -937,7 +983,7 @@ export default function ItProjects(){
                   </div>}
                 </div>
                 <small style={{display:'block',marginTop:6}}>{photoFiles.length} photo(s), {docFiles.length} document(s), {budgetFiles.length} budget PDF(s) selected</small>
-              </fieldset>}
+              </fieldset>
               <div style={{gridColumn:'1 / -1',display:'flex',justifyContent:'flex-end',gap:'0.5rem',marginTop:'0.5rem'}}>
                 <button type="button" onClick={()=>setShowForm(false)} disabled={saving}>Cancel</button>
                 <button type="submit" disabled={saving}>{saving?'Saving...':'Save Project'}</button>
