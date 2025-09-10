@@ -73,7 +73,13 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
   const buildAttachmentUrl = (a='') => {
     if(!a) return '';
     if(signedUrls[a]) return signedUrls[a];
-    return a.startsWith('http')? a : '';// no direct local fallback anymore
+    // If a is full public supabase URL, attempt to extract relative key and look up
+    if(a.startsWith('http')){
+      const m = a.match(/\/storage\/v1\/object\/public\/material-request-photos\/(.+)$/);
+      if(m && m[1] && signedUrls[m[1]]) return signedUrls[m[1]];
+      return a; // fallback to original public URL
+    }
+    return '';
   };
 
   // Close preview on ESC

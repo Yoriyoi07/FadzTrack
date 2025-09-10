@@ -107,7 +107,7 @@ export const NotificationProvider = ({ children, userId }) => {
     const token = localStorage.getItem("token");
     if (!token) return;
 
-    api.patch(
+    api.post(
       "/notifications/mark-read",
       { ids: [notificationId] },
       {

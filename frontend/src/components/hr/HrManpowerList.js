@@ -610,7 +610,7 @@ export default function HrManpowerList() {
               </div>
               <div className="stat-content">
                 <span className="stat-value">{statusCounts.total}</span>
-                <span className="stat-label">Total Staff</span>
+                <span className="stat-label">Total Manpower</span>
               </div>
             </div>
             <div className="stat-card active">

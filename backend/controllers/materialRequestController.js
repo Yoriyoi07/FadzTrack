@@ -7,6 +7,7 @@ const supabase = require('../utils/supabaseClient');
 const path = require('path');
 const { v4: uuid } = require('uuid');
 const MR_BUCKET = 'material-request-photos';
+const ALT_MR_BUCKET = 'material-photos'; // legacy / mobile possible bucket
 // Simple in-memory submission debounce to reduce accidental double-click duplicates
 const recentCreateFingerprints = new Map(); // key -> timestamp
 const CREATE_DEBOUNCE_MS = 5000; // 5 seconds
@@ -106,6 +107,48 @@ exports.createMaterialRequest = async (req, res) => {
     const materialsArray = JSON.parse(materials);
     const missingUnit = materialsArray.some(m => !m.unit || m.unit.trim() === '');
     let attachments = [];
+      // Accept pre-uploaded (mobile) attachment URLs/paths: attachmentUrls OR attachments in body
+      const rawBodyAttachments = (()=>{
+        for(const key of ['attachmentUrls','attachments','files','urls','photos']){
+          if(req.body[key]){
+            try { const arr = JSON.parse(req.body[key]); if(Array.isArray(arr)) return arr; } catch { if(Array.isArray(req.body[key])) return req.body[key]; }
+          }
+        }
+        // Fallback: scan all body values for supabase public URLs
+        const candidates = [];
+        const PUBLIC_RX = /https?:\/\/[^\s]+\/storage\/v1\/object\/public\/(material-request-photos|material-photos)\/[^\s]+/i;
+        for(const [k,v] of Object.entries(req.body||{})){
+          if(typeof v === 'string' && PUBLIC_RX.test(v)) candidates.push(v.trim());
+          if(Array.isArray(v)){
+            v.forEach(it=>{ if(typeof it==='string' && PUBLIC_RX.test(it)) candidates.push(it.trim()); });
+          }
+        }
+        return candidates.length? candidates : [];
+      })();
+      const normalizeKey = (val)=>{
+        if(!val) return null;
+        // If full public URL, strip prefix to store relative key; keep full as fallback copy
+        if(/^https?:\/\//i.test(val)){
+          // both material-request-photos or legacy material-photos
+          const m = val.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+          if(m){
+            const bucket = m[1];
+            if(bucket === MR_BUCKET){
+              return m[2]; // relative key inside bucket
+            }
+          }
+          // If can't parse, store URL directly
+          return val;
+        }
+        return val;
+      };
+      if(rawBodyAttachments.length){
+        const normalized = rawBodyAttachments.map(normalizeKey).filter(Boolean);
+        attachments.push(...normalized);
+        console.log('[MR CREATE] Collected pre-upload attachments from body:', normalized);
+      } else {
+        console.log('[MR CREATE] No pre-upload attachment fields detected in body keys:', Object.keys(req.body||{}));
+      }
 
     if(!description || !description.trim()) {
       return res.status(400).json({ message: 'Description is required.' });
@@ -120,7 +163,6 @@ exports.createMaterialRequest = async (req, res) => {
       return res.status(429).json({ message: 'Duplicate submission detected. Please wait a moment.' });
     }
     recentCreateFingerprints.set(fp, now);
-    // Clean old entries occasionally
     if (recentCreateFingerprints.size > 200) {
       for (const [k,ts] of recentCreateFingerprints) if (now - ts > CREATE_DEBOUNCE_MS) recentCreateFingerprints.delete(k);
     }
@@ -129,28 +171,38 @@ exports.createMaterialRequest = async (req, res) => {
       return res.status(400).json({ message: 'Each material must have a unit.' });
     }
 
+    // Create the request FIRST so we can use its _id in the storage path (folder structure per request per project)
+    const newRequest = new MaterialRequest({
+        materials: materialsArray,
+        description,
+        attachments, // may already include pre-uploaded mobile URLs/keys
+        project,
+        createdBy: req.user.id,
+      });
+  await newRequest.save();
+  console.log('[MR CREATE] Initial request saved with attachments:', newRequest.attachments);
+
+  // Desired structure (per bucket view): <projectId>/material-requests/<file>
     if (req.files && req.files.length > 0) {
       for (const f of req.files) {
         const ext = path.extname(f.originalname) || '';
-        const key = `material-requests/${Date.now()}-${uuid()}${ext}`;
-  const { error: upErr } = await supabase.storage.from(MR_BUCKET).upload(key, f.buffer, { upsert:false, contentType: f.mimetype });
+        // Align with mobile pattern: material-requests/<userId>/<file>
+        const key = `material-requests/${req.user.id}/${Date.now()}-${uuid()}${ext}`;
+        const { error: upErr } = await supabase.storage.from(MR_BUCKET).upload(key, f.buffer, { upsert:false, contentType: f.mimetype });
         if (upErr) {
           console.error('[MR UPLOAD] Failed upload', f.originalname, upErr.message);
           continue; // skip failing file
         }
         attachments.push(key);
       }
+      if (attachments.length) {
+        newRequest.attachments = Array.from(new Set([...(newRequest.attachments||[]), ...attachments]));
+        await newRequest.save();
+        console.log('[MR CREATE] After file uploads, final attachments:', newRequest.attachments);
+      } else {
+        console.log('[MR CREATE] No server-side file uploads present');
+      }
     }
-
-    const newRequest = new MaterialRequest({
-      materials: JSON.parse(materials),
-      description,
-      attachments,
-      project,
-      createdBy: req.user.id,
-    });
-
-    await newRequest.save();
 
     const projectDoc = await Project.findById(project);
     const projectName = projectDoc ? projectDoc.projectName : 'Unknown Project';
@@ -245,7 +297,7 @@ exports.getMaterialRequestById = async (req, res) => {
 // ========== UPDATE MATERIAL REQUEST ==========
 exports.updateMaterialRequest = async (req, res) => {
   try {
-    const { materials, description, attachments } = req.body;
+  const { materials, description, attachments } = req.body;
     const materialsArray = JSON.parse(materials);
     const missingUnit = materialsArray.some(m => !m.unit || m.unit.trim() === '');
     let updatedAttachments = [];
@@ -255,14 +307,34 @@ exports.updateMaterialRequest = async (req, res) => {
     }
     try {
       updatedAttachments = JSON.parse(attachments || '[]');
-    } catch {
-      updatedAttachments = [];
+    } catch { updatedAttachments = Array.isArray(attachments)? attachments: []; }
+    if((!updatedAttachments || !updatedAttachments.length)){
+      for(const key of ['attachmentUrls','files','urls','photos']){
+        if(req.body[key]){
+          try { const arr = JSON.parse(req.body[key]); if(Array.isArray(arr)) { updatedAttachments = arr; break; } }
+          catch { if(Array.isArray(req.body[key])) { updatedAttachments = req.body[key]; break; } }
+        }
+      }
     }
+    const normalizeKey = (val)=>{
+      if(!val) return null;
+      if(/^https?:\/\//i.test(val)){
+        const m = val.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+        if(m && m[1] === MR_BUCKET) return m[2];
+        return val; // keep as-is if can't parse
+      }
+      return val;
+    };
+    updatedAttachments = updatedAttachments.map(normalizeKey).filter(Boolean);
+    // Fetch existing request to know its project for pathing
+    let existingForPath = null;
+    try { existingForPath = await MaterialRequest.findById(req.params.id).select('project'); } catch {}
+  const projectIdForPath = existingForPath?.project?.toString() || 'orphan'; // kept for potential future use
     if (req.files && req.files.length > 0) {
       for (const f of req.files) {
         const ext = path.extname(f.originalname) || '';
-        const key = `material-requests/${Date.now()}-${uuid()}${ext}`;
-  const { error: upErr } = await supabase.storage.from(MR_BUCKET).upload(key, f.buffer, { upsert:false, contentType: f.mimetype });
+        const key = `material-requests/${req.user.id}/${Date.now()}-${uuid()}${ext}`;
+        const { error: upErr } = await supabase.storage.from(MR_BUCKET).upload(key, f.buffer, { upsert:false, contentType: f.mimetype });
         if (upErr) {
           console.error('[MR UPDATE UPLOAD] Failed upload', f.originalname, upErr.message);
           continue;
@@ -270,6 +342,19 @@ exports.updateMaterialRequest = async (req, res) => {
         updatedAttachments.push(key);
       }
     }
+    // Normalize any provided attachment keys that are full public URLs
+    const PUBLIC_PREFIX = '/storage/v1/object/public/material-request-photos/';
+    updatedAttachments = updatedAttachments.map(k=>{
+      if(!k) return k;
+      if(k.startsWith('http')){
+        const idx = k.indexOf(PUBLIC_PREFIX);
+        if(idx!==-1) return k.slice(idx+PUBLIC_PREFIX.length);
+        // Legacy alternate bucket name typo handling
+        const alt = '/storage/v1/object/public/material-photos/';
+        const idx2 = k.indexOf(alt); if(idx2!==-1) return k.slice(idx2+alt.length);
+      }
+      return k;
+    });
     const updated = await MaterialRequest.findByIdAndUpdate(
       req.params.id,
       {
@@ -343,14 +428,100 @@ exports.getMaterialRequestAttachmentSignedUrls = async (req, res) => {
     const request = await MaterialRequest.findById(id);
     if (!request) return res.status(404).json({ message: 'Not found' });
     const output = [];
-    for (const a of request.attachments || []) {
-      // a is a storage key (path in bucket 'documents')
-  const { data, error } = await supabase.storage.from(MR_BUCKET).createSignedUrl(a, 60 * 10);
-      if (error) {
-        console.error('[MR SIGNED] failed for', a, error.message);
+  console.log('[MR SIGNED] Request attachments raw:', request.attachments);
+  const SUPABASE_PUBLIC_BASE = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+    const PUBLIC_PREFIX = SUPABASE_PUBLIC_BASE ? `${SUPABASE_PUBLIC_BASE}/storage/v1/object/public/${MR_BUCKET}/` : null;
+    const ALT_PUBLIC_PREFIX = SUPABASE_PUBLIC_BASE ? `${SUPABASE_PUBLIC_BASE}/storage/v1/object/public/${ALT_MR_BUCKET}/` : null;
+    // One-time normalization: convert stored full URLs (our bucket) into relative keys and persist
+  let mutated = false;
+  const originalMap = new Map();
+    if(PUBLIC_PREFIX){
+      const newAtt = (request.attachments||[]).map(a=>{
+        if(typeof a === 'string' && a.startsWith(PUBLIC_PREFIX)) { mutated = true; const rel=a.slice(PUBLIC_PREFIX.length); originalMap.set(rel,a); return rel; }
+        if(ALT_PUBLIC_PREFIX && typeof a==='string' && a.startsWith(ALT_PUBLIC_PREFIX)) { mutated = true; const rel=a.slice(ALT_PUBLIC_PREFIX.length); originalMap.set(rel,a); return rel; }
+        return a;
+      });
+      if(mutated){
+        request.attachments = newAtt;
+        try { await request.save(); console.log('[MR SIGNED] Normalized and saved attachment keys:', newAtt); }
+        catch(e){ console.warn('[MR SIGNED] Failed to save normalized attachments', e?.message); }
+      }
+    }
+    const buildAltCandidates = (raw)=>{
+      const set = new Set();
+      if(!raw) return [];
+      // original
+      set.add(raw);
+      // Remove any leading slash
+      if(raw.startsWith('/')) set.add(raw.slice(1));
+      const noBackslash = raw.replace(/\\/g,'/');
+      set.add(noBackslash);
+      // If raw contains full domain, strip to after bucket markers (already handled but re-add)
+      const domainMatch = noBackslash.match(/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+      if(domainMatch){ set.add(domainMatch[2]); }
+      // If path includes projectId/material-requests/... try with and without projectId
+      const projStrip = noBackslash.replace(/^[^/]+\/material-requests\//,'material-requests/');
+      set.add(projStrip);
+      // If it already has material-requests/<user>/file try collapsing user folder
+      const parts = noBackslash.split('/');
+      if(parts.length>=3 && parts[0]==='material-requests'){
+        set.add(`material-requests/${parts[parts.length-1]}`);
+      }
+      // Generate tail combinations (take last 2 segments)
+      if(parts.length>2){
+        const last2 = parts.slice(-2).join('/');
+        set.add(last2);
+        set.add(`material-requests/${last2}`);
+      }
+      // Replace underscores vs hyphens in first segment
+      set.add(noBackslash.replace(/material[_]requests/,'material-requests'));
+      set.add(noBackslash.replace(/material[-]requests/,'material-requests'));
+      // Remove duplicate 'material-requests/material-requests'
+      set.add(noBackslash.replace(/material-requests\/material-requests\//,'material-requests/'));
+      return Array.from(set).filter(Boolean);
+    };
+    for (let originalKey of request.attachments || []) {
+      let a = originalKey; const originalFull = originalMap.get(a) || null;
+      // After normalization above, any full bucket URL should already be relative. Only handle external full URLs now.
+      if(/^https?:\/\//i.test(a)){
+        output.push({ key: a, signedUrl: a, external:true });
         continue;
       }
-      output.push({ key: a, signedUrl: data?.signedUrl });
+      // Primary attempt
+  let { data, error } = await supabase.storage.from(MR_BUCKET).createSignedUrl(a, 60 * 10);
+      if (!error) {
+        output.push({ key: a, signedUrl: data?.signedUrl, bucket: MR_BUCKET, originalFull });
+        continue;
+      }
+      // Build exhaustive alt candidates
+      const altKeys = buildAltCandidates(a);
+  console.log('[MR SIGNED] Primary failed for', a, 'trying candidates:', altKeys);
+      const tried = new Set([a]);
+      let success = false; let finalKey = a; let finalUrl = null; let finalBucket = MR_BUCKET;
+      for(const alt of altKeys){
+        if(tried.has(alt)) continue; tried.add(alt);
+        const r = await supabase.storage.from(MR_BUCKET).createSignedUrl(alt, 60 * 10);
+        if(!r.error){ success = true; finalKey = alt; finalUrl = r.data?.signedUrl; break; }
+      }
+      if(!success){
+        // try alternate bucket
+        for(const alt of altKeys){
+          if(tried.has('ALT:'+alt)) continue; tried.add('ALT:'+alt);
+          const r2 = await supabase.storage.from(ALT_MR_BUCKET).createSignedUrl(alt, 60 * 10);
+          if(!r2.error){ success = true; finalKey = alt; finalUrl = r2.data?.signedUrl; finalBucket = ALT_MR_BUCKET; break; }
+        }
+      }
+      if(!success){
+        console.error('[MR SIGNED] still failed for', a, 'candidates tried', Array.from(tried));
+        // Fallback: if we can construct a public URL (bucket might actually exist in mobile project), attempt to return a guess
+        if(SUPABASE_PUBLIC_BASE && !/^https?:\/\//i.test(originalKey)){
+          const guessUrl = `${SUPABASE_PUBLIC_BASE}/storage/v1/object/public/${MR_BUCKET}/${a}`;
+          output.push({ key: a, signedUrl: guessUrl, bucket: MR_BUCKET, guessed:true });
+          console.warn('[MR SIGNED] Provided guessed public URL for', a);
+        }
+        continue;
+      }
+  output.push({ key: finalKey, signedUrl: finalUrl, bucket: finalBucket, original: originalKey, originalFull });
     }
     res.json(output);
   } catch (e) {

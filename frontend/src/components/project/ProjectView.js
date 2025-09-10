@@ -135,7 +135,8 @@ export default function ProjectView(props) {
     { to: basePath, icon:<FaTachometerAlt/>, label:'Dashboard' },
     { to: `${basePath}/chat`, icon:<FaComments/>, label:'Chat' },
     { to: `${basePath}/request/:id`, icon:<FaBoxes/>, label:'Material' },
-    { to: `${basePath}/manpower-list`, icon:<FaUsersNav/>, label:'Manpower' },
+    // Exclude Manpower tab for Area Manager per request
+    ...(role === 'am' ? [] : [{ to: `${basePath}/manpower-list`, icon:<FaUsersNav/>, label:'Manpower' }]),
     { to: viewProjectPathMap[role] || `${basePath}/viewprojects/${id}`, icon:<FaProjectDiagram/>, label:'View Project', active:true },
     // Legacy nav items (Logs / Reports / Daily Logs) intentionally omitted for PM when using unified header
     ...(!useUnifiedHeader ? [
@@ -245,7 +246,7 @@ useEffect(() => {
   useEffect(()=>{ if(!project?._id || (activeTab!=='Discussions' && activeTab!=='Reports')) return; const controller=new AbortController(); setLoadingMsgs(true); api.get(`/projects/${project._id}/discussions`,{ headers:{Authorization:`Bearer ${token}`}, signal:controller.signal }).then(res=>{ const list=Array.isArray(res.data)?[...res.data].sort((a,b)=> new Date(a.timestamp||0)-new Date(b.timestamp||0)):[]; setMessages(list); }).catch(()=> setMessages([])).finally(()=> setLoadingMsgs(false)); return ()=> controller.abort(); },[project?._id,activeTab,token]);
   // Initialize collapsed state for messages with 3+ replies (only once per message)
   useEffect(()=>{ if(!messages.length) return; setCollapsedReplies(prev=>{ const next={...prev}; let changed=false; messages.forEach(m=>{ const rc=Array.isArray(m.replies)?m.replies.length:0; if(rc>=3 && typeof next[m._id]==='undefined'){ next[m._id]=true; changed=true; } }); return changed?next:prev; }); },[messages]);
-  const fetchReports=async(pid=project?._id)=>{ if(!pid) return; try { const {data}=await api.get(`/projects/${pid}/reports`,{ headers:{Authorization:`Bearer ${token}`}}); const list=data?.reports||[]; setReports(list); if(!list.length){ console.info('[ProjectView] No reports for project', pid, 'role', role); return; } const sorted=[...list].sort((a,b)=> new Date(b.uploadedAt||0)-new Date(a.uploadedAt||0)); const byUser=new Map(); for(const rep of sorted){ const key=rep.uploadedBy||rep.uploadedByName||rep._id; if(!byUser.has(key)) byUser.set(key,rep);} const distinct=[...byUser.values()]; let vals=distinct.map(r=> Number(r?.ai?.pic_contribution_percent)).filter(v=> isFinite(v)&&v>=0); if(!vals.length){ vals=distinct.map(r=>{ const done=r?.ai?.completed_tasks?.length||0; const total=done+(r?.ai?.summary_of_work_done?.length||0); return total>0?(done/total)*100:0; }); } if(vals.length){ const avg=vals.reduce((s,v)=> s+v,0)/vals.length; const avgClamped=Number(Math.min(100,Math.max(0,avg)).toFixed(1)); setProgress(avgClamped); setPicContributions({ averageContribution:Number(avg.toFixed(1)), picContributions:distinct.map(r=> ({ picId:r.uploadedBy||r._id, picName:r.uploadedByName||'Unknown', contribution:Math.round(Number(r?.ai?.pic_contribution_percent)||0), hasReport:true, lastReportDate:r.uploadedAt||null })), totalPics:distinct.length, reportingPics:distinct.length, pendingPics:0 }); } } catch (e){ console.error('[ProjectView] fetchReports failed', e); setReports([]);} };
+  const fetchReports=async(pid=project?._id)=>{ if(!pid) return; try { const {data}=await api.get(`/projects/${pid}/reports`,{ headers:{Authorization:`Bearer ${token}`}}); const list=data?.reports||[]; setReports(list); if(!list.length){ console.info('[ProjectView] No reports for project', pid, 'role', role); return; } const sorted=[...list].sort((a,b)=> new Date(b.uploadedAt||0)-new Date(a.uploadedAt||0)); const byUser=new Map(); for(const rep of sorted){ const key=rep.uploadedBy||rep.uploadedByName||rep._id; if(!byUser.has(key)) byUser.set(key,rep);} const distinct=[...byUser.values()]; let vals=distinct.map(r=> Number(r?.ai?.pic_contribution_percent)).filter(v=> isFinite(v)&&v>=0); if(!vals.length){ vals=distinct.map(r=>{ const done=r?.ai?.completed_tasks?.length||0; const total=done+(r?.ai?.summary_of_work_done?.length||0); return total>0?(done/total)*100:0; }); } if(vals.length){ const avg=vals.reduce((s,v)=> s+v,0)/vals.length; const avgClamped=Number(Math.min(100,Math.max(0,avg)).toFixed(1)); setProgress(avgClamped); const assignedPics = Array.isArray(project?.pic)? project.pic : []; const totalAssigned = assignedPics.length || distinct.length; setPicContributions({ averageContribution:Number(avg.toFixed(1)), picContributions:distinct.map(r=> ({ picId:r.uploadedBy||r._id, picName:r.uploadedByName||'Unknown', contribution:Math.round(Number(r?.ai?.pic_contribution_percent)||0), hasReport:true, lastReportDate:r.uploadedAt||null })), totalPics:totalAssigned, reportingPics:distinct.length, pendingPics:Math.max(totalAssigned - distinct.length,0) }); } } catch (e){ console.error('[ProjectView] fetchReports failed', e); setReports([]);} };
   const completionPreconditionsMet = React.useMemo(()=>{
     if(!project) return false;
     const docCount = Array.isArray(project.documents)? project.documents.length : 0;
@@ -916,9 +917,9 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                         >
                           {Math.round(progress)}%
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', alignSelf:'stretch' }}>
                           <div
-                            style={{ height: 14, background: '#1e293b', borderRadius: 10, position: 'relative' }}
+                            style={{ height: 14, background: '#1e293b', borderRadius: 10, position: 'relative', width: '100%', minWidth:'100%' }}
                             aria-label={`Overall progress ${Math.round(progress)}%`}
                             role="progressbar"
                             aria-valuenow={Math.round(progress)}
@@ -939,9 +940,9 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                           <small style={{ opacity: 0.8 }}>Average across all PiCs</small>
                         </div>
                         {picContributions && (
-                          <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
                             <div style={{ fontSize: 12, letterSpacing: 0.5, opacity: 0.85 }}>Reporting Coverage</div>
-                            <div style={{ display: 'flex', gap: 6 }}>
+                            <div style={{ display: 'flex', gap: 6, width: '100%' }}>
                               {Array.from({ length: picContributions.totalPics }).map((_, i) => (
                                 <div
                                   key={i}

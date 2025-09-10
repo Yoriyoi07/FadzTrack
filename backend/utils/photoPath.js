@@ -3,7 +3,8 @@ function getPhotoPath(type, id, originalName) {
   if (type === 'project') {
     return `project-photos/project-${id}/${timestamp}_${originalName}`;
   } else if (type === 'material-request') {
-    return `material-request-photos/request-${id}/${timestamp}_${originalName}`;
+    // New standard: material-requests/<userId>/<timestamp>_<original>
+    return `material-requests/${id}/${timestamp}_${originalName}`; // here 'id' should be caller-provided userId
   }
   throw new Error('Invalid type');
 }

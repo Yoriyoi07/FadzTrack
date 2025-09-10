@@ -6,6 +6,8 @@ const notificationController = require('../controllers/notificationController');
 router.post('/', verifyToken, notificationController.createNotification);
 router.get('/', verifyToken, notificationController.getNotifications);
 router.post('/mark-read', verifyToken, notificationController.markRead);
+// Allow PATCH as well for clients using semantic partial updates
+router.patch('/mark-read', verifyToken, notificationController.markRead);
 router.patch('/mark-all-read', verifyToken, notificationController.markAllRead);
 
 // Temporary test route (no auth) to create a notification for debugging
