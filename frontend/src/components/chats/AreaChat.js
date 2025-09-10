@@ -487,6 +487,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   const onReceive = (msg) => {
       const { text, attachments } = normalizeIncoming(msg);
       // update list preview + reorder
+      console.log('Debug: onReceive message', msg);
       const tsNum = typeof msg.timestamp === 'number' ? msg.timestamp : (msg.timestamp ? Date.parse(msg.timestamp) : Date.now());
       setChatList(list => {
         let found = false;
@@ -531,6 +532,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
             attachments,
             replyTo: msg.replyTo || null,
             forwardOf: msg.forwardOf || null,
+            senderId: msg.sender || msg.senderId || null,
           }];
         });
 
@@ -720,6 +722,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
           attachments: m.attachments || [],
           replyTo: m.replyTo || null,
           forwardOf: m.forwardOf || null,
+          senderId: m.senderId || (m.sender && m.sender._id) || null,
         }));
         setMessages(() => norm);
         norm.filter(m => !m.isOwn).forEach(m => {
@@ -895,6 +898,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
             attachments: m.attachments || [],
     replyTo: m.replyTo || null,
     forwardOf: m.forwardOf || null,
+  senderId: m.senderId || (m.sender && m.sender._id) || null,
           }));
           // After sending we want the server's canonical set (with attachment URLs).
           // Replace the current messages for this chat with the normalized server result.
@@ -1355,6 +1359,24 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                     return hasText || hasAttachments;
                   })
                   .map((msg, idx) => {
+                        // Determine if we need to show sender name (group chats, not own message, and previous message different sender)
+                        let showSenderName = false;
+                        let senderName = '';
+                        if (selectedChat.isGroup && !msg.isOwn) {
+                          const prev = dedupedMessages[idx - 1];
+                          const prevSender = prev ? (prev.senderId || (prev.isOwn ? userId : prev.senderId)) : null;
+                          const thisSender = msg.senderId || (msg.isOwn ? userId : msg.senderId);
+                          showSenderName = !prev || prevSender !== thisSender;
+                          if (msg.senderId) {
+                            // find user in chat list or selectedChat users
+                            const u = (selectedChat.users || []).find(u => u._id === msg.senderId);
+                            if (u) senderName = getDisplayName(u);
+                          }
+                          if (!senderName && msg.forwardOf && msg.forwardOf?.senderId) {
+                            const u2 = (selectedChat.users || []).find(u => u._id === msg.forwardOf.senderId);
+                            if (u2) senderName = getDisplayName(u2);
+                          }
+                        }
                         const counts = msg.reactions.reduce((a, r) => { a[r.emoji] = (a[r.emoji] || 0) + 1; return a; }, {});
                         const isLastOwn = msg.isOwn && idx === messages.length - 1;
                         const seenByRecipient = isLastOwn && msg.seen?.length > 0;
@@ -1377,6 +1399,9 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                         const bubbleMax = isVeryLongUnbroken ? 420 : 560; // narrower for unbroken
                         return (
                           <div key={`${String(msg._id)}-${idx}`} data-msg-index={idx} className={`modern-message-wrapper ${msg.isOwn ? 'own' : 'other'} ${searchMatches.includes(idx) ? 'search-hit' : ''}`}>
+                            {showSenderName && senderName && (
+                              <div className="group-sender-label" style={{ fontSize:11, fontWeight:600, margin: msg.isOwn ? '0 8px 2px auto' : '0 0 2px 4px', color:'#374151' }}>{senderName}</div>
+                            )}
                             <div className={`modern-message ${msg.isOwn ? 'own' : 'other'}`}
                                  style={{maxWidth: bubbleMax, width:'fit-content', wordBreak: isVeryLongUnbroken ? 'break-all' : 'break-word', overflowWrap:'anywhere'}}>
                               <div className="modern-message-content">
