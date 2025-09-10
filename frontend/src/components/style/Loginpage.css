@@ -54,15 +54,27 @@ body {
     rgba(0, 10, 60, 0.5) 75%, 
     rgba(0, 5, 35, 0.6) 100%);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 2rem;
+  padding: 25vh 2rem 0 2rem;
 }
 
 .left-content {
   text-align: center;
   color: white;
   max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.left-company-logo {
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+  margin-bottom: 0.5rem;
 }
 
 .welcome-text {
@@ -467,6 +479,15 @@ body {
     padding: 1rem;
   }
   
+  .left-overlay {
+    padding: 20vh 1rem 0 1rem;
+  }
+  
+  .left-company-logo {
+    width: 120px;
+    height: 120px;
+  }
+  
   .welcome-text {
     font-size: 1.25rem;
   }
@@ -517,8 +538,13 @@ body {
     min-height: 30vh;
   }
   
+  .left-company-logo {
+    width: 100px;
+    height: 100px;
+  }
+  
   .left-overlay {
-    padding: 1rem;
+    padding: 15vh 1rem 0 1rem;
   }
   
   .welcome-text {

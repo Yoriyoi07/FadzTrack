@@ -7,8 +7,10 @@ import { FaEye, FaEyeSlash, FaEnvelope, FaLock } from "react-icons/fa";
 import "./style/Loginpage.css";
 import backgroundImage from "../assets/images/login_picture.png";
 import TwoFactorAuth from "./TwoFactorAuth";
-// Using company logo from public folder
-const FadzLogo = "/images/Fadz-logo.png";
+// Company logo - FADZ CONSTRUCTION INCORPORATED logo
+const FadzLogo = "/images/fadz-company-logo.png";
+// App logo - Abstract app logo with red base and blue elements
+const AppLogo = "/images/fadz-app-logo.png";
 
 const LoginPage = ({ forceUserUpdate }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -224,6 +226,7 @@ const LoginPage = ({ forceUserUpdate }) => {
       <div className="login-left" style={{ backgroundImage: `url(${backgroundImage})` }}>
         <div className="left-overlay">
           <div className="left-content">
+            <img src={FadzLogo} alt="Fadz Company Logo" className="left-company-logo" />
             <h2 className="welcome-text">Welcome to</h2>
             <h1 className="brand-text">FadzTrack</h1>
             <p className="tagline">Streamline your project management workflow</p>
@@ -234,7 +237,7 @@ const LoginPage = ({ forceUserUpdate }) => {
       <div className="login-right">
         <div className="login-form-container">
           <div className="logo-section">
-            <img src={FadzLogo} alt="Fadz Logo" className="right-logo" />
+            <img src={AppLogo} alt="FadzTrack App Logo" className="right-logo" />
             <h1 className="app-title">FadzTrack</h1>
             <p className="app-subtitle">Sign in to your account</p>
           </div>
