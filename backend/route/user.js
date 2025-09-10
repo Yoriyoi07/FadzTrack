@@ -17,7 +17,7 @@ router.use(verifyToken);
 router.get('/', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit, 10);
-    let query = User.find().select('name email _id');
+  let query = User.find().select('name email role _id');
     if (!isNaN(limit) && limit > 0) {
       query = query.limit(limit);
     }
@@ -47,7 +47,7 @@ router.get('/search', async (req, res) => {
         { email: regex }
       ]
     })
-      .select('name email _id');
+  .select('name email role _id');
 
     return res.json(users);
   } catch (err) {

@@ -66,9 +66,21 @@ export default function ItProjects(){
   const [validationErrors,setValidationErrors]=useState([]);
   const [docFiles,setDocFiles]=useState([]);
   const [photoFiles,setPhotoFiles]=useState([]);
-  const [areasByManager,setAreasByManager]=useState({});
+  // Preview URLs for selected initial files (create mode)
+  const [photoPreviews,setPhotoPreviews]=useState([]); // [{name,url,file}]
+  const [docPreviews,setDocPreviews]=useState([]);     // [{name,ext,file}]
+  const [areasByManager,setAreasByManager]=useState({}); // retained in case future use, but Area selection removed
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  // Area-style assignment UI states
+  const [assignedPICs,setAssignedPICs]=useState([]);
+  const [searchPIC,setSearchPIC]=useState('');
+  const [assignedStaff,setAssignedStaff]=useState([]);
+  const [searchStaff,setSearchStaff]=useState('');
+  const [assignedHR,setAssignedHR]=useState([]);
+  const [searchHR,setSearchHR]=useState('');
+  const [assignedManpower,setAssignedManpower]=useState([]);
+  const [searchManpower,setSearchManpower]=useState('');
   
   // CSV functionality
   const [csvError, setCsvError] = useState('');
@@ -118,6 +130,41 @@ export default function ItProjects(){
   const [sortOrder, setSortOrder] = useState('asc');
   const [page,setPage]=useState(1); // pagination current page (unified layout)
   const [pageSize,setPageSize]=useState(12);
+  // Compute which users are already assigned in active projects so we can limit selection to unassigned
+  const assignedSets = useMemo(()=>{
+    const s={ pm:new Set(), am:new Set(), pic:new Set(), staff:new Set(), hr:new Set() };
+    projects.forEach(p=>{
+      if(p.projectmanager) s.pm.add(String(p.projectmanager._id||p.projectmanager));
+      if(p.areamanager) s.am.add(String(p.areamanager._id||p.areamanager));
+      (p.pic||[]).forEach(u=> s.pic.add(String(u._id||u)));
+      (p.staff||[]).forEach(u=> s.staff.add(String(u._id||u)));
+      (p.hrsite||[]).forEach(u=> s.hr.add(String(u._id||u)));
+    });
+    return s;
+  },[projects]);
+  const availableRoleUsers = useMemo(()=>{
+    const out={};
+    Object.entries(usersByRole).forEach(([role,list])=>{
+      let setRef=null;
+      if(role==='Project Manager') setRef=assignedSets.pm;
+      else if(role==='Area Manager') setRef=assignedSets.am;
+      else if(role==='Person in Charge') setRef=assignedSets.pic;
+      else if(role==='Staff') setRef=assignedSets.staff;
+      else if(role==='HR - Site') setRef=assignedSets.hr;
+      if(!setRef){ out[role]=list; return; }
+      // Keep currently selected items when editing
+      const keepIds=new Set();
+      if(editingId){
+        if(role==='Project Manager' && formData.projectmanager) keepIds.add(formData.projectmanager);
+        if(role==='Area Manager' && formData.areamanager) keepIds.add(formData.areamanager);
+        if(role==='Person in Charge') formData.pic.forEach(id=>keepIds.add(id));
+        if(role==='Staff') formData.staff.forEach(id=>keepIds.add(id));
+        if(role==='HR - Site') formData.hrsite.forEach(id=>keepIds.add(id));
+      }
+      out[role]= (list||[]).filter(u=> !setRef.has(String(u._id)) || keepIds.has(String(u._id)) );
+    });
+    return out;
+  },[usersByRole,assignedSets,editingId,formData.projectmanager,formData.areamanager,formData.pic,formData.staff,formData.hrsite]);
 
   useEffect(()=>{
     if(user?.role!== 'IT'){ setError('Forbidden'); setLoading(false); return; }
@@ -135,7 +182,8 @@ export default function ItProjects(){
     try{ 
       const [locRes, usersRes, areasRes]= await Promise.all([
         api.get('/locations'), 
-        api.get('/auth/Users'),
+        // Correct users endpoint (was /auth/Users which doesn't exist)
+        api.get('/users'),
         api.get('/areas')
       ]); 
       setAllLocations(locRes.data||[]); 
@@ -155,10 +203,12 @@ export default function ItProjects(){
       setUserLookup(lookup);
       
       // Group areas by area manager
-      const areasByAM = {};
+  const areasByAM = {};
       (areasRes.data || []).forEach(area => {
+        if(!area || !area._id) return;
         if (area.areaManager) {
-          const amId = area.areaManager._id || area.areaManager;
+          const amIdRaw = area.areaManager._id || area.areaManager;
+          const amId = String(amIdRaw);
           if (!areasByAM[amId]) areasByAM[amId] = [];
           areasByAM[amId].push(area);
         }
@@ -166,7 +216,24 @@ export default function ItProjects(){
       setAreasByManager(areasByAM);
     }catch(e){console.error(e);} 
   }
-  async function fetchManpower(){ try{ const {data}=await api.get('/manpower'); setAllManpower(Array.isArray(data)?data:[]);}catch{} }
+  async function fetchManpower(){
+    try{
+      const {data}=await api.get('/manpower/unassigned');
+      setAllManpower(Array.isArray(data)?data:[]);
+    }catch(e){console.error('Failed to load manpower',e);}
+  }
+
+  // Build/revoke object URLs for photo previews
+  useEffect(()=>{
+    const urls = photoFiles.map(f=>({ name:f.name, url:URL.createObjectURL(f), file:f }));
+    setPhotoPreviews(urls);
+    return ()=>{ urls.forEach(p=> URL.revokeObjectURL(p.url)); };
+  },[photoFiles]);
+  // Build doc preview metadata (no heavy rendering, just extension box)
+  useEffect(()=>{
+    const docs = docFiles.map(f=>({ name:f.name, ext:(f.name.split('.').pop()||'').toUpperCase(), file:f }));
+    setDocPreviews(docs);
+  },[docFiles]);
 
   // CSV upload for manpower
   const handleCSVUpload = (e) => {
@@ -318,7 +385,46 @@ export default function ItProjects(){
   };
 
   function openCreate(){ setEditingId(null); setFormData(emptyForm); setShowForm(true); }
-  function openEdit(p){ setEditingId(p._id); setFormData({ projectName:p.projectName||'', contractor:p.contractor||'', budget:p.budget??'', location:p.location?._id||'', startDate:p.startDate? new Date(p.startDate).toISOString().slice(0,10):'', endDate:p.endDate? new Date(p.endDate).toISOString().slice(0,10):'', status:p.status||'Ongoing', projectmanager:p.projectmanager?._id||'', areamanager:p.areamanager?._id||'', area:p.area?._id||'', pic:(p.pic||[]).map(x=>String(x._id||x)), staff:(p.staff||[]).map(x=>String(x._id||x)), hrsite:(p.hrsite||[]).map(x=>String(x._id||x)), manpower:(p.manpower||[]).map(x=>String(x._id||x)) }); setShowForm(true); }
+  function openEdit(p){ 
+    setEditingId(p._id); 
+    const newForm={ 
+      projectName:p.projectName||'', 
+      contractor:p.contractor||'', 
+      budget:p.budget??'', 
+      location:p.location?._id? String(p.location._id):'', 
+      startDate:p.startDate? new Date(p.startDate).toISOString().slice(0,10):'', 
+      endDate:p.endDate? new Date(p.endDate).toISOString().slice(0,10):'', 
+      status:p.status||'Ongoing', 
+      projectmanager:p.projectmanager?._id? String(p.projectmanager._id):'', 
+  areamanager:p.areamanager?._id? String(p.areamanager._id):'', 
+  area:p.area?._id? String(p.area._id):'', // kept in data model but no longer shown/required
+      pic:(p.pic||[]).map(x=>String(x._id||x)), 
+      staff:(p.staff||[]).map(x=>String(x._id||x)), 
+      hrsite:(p.hrsite||[]).map(x=>String(x._id||x)), 
+      manpower:(p.manpower||[]).map(x=>String(x._id||x)) 
+    };
+    setFormData(newForm); 
+    // hydrate assignment lists with user objects (fallback to id/name via lookup)
+    const idToObj=(id)=>{ 
+      for(const role in usersByRole){ const arr=usersByRole[role]||[]; const found=arr.find(u=>String(u._id)===String(id)); if(found) return found; }
+      return {_id:id, name:userLookup[id]||id};
+    };
+    setAssignedPICs(newForm.pic.map(idToObj));
+    setAssignedStaff(newForm.staff.map(idToObj));
+    setAssignedHR(newForm.hrsite.map(idToObj));
+    // manpower objects
+    setAssignedManpower((p.manpower||[]).map(m=> ({ _id:String(m._id||m), name:m.name||m._id||m, position:m.position||'' })));
+    // Merge current project's manpower into allManpower so MultiBox can resolve names
+    try {
+      const projectManpower = (p.manpower||[]).map(m=> ({ _id:String(m._id||m), name:m.name||m._id||m, position:m.position||'' }));
+      setAllManpower(prev => {
+        const map = new Map(prev.map(x=> [String(x._id), x]));
+        projectManpower.forEach(x=> { if(!map.has(x._id)) map.set(x._id, x); });
+        return Array.from(map.values());
+      });
+    } catch(_) {}
+    setShowForm(true); 
+  }
   function handleChange(e){ 
     const {name,value,multiple,options}=e.target; 
     if(multiple){ 
@@ -327,11 +433,10 @@ export default function ItProjects(){
     } else { 
       setFormData(f=>({...f,[name]:value})); 
       // Clear area when area manager changes
-      if(name === 'areamanager') {
-        setFormData(f=>({...f,[name]:value, area: ''}));
-      }
+    // When area manager changes we previously cleared area; Area field now hidden so ignore.
     } 
   }
+  // Removed auto-select area logic (Area field hidden for IT create/edit)
   function validate(form){ 
     const errs=[]; 
     if(!form.projectName.trim()) errs.push('Project name is required'); 
@@ -341,8 +446,8 @@ export default function ItProjects(){
     if(!form.endDate) errs.push('End date is required'); 
     if(form.startDate && form.endDate && new Date(form.startDate) > new Date(form.endDate)) errs.push('Start date must be before end date'); 
     if(!form.projectmanager) errs.push('Project Manager is required');
-    if(!form.areamanager) errs.push('Area Manager is required');
-    if(!form.area) errs.push('Area is required');
+  if(!form.areamanager) errs.push('Area Manager is required');
+  // Area no longer required/visible for IT
     if(!form.pic || form.pic.length === 0) errs.push('At least one PIC is required');
     if(!form.staff || form.staff.length === 0) errs.push('At least one Staff member is required');
     if(!form.hrsite || form.hrsite.length === 0) errs.push('At least one HR-Site member is required');
@@ -359,10 +464,16 @@ export default function ItProjects(){
       return; 
     } 
     try{ 
-      const payload={...formData}; 
+  const payload={...formData}; 
+  // Always use current formData arrays; assigned* state not source of truth
+  payload.pic = [...formData.pic];
+  payload.staff = [...formData.staff];
+  payload.hrsite = [...formData.hrsite];
+  payload.manpower = [...formData.manpower];
+  if(editingId){ try { console.log('[IT Edit] Update payload', payload); } catch(_) {} }
       if(payload.budget==='') delete payload.budget; 
       else payload.budget=Number(payload.budget); 
-      ['projectmanager','areamanager','area'].forEach(k=>{ if(!payload[k]) delete payload[k]; }); 
+  ['projectmanager','areamanager','area'].forEach(k=>{ if(!payload[k]) delete payload[k]; }); // area will drop if blank
       
       let createdProject;
       if(!editingId && (docFiles.length||photoFiles.length)){ 
@@ -677,8 +788,9 @@ export default function ItProjects(){
           <div className="modal-card large" style={{maxWidth:900}}>
             <h2 style={{marginTop:0}}>{editingId?'Edit Project':'Create Project'}</h2>
             {validationErrors.length>0 && <div className="alert error" style={{marginBottom:'0.5rem'}}>{validationErrors.map((er,i)=><div key={i}>{er}</div>)}</div>}
-            <form onSubmit={submitForm} className="grid-2col gap-md" style={{maxHeight:'70vh',overflow:'auto',paddingRight:8}}>
-              <fieldset className="section">
+            <form onSubmit={submitForm} className="grid-2col gap-md" style={{maxHeight:'70vh',overflow:'auto',paddingRight:8,gridTemplateColumns: editingId? '1fr 1fr' : '1fr 1fr 1fr'}}>
+              {/* Left: Core (row 1, col 1) */}
+              <fieldset className="section" style={{gridColumn:'1 / 2'}}>
                 <legend>Core</legend>
                 <label>Project Name<input name="projectName" value={formData.projectName} onChange={handleChange} required/></label>
                 <label>Contractor<input name="contractor" value={formData.contractor} onChange={handleChange}/></label>
@@ -688,34 +800,35 @@ export default function ItProjects(){
                 <label>Start Date<input name="startDate" type="date" value={formData.startDate} onChange={handleChange} required/></label>
                 <label>End Date<input name="endDate" type="date" value={formData.endDate} onChange={handleChange} required/></label>
               </fieldset>
-              <fieldset className="section">
+              {/* Right: Assignments (row 1, col 2) */}
+              <fieldset className="section" style={{gridColumn:'2 / 3'}}>
                 <legend>Assignments</legend>
-                <label>Project Manager<select name="projectmanager" value={formData.projectmanager} onChange={handleChange}><option value="">-- none --</option>{(usersByRole['Project Manager']||[]).map(u=> <option key={u._id} value={u._id}>{u.name}</option>)}</select></label>
-                <label>Area Manager<select name="areamanager" value={formData.areamanager} onChange={handleChange}><option value="">-- none --</option>{(usersByRole['Area Manager']||[]).map(u=> <option key={u._id} value={u._id}>{u.name}</option>)}</select></label>
-                <label>Area<select name="area" value={formData.area} onChange={handleChange} required><option value="">-- select area --</option>{formData.areamanager && areasByManager[formData.areamanager] ? areasByManager[formData.areamanager].map(area=> <option key={area._id} value={area._id}>{area.name}</option>) : []}</select></label>
-                <label>PIC(s)<MultiBox name="pic" values={formData.pic} options={usersByRole['Person in Charge']||[]} userLookup={userLookup} onChange={vals=>setFormData(f=>({...f,pic:vals}))}/></label>
-                <label>Staff<MultiBox name="staff" values={formData.staff} options={usersByRole['Staff']||[]} userLookup={userLookup} onChange={vals=>setFormData(f=>({...f,staff:vals}))}/></label>
-                <label>HR - Site<MultiBox name="hrsite" values={formData.hrsite} options={usersByRole['HR - Site']||[]} userLookup={userLookup} onChange={vals=>setFormData(f=>({...f,hrsite:vals}))}/></label>
-                <label>
-                  Manpower
+                <label>Project Manager<select name="projectmanager" value={formData.projectmanager} onChange={handleChange}><option value="">-- none --</option>{(availableRoleUsers['Project Manager']||[]).map(u=> <option key={u._id} value={u._id}>{u.name}</option>)}</select></label>
+                <label>Area Manager<select name="areamanager" value={formData.areamanager} onChange={handleChange}><option value="">-- none --</option>{(availableRoleUsers['Area Manager']||[]).map(u=> <option key={u._id} value={u._id}>{u.name}</option>)}</select></label>
+                {/* Area selection removed per request */}
+                <label>PIC(s)<MultiBox name="pic" values={formData.pic} options={availableRoleUsers['Person in Charge']||[]} userLookup={userLookup} onChange={vals=>setFormData(f=>({...f,pic:vals}))}/></label>
+                <label>Staff<MultiBox name="staff" values={formData.staff} options={availableRoleUsers['Staff']||[]} userLookup={userLookup} onChange={vals=>setFormData(f=>({...f,staff:vals}))}/></label>
+                <label>HR - Site<MultiBox name="hrsite" values={formData.hrsite} options={availableRoleUsers['HR - Site']||[]} userLookup={userLookup} onChange={vals=>setFormData(f=>({...f,hrsite:vals}))}/></label>
+                <div style={{marginBottom:12}}>
+                  <label htmlFor="manpower-multibox" style={{display:'block',fontWeight:500,marginBottom:4}}>Manpower</label>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                    <input 
-                      id="csvUpload" 
-                      type="file" 
-                      accept=".csv" 
-                      style={{ display: 'none' }} 
-                      onChange={handleCSVUpload} 
+                    <input
+                      id="csvUpload"
+                      type="file"
+                      accept=".csv"
+                      style={{ display: 'none' }}
+                      onChange={handleCSVUpload}
                     />
-                    <button 
-                      type="button" 
-                      onClick={() => document.getElementById('csvUpload').click()} 
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('csvUpload').click()}
                       disabled={csvUploading}
-                      style={{ 
-                        padding: '4px 8px', 
-                        fontSize: '12px', 
-                        backgroundColor: '#3b82f6', 
-                        color: 'white', 
-                        border: 'none', 
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '12px',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
                         borderRadius: '4px',
                         cursor: csvUploading ? 'not-allowed' : 'pointer',
                         opacity: csvUploading ? 0.6 : 1
@@ -723,18 +836,18 @@ export default function ItProjects(){
                     >
                       {csvUploading ? 'Uploading...' : 'Import CSV'}
                     </button>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => {
                         const mode = editingId ? 'Edit' : 'Create';
                         alert(`CSV Format for ${mode} Project:\n\nRequired columns:\n- Name (required)\n- Position (required)\n\nOptional columns:\n- Status (defaults to "Active" for Edit, must be "unassigned" for Create)\n- Project (must be empty for Create mode)\n\nRules:\n• ${editingId ? 'New manpower will be added to existing project roster' : 'All persons must have status "unassigned" and no project assignments'}\n• Duplicate names/positions are not allowed\n• New manpower will be created and assigned to this project\n\nExample:\nName,Position,Status,Project\nJohn Doe,Engineer,${editingId ? 'Active' : 'unassigned'},\nJane Smith,Manager,${editingId ? 'Active' : 'unassigned'},\nMike Johnson,Technician,${editingId ? 'Active' : 'unassigned'},`);
                       }}
-                      style={{ 
-                        padding: '4px 8px', 
-                        fontSize: '12px', 
-                        backgroundColor: '#17a2b8', 
-                        color: 'white', 
-                        border: 'none', 
+                      style={{
+                        padding: '4px 8px',
+                        fontSize: '12px',
+                        backgroundColor: '#17a2b8',
+                        color: 'white',
+                        border: 'none',
                         borderRadius: '4px',
                         cursor: 'pointer'
                       }}
@@ -743,9 +856,9 @@ export default function ItProjects(){
                     </button>
                   </div>
                   {csvError && (
-                    <div style={{ 
-                      color: '#dc2626', 
-                      fontSize: '12px', 
+                    <div style={{
+                      color: '#dc2626',
+                      fontSize: '12px',
                       marginBottom: '8px',
                       padding: '4px 8px',
                       backgroundColor: '#fef2f2',
@@ -755,24 +868,48 @@ export default function ItProjects(){
                       {csvError}
                     </div>
                   )}
-                  <MultiBox 
-                    name="manpower" 
-                    values={formData.manpower} 
-                    options={allManpower} 
-                    labelKey="name" 
-                    idKey="_id" 
-                    userLookup={userLookup} 
-                    onChange={vals=>setFormData(f=>({...f,manpower:vals}))}
-                  />
-                </label>
-              </fieldset>
-              {!editingId && <fieldset className="section" style={{gridColumn:'1 / -1'}}>
-                <legend>Initial Files (optional)</legend>
-                <div className="flex-row gap-sm">
-                  <label className="uploader">Photos <input type="file" multiple accept="image/*" onChange={e=> setPhotoFiles(Array.from(e.target.files||[]))}/></label>
-                  <label className="uploader">Documents <input type="file" multiple onChange={e=> setDocFiles(Array.from(e.target.files||[]))}/></label>
+                  <div id="manpower-multibox">
+                    <MultiBox
+                      name="manpower"
+                      values={formData.manpower}
+                      options={allManpower}
+                      labelKey="name"
+                      idKey="_id"
+                      userLookup={userLookup}
+                      onChange={vals=>setFormData(f=>({...f,manpower:vals}))}
+                    />
+                  </div>
                 </div>
-                <small>{photoFiles.length} photo(s), {docFiles.length} document(s) selected</small>
+              </fieldset>
+              {/* Initial Files (column 3 when creating) */}
+              {!editingId && <fieldset className="section" style={{gridColumn:'3 / 4', alignSelf:'start'}}>
+                <legend>Initial Files (optional)</legend>
+                <div className="flex-column gap-sm">
+                  <label className="uploader" style={{display:'flex',flexDirection:'column',gap:4}}>Photos
+                    <input type="file" multiple accept="image/*" onChange={e=> setPhotoFiles(Array.from(e.target.files||[]))}/>
+                  </label>
+                  {photoPreviews.length>0 && <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(70px,1fr))',gap:6,marginTop:6}}>
+                    {photoPreviews.map(p=> (
+                      <div key={p.url} style={{position:'relative',border:'1px solid #e5e7eb',borderRadius:6,overflow:'hidden',background:'#fafafa'}}>
+                        <img src={p.url} alt={p.name} style={{width:'100%',height:60,objectFit:'cover',display:'block'}} />
+                        <button type="button" title="Remove" onClick={()=> setPhotoFiles(files=> files.filter(f=>f!==p.file))} style={{position:'absolute',top:2,right:2,background:'rgba(0,0,0,0.55)',color:'#fff',border:'none',borderRadius:4,fontSize:10,padding:'2px 4px',cursor:'pointer'}}>×</button>
+                      </div>
+                    ))}
+                  </div>}
+                  <label className="uploader" style={{display:'flex',flexDirection:'column',gap:4,marginTop:10}}>Documents
+                    <input type="file" multiple onChange={e=> setDocFiles(Array.from(e.target.files||[]))}/>
+                  </label>
+                  {docPreviews.length>0 && <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:6}}>
+                    {docPreviews.map(d=> (
+                      <div key={d.name+Math.random()} style={{display:'flex',alignItems:'center',gap:6,border:'1px solid #e5e7eb',padding:'4px 6px',borderRadius:4,background:'#f8fafc',fontSize:11}}>
+                        <span style={{display:'inline-block',minWidth:28,textAlign:'center',background:'#3b82f6',color:'#fff',borderRadius:4,padding:'2px 4px'}}>{d.ext||'DOC'}</span>
+                        <span style={{maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={d.name}>{d.name}</span>
+                        <button type="button" onClick={()=> setDocFiles(files=> files.filter(f=>f!==d.file))} style={{background:'transparent',border:'none',color:'#dc2626',cursor:'pointer',fontSize:14,lineHeight:1}}>×</button>
+                      </div>
+                    ))}
+                  </div>}
+                </div>
+                <small style={{display:'block',marginTop:6}}>{photoFiles.length} photo(s), {docFiles.length} document(s) selected</small>
               </fieldset>}
               <div style={{gridColumn:'1 / -1',display:'flex',justifyContent:'flex-end',gap:'0.5rem',marginTop:'0.5rem'}}>
                 <button type="button" onClick={()=>setShowForm(false)} disabled={saving}>Cancel</button>
@@ -922,8 +1059,9 @@ function MultiBox({ name, values, options, onChange, labelKey='name', idKey='_id
     <div className="chips">
       {values.map(v=> {
         const obj = options.find(o=>o[idKey]===v);
-        const name = obj ? (obj[labelKey]) : (userLookup ? userLookup[v] : null);
-        return <span key={v} className="chip" onClick={()=>toggle(v)}>{name || v} ×</span>;
+  let display = obj ? (obj[labelKey]) : (userLookup ? userLookup[v] : null);
+  if(!display && obj && obj.position) display = obj.position;
+  return <span key={v} className="chip" onClick={()=>toggle(v)}>{display || v} ×</span>;
       })}
     </div>
   </div>;

@@ -79,6 +79,8 @@ const projectSchema = new mongoose.Schema({
   hrsite: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   projectmanager: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   areamanager: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  // Area (geographic / organizational subdivision) – newly added so IT create can persist selected area
+  area: { type: mongoose.Schema.Types.ObjectId, ref: 'Area' },
 
   contractor: String,
   budget: Number,
@@ -124,5 +126,6 @@ projectSchema.index({ staff: 1 });
 projectSchema.index({ hrsite: 1 });
 projectSchema.index({ projectmanager: 1 });
 projectSchema.index({ areamanager: 1 });
+projectSchema.index({ area: 1 });
 
 module.exports = mongoose.model('Project', projectSchema);

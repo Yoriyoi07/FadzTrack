@@ -477,7 +477,7 @@ exports.addProject = async (req, res) => {
     const {
       projectName, pic, staff, hrsite,
       projectmanager, contractor, budget, location,
-      startDate, endDate, manpower, areamanager
+      startDate, endDate, manpower, areamanager, area
     } = req.body;
 
  
@@ -541,15 +541,20 @@ exports.addProject = async (req, res) => {
       console.warn('Budget PDF parse failed:', e.message);
     }
 
-    const manpowerIds = coerceIdArray(manpower);
+  const manpowerIds = coerceIdArray(manpower);
+  const picIds = coerceIdArray(pic);
+  const staffIds = coerceIdArray(staff);
+  const hrIds = coerceIdArray(hrsite);
 
     const newProject = new Project({
       projectName,
-      pic, staff, hrsite,
+      pic: picIds,
+      staff: staffIds,
+      hrsite: hrIds,
       projectmanager, contractor, budget, location,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
-      manpower: manpowerIds, areamanager, photos,
+      manpower: manpowerIds, areamanager, area, photos,
       documents: documentsUrls,
       // Store parsed totals as a system document entry for transparency
   ...(parsedBudgetTotals ? { parsedBudgetTotals } : {}),
@@ -607,7 +612,7 @@ exports.addProject = async (req, res) => {
     /* Auto-create group chat for project members */
     try {
       // Collect unique user ids for chat membership (exclude falsy)
-      const memberIds = [
+  const memberIds = [
         ...(Array.isArray(pic)? pic: pic? [pic]: []),
         ...(Array.isArray(staff)? staff: staff? [staff]: []),
         ...(Array.isArray(hrsite)? hrsite: hrsite? [hrsite]: []),
@@ -925,6 +930,7 @@ exports.getAllProjects = async (req, res) => {
       .populate('staff', 'name email')
       .populate('hrsite', 'name email')
       .populate('areamanager', 'name email')
+  .populate('area', 'name')
       .populate('location', 'name region')
       .populate('manpower', 'name position')
       .populate('contractor', 'name company companyName displayName')
@@ -948,6 +954,7 @@ exports.getProjectById = async (req, res) => {
       .populate('staff', 'name email')
       .populate('hrsite', 'name email')
       .populate('areamanager', 'name email')
+  .populate('area', 'name')
       .populate('location', 'name region')
       .populate('manpower', 'name position')
       .populate('contractor', 'name company companyName displayName');
