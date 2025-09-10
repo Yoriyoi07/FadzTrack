@@ -362,7 +362,15 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   const formatTime = (ts) => {
     if (!ts) return '';
     const d = new Date(ts);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const now = new Date();
+  const sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  if (sameDay) return timeStr;
+  // Include short date + time (no seconds if you prefer, but keep seconds for consistency)
+  const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  // If different year add year
+  const addYear = d.getFullYear() !== now.getFullYear() ? ' ' + d.getFullYear() : '';
+  return `${dateStr}${addYear} ${timeStr}`;
   };
 
   const getSeenDisplayNames = (seenArray) => {
