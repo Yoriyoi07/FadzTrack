@@ -332,7 +332,8 @@ const handleLogout = () => {
                          <FaBoxes />
                          <span>Quick Request</span>
                        </button>
-                       <Link to="/pic/projects" className="view-all-link">
+                       {/* Updated to point to the dedicated material requests list */}
+                       <Link to="/pic/requests" className="view-all-link">
                          View All <FaArrowRight />
                        </Link>
                      </div>
@@ -346,8 +347,9 @@ const handleLogout = () => {
                       </div>
                     ) : (
                                              <div className="requests-list">
+                         {/* Updated legacy detail link to new unified detail route */}
                          {requests.slice(0, 3).map(request => (
-                           <Link to={`/pic/request/${request._id}`} key={request._id} className="request-item">
+                           <Link to={`/pic/material-request/${request._id}`} key={request._id} className="request-item">
                              <div className="request-icon">
                                <FaBoxes />
                              </div>

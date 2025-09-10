@@ -40,7 +40,6 @@ const ROLE_NAV = {
       { to:'/am', label:'Dashboard', icon:<FaTachometerAlt/>, match:'/am' },
       { to:'/am/chat', label:'Chat', icon:<FaComments/>, match:'/am/chat' },
       { to:'/am/matreq', label:'Material', icon:<FaBoxes/>, match:'/am/matreq' },
-      { to:'/am/manpower-requests', label:'Manpower', icon:<FaUsers/>, match:'/am/manpower-requests' },
       { to:'/am/viewproj', label:'Projects', icon:<FaProjectDiagram/>, match:'/am/viewproj' },
     ];
   },

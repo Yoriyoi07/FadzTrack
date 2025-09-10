@@ -99,7 +99,7 @@ const PicMaterialRequestEdit = () => {
     });
   };
 
-  const handleBack = () => navigate(`/pic/request/${id}`);
+  const handleBack = () => navigate(`/pic/material-request/${id}`);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -187,7 +187,7 @@ const PicMaterialRequestEdit = () => {
 
       if (response.data.success) {
         alert('✅ Material request updated successfully!');
-        navigate(`/pic/request/${id}`);
+  navigate(`/pic/material-request/${id}`);
       } else {
         setError('Failed to update request. Please try again.');
       }

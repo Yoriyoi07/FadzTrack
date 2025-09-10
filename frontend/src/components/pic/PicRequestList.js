@@ -454,7 +454,7 @@ export default function PicRequestList() {
                     
                     {/* Action Buttons */}
                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                      <Link to={`/pic/request/${request._id}`} className="view-details-btn">View Details</Link>
+                      <Link to={`/pic/material-request/${request._id}`} className="view-details-btn">View Details</Link>
                       <Link to={`/pic/material-request/edit/${request._id}`} className="edit-btn" style={{
                         padding: '6px 12px',
                         backgroundColor: '#3b82f6',
