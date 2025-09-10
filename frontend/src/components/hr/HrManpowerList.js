@@ -29,74 +29,45 @@ import {
 
 const ITEMS_PER_PAGE = 10;
 
-function ManpowerRow({ manpower, onReassignClick }) {
-  // Determine if manpower is on loan
+function ManpowerRow({ manpower, onReassignClick, onEditClick }) {
   const isOnLoan = manpower.currentLoan && manpower.currentLoan.returnDate && new Date(manpower.currentLoan.returnDate) > new Date();
-  
-  // Get status display
-  const getStatusDisplay = () => {
-    if (isOnLoan) {
-      return {
-        status: 'On Loan',
-        className: 'status-on-loan',
-        tooltip: `Lent to ${manpower.currentLoan.projectName} until ${new Date(manpower.currentLoan.returnDate).toLocaleDateString()}`
-      };
-    }
-    
-    return {
-      status: manpower.status || 'Unknown',
-      className: manpower.status?.toLowerCase() === 'active' ? 'status-active' : 'status-inactive',
-      tooltip: manpower.status || 'Unknown'
-    };
-  };
-
-  const statusInfo = getStatusDisplay();
-
+  const locationDisplay = typeof manpower.location === 'string' ? manpower.location : (manpower.location && manpower.location.name ? manpower.location.name : '');
   return (
-    <div className="manpower-row">
-      <div className="manpower-info">
-        <div className="manpower-details">
-          <h4 className="manpower-name">{manpower.name}</h4>
-          <p className="manpower-position">{manpower.position}</p>
-        </div>
-      </div>
-      <div className="manpower-project">
+    <tr className="mp-row">
+      <td className="col-emp">
+        <div className="emp-name">{manpower.name}</div>
+        <div className="emp-pos">{manpower.position}</div>
+      </td>
+      <td className="col-project">
         {isOnLoan ? (
-          <div className="loan-project-info">
-            <span className="project-name loan-project">{manpower.currentLoan.projectName}</span>
-            <span className="loan-duration">Until {new Date(manpower.currentLoan.returnDate).toLocaleDateString()}</span>
+          <div className="loan-wrapper">
+            <span className="loan-project">{manpower.currentLoan.projectName}</span>
+            <span className="loan-until">Until {new Date(manpower.currentLoan.returnDate).toLocaleDateString()}</span>
+          </div>
+        ) : manpower.project ? (
+          <div className="project-wrapper">
+            <Link
+              to={`/hr/project-records/${manpower.assignedProject?._id || manpower.assignedProject || ''}`}
+              className="project-name project-link"
+              onClick={e => { if(!manpower.assignedProject) e.preventDefault(); }}
+            >{manpower.project}</Link>
+            {locationDisplay && <span className="project-location">{locationDisplay}</span>}
           </div>
         ) : (
-          <div className="assigned-project-info">
-            <span className="project-name">{manpower.project || 'Unassigned'}</span>
-            {manpower.project && (
-              <span className="project-location">{manpower.location || 'Location N/A'}</span>
-            )}
-          </div>
+          <span className="project-name unassigned">Unassigned</span>
         )}
-      </div>
-      <div className="manpower-status">
-        <span 
-          className={`status-badge ${statusInfo.className}`}
-          title={statusInfo.tooltip}
-        >
-          {statusInfo.status}
-        </span>
-      </div>
-      <div className="manpower-actions">
-        <button 
-          className="action-btn reassign-btn" 
-          title="Reassign to Project"
-          onClick={() => onReassignClick(manpower)}
-          disabled={isOnLoan}
-        >
-          <FaReassign />
-        </button>
-        <button className="action-btn edit-btn" title="Edit">
-          <FaUserPlus />
-        </button>
-      </div>
-    </div>
+      </td>
+      <td className="col-actions">
+        <div className="manpower-actions">
+          <button className="action-btn reassign-btn" title="Reassign to Project" onClick={() => onReassignClick(manpower)} disabled={isOnLoan}>
+            <FaReassign />
+          </button>
+          <button className="action-btn edit-btn" title="Edit Manpower" onClick={() => onEditClick(manpower)}>
+            <FaUserPlus />
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -155,11 +126,16 @@ export default function HrManpowerList() {
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  // Removed status filter (UI shows no status column)
   const [positionFilter, setPositionFilter] = useState('all');
+  // Assignment sort: none | assignedFirst | unassignedFirst
+  const [assignmentSort, setAssignmentSort] = useState('none');
   // Removed local header collapse/profile state (handled by AppHeader)
   const [reassignModalOpen, setReassignModalOpen] = useState(false);
   const [selectedManpower, setSelectedManpower] = useState(null);
+  const [editingManpower, setEditingManpower] = useState(null);
+  const [editForm, setEditForm] = useState({ name:'', position:'' });
+  const [savingEdit, setSavingEdit] = useState(false);
   const [projects, setProjects] = useState([]);
   const [reassigning, setReassigning] = useState(false);
   const fileInputRef = useRef(null);
@@ -239,7 +215,8 @@ export default function HrManpowerList() {
           };
         });
 
-        setManpowers(processedManpower);
+  // assignedProject presence (non-null) now drives Assigned/Unassigned logic on UI
+  setManpowers(processedManpower);
         setError(null);
       } catch (err) {
         console.error('Error fetching manpower:', err);
@@ -277,6 +254,44 @@ export default function HrManpowerList() {
   const handleReassignClick = (manpower) => {
     setSelectedManpower(manpower);
     setReassignModalOpen(true);
+  };
+
+  // Open edit modal
+  useEffect(() => {
+    if (editingManpower) {
+      setEditForm({
+        name: editingManpower.name || '',
+        position: editingManpower.position || ''
+      });
+    }
+  }, [editingManpower]);
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm(f => ({ ...f, [name]: value }));
+  };
+
+  const saveEdit = async () => {
+    if (!editingManpower) return;
+    if (!editForm.name.trim() || !editForm.position.trim()) {
+      alert('Name and Position are required');
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      await api.put(`/manpower/${editingManpower._id}`, {
+        name: editForm.name.trim(),
+        position: editForm.position.trim()
+      }, { headers: { Authorization: `Bearer ${token}` } });
+      // Refresh list quickly in memory
+      setManpowers(prev => prev.map(mp => mp._id === editingManpower._id ? { ...mp, ...editForm } : mp));
+      setEditingManpower(null);
+    } catch (err) {
+      console.error('Edit manpower failed:', err);
+      alert('Failed to save changes');
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   // Handle reassign manpower
@@ -377,18 +392,30 @@ export default function HrManpowerList() {
       );
     }
 
-    // Status filter
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(mp => mp.status?.toLowerCase() === statusFilter.toLowerCase());
-    }
-
     // Position filter
     if (positionFilter !== 'all') {
       filtered = filtered.filter(mp => mp.position?.toLowerCase() === positionFilter.toLowerCase());
     }
 
+    // Assignment sort (pure sort, does not filter)
+    if (assignmentSort !== 'none') {
+      filtered = [...filtered].sort((a, b) => {
+        const aAssigned = !!a.assignedProject;
+        const bAssigned = !!b.assignedProject;
+        if (assignmentSort === 'assignedFirst') {
+          // Return assigned before unassigned
+            if (aAssigned === bAssigned) return 0;
+            return aAssigned ? -1 : 1;
+        } else if (assignmentSort === 'unassignedFirst') {
+            if (aAssigned === bAssigned) return 0;
+            return aAssigned ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
     return filtered;
-  }, [manpowers, searchTerm, statusFilter, positionFilter]);
+  }, [manpowers, searchTerm, positionFilter, assignmentSort]);
 
   const totalPages = Math.ceil(filteredManpowers.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -408,13 +435,14 @@ export default function HrManpowerList() {
 
   // Get status counts
   const statusCounts = useMemo(() => {
-    const counts = { active: 0, inactive: 0, total: manpowers.length };
+    const counts = { assigned: 0, unassigned: 0, total: manpowers.length };
     manpowers.forEach(mp => {
-      if (mp.status?.toLowerCase() === 'active') counts.active++;
-      else if (mp.status?.toLowerCase() === 'inactive') counts.inactive++;
+      if (mp.assignedProject) counts.assigned++; else counts.unassigned++;
     });
     return counts;
   }, [manpowers]);
+
+  // Removed enrichment & fallback logic per request (project must come from backend directly)
 
   // Handle page change
   const handlePageChange = (page) => {
@@ -590,8 +618,8 @@ export default function HrManpowerList() {
                 <FaUserCheck />
               </div>
               <div className="stat-content">
-                <span className="stat-value">{statusCounts.active}</span>
-                <span className="stat-label">Active</span>
+                <span className="stat-value">{statusCounts.assigned}</span>
+                <span className="stat-label">Assigned</span>
               </div>
             </div>
             <div className="stat-card inactive">
@@ -599,8 +627,8 @@ export default function HrManpowerList() {
                 <FaUserClock />
               </div>
               <div className="stat-content">
-                <span className="stat-value">{statusCounts.inactive}</span>
-                <span className="stat-label">Available</span>
+                <span className="stat-value">{statusCounts.unassigned}</span>
+                <span className="stat-label">Unassigned</span>
               </div>
             </div>
           </div>
@@ -618,15 +646,7 @@ export default function HrManpowerList() {
               />
             </div>
             <div className="filter-controls">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
+              {/* Status filter removed */}
               <select
                 value={positionFilter}
                 onChange={(e) => setPositionFilter(e.target.value)}
@@ -636,6 +656,16 @@ export default function HrManpowerList() {
                 {uniquePositions.map(position => (
                   <option key={position} value={position}>{position}</option>
                 ))}
+              </select>
+              <select
+                value={assignmentSort}
+                onChange={(e) => setAssignmentSort(e.target.value)}
+                className="filter-select"
+                style={{ minWidth:'150px' }}
+              >
+                <option value="none">No Sort</option>
+                <option value="assignedFirst">Assigned First</option>
+                <option value="unassignedFirst">Unassigned First</option>
               </select>
               <button className="refresh-btn" onClick={() => window.location.reload()}>
                 <RefreshCw />
@@ -662,15 +692,22 @@ export default function HrManpowerList() {
                 </div>
               ) : (
               <>
-                <div className="manpower-list">
-                  {currentManpowers.map((manpower) => (
-                    <ManpowerRow 
-                      key={manpower._id} 
-                      manpower={manpower} 
-                      onReassignClick={handleReassignClick}
-                    />
-                  ))}
-            </div>
+                <div className="manpower-table-wrapper">
+                  <table className="manpower-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Project / Loan</th>
+                        <th style={{textAlign:'center'}}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentManpowers.map(mp => (
+                        <ManpowerRow key={mp._id} manpower={mp} onReassignClick={handleReassignClick} onEditClick={setEditingManpower} />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -702,9 +739,7 @@ export default function HrManpowerList() {
               <div className="current-assignment">
                 <h4>Current Assignment:</h4>
                 <p>{selectedManpower.project || 'Unassigned'}</p>
-                {selectedManpower.location && (
-                  <p className="location">Location: {selectedManpower.location}</p>
-                )}
+                {(() => { const loc = selectedManpower.location; const disp = typeof loc === 'string' ? loc : (loc && loc.name ? loc.name : ''); return disp ? <p className="location">Location: {disp}</p> : null; })()}
               </div>
 
               <div className="new-assignment">
@@ -730,7 +765,7 @@ export default function HrManpowerList() {
                     >
                       <div className="project-info">
                         <span className="project-name">{project.projectName}</span>
-                        <span className="project-description">{project.location || 'No location specified'}</span>
+                        <span className="project-description">{ (typeof project.location === 'string' ? project.location : (project.location && project.location.name ? project.location.name : 'No location specified')) || 'No location specified'}</span>
                         {selectedManpower.assignedProject === project._id && (
                           <span className="current-badge">Current</span>
                         )}
@@ -746,6 +781,36 @@ export default function HrManpowerList() {
                   <span>Reassigning...</span>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Manpower Modal */}
+      {editingManpower && (
+        <div className="reassign-modal-overlay" onClick={() => !savingEdit && setEditingManpower(null)}>
+          <div className="reassign-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="reassign-modal-header">
+              <h3>Edit {editingManpower.name}</h3>
+              <button className="reassign-modal-close" onClick={() => !savingEdit && setEditingManpower(null)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="reassign-modal-content">
+              <div className="current-assignment" style={{ marginBottom:'1rem' }}>
+                <h4>Details</h4>
+                <div className="edit-field-group">
+                  <label>Name</label>
+                  <input name="name" value={editForm.name} onChange={handleEditChange} />
+                </div>
+                <div className="edit-field-group">
+                  <label>Position</label>
+                  <input name="position" value={editForm.position} onChange={handleEditChange} />
+                </div>
+              </div>
+              <div style={{ display:'flex', gap:'0.75rem', justifyContent:'flex-end' }}>
+                <button className="action-button secondary" disabled={savingEdit} onClick={() => setEditingManpower(null)}>Cancel</button>
+                <button className="action-button primary" disabled={savingEdit} onClick={saveEdit}>{savingEdit ? 'Saving...' : 'Save Changes'}</button>
+              </div>
             </div>
           </div>
         </div>

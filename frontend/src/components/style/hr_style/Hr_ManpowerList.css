@@ -342,6 +342,38 @@
   overflow: hidden;
 }
 
+/* ===================== TABLE LAYOUT (NEW) ===================== */
+.manpower-table-wrapper { width:100%; overflow-x:auto; }
+.manpower-table { width:100%; border-collapse:separate; border-spacing:0; font-size:0.9rem; }
+.manpower-table thead tr { background:linear-gradient(135deg,#f8fafc,#eef2f7); }
+.manpower-table th { text-align:left; padding:0.85rem 1rem; font-weight:600; font-size:0.75rem; letter-spacing:0.5px; text-transform:uppercase; color:#475569; position:sticky; top:0; background:inherit; border-bottom:1px solid #e2e8f0; }
+.manpower-table tbody tr { transition:background .15s ease; }
+.manpower-table tbody tr:nth-child(even){ background:#fafbfc; }
+.manpower-table tbody tr:hover { background:#f1f5f9; }
+.manpower-table td { padding:0.9rem 1rem; vertical-align:top; border-bottom:1px solid #f1f5f9; }
+.manpower-table td.col-actions { width:110px; }
+.emp-name { font-weight:600; color:#1e293b; }
+.emp-pos { font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px; font-weight:600; color:#64748b; margin-top:2px; }
+.emp-id { font-size:0.6rem; letter-spacing:0.5px; color:#94a3b8; margin-top:2px; font-family:monospace; }
+.project-wrapper,.loan-wrapper { display:flex; flex-direction:column; gap:2px; }
+.loan-project { color:#b45309; font-weight:600; }
+.loan-until { font-size:0.65rem; color:#64748b; font-style:italic; }
+.project-name.unassigned { color:#94a3b8; font-weight:500; }
+.col-status .status-badge { display:inline-block; min-width:90px; text-align:center; }
+.status-active { background:#dcfce7; color:#166534; }
+.status-inactive { background:#fee2e2; color:#991b1b; }
+.status-on-loan { background:#fef3c7; color:#b45309; }
+
+@media (max-width:900px){
+  .manpower-table th:nth-child(4), .manpower-table td:nth-child(4){ position:sticky; right:0; background:#fff; box-shadow:-4px 0 6px -2px rgba(0,0,0,0.05); }
+}
+
+@media (max-width:640px){
+  .manpower-table th:nth-child(2), .manpower-table td:nth-child(2){ min-width:180px; }
+  .manpower-table { font-size:0.8rem; }
+  .emp-pos { display:none; }
+}
+
 /* Loading, Error, and Empty States */
 .loading-state,
 .error-state,
@@ -487,6 +519,21 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.project-name.project-link {
+  color: #2563eb;
+  cursor: pointer;
+  text-decoration: none;
+}
+.project-name.project-link:hover {
+  text-decoration: underline;
+  color: #1d4ed8;
+}
+
+.project-name.unassigned-dash {
+  color: #94a3b8;
+  font-weight: 400;
 }
 
 .project-location {
@@ -1172,6 +1219,12 @@
   font-size: 0.9rem;
   color: #64748b;
 }
+
+/* Edit modal field groups reuse reassign modal styles */
+.edit-field-group { display:flex; flex-direction:column; gap:4px; margin-bottom:0.75rem; }
+.edit-field-group label { font-size:0.7rem; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; color:#475569; }
+.edit-field-group input { padding:0.6rem 0.75rem; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; background:#fff; }
+.edit-field-group input:focus { outline:none; border-color:#3b82f6; box-shadow:0 0 0 2px rgba(59,130,246,0.15); }
 
 /* Responsive design for reassign modal */
 @media (max-width: 768px) {

@@ -118,9 +118,13 @@ const HrDash = ({ forceUserUpdate }) => {
           const manpower = manpowerRes.data;
           const movements = movementRes.data;
 
+        // ASSIGNMENT LOGIC (updated):
+        // We now treat a manpower record as Assigned iff assignedProject is non-null.
+        // Status field (Active/Inactive) is ignored for assignment counts to stay consistent
+        // with the Manpower list view.
         const totalStaff = manpower.length;
-        const assigned = manpower.filter(mp => mp.status === 'Active').length;
-        const available = manpower.filter(mp => mp.status === 'Inactive').length;
+        const assigned = manpower.filter(mp => !!mp.assignedProject).length;
+        const available = manpower.filter(mp => !mp.assignedProject).length;
       const requests = movements.length;
       const pendingRequests = movements.filter(mv => mv.status === 'Pending').length;
       const approvedRequests = movements.filter(mv => mv.status === 'Approved').length;
@@ -495,7 +499,7 @@ const HrDash = ({ forceUserUpdate }) => {
           </div>
                 <div className="stat-content">
                   <span className="stat-value">{stats.totalStaff}</span>
-                  <span className="stat-label">Total Staff</span>
+                  <span className="stat-label">Total Manpower</span>
             </div>
           </div>
               <div className="stat-item">
