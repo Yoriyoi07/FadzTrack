@@ -891,6 +891,48 @@
   padding: 0 4px;
 }
 
+/* Attachment (non-image) document link styling for readability */
+.att-doc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none !important;
+  padding: 6px 10px;
+  border-radius: 8px;
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+  transition: background .15s ease, color .15s ease;
+}
+
+.modern-message.other .att-doc {
+  background: #eef2f7;
+  color: #1f2937;
+  border: 1px solid #d5dae0;
+}
+
+.modern-message.own .att-doc {
+  background: rgba(255,255,255,0.18);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+
+.att-doc:hover {
+  background: #dbe2ea;
+}
+.modern-message.own .att-doc:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+/* Ensure file icon/emoji stays visible */
+.att-doc:before {
+  content: '';
+}
+
 .modern-emoji-btn {
   background: none;
   border: none;

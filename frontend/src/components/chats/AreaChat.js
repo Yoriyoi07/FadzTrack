@@ -1481,7 +1481,14 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                                               : <div key={i} className="att-placeholder">Audio (loading){a.name ? `: ${a.name}` : ''}</div>
                                         );
                                         return (
-                                          <a key={i} href={href || '#'} download className="att-doc">📎 {a.name || 'File'}</a>
+                                          <a
+                                            key={i}
+                                            href={href || '#'}
+                                            download
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="att-doc"
+                                          >📎 <span style={{ overflow:'hidden', textOverflow:'ellipsis' }}>{a.name || 'File'}</span></a>
                                         );
                                     })}
                                   </div>
