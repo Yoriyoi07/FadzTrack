@@ -128,7 +128,9 @@ const AreaChat = ({ baseSegment = 'am' }) => {
   const [replyTo, setReplyTo] = useState(null); // message object being replied to
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [forwardMessage, setForwardMessage] = useState(null);
-  const [forwardTargets, setForwardTargets] = useState([]); // chat IDs to forward to
+  const [forwardTargets, setForwardTargets] = useState([]); // array of { type:'chat'|'user', id }
+  const [forwardUsers, setForwardUsers] = useState([]); // all users for search
+  const [forwardSearch, setForwardSearch] = useState('');
   const [actionMenu, setActionMenu] = useState({ open: false, msgId: null, x: 0, y: 0 });
 
   // Group modal
@@ -799,6 +801,51 @@ const AreaChat = ({ baseSegment = 'am' }) => {
     if (showAddMembers && selectedChat?.isGroup) loadAvailableMembers();
   }, [showAddMembers, selectedChat]);
 
+  // Load users when forward modal opens
+  useEffect(() => {
+    if (!showForwardModal) return;
+    (async () => {
+      try {
+        const { data } = await api.get('/users?limit=500', { headers });
+        setForwardUsers(Array.isArray(data) ? data : []);
+      } catch { setForwardUsers([]); }
+      setForwardSearch('');
+    })();
+  }, [showForwardModal, headers]);
+  // Unified forward list (chats + users without existing DM). We filter by search across names.
+  const unifiedForwardList = useMemo(() => {
+    // Build base chat entries
+    const chats = chatList
+      .filter(c => c._id !== selectedChat?._id) // exclude current chat
+      .map(c => ({
+        key: `chat-${c._id}`,
+        type: 'chat',
+        id: c._id,
+        name: c.isGroup ? c.name : getDisplayName(c.users.find(u => u._id !== userId)),
+        isGroup: c.isGroup
+      }));
+    // Users not already represented by a direct chat with me
+    const userEntries = forwardUsers
+      .filter(u => u._id !== userId)
+      .filter(u => !chatList.some(c => !c.isGroup && c.users.some(x => x._id === u._id) && c.users.some(x => x._id === userId)))
+      .map(u => ({
+        key: `user-${u._id}`,
+        type: 'user',
+        id: u._id,
+        name: getDisplayName(u),
+        isGroup: false
+      }));
+    const all = [...chats, ...userEntries];
+    const q = forwardSearch.trim().toLowerCase();
+    if (!q) return all;
+    return all.filter(e => (e.name || '').toLowerCase().includes(q));
+  }, [chatList, forwardUsers, forwardSearch, selectedChat, userId]);
+  const toggleForwardTarget = (target) => {
+    setForwardTargets(prev => prev.some(t => t.type === target.type && t.id === target.id)
+      ? prev.filter(t => !(t.type === target.type && t.id === target.id))
+      : [...prev, target]);
+  };
+
   // actions
   const openChat = async (item) => {
     // persist current draft before switching (if any content or files)
@@ -1109,27 +1156,50 @@ const AreaChat = ({ baseSegment = 'am' }) => {
         <div className="modal-overlay">
           <div className="modal" style={{ maxWidth:420 }}>
             <h3>Forward Message</h3>
-            <div style={{ fontSize:12, marginBottom:8, opacity:.7 }}>Select chats to forward to</div>
-            <div className="user-list" style={{ maxHeight:220 }}>
-              {chatList.filter(c => c._id !== selectedChat?._id).map(c => {
-                const name = c.isGroup ? c.name : getDisplayName(c.users.find(u => u._id !== userId));
+            <div style={{ fontSize:12, marginBottom:8, opacity:.7 }}>Select chats or users</div>
+            <input
+              style={{ width:'100%', marginBottom:8, padding:'6px 8px', border:'1px solid #d1d5db', borderRadius:6, fontSize:13 }}
+              placeholder="Search users..."
+              value={forwardSearch}
+              onChange={(e)=>setForwardSearch(e.target.value)}
+            />
+            <div className="user-list" style={{ maxHeight:260, overflowY:'auto', display:'flex', flexDirection:'column', gap:4 }}>
+              {unifiedForwardList.map(entry => {
+                const checked = forwardTargets.some(t => t.type===entry.type && t.id===entry.id);
                 return (
-                  <label key={c._id} className="user-item">
-                    <input type="checkbox" checked={forwardTargets.includes(c._id)} onChange={()=>setForwardTargets(t => t.includes(c._id) ? t.filter(id=>id!==c._id) : [...t, c._id])} />
-                    {name}
+                  <label key={entry.key} className="user-item" style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <input type="checkbox" checked={checked} onChange={()=>toggleForwardTarget({ type:entry.type, id:entry.id })} />
+                    <span style={{ fontSize:12 }}>
+                      {entry.isGroup && '👥 '}{entry.name}
+                      {entry.type === 'user' && !entry.isGroup && ' 👤'}
+                    </span>
                   </label>
                 );
               })}
+              {unifiedForwardList.length === 0 && (
+                <div style={{ fontSize:12, opacity:.5 }}>No results</div>
+              )}
             </div>
             <div className="modal-buttons">
               <button className="btn-create" disabled={!forwardTargets.length} onClick={() => {
                 if (!forwardMessage) return;
                 const run = async () => {
                   try {
-                    for (const cid of forwardTargets) {
+                    const chatIds = new Set();
+                    // Resolve user targets to (existing or new) DM chats
+                    for (const t of forwardTargets) {
+                      if (t.type === 'chat') { chatIds.add(t.id); continue; }
+                      if (t.type === 'user') {
+                        let existing = chatList.find(c => !c.isGroup && c.users.some(u => u._id === t.id) && c.users.some(u => u._id === userId));
+                        if (!existing) {
+                          try { const { data: dm } = await api.post('/chats', { users:[userId, t.id] }, { headers }); existing = dm; } catch {}
+                        }
+                        if (existing?._id) chatIds.add(existing._id);
+                      }
+                    }
+                    for (const cid of Array.from(chatIds)) {
                       const atts = Array.isArray(forwardMessage.attachments) ? forwardMessage.attachments : [];
                       if (atts.length) {
-                        // Re-upload each attachment by fetching the existing URL & appending as File
                         const fd = new FormData();
                         fd.append('conversation', cid);
                         if (forwardMessage.content) fd.append('content', forwardMessage.content);
@@ -1142,7 +1212,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                             const nameGuess = att.name || att.url.split('?')[0].split('/').pop() || 'attachment';
                             const file = new File([blob], nameGuess, { type: blob.type || att.mime || 'application/octet-stream' });
                             fd.append('files', file);
-                          } catch { /* ignore individual attachment failure */ }
+                          } catch {}
                         }
                         await api.post('/messages', fd, { headers: { ...headers, 'Content-Type': 'multipart/form-data' } });
                       } else {
@@ -1150,13 +1220,11 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                       }
                     }
                     setShowForwardModal(false); setForwardMessage(null); setForwardTargets([]);
-                    if (!forwardTargets.includes(selectedChat?._id)) reloadChats();
-                  } catch (e) {
-                    alert('Forward failed');
-                  }
+                    if (!Array.from(chatIds).includes(selectedChat?._id)) reloadChats();
+                  } catch { alert('Forward failed'); }
                 };
                 run();
-              }}>Forward</button>
+              }}>Forward ({forwardTargets.length})</button>
               <button className="btn-cancel" onClick={() => { setShowForwardModal(false); setForwardMessage(null); setForwardTargets([]); }}>Cancel</button>
             </div>
           </div>
