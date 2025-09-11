@@ -179,7 +179,7 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
               </div>
               <div className="mrd-ms-right">
                 <div className={`mrd-status-badge status-${statusBadge.toLowerCase()}`}>{statusBadge}</div>
-                {materialRequest.priority && <div className={`mrd-chip priority-${(materialRequest.priority||'').toLowerCase()}`}>{materialRequest.priority}</div>}
+                {/* priority removed */}
               </div>
             </div>
             <div className="mrd-modern-body">
@@ -209,7 +209,7 @@ const MaterialRequestDetailView = ({ role, rootClass='mr-request-detail', header
                   <h3 id="info-h" className="mrd-section-title"><i className="fas fa-info-circle"/> Information</h3>
                   <dl className="mrd-fields two-col">
                     <div className="mrd-field"><dt>Request #</dt><dd>{materialRequest.requestNumber||'—'}</dd></div>
-                    <div className="mrd-field"><dt>Priority</dt><dd><span className={`mrd-chip priority-${(materialRequest.priority||'').toLowerCase()}`}>{materialRequest.priority||'—'}</span></dd></div>
+                    {/* Priority field removed */}
                     <div className="mrd-field"><dt>Created</dt><dd>{new Date(materialRequest.createdAt).toLocaleString()}</dd></div>
                     {meta.isReceived && <div className="mrd-field"><dt>Received</dt><dd>{new Date(materialRequest.receivedAt || materialRequest.receivedDate).toLocaleString()}</dd></div>}
                     <div className="mrd-field"><dt>Status</dt><dd>{statusBadge}</dd></div>

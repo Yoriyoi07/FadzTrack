@@ -90,7 +90,7 @@ const MaterialRequestListView = ({
     return searchTarget.includes(searchTerm.toLowerCase());
   });
 
-  const priorityRank = { high:3, medium:2, low:1 };
+  // priority removed
   const sortedRequests = useMemo(() => {
     return [...filteredRequests].sort((a,b) => {
       if (filter === 'All') {
@@ -104,11 +104,7 @@ const MaterialRequestListView = ({
             return new Date(b.createdAt||0) - new Date(a.createdAt||0);
           case 'oldest': 
             return new Date(a.createdAt||0) - new Date(b.createdAt||0);
-          case 'priority': {
-            const ap = priorityRank[(a.priority||'').toLowerCase()]||0;
-            const bp = priorityRank[(b.priority||'').toLowerCase()]||0;
-            return bp - ap;
-          }
+          // priority case removed
           case 'status': 
             return (a.status||'').localeCompare(b.status||'');
           case 'requester': 
@@ -447,7 +443,7 @@ const MaterialRequestListView = ({
                 <select value={sortBy} onChange={e=>setSortBy(e.target.value)} className="sort-select">
                   <option value="latest">Latest First</option>
                   <option value="oldest">Oldest First</option>
-                  <option value="priority">By Priority</option>
+                  {/* Priority sort removed */}
                   <option value="status">By Status</option>
                   <option value="requester">By Requester</option>
                   <option value="project">By Project</option>
