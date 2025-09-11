@@ -22,6 +22,14 @@ const manpowerRequestSchema = new mongoose.Schema({
   returnDate: { type: Date },
   manpowerProvided: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Manpower' }],
   area: { type: String, default: '' },
+
+  // Track original assignment of each provided manpower so we can return it later
+  originalAssignments: [{
+    manpower: { type: mongoose.Schema.Types.ObjectId, ref: 'Manpower' },
+    fromProject: { type: mongoose.Schema.Types.ObjectId, ref: 'Project' },
+    donorProjectManager: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    movedAt: { type: Date, default: Date.now }
+  }],
   
   // Rejection tracking fields
   rejectedBy: [{ 

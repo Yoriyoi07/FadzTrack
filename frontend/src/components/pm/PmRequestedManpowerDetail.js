@@ -3,53 +3,27 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import AppHeader from '../layout/AppHeader';
 import {
-  FaTachometerAlt, 
-  FaComments, 
-  FaBoxes, 
-  FaUsers, 
-  FaClipboardList, 
-  FaChartBar, 
-  FaCalendarAlt,
   FaArrowLeft,
   FaEdit,
-  FaTrash,
-  FaCheck,
   FaTimes,
   FaCalendarPlus,
   FaUserTie,
   FaProjectDiagram,
-  FaClock,
   FaFileAlt,
   FaCheckCircle,
   FaExclamationTriangle,
-  FaHourglassHalf
+  FaHourglassHalf,
+  FaUsers,
+  FaCheck
 } from 'react-icons/fa';
 import '../style/pm_style/Pm_ManpowerRequestDetail.css';
 
-// IT-style helper functions and styles
-const inputStyle = { width:'100%', padding:'10px 12px', border:'1px solid #d1d5db', borderRadius:6, fontSize:14 };
-const pill = (bg, color='#111827') => ({ background:bg, color, padding:'4px 10px', borderRadius:20, fontSize:12, fontWeight:600, display:'inline-flex', alignItems:'center', gap:6 });
-const labelStyle = { display:'block', fontWeight:600, marginBottom:6, fontSize:13, letterSpacing:'.25px', color:'#374151' };
-const valueBox = { padding:'12px 14px', border:'1px solid #e5e7eb', borderRadius:8, background:'#fff', fontSize:14, minHeight:44, display:'flex', alignItems:'center' };
-const btn = (variant) => {
-  const base = { display:'inline-flex', alignItems:'center', gap:8, padding:'10px 18px', fontSize:14, fontWeight:600, borderRadius:8, border:'none', cursor:'pointer' };
-  switch(variant){
-    case 'primary': return { ...base, background:'#2563eb', color:'#fff' };
-    case 'danger': return { ...base, background:'#dc2626', color:'#fff' };
-    case 'neutral': return { ...base, background:'#6b7280', color:'#fff' };
-    default: return { ...base, background:'#e5e7eb', color:'#111827' };
-  }
-};
-
-const getStatusBadgeStyle = (status) => {
-  const statusColors = {
-    Pending: pill('#fef3c7', '#92400e'),
-    Approved: pill('#dcfce7', '#065f46'),
-    Overdue: pill('#fee2e2', '#991b1b'),
-    Completed: pill('#e0f2fe', '#075985'),
-    Rejected: pill('#fee2e2', '#991b1b')
-  };
-  return statusColors[status] || pill('#e5e7eb');
+// Simple status meta (used for badge / icon mapping)
+const STATUS_META = {
+  approved: { label: 'Approved', icon: <FaCheckCircle />, tone: 'approved' },
+  rejected: { label: 'Rejected', icon: <FaTimes />, tone: 'rejected' },
+  pending: { label: 'Pending', icon: <FaHourglassHalf />, tone: 'pending' },
+  archived: { label: 'Archived', icon: <FaFileAlt />, tone: 'archived' }
 };
 
 export default function PmRequestedManpowerDetail() {
@@ -62,7 +36,7 @@ export default function PmRequestedManpowerDetail() {
   const user = stored ? JSON.parse(stored) : null;
   const userId = user?._id || user?.id || null;
   const userRole = user?.role;
-  const [userName] = useState(() => user?.name || 'ALECK');
+  const [userName] = useState(() => user?.name || 'User');
 
   // profile menu logic removed (handled by AppHeader)
 
@@ -82,6 +56,17 @@ export default function PmRequestedManpowerDetail() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [archiveReason, setArchiveReason] = useState('');
+  // unified modal (info/success/error)
+  const [modal, setModal] = useState({ open:false, title:'', message:'', type:'info', actions:[] });
+  const openModal = (cfg) => setModal({ open:true, ...cfg, actions: (cfg.actions||[]) });
+  const closeModal = () => setModal(m => ({ ...m, open:false }));
+  // rejection dialog
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  // received confirmation modal
+  const [showReceiveConfirm, setShowReceiveConfirm] = useState(false);
+  // completion (return) confirmation modal
+  const [showReturnConfirm, setShowReturnConfirm] = useState(false);
 
   // manpower selection (from THIS PM's project)
   const [availableManpowers, setAvailableManpowers] = useState([]);
@@ -97,8 +82,9 @@ export default function PmRequestedManpowerDetail() {
       setLoading(true);
       setError('');
       try {
-        const { data } = await api.get(`/manpower-requests/${id}`);
-        setRequest(data);
+  const { data } = await api.get(`/manpower-requests/${id}`);
+  setRequest(data);
+  setMarkReceived(!!data.received);
       } catch {
         setError('Failed to load request');
       } finally {
@@ -115,6 +101,16 @@ export default function PmRequestedManpowerDetail() {
   }, [request, userId]);
 
   const isApproved = (request?.status || '').toLowerCase() === 'approved';
+  const returnDateReached = useMemo(()=>{
+    if (!request?.returnDate) return false;
+    try { return new Date() >= new Date(request.returnDate); } catch { return false; }
+  }, [request?.returnDate]);
+  const donorIds = useMemo(()=>{
+    return (request?.originalAssignments||[])
+      .map(o=> o.donorProjectManager?._id || o.donorProjectManager)
+      .filter(Boolean);
+  }, [request]);
+  const isDonorPM = isPM && !isMine && donorIds.includes(userId);
 
   // load THIS PM's assigned project (source of manpower)
   useEffect(() => {
@@ -167,61 +163,81 @@ export default function PmRequestedManpowerDetail() {
   const handleApprove = async () => {
     if (!isPM || isMine) return;
     if (!request?.project?._id) {
-      alert('Missing destination project id.');
+      openModal({ title:'Missing Data', type:'error', message:'Destination project id not found.' });
       return;
     }
     if (selectedManpowerIds.length === 0) {
-      alert('Please select at least one manpower to assign.');
+      openModal({ title:'Selection Required', type:'warning', message:'Please select at least one manpower to assign before approving.' });
       return;
     }
     setBusy(true);
     try {
       await api.put(`/manpower-requests/${id}/approve`, {
         manpowerProvided: selectedManpowerIds,
-        project: request.project._id,       // destination
-        // NOTE: we're NOT sending "area" anymore to avoid the ObjectId confusion
+        project: request.project._id,
       });
-      alert('✅ Approved');
       const { data } = await api.get(`/manpower-requests/${id}`);
       setRequest(data);
       setSelectedManpowerIds([]);
+      openModal({
+        title:'Request Approved',
+        type:'success',
+        message:'Manpower successfully transferred to the requesting project.',
+        actions:[{ label:'Close', primary:true, onClick:()=>closeModal() }]
+      });
     } catch (e) {
-      alert(e?.response?.data?.message || 'Approval failed.');
+      openModal({ title:'Approval Failed', type:'error', message: e?.response?.data?.message || 'Could not approve request.' });
     } finally {
       setBusy(false);
     }
   };
 
-  const handleDeny = async () => {
+  const handleDeny = () => {
     if (!isPM || isMine) return;
-    
-    const reason = prompt('Please provide a reason for rejection (optional):');
-    if (reason === null) return; // User cancelled
-    
-    const confirmed = window.confirm(
-      'Confirm Rejection?\n\nRejecting this request will remove this from your list of Other\'s Request.'
-    );
-    
-    if (!confirmed) return;
-    
+    setShowRejectModal(true);
+  };
+
+  const confirmReject = async () => {
     setBusy(true);
     try {
-      const response = await api.put(`/manpower-requests/${id}/reject`, { reason });
-      alert(response.data.message);
-      // Navigate back to the manpower list since the request is now hidden
-      navigate('/pm/manpower-list');
+  const response = await api.put(`/manpower-requests/${id}/reject`, { reason: rejectReason });
+      setShowRejectModal(false);
+      setRejectReason('');
+      openModal({
+        title:'Request Rejected',
+        type:'success',
+        message: response.data?.message || 'The request was rejected.',
+        actions:[{ label:'Back to List', primary:true, onClick:()=>{ closeModal(); navigate('/pm/manpower-list'); } }]
+      });
     } catch (e) {
-      alert(e?.response?.data?.message || 'Failed to reject request.');
+      openModal({ title:'Rejection Failed', type:'error', message: e?.response?.data?.message || 'Could not reject request.' });
     } finally {
       setBusy(false);
     }
   };
 
-  const handleToggleReceived = async () => {
-    const next = !markReceived;
-    setMarkReceived(next);
-    // Optionally persist:
-    // await api.put(`/manpower-requests/${id}/received`, { received: next });
+  // Step 1: user clicks button -> open confirmation modal
+  const handleOpenReceiveConfirm = () => {
+    if (markReceived) return; // already confirmed
+    setShowReceiveConfirm(true);
+  };
+
+  // Step 2: user confirms reception
+  const confirmReceived = async () => {
+    setBusy(true);
+    try {
+      await api.put(`/manpower-requests/${id}/received`, { received: true });
+      setMarkReceived(true);
+      // refresh request to reflect any backend changes
+      const { data } = await api.get(`/manpower-requests/${id}`);
+      setRequest(data);
+      setShowReceiveConfirm(false);
+      openModal({ title:'Received Confirmed', type:'success', message:'Manpower arrival confirmed. You can now schedule a return date.', actions:[{ label:'Close', primary:true, onClick:()=>closeModal() }] });
+    } catch (e) {
+      openModal({ title:'Failed', type:'error', message: e?.response?.data?.message || 'Could not confirm reception.' });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleScheduleReturn = () => setShowCalendar(true);
@@ -232,9 +248,9 @@ export default function PmRequestedManpowerDetail() {
       setShowCalendar(false);
       const { data } = await api.get(`/manpower-requests/${id}`);
       setRequest(data);
-      alert(`Return scheduled for ${selectedDate}`);
+      openModal({ title:'Return Scheduled', type:'success', message:`Return scheduled for ${selectedDate}.`, actions:[{ label:'Close', primary:true, onClick:()=>closeModal() }] });
     } catch {
-      alert('Failed to set return date');
+      openModal({ title:'Failed', type:'error', message:'Failed to set return date.' });
     }
   };
 
@@ -250,7 +266,7 @@ export default function PmRequestedManpowerDetail() {
       await api.delete(`/manpower-requests/${id}`);
       navigate('/pm/manpower-list');
     } catch {
-      alert('Cancel failed.');
+      openModal({ title:'Cancel Failed', type:'error', message:'Could not cancel request.' });
     } finally {
       setBusy(false);
     }
@@ -260,17 +276,34 @@ export default function PmRequestedManpowerDetail() {
     setShowArchiveConfirm(true);
   };
 
+  // Complete (return) flow – visible to donor PM when return date reached OR (no returnDate & window expired)
+  const handleOpenReturnConfirm = () => {
+    setShowReturnConfirm(true);
+  };
+  const confirmReturned = async () => {
+    setBusy(true);
+    try {
+      await api.put(`/manpower-requests/${id}/complete`);
+      const { data } = await api.get(`/manpower-requests/${id}`);
+      setRequest(data);
+      setShowReturnConfirm(false);
+      openModal({ title:'Request Completed', type:'success', message:'Manpower returned and request marked completed.', actions:[{ label:'Close', primary:true, onClick:()=>closeModal() }] });
+    } catch (e) {
+      openModal({ title:'Completion Failed', type:'error', message: e?.response?.data?.message || 'Could not complete request.' });
+    } finally { setBusy(false); }
+  };
+
   const confirmArchive = async () => {
     setBusy(true);
     try {
       await api.put(`/manpower-requests/${id}/archive`, { reason: archiveReason });
-      alert('Request archived successfully.');
       const { data } = await api.get(`/manpower-requests/${id}`);
       setRequest(data);
       setShowArchiveConfirm(false);
       setArchiveReason('');
+      openModal({ title:'Archived', type:'success', message:'Request archived successfully.', actions:[{ label:'Close', primary:true, onClick:()=>closeModal() }] });
     } catch (e) {
-      alert(e?.response?.data?.message || 'Failed to archive request.');
+      openModal({ title:'Archive Failed', type:'error', message: e?.response?.data?.message || 'Failed to archive request.' });
     } finally {
       setBusy(false);
     }
@@ -280,28 +313,25 @@ export default function PmRequestedManpowerDetail() {
   const sourceProjectName = pmProject?.projectName || 'your project';
   const destProjectName = request?.project?.projectName || 'this project';
 
-  const getStatusIcon = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'approved':
-        return <FaCheckCircle className="status-icon approved" />;
-      case 'rejected':
-        return <FaTimes className="status-icon rejected" />;
-      case 'pending':
-        return <FaHourglassHalf className="status-icon pending" />;
-      case 'archived':
-        return <FaFileAlt className="status-icon archived" />;
-      default:
-        return <FaHourglassHalf className="status-icon pending" />;
-    }
+  const renderStatusBadge = () => {
+    const key = (request?.status || 'pending').toLowerCase();
+    const meta = STATUS_META[key] || STATUS_META.pending;
+    return (
+      <span className={`revamp-status revamp-status--${meta.tone}`}>{meta.icon}<span>{meta.label}</span></span>
+    );
   };
 
   if (loading) {
     return (
       <div className="dashboard-container">
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <p>Loading manpower request details...</p>
-        </div>
+        <AppHeader roleSegment="pm" />
+        <main className="dashboard-main">
+          <div className="loading-container modern">
+            <div className="loading-spinner modern"></div>
+            <h3>Loading Request Details</h3>
+            <p>Please wait while we fetch the manpower request information...</p>
+          </div>
+        </main>
       </div>
     );
   }
@@ -309,10 +339,21 @@ export default function PmRequestedManpowerDetail() {
   if (error || !request) {
     return (
       <div className="dashboard-container">
-        <div className="error-container">
-          <FaExclamationTriangle className="error-icon" />
-          <p>{error || 'Request not found.'}</p>
-        </div>
+        <AppHeader roleSegment="pm" />
+        <main className="dashboard-main">
+          <div className="error-container modern">
+            <FaExclamationTriangle className="error-icon modern" />
+            <h3>Unable to Load Request</h3>
+            <p>{error || 'The requested manpower request could not be found.'}</p>
+            <button 
+              className="revamp-btn revamp-btn--primary" 
+              onClick={() => navigate('/pm/manpower-list')}
+            >
+              <FaArrowLeft />
+              <span>Back to Manpower List</span>
+            </button>
+          </div>
+        </main>
       </div>
     );
   }
@@ -320,503 +361,323 @@ export default function PmRequestedManpowerDetail() {
   return (
     <div className="dashboard-container">
       <AppHeader roleSegment="pm" />
-
-      <main className="dashboard-main">
-        <div className="form-container" style={{ maxWidth:900, margin:'40px auto', background:'#fff', borderRadius:16, padding:'32px 40px', boxShadow:'0 4px 16px rgba(0,0,0,0.06)' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:24 }}>
-            <div>
-              <h2 style={{ margin:0, fontSize:30, fontWeight:700 }}>Manpower Request</h2>
-              <div style={{ marginTop:8, fontSize:14, color:'#4b5563' }}>
-                Project: <strong>{request.project?.projectName || 'N/A'}</strong> &nbsp;•&nbsp; Requested by {request.createdBy?.name}
-              </div>
-              <div style={{ marginTop:12 }}>
-                <span style={getStatusBadgeStyle(request.status)}>{request.status}</span>
-              </div>
-            </div>
-            <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-              <button onClick={()=>navigate('/pm/manpower-list')} style={btn('secondary')}>Back</button>
-              {isMine && !isApproved && (
-                <button onClick={()=>navigate(`/pm/manpower-request/${id}?edit=1`)} style={btn('primary')}><FaEdit/> Edit</button>
-              )}
-              {isMine && (
-                <button disabled={busy} onClick={handleCancel} style={btn('danger')}>{busy? 'Deleting...' : 'Delete'}</button>
-              )}
-            </div>
+      <main className="dashboard-main revamp-detail">
+        <div className="revamp-header">
+          <div className="revamp-header__left">
+            <button className="revamp-btn revamp-btn--ghost" onClick={()=>navigate('/pm/manpower-list')}><FaArrowLeft/><span>Back</span></button>
+            <h1>Manpower Request {renderStatusBadge()}</h1>
+            <ul className="revamp-meta">
+              <li><FaProjectDiagram/> {request.project?.projectName || 'N/A'}</li>
+              <li><FaUserTie/> {request.createdBy?.name || 'Unknown'}</li>
+              <li>#{request.requestNumber || id?.slice(-4)}</li>
+            </ul>
           </div>
-
-          {/* Content Sections */}
-          <div style={{ marginTop:32, display:'grid', gap:32, gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))' }}>
-            <div>
-              <label style={labelStyle}>Target Acquisition Date</label>
-              <div style={valueBox}>{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</div>
-            </div>
-            <div>
-              <label style={labelStyle}>Duration (days)</label>
-              <div style={valueBox}>{request.duration} days</div>
-            </div>
-            <div>
-              <label style={labelStyle}>Project</label>
-              <div style={{ ...valueBox, background:'#f3f4f6' }}>{request.project?.projectName || '—'}</div>
-            </div>
+          <div className="revamp-header__actions">
+            {isMine && !isApproved && (
+              <button className="revamp-btn revamp-btn--outline" onClick={handleEdit}><FaEdit/> Edit</button>
+            )}
+            {isMine && (
+              <button className="revamp-btn revamp-btn--danger-outline" disabled={busy} onClick={handleCancel}>{busy? 'Deleting…':'Delete'}</button>
+            )}
           </div>
+        </div>
 
-          <div style={{ marginTop:40 }}>
-            <label style={labelStyle}>Manpower Needed</label>
-            <div style={{ display:'flex', flexWrap:'wrap', gap:12 }}>
-              {request.manpowers?.length ? request.manpowers.map((m,i)=>(
-                <span key={i} style={pill('#eef2ff', '#3730a3')}>{m.quantity} {m.type}</span>
-              )) : <span style={{ color:'#6b7280' }}>No manpower entries</span>}
-            </div>
+        {/* Top summary cards */}
+        <section className="revamp-cards-grid">
+          <div className="revamp-card mini">
+            <span className="label">Target Date</span>
+            <strong>{request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</strong>
           </div>
-
-          <div style={{ marginTop:40 }}>
-            <label style={labelStyle}>Description / Purpose</label>
-            <div style={{ ...valueBox, minHeight:80 }}>{request.description || 'No description provided'}</div>
+          <div className="revamp-card mini">
+            <span className="label">Duration</span>
+            <strong>{request.duration} {request.duration>1?'days':'day'}</strong>
           </div>
-
-          {/* PM-specific functionality */}
-          <div className="request-details-container">
-                         {/* Status Banner */}
-             <div className={`status-banner ${request.status?.toLowerCase()}`}>
-               {/* Overdue Ribbon for Pending Requests */}
-               {request.status?.toLowerCase() === 'pending' && 
-                request.acquisitionDate && 
-                new Date(request.acquisitionDate) < new Date() && (
-                 <div className="overdue-ribbon">
-                   <span>OVERDUE</span>
-                 </div>
-               )}
-               
-               <div className="status-content">
-                 {getStatusIcon(request.status)}
-                 <div className="status-info">
-                   <h3 className="status-title">
-                     {request.status || 'Pending'} Request
-                   </h3>
-                   <p className="status-description">
-                     {request.status?.toLowerCase() === 'approved' 
-                       ? 'This request has been approved and manpower assigned'
-                       : request.status?.toLowerCase() === 'rejected'
-                       ? 'This request has been rejected'
-                       : isMine 
-                         ? 'Awaiting approval from another project manager'
-                         : 'Waiting for approval'
-                     }
-                   </p>
-                 </div>
-               </div>
-               
-               {/* Received Toggle for Approved Requests */}
-               {isApproved && (
-                 <div className="received-toggle">
-                   <label className="toggle-label">
-                     <input 
-                       type="checkbox" 
-                       checked={markReceived} 
-                       onChange={handleToggleReceived}
-                       className="toggle-input"
-                     />
-                     <span className="toggle-text">Mark as Received</span>
-                   </label>
-                 </div>
-               )}
-             </div>
-
-            {/* Request Information Cards */}
-            <div className="info-grid">
-              {/* Basic Info Card */}
-              <div className="info-card">
-                <div className="card-header">
-                  <FaFileAlt className="card-icon" />
-                  <h3>Request Information</h3>
-                </div>
-                <div className="card-content">
-                  <div className="info-row">
-                    <span className="info-label">Request Number:</span>
-                    <span className="info-value">#{request.requestNumber || id?.slice(-3)}</span>
-                  </div>
-                  <div className="info-row">
-                    <span className="info-label">Created By:</span>
-                    <span className="info-value">
-                      <FaUserTie className="inline-icon" />
-                      {request.createdBy?.name || 'Unknown'}
-                    </span>
-                  </div>
-                  <div className="info-row">
-                    <span className="info-label">Project:</span>
-                    <span className="info-value">
-                      <FaProjectDiagram className="inline-icon" />
-                      {request.project?.projectName || 'Unknown Project'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Timeline Card */}
-              <div className="info-card">
-                <div className="card-header">
-                  <FaClock className="card-icon" />
-                  <h3>Timeline</h3>
-                </div>
-                <div className="card-content">
-                  <div className="info-row">
-                    <span className="info-label">Target Date:</span>
-                    <span className="info-value">
-                      {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : 'Not set'}
-                    </span>
-                  </div>
-                  <div className="info-row">
-                    <span className="info-label">Duration:</span>
-                    <span className="info-value">{request.duration} days</span>
-                  </div>
-                  {request.returnDate && (
-                    <div className="info-row">
-                      <span className="info-label">Return Date:</span>
-                      <span className="info-value">
-                        {new Date(request.returnDate).toLocaleDateString()}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
+          {request.returnDate && (
+            <div className="revamp-card mini">
+              <span className="label">Return Date</span>
+              <strong>{new Date(request.returnDate).toLocaleDateString()}</strong>
+            </div>) }
+          {!request.returnDate && request.returnWindow?.maxReturnDate && (
+            <div className="revamp-card mini">
+              <span className="label">Latest Return</span>
+              <strong>{new Date(request.returnWindow.maxReturnDate).toLocaleDateString()}</strong>
             </div>
-
-            {/* Manpower Requirements */}
-            <div className="requirements-card">
-              <div className="card-header">
-                <FaUsers className="card-icon" />
-                <h3>Manpower Requirements</h3>
-              </div>
-              <div className="card-content">
-                {Array.isArray(request?.manpowers) && request.manpowers.length > 0 ? (
-                  <div className="manpower-grid">
-                    {request.manpowers.map((mp, i) => (
-                      <div key={i} className="manpower-item">
-                        <div className="manpower-quantity">{mp.quantity}</div>
-                        <div className="manpower-type">{mp.type}</div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="no-manpower">
-                    <p>No manpower types listed</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="description-card">
-              <div className="card-header">
-                <FaFileAlt className="card-icon" />
-                <h3>Request Description</h3>
-              </div>
-              <div className="card-content">
-                <div className="description-text">
-                  {request.description || 'No description provided'}
-                </div>
-              </div>
-            </div>
-
-            {/* Rejection Information */}
-            {request.rejectedBy && request.rejectedBy.length > 0 && (
-              <div className="rejection-card">
-                <div className="card-header">
-                  <FaTimes className="card-icon rejected" />
-                  <h3>Rejection Information</h3>
-                </div>
-                <div className="card-content">
-                  <div className="rejection-details">
-                    <div className="rejection-reason">
-                      <strong>Reason:</strong> {request.rejectionReason || 'No reason provided'}
-                    </div>
-                    <div className="rejection-list">
-                      <strong>Rejected by:</strong>
-                      <ul>
-                        {request.rejectedBy.map((rejection, index) => (
-                          <li key={index}>
-                            {rejection.userName || rejection.userId?.name || 'Unknown PM'} 
-                            <span className="rejection-date">
-                              ({new Date(rejection.rejectedAt).toLocaleDateString()})
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Approval Panel (Others' request only) */}
-            {!isMine && isPM && !isApproved && request?.status !== 'Archived' && (
-              <div className="approval-panel">
-                <div className="panel-header">
-                  <h3>Approve & Assign Manpower</h3>
-                  <p className="panel-description">
-                    Transfer manpower from <span className="source-project">{sourceProjectName}</span> to{' '}
-                    <span className="dest-project">{destProjectName}</span>
-                  </p>
-                </div>
-
-                <div className="manpower-selection">
-                  <label className="selection-label">
-                    Select manpower from your project
-                  </label>
-                  {request?.manpowers && request.manpowers.length > 0 && (
-                    <div className="requested-types">
-                      <small>
-                        Requested types: {request.manpowers.map(mp => `${mp.type} (${mp.quantity})`).join(', ')}
-                      </small>
-                    </div>
-                  )}
-                  <div className="selection-controls">
-                    <select
-                      defaultValue=""
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (!val) return;
-                        setSelectedManpowerIds(prev => (prev.includes(val) ? prev : [...prev, val]));
-                      }}
-                      className="manpower-select"
-                    >
-                      <option value="">
-                        {!pmProject ? 'No PM project found' : 
-                         availableManpowers.length === 0 ? 'No matching manpower available' :
-                         'Pick manpower…'}
-                      </option>
-                      {availableManpowers
-                        .filter(mp => !selectedManpowerIds.includes(mp._id))
-                        .map(mp => (
-                          <option key={mp._id} value={mp._id}>
-                            {mp.name} ({mp.position})
-                          </option>
-                        ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedManpowerIds([])}
-                      className="clear-btn"
-                      title="Clear selection"
-                    >
-                      Clear
-                    </button>
-                  </div>
-
-                  {selectedManpowerIds.length > 0 && (
-                    <div className="selected-manpower">
-                      {selectedManpowerIds.map(idv => {
-                        const mp = availableManpowers.find(m => m._id === idv);
-                        return (
-                          <span key={idv} className="manpower-tag">
-                            {mp ? `${mp.name} (${mp.position})` : idv}
-                            <button
-                              onClick={() => setSelectedManpowerIds(prev => prev.filter(x => x !== idv))}
-                              className="remove-tag-btn"
-                              title="Remove"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="approval-actions">
-                  <button
-                    onClick={handleDeny}
-                    disabled={busy}
-                    className="deny-btn"
-                  >
-                    <FaTimes />
-                    <span>Reject Request</span>
-                  </button>
-                  <button
-                    onClick={handleApprove}
-                    disabled={busy || selectedManpowerIds.length === 0}
-                    className="approve-btn"
-                  >
-                    <FaCheck />
-                    <span>{busy ? 'Processing…' : 'Approve & Assign'}</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Creator Actions */}
-            {isMine && !isApproved && request?.status !== 'Archived' && (
-              <div className="creator-actions">
-                <button onClick={handleEdit} className="edit-btn">
-                  <FaEdit />
-                  <span>Edit Request</span>
-                </button>
-                <button onClick={handleCancel} className="cancel-btn">
-                  <FaTrash />
-                  <span>Cancel Request</span>
-                </button>
-              </div>
-            )}
-
-            {/* Archive Actions */}
-            {request?.status === 'Archived' && (
-              <div className="archived-notice">
-                <div className="archived-badge">
-                  <FaFileAlt />
-                  <span>Archived - Project Completed</span>
-                </div>
-                {request.archivedReason && (
-                  <p className="archive-reason">Reason: {request.archivedReason}</p>
-                )}
-                {request.originalProjectName && (
-                  <div className="original-project-info">
-                    <h4>Original Project Information</h4>
-                    <p><strong>Project Name:</strong> {request.originalProjectName}</p>
-                    {request.originalProjectEndDate && (
-                      <p><strong>Project End Date:</strong> {new Date(request.originalProjectEndDate).toLocaleDateString()}</p>
-                    )}
-                  </div>
-                )}
-                {request.originalRequestDetails && (
-                  <div className="original-request-details">
-                    <h4>Original Request Information</h4>
-                    <p><strong>Original Status:</strong> {request.originalRequestStatus}</p>
-                    <p><strong>Description:</strong> {request.originalRequestDetails.description}</p>
-                    <p><strong>Acquisition Date:</strong> {new Date(request.originalRequestDetails.acquisitionDate).toLocaleDateString()}</p>
-                    <p><strong>Duration:</strong> {request.originalRequestDetails.duration} days</p>
-                    <p><strong>Manpower Needed:</strong> {request.originalRequestDetails.manpowers?.map(m => `${m.type} (${m.quantity})`).join(', ')}</p>
-                    {request.originalRequestDetails.approvedBy && (
-                      <p><strong>Approved By:</strong> {request.originalRequestDetails.approvedBy}</p>
-                    )}
-                    {request.originalRequestDetails.area && (
-                      <p><strong>Area:</strong> {request.originalRequestDetails.area}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Manual Archive Action */}
-            {!isMine && isPM && request?.status !== 'Archived' && (
-              <div className="archive-actions">
-                <button onClick={handleArchive} className="archive-btn" disabled={busy}>
-                  <FaFileAlt />
-                  <span>{busy ? 'Processing…' : 'Archive Request'}</span>
-                </button>
-              </div>
-            )}
-
-            {/* Return Scheduling & Navigation */}
-            <div className="bottom-actions">
+          )}
+          <div className="revamp-card mini">
+            <span className="label">Project</span>
+            <strong>{request.project?.projectName || '—'}</strong>
+          </div>
+          <div className="revamp-card mini">
+            <span className="label">Status</span>
+            {renderStatusBadge()}
+            {isApproved && isMine && !markReceived && (
               <button
-                onClick={() => navigate(-1)}
-                className="back-btn"
+                type="button"
+                className={`revamp-btn revamp-btn--xs revamp-btn--pending`}
+                onClick={handleOpenReceiveConfirm}
+                title="Confirm that the manpower has arrived"
               >
-                <FaArrowLeft />
-                <span>Go Back</span>
+                Mark Received
               </button>
+            )}
+            {isApproved && isMine && markReceived && (
+              <span className="revamp-badge revamp-badge--received" title="Manpower arrival confirmed">Received</span>
+            )}
+          </div>
+        </section>
 
-              {isApproved && !request.returnDate && (
-                <button
-                  onClick={handleScheduleReturn}
-                  disabled={!markReceived}
-                  className={`schedule-btn ${!markReceived ? 'disabled' : ''}`}
-                >
-                  <FaCalendarPlus />
-                  <span>Schedule Return</span>
-                </button>
-              )}
+        <div className="revamp-sections-grid">
+        {/* Manpower requirements */}
+        <section className="revamp-section">
+          <header><FaUsers/><h2>Requested Manpower</h2></header>
+          {request.manpowers?.length ? (
+            <ul className="revamp-manpower-list">
+              {request.manpowers.map((m,i)=>(
+                <li key={i}><span className="qty">{m.quantity}</span><span className="type">{m.type}</span></li>
+              ))}
+            </ul>
+          ) : <div className="revamp-empty">No manpower entries</div>}
+        </section>
+
+        {/* Description */}
+        <section className="revamp-section">
+          <header><FaFileAlt/><h2>Description</h2></header>
+          <p className="revamp-description">{request.description || 'No description provided.'}</p>
+        </section>
+
+        {/* Approval & Assign */}
+  {!isMine && isPM && !isApproved && request?.status !== 'Archived' && request?.status !== 'Completed' && (
+          <section className="revamp-section emphasize span-2">
+            <header><FaCheck/><h2>Approve & Assign</h2></header>
+            <p className="hint">Provide manpower from <strong>{sourceProjectName}</strong> to <strong>{destProjectName}</strong></p>
+            <div className="hint requested">Requested: {request.manpowers.map(mp=>`${mp.type} (${mp.quantity})`).join(', ')}</div>
+            <div className="assign-row revamp">
+              <select
+                defaultValue=""
+                onChange={(e)=>{ const val=e.target.value; if(!val) return; setSelectedManpowerIds(p=>p.includes(val)?p:[...p,val]); }}
+              >
+                <option value="">{!pmProject? 'No PM project found': availableManpowers.length? 'Select manpower…':'No matching manpower'}</option>
+                {availableManpowers.filter(m=>!selectedManpowerIds.includes(m._id)).map(m=> (<option key={m._id} value={m._id}>{m.name} ({m.position})</option>))}
+              </select>
+              <button type="button" className="revamp-btn revamp-btn--ghost" onClick={()=>setSelectedManpowerIds([])}>Clear</button>
+            </div>
+            {selectedManpowerIds.length>0 && (
+              <div className="revamp-selected">
+                {selectedManpowerIds.map(idv=>{ const mp=availableManpowers.find(m=>m._id===idv); return (
+                  <span key={idv} className="pill">{mp? `${mp.name} (${mp.position})`: idv}<button onClick={()=>setSelectedManpowerIds(prev=>prev.filter(x=>x!==idv))}>×</button></span>
+                );})}
+              </div>
+            )}
+            <div className="revamp-actions">
+              <button className="revamp-btn revamp-btn--danger-outline" disabled={busy} onClick={handleDeny}><FaTimes/> Reject</button>
+              <button className="revamp-btn revamp-btn--primary" disabled={busy || selectedManpowerIds.length===0} onClick={handleApprove}>{busy? 'Processing…':'Approve & Assign'}</button>
+            </div>
+          </section>
+        )}
+
+        {/* Rejected details */}
+        {request.rejectedBy && request.rejectedBy.length>0 && (
+          <section className="revamp-section danger span-2">
+            <header><FaTimes/><h2>Rejection Details</h2></header>
+            <p className="hint"><strong>Reason:</strong> {request.rejectionReason || 'No reason provided'}</p>
+            <ul className="revamp-rejections">
+              {request.rejectedBy.map((r,i)=>(<li key={i}>{r.userName || r.userId?.name || 'Unknown PM'} <time>{new Date(r.rejectedAt).toLocaleDateString()}</time></li>))}
+            </ul>
+          </section>
+        )}
+
+        {/* Archived details */}
+        {request?.status === 'Archived' && (
+          <section className="revamp-section archived span-2">
+            <header><FaFileAlt/><h2>Archived</h2></header>
+            {request.archivedReason && <p className="hint"><strong>Reason:</strong> {request.archivedReason}</p>}
+            {request.originalRequestDetails && (
+              <div className="revamp-orig">
+                <p><strong>Original Acquisition:</strong> {new Date(request.originalRequestDetails.acquisitionDate).toLocaleDateString()}</p>
+                <p><strong>Original Duration:</strong> {request.originalRequestDetails.duration} days</p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Archive action */}
+        {!isMine && isPM && request?.status !== 'Archived' && (
+          <section className="revamp-section subtle span-2">
+            <div className="revamp-actions end">
+              <button onClick={handleArchive} className="revamp-btn revamp-btn--outline purple" disabled={busy}><FaFileAlt/> {busy? 'Processing…':'Archive Request'}</button>
+            </div>
+          </section>
+        )}
+        </div>
+
+        {/* Footer */}
+        <div className="revamp-footer">
+          {isApproved && isMine && markReceived && !request.returnDate && (
+            <button className="revamp-btn revamp-btn--primary" disabled={!markReceived} onClick={handleScheduleReturn}><FaCalendarPlus/> Schedule Return</button>
+          )}
+          {isApproved && isDonorPM && markReceived && request.status === 'Approved' && (
+            <button className="revamp-btn revamp-btn--primary" disabled={busy} onClick={handleOpenReturnConfirm} title="Return manpower and complete request">Mark Manpower Returned</button>
+          )}
+          {isApproved && isDonorPM && !markReceived && (
+            <span style={{fontSize:'.7rem',color:'#64748b'}}>Waiting for requester to mark received…</span>
+          )}
+      {/* Receive Confirmation Modal */}
+      {showReceiveConfirm && (
+        <div className="center-modal-overlay" role="dialog" aria-modal="true">
+          <div className="center-modal">
+            <div className="center-modal-header"><h2>Confirm Manpower Received</h2></div>
+            <div className="center-modal-body">
+              <p style={{marginBottom:12}}>Please confirm that the manpower provided for this request has physically arrived and the duration is acceptable.</p>
+              <div className="modal-warning-box info" style={{marginBottom:16}}>
+                <div className="warning-header">
+                  <FaCheckCircle className="warning-icon" />
+                  <strong>Request Summary</strong>
+                </div>
+                <p><strong>Requested:</strong> {request.manpowers.map(mp=>`${mp.quantity} ${mp.type}`).join(', ')}</p>
+                <p><strong>Duration:</strong> {request.duration} {request.duration>1?'days':'day'}</p>
+                <p><strong>Target Date:</strong> {request.acquisitionDate ? new Date(request.acquisitionDate).toLocaleDateString() : '—'}</p>
+                {request.returnWindow?.maxReturnDate && (
+                  <p><strong>Latest Return:</strong> {new Date(request.returnWindow.maxReturnDate).toLocaleDateString()}</p>
+                )}
+              </div>
+              <p style={{fontSize:13,color:'#334155'}}>After confirming, you'll be able to schedule the return date.</p>
+            </div>
+            <div className="center-modal-actions">
+              <button type="button" className="modal-btn" onClick={()=>setShowReceiveConfirm(false)}>Cancel</button>
+              <button type="button" className="modal-btn primary" disabled={busy} onClick={confirmReceived}>{busy? 'Saving…':'Confirm Received'}</button>
             </div>
           </div>
-
-          {/* Calendar Modal */}
-          {showCalendar && (
-            <div className="modal-overlay">
-              <div className="calendar-modal">
-                <div className="modal-header">
-                  <h3>Schedule Return Date</h3>
+        </div>
+      )}
+      {showReturnConfirm && (
+        <div className="center-modal-overlay" role="dialog" aria-modal="true">
+          <div className="center-modal">
+            <div className="center-modal-header"><h2>Confirm Manpower Returned</h2></div>
+            <div className="center-modal-body">
+              <p style={{marginBottom:12}}>This will reclaim all manpower provided back to their original project assignments and complete the request.</p>
+              <div className="modal-warning-box info" style={{marginBottom:16}}>
+                <div className="warning-header">
+                  <FaCheckCircle className="warning-icon" />
+                  <strong>Return Summary</strong>
                 </div>
-                <div className="modal-content">
+                {request.returnDate && <p><strong>Scheduled Return:</strong> {new Date(request.returnDate).toLocaleDateString()}</p>}
+                <p><strong>Resources Provided:</strong> {Array.isArray(request.manpowerProvided) ? request.manpowerProvided.length : 0}</p>
+                <p style={{fontSize:13,color:'#334155'}}>You are identified as a donor Project Manager.</p>
+              </div>
+            </div>
+            <div className="center-modal-actions">
+              <button type="button" className="modal-btn" onClick={()=>setShowReturnConfirm(false)}>Cancel</button>
+              <button type="button" className="modal-btn primary" disabled={busy} onClick={confirmReturned}>{busy? 'Completing…':'Confirm Returned'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+        </div>
+
+        {/* Calendar Modal */}
+        {showCalendar && (
+          <div className="center-modal-overlay" role="dialog" aria-modal="true">
+            <div className="center-modal">
+              <div className="center-modal-header">
+                <h2>Schedule Return Date</h2>
+              </div>
+              <div className="center-modal-body">
+                <div className="form-group">
+                  <label className="form-label">Select Return Date:</label>
                   <input
                     type="date"
                     value={selectedDate}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={(request.returnWindow?.earliestReturnDate ? request.returnWindow.earliestReturnDate.split('T')[0] : new Date().toISOString().split('T')[0])}
+                    max={(request.returnWindow?.maxReturnDate ? request.returnWindow.maxReturnDate.split('T')[0] : undefined)}
                     onChange={e => setSelectedDate(e.target.value)}
-                    className="date-input"
+                    className="form-input date-input"
                   />
-                </div>
-                <div className="modal-actions">
-                  <button
-                    className="confirm-btn"
-                    disabled={!selectedDate}
-                    onClick={handleDateConfirm}
-                  >
-                    Confirm
-                  </button>
-                  <button
-                    className="cancel-modal-btn"
-                    onClick={() => setShowCalendar(false)}
-                  >
-                    Cancel
-                  </button>
+                  {request.returnWindow?.maxReturnDate && (
+                    <p className="small muted" style={{marginTop:'.4rem'}}>
+                      Latest allowed return: {new Date(request.returnWindow.maxReturnDate).toLocaleDateString()} ({request.returnWindow.daysRemainingInWindow ?? ''} days remaining)
+                    </p>
+                  )}
                 </div>
               </div>
+              <div className="center-modal-actions">
+                <button 
+                  type="button"
+                  className="modal-btn" 
+                  onClick={() => setShowCalendar(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="button"
+                  className="modal-btn primary" 
+                  disabled={!selectedDate} 
+                  onClick={handleDateConfirm}
+                >
+                  Confirm
+                </button>
+              </div>
             </div>
-          )}
+          </div>
+        )}
 
-          <AuditTrail requestId={request._id} />
-        </div>
+        <AuditTrail requestId={request._id} />
       </main>
       
       {/* Cancel Confirmation Modal */}
       {showCancelConfirm && (
-        <div className="modal-overlay">
-          <div className="modal small">
-            <h3>Confirm Request Cancellation</h3>
-            
-            <div style={{
-              backgroundColor: '#fef2f2',
-              border: '1px solid #fecaca',
-              borderRadius: '8px',
-              padding: '12px',
-              marginBottom: '16px'
-            }}>
-              <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
-                <span style={{fontSize: '20px'}}>⚠️</span>
-                <strong style={{color: '#dc2626'}}>Cancellation Warning</strong>
+        <div className="center-modal-overlay error" role="dialog" aria-modal="true">
+          <div className="center-modal">
+            <div className="center-modal-header">
+              <h2>Confirm Request Cancellation</h2>
+            </div>
+            <div className="center-modal-body">
+              <div className="modal-warning-box error">
+                <div className="warning-header">
+                  <FaExclamationTriangle className="warning-icon" />
+                  <strong>Cancellation Warning</strong>
+                </div>
+                <p>This will permanently cancel the manpower request. This action cannot be undone.</p>
               </div>
-              <p style={{color: '#dc2626', margin: 0, fontSize: '14px'}}>
-                This will permanently cancel the manpower request. This action cannot be undone.
+
+              <div className="request-details-summary">
+                <h4>Request Details:</h4>
+                <div className="details-grid">
+                  <div className="detail-item">
+                    <span className="label">Project:</span>
+                    <span className="value">{request?.project?.projectName || 'Unknown'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Manpower Requested:</span>
+                    <span className="value">{request?.manpowers?.map(m => `${m.quantity} ${m.type}`).join(', ') || 'Unknown'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Status:</span>
+                    <span className="value">{request?.status || 'Unknown'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Created:</span>
+                    <span className="value">{request?.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <p className="confirmation-text">
+                Are you sure you want to <strong>cancel</strong> this manpower request?
               </p>
             </div>
-
-            <div style={{marginBottom: '16px'}}>
-              <p style={{marginBottom: '8px', fontWeight: '600'}}>Request Details:</p>
-              <div style={{backgroundColor: '#f9fafb', padding: '12px', borderRadius: '6px', fontSize: '14px'}}>
-                <p style={{margin: '0 0 4px 0'}}><strong>Project:</strong> {request?.project?.projectName || 'Unknown'}</p>
-                <p style={{margin: '0 0 4px 0'}}><strong>Manpower Requested:</strong> {request?.manpowers?.map(m => `${m.quantity} ${m.type}`).join(', ') || 'Unknown'}</p>
-                <p style={{margin: '0 0 4px 0'}}><strong>Status:</strong> {request?.status || 'Unknown'}</p>
-                <p style={{margin: '0'}}><strong>Created:</strong> {request?.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'Unknown'}</p>
-              </div>
-            </div>
-
-            <p style={{marginBottom: '16px', fontSize: '14px', lineHeight: '1.5'}}>
-              Are you sure you want to <strong>cancel</strong> this manpower request?
-            </p>
-
-            <div className="modal-actions" style={{display:'flex',gap:'0.5rem',justifyContent:'flex-end'}}>
+            <div className="center-modal-actions">
               <button 
-                className="btn" 
+                type="button"
+                className="modal-btn" 
                 onClick={() => setShowCancelConfirm(false)}
               >
                 Keep Request
               </button>
               <button 
-                className="btn primary" 
+                type="button"
+                className="modal-btn primary danger" 
                 disabled={busy}
                 onClick={confirmCancel}
-                style={{backgroundColor: '#dc2626'}}
               >
                 {busy ? 'Cancelling...' : 'Yes, Cancel Request'}
               </button>
@@ -827,59 +688,58 @@ export default function PmRequestedManpowerDetail() {
 
       {/* Archive Confirmation Modal */}
       {showArchiveConfirm && (
-        <div className="modal-overlay">
-          <div className="modal small">
-            <h3>Archive Manpower Request</h3>
-            
-            <div style={{
-              backgroundColor: '#fffbeb',
-              border: '1px solid #fed7aa',
-              borderRadius: '8px',
-              padding: '12px',
-              marginBottom: '16px'
-            }}>
-              <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px'}}>
-                <span style={{fontSize: '20px'}}>📁</span>
-                <strong style={{color: '#ea580c'}}>Archive Request</strong>
+        <div className="center-modal-overlay warning" role="dialog" aria-modal="true">
+          <div className="center-modal">
+            <div className="center-modal-header">
+              <h2>Archive Manpower Request</h2>
+            </div>
+            <div className="center-modal-body">
+              <div className="modal-warning-box warning">
+                <div className="warning-header">
+                  <FaFileAlt className="warning-icon" />
+                  <strong>Archive Request</strong>
+                </div>
+                <p>This will archive the request for record-keeping purposes. The request will be marked as archived but preserved in the system.</p>
               </div>
-              <p style={{color: '#ea580c', margin: 0, fontSize: '14px'}}>
-                This will archive the request for record-keeping purposes. The request will be marked as archived but preserved in the system.
-              </p>
-            </div>
 
-            <div style={{marginBottom: '16px'}}>
-              <p style={{marginBottom: '8px', fontWeight: '600'}}>Request Details:</p>
-              <div style={{backgroundColor: '#f9fafb', padding: '12px', borderRadius: '6px', fontSize: '14px'}}>
-                <p style={{margin: '0 0 4px 0'}}><strong>Project:</strong> {request?.project?.projectName || 'Unknown'}</p>
-                <p style={{margin: '0 0 4px 0'}}><strong>Manpower Requested:</strong> {request?.manpowers?.map(m => `${m.quantity} ${m.type}`).join(', ') || 'Unknown'}</p>
-                <p style={{margin: '0 0 4px 0'}}><strong>Status:</strong> {request?.status || 'Unknown'}</p>
-                <p style={{margin: '0'}}><strong>Created:</strong> {request?.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'Unknown'}</p>
+              <div className="request-details-summary">
+                <h4>Request Details:</h4>
+                <div className="details-grid">
+                  <div className="detail-item">
+                    <span className="label">Project:</span>
+                    <span className="value">{request?.project?.projectName || 'Unknown'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Manpower Requested:</span>
+                    <span className="value">{request?.manpowers?.map(m => `${m.quantity} ${m.type}`).join(', ') || 'Unknown'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Status:</span>
+                    <span className="value">{request?.status || 'Unknown'}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Created:</span>
+                    <span className="value">{request?.createdAt ? new Date(request.createdAt).toLocaleDateString() : 'Unknown'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="archive-reason-section">
+                <label className="form-label">
+                  Archive Reason (Optional):
+                </label>
+                <textarea
+                  value={archiveReason}
+                  onChange={(e) => setArchiveReason(e.target.value)}
+                  placeholder="Enter reason for archiving this request..."
+                  className="form-textarea"
+                />
               </div>
             </div>
-
-            <div style={{marginBottom: '16px'}}>
-              <label style={{display: 'block', marginBottom: '8px', fontWeight: '600', fontSize: '14px'}}>
-                Archive Reason (Optional):
-              </label>
-              <textarea
-                value={archiveReason}
-                onChange={(e) => setArchiveReason(e.target.value)}
-                placeholder="Enter reason for archiving this request..."
-                style={{
-                  width: '100%',
-                  minHeight: '80px',
-                  padding: '8px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  resize: 'vertical'
-                }}
-              />
-            </div>
-
-            <div className="modal-actions" style={{display:'flex',gap:'0.5rem',justifyContent:'flex-end'}}>
+            <div className="center-modal-actions">
               <button 
-                className="btn" 
+                type="button"
+                className="modal-btn" 
                 onClick={() => {
                   setShowArchiveConfirm(false);
                   setArchiveReason('');
@@ -888,13 +748,53 @@ export default function PmRequestedManpowerDetail() {
                 Cancel
               </button>
               <button 
-                className="btn primary" 
+                type="button"
+                className="modal-btn primary warning" 
                 disabled={busy}
                 onClick={confirmArchive}
-                style={{backgroundColor: '#ea580c'}}
               >
                 {busy ? 'Archiving...' : 'Archive Request'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {showRejectModal && (
+        <div className="center-modal-overlay warning" role="dialog" aria-modal="true">
+          <div className="center-modal">
+            <div className="center-modal-header"><h2>Reject Request</h2></div>
+            <div className="center-modal-body">
+              <p style={{marginBottom:12}}>You can optionally provide a reason for rejecting this request.</p>
+              <textarea
+                value={rejectReason}
+                onChange={e=>setRejectReason(e.target.value)}
+                placeholder="Reason (optional)"
+                style={{width:'100%',minHeight:90,padding:10,border:'1px solid #d1d5db',borderRadius:8,fontSize:14}}
+              />
+            </div>
+            <div className="center-modal-actions">
+              <button type="button" className="modal-btn" onClick={()=>{ setShowRejectModal(false); setRejectReason(''); }}>Cancel</button>
+              <button type="button" className="modal-btn primary" disabled={busy} onClick={confirmReject}>{busy? 'Processing…':'Reject Request'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unified Feedback Modal */}
+      {modal.open && (
+        <div className={`center-modal-overlay ${modal.type}`} role="dialog" aria-modal="true">
+          <div className="center-modal">
+            <div className="center-modal-header"><h2>{modal.title}</h2></div>
+            <div className="center-modal-body"><p>{modal.message}</p></div>
+            <div className="center-modal-actions">
+              {modal.actions.length === 0 && (
+                <button className="modal-btn primary" onClick={closeModal}>Close</button>
+              )}
+              {modal.actions.map((a,i)=>(
+                <button key={i} className={a.primary? 'modal-btn primary':'modal-btn'} onClick={a.onClick}>{a.label}</button>
+              ))}
             </div>
           </div>
         </div>
@@ -907,31 +807,47 @@ export default function PmRequestedManpowerDetail() {
 const AuditTrail = ({ requestId }) => {
   const [logs, setLogs] = React.useState([]);
   const [open, setOpen] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
   const token = localStorage.getItem('token');
+  
   useEffect(() => {
     if (!open) return;
     const fetchLogs = async () => {
+      setLoading(true);
       try {
         const { data } = await api.get('/audit-logs', { headers:{ Authorization:`Bearer ${token}` } });
         // Filter to those referencing this request
         const filtered = data.filter(l => l.meta?.requestId === requestId);
         setLogs(filtered);
-      } catch(e){ console.error('Audit fetch failed', e); }
+      } catch(e){ 
+        console.error('Audit fetch failed', e); 
+        setLogs([]);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchLogs();
   }, [open, requestId, token]);
 
   return (
-    <div style={{ marginTop:48 }}>
-      <button onClick={()=>setOpen(o=>!o)} style={{ ...btn('neutral'), background:'#f3f4f6', color:'#111827' }}>{open? 'Hide' : 'Show'} Audit Log</button>
+    <div className="revamp-audit">
+      <button 
+        className="revamp-btn revamp-btn--ghost" 
+        onClick={() => setOpen(!open)}
+        style={{ marginBottom: '1rem' }}
+      >
+        <FaFileAlt />
+        <span>{open ? 'Hide' : 'Show'} Audit Trail</span>
+      </button>
       {open && (
-        <div style={{ marginTop:16, maxHeight:260, overflowY:'auto', border:'1px solid #e5e7eb', borderRadius:12, padding:16, background:'#fafafa' }}>
-          {logs.length === 0 && <div style={{ fontSize:13, color:'#6b7280' }}>No audit entries for this request.</div>}
-          {logs.map(l => (
-            <div key={l._id || l.timestamp} style={{ padding:'10px 12px', borderBottom:'1px solid #e5e7eb', fontSize:13, lineHeight:1.4 }}>
-              <div style={{ fontWeight:600 }}>{l.action}</div>
-              <div style={{ color:'#374151' }}>{l.description}</div>
-              <div style={{ color:'#6b7280', fontSize:12, marginTop:4 }}>{new Date(l.timestamp).toLocaleString()} • {l.performedBy?.name} ({l.performedByRole})</div>
+        <div className="revamp-audit__panel">
+          {loading && <div className="revamp-empty small">Loading audit entries...</div>}
+          {!loading && logs.length === 0 && <div className="revamp-empty small">No audit entries for this request.</div>}
+          {!loading && logs.map(l => (
+            <div key={l._id || l.timestamp} className="revamp-audit__row">
+              <div className="act">{l.action}</div>
+              <div className="desc">{l.description}</div>
+              <div className="meta">{new Date(l.timestamp).toLocaleString()} • {l.performedBy?.name} ({l.performedByRole})</div>
             </div>
           ))}
         </div>

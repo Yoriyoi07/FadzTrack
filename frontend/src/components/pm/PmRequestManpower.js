@@ -24,6 +24,32 @@ const PmRequestManpower = () => {
     description: '',
   });
 
+  // Autocomplete state
+  const [allTypes, setAllTypes] = useState([]);
+  const [focusedRow, setFocusedRow] = useState(null);
+  const [highlighted, setHighlighted] = useState({}); // rowIdx -> highlighted suggestion index
+  // Modal state
+  const [modal, setModal] = useState({ open: false, title: '', message: '', type: 'info', actions: [] });
+
+  const openModal = ({ title, message, type = 'info', actions }) => {
+    setModal({ open: true, title, message, type, actions: actions || [] });
+  };
+  const closeModal = () => setModal(m => ({ ...m, open: false }));
+
+  const fetchTypeSuggestions = async () => {
+    try {
+      const { data } = await api.get('/manpower/types/list');
+      const list = data.types || [];
+      setAllTypes(list);
+      console.log('[Autocomplete] Loaded manpower types:', list.length);
+    } catch (e) {
+      console.error('Failed to load manpower types', e);
+    }
+  };
+
+  // Initial load of all types (once)
+  useEffect(() => { fetchTypeSuggestions(); }, []);
+
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem('user'));
     if (!user || !user._id) return;
@@ -73,6 +99,7 @@ const PmRequestManpower = () => {
       );
       return { ...prev, manpowers: newManpowers };
     });
+  // No per-key fetch now; we filter client-side from allTypes
   };
 
   const addManpowerRow = () => {
@@ -120,7 +147,14 @@ const PmRequestManpower = () => {
     e.preventDefault();
 
     if (!formData.acquisitionDate || !formData.duration || !formData.project || !formData.description) {
-      alert('All fields are required.');
+      openModal({
+        title: 'Incomplete Form',
+        message: 'All fields are required before submitting the manpower request.',
+        type: 'warning',
+        actions: [
+          { label: 'Close', onClick: () => closeModal(), primary: true }
+        ]
+      });
       return;
     }
     const validManpowers = formData.manpowers.every(mp =>
@@ -131,7 +165,12 @@ const PmRequestManpower = () => {
       Number(mp.quantity) > 0
     );
     if (!validManpowers) {
-      alert('Each manpower must have a type (string) and quantity (number > 0).');
+      openModal({
+        title: 'Invalid Manpower Entries',
+        message: 'Each manpower row must have a type (text) and a quantity greater than 0.',
+        type: 'warning',
+        actions: [ { label: 'Fix Entries', onClick: () => closeModal(), primary: true } ]
+      });
       return;
     }
 
@@ -157,14 +196,33 @@ const PmRequestManpower = () => {
       const response = await api[method](url, body);
 
       if (response.status === 200 || response.status === 201) {
-        alert(editMode ? '✅ Manpower request updated!' : '✅ Manpower request submitted!');
-        navigate('/pm/manpower-list');
+        openModal({
+          title: editMode ? 'Request Updated' : 'Request Submitted',
+          type: 'success',
+            message: editMode
+              ? 'The manpower request has been successfully updated.'
+              : 'Your manpower request has been submitted successfully.',
+          actions: [
+            { label: 'Go to Manpower List', onClick: () => { closeModal(); navigate('/pm/manpower-list'); }, primary: true },
+            !editMode ? { label: 'Create Another', onClick: () => { closeModal(); setFormData({ acquisitionDate: '', duration: '', project: formData.project, manpowers: [{ type: '', quantity: '' }], description: '' }); } } : null,
+          ].filter(Boolean)
+        });
       } else {
-        alert(`❌ Error: ${response.data.message || 'Failed to submit request'}`);
+        openModal({
+          title: 'Submission Error',
+          type: 'error',
+          message: response.data?.message || 'Failed to submit request. Please try again.',
+          actions: [ { label: 'Close', onClick: () => closeModal(), primary: true } ]
+        });
       }
     } catch (error) {
       console.error('❌ Submission error:', error);
-      alert('❌ Failed to connect to server.');
+      openModal({
+        title: 'Network Error',
+        type: 'error',
+        message: 'Failed to connect to server. Please check your connection and try again.',
+        actions: [ { label: 'Close', onClick: () => closeModal(), primary: true } ]
+      });
     }
   };
 
@@ -285,18 +343,62 @@ const PmRequestManpower = () => {
                     <div className="header-cell actions">Actions</div>
                   </div>
                   
-                  {formData.manpowers.map((mp, idx) => (
-                    <div className="table-row" key={idx}>
-                      <div className="table-cell">
-                        <input
-                          type="text"
-                          placeholder="e.g., Electrician, Plumber, Carpenter"
-                          value={mp.type}
-                          onChange={e => handleManpowerChange(idx, 'type', e.target.value)}
-                          required
-                          className="form-input"
-                        />
-                      </div>
+      {formData.manpowers.map((mp, idx) => {
+        const suggestions = (allTypes || []).filter(t => !mp.type || t.toLowerCase().includes(mp.type.toLowerCase())).slice(0, 15);
+        const showDropdown = focusedRow === idx; // show whenever focused
+        const currentHighlight = highlighted[idx] ?? -1;
+        const handleKeyDown = (e) => {
+          if (!showDropdown) return;
+          if (['ArrowDown','ArrowUp','Enter','Tab','Escape'].includes(e.key)) e.preventDefault();
+            if (e.key === 'ArrowDown') {
+              if (suggestions.length === 0) return;
+              setHighlighted(h => ({ ...h, [idx]: (currentHighlight + 1) % suggestions.length }));
+            } else if (e.key === 'ArrowUp') {
+              if (suggestions.length === 0) return;
+              setHighlighted(h => ({ ...h, [idx]: (currentHighlight - 1 + suggestions.length) % suggestions.length }));
+            } else if (e.key === 'Enter') {
+              if (currentHighlight >= 0 && suggestions[currentHighlight]) {
+                handleManpowerChange(idx, 'type', suggestions[currentHighlight]);
+                setFocusedRow(null);
+                setHighlighted(h => ({ ...h, [idx]: -1 }));
+              }
+            } else if (e.key === 'Escape') {
+              setFocusedRow(null);
+              setHighlighted(h => ({ ...h, [idx]: -1 }));
+            }
+        };
+                    return (
+                      <div className="table-row" key={idx} style={{ position:'relative' }}>
+                        <div className="table-cell" style={{ position:'relative' }}>
+                          <input
+                            type="text"
+                            placeholder="e.g., Electrician, Plumber, Carpenter"
+                            value={mp.type}
+          onChange={e => handleManpowerChange(idx, 'type', e.target.value)}
+          onFocus={() => { setFocusedRow(idx); }}
+          onBlur={() => { setTimeout(()=>{ setFocusedRow(r => r === idx ? null : r); }, 160); }}
+          onKeyDown={handleKeyDown}
+                            required
+                            autoComplete="off"
+                            className="form-input"
+                          />
+                          {showDropdown && (
+                            <ul id={`mp-type-dd-${idx}`} className="type-suggestions" style={{
+                              listStyle:'none', margin:0, padding:'4px 0', position:'absolute', top:'100%', left:0, right:0, background:'#fff', border:'1px solid #e5e7eb', zIndex:1000, maxHeight:200, overflowY:'auto', borderRadius:6, boxShadow:'0 4px 12px rgba(0,0,0,0.08)'
+                            }}>
+                              {suggestions.length === 0 && (
+                                <li style={{ padding:'6px 10px', fontSize:12, color:'#6b7280' }}>No types found</li>
+                              )}
+                              {suggestions.map((s, i) => (
+                                <li key={s}
+                                  style={{ padding:'6px 10px', cursor:'pointer', fontSize:13, background: i===currentHighlight ? '#f3f4f6':'#fff' }}
+                                  onMouseDown={e => { e.preventDefault(); handleManpowerChange(idx, 'type', s); setFocusedRow(null); setHighlighted(h=>({...h,[idx]:-1})); }}
+                                  onMouseEnter={() => setHighlighted(h => ({ ...h, [idx]: i }))}
+                                >{s}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                       <div className="table-cell">
                         <input
                           type="number"
@@ -319,8 +421,9 @@ const PmRequestManpower = () => {
                           <FaTrash />
                         </button>
                       </div>
-                    </div>
-                  ))}
+                      </div>
+                    );
+                  })}
                 </div>
                 
                 <div className="add-manpower-section">
@@ -382,6 +485,30 @@ const PmRequestManpower = () => {
           </div>
         </div>
       </main>
+      {modal.open && (
+        <div className={`center-modal-overlay ${modal.type}`} role="dialog" aria-modal="true">
+          <div className="center-modal">
+            <div className="center-modal-header">
+              <h2>{modal.title}</h2>
+            </div>
+            <div className="center-modal-body">
+              <p>{modal.message}</p>
+            </div>
+            <div className="center-modal-actions">
+              {modal.actions.map((a,i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className={a.primary ? 'modal-btn primary' : 'modal-btn'}
+                  onClick={a.onClick}
+                >
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -83,25 +83,7 @@ const createManpowerRequest = async (req, res) => {
       });
     }
 
-    // Notify all other Project Managers (excluding creator) about new request (inbox style)
-    try {
-      const creatorIdStr = String(createdBy);
-      const pms = await User.find({ role: 'Project Manager' }).select('_id');
-      for (const pm of pms) {
-        if (String(pm._id) === creatorIdStr) continue; // skip creator
-        await createAndEmitNotification({
-          type: 'manpower_request_created',
-          toUserId: pm._id,
-            fromUserId: createdBy,
-          message: `New manpower request for ${projectName}`,
-          projectId: projectDoc?._id,
-          requestId: newRequest._id,
-          meta: { recipientRole: 'Project Manager', manpower: true }
-        });
-      }
-    } catch (notifyErr) {
-      console.error('Failed to emit PM notifications for manpower request:', notifyErr);
-    }
+  // (Removed broadcast notification to all PMs on creation; requirement: only notify requester upon approval)
 
     res.status(201).json({ message: '✅ Manpower request created successfully' });
   } catch (error) {
@@ -279,67 +261,135 @@ const deleteManpowerRequest = async (req, res) => {
 const approveManpowerRequest = async (req, res) => {
   try {
     const { id } = req.params;
-    const { manpowerProvided, area, project } = req.body;
+    const { manpowerProvided, area, project: destinationProjectId } = req.body;
 
-    // Only PMs can approve now
     if (req.user?.role !== 'Project Manager') {
       return res.status(403).json({ message: 'Only Project Managers can approve manpower requests.' });
     }
-
-    // Validate manpower IDs array
+    if (!destinationProjectId) {
+      return res.status(400).json({ message: 'Destination project id is required.' });
+    }
     if (!Array.isArray(manpowerProvided) || manpowerProvided.length === 0) {
-      return res.status(400).json({ message: "No manpower selected." });
+      return res.status(400).json({ message: 'No manpower selected.' });
     }
 
-    // Update manpower status to active and assign to project
-    await Promise.all(manpowerProvided.map(async (manpowerId) => {
-      await Manpower.findByIdAndUpdate(manpowerId, {
-        status: 'Active',
-        assignedProject: project
+    // Load request doc (must exist & still pending/not archived)
+    const requestDoc = await ManpowerRequest.findById(id);
+    if (!requestDoc) return res.status(404).json({ message: 'Request not found' });
+    if (['Approved','Archived','Rejected','Completed'].includes(requestDoc.status)) {
+      return res.status(409).json({ message: `Cannot approve a ${requestDoc.status} request.` });
+    }
+
+    // Track original assignments for each manpower BEFORE move
+    const originalAssignments = [];
+    const movedIds = new Set();
+
+    for (const mpId of manpowerProvided) {
+      if (movedIds.has(String(mpId))) continue; // avoid duplicates
+      const mp = await Manpower.findById(mpId).select('_id assignedProject status');
+      if (!mp) continue; // skip missing
+      const fromProject = mp.assignedProject ? mp.assignedProject : null;
+
+      // Record original assignment (even if null) for potential return flow
+      originalAssignments.push({
+        manpower: mp._id,
+        fromProject,
+        donorProjectManager: req.user.id,
+        movedAt: new Date()
       });
-    }));
 
-    // Update manpower request
-    const updated = await ManpowerRequest.findByIdAndUpdate(id, {
-      status: "Approved",
-      approvedBy: req.user?.name || 'Unknown (PM)',
-      manpowerProvided,
-      area,
-      project
-    }, { new: true });
+      // If already assigned to destination, just ensure status Active
+      if (fromProject && String(fromProject) === String(destinationProjectId)) {
+        if (mp.status !== 'Active') {
+          await Manpower.updateOne({ _id: mp._id }, { $set: { status: 'Active' } });
+        }
+        movedIds.add(String(mp._id));
+        continue;
+      }
 
-    if (!updated) return res.status(404).json({ message: "Request not found" });
+      // Remove manpower ref from donor project.manpower array if exists
+      if (fromProject) {
+        await Project.updateOne({ _id: fromProject }, { $pull: { manpower: mp._id } });
+      }
+
+      // Assign to destination project and activate
+      await Manpower.updateOne({ _id: mp._id }, { $set: { assignedProject: destinationProjectId, status: 'Active' } });
+      await Project.updateOne({ _id: destinationProjectId }, { $addToSet: { manpower: mp._id } });
+      movedIds.add(String(mp._id));
+    }
+
+    // Merge with any existing originalAssignments (avoid duplicates)
+    const existingOriginal = Array.isArray(requestDoc.originalAssignments) ? requestDoc.originalAssignments : [];
+    const mergedOriginal = [...existingOriginal];
+    const seenCombo = new Set(existingOriginal.map(o => `${o.manpower}:${o.fromProject || 'null'}`));
+    for (const oa of originalAssignments) {
+      const key = `${oa.manpower}:${oa.fromProject || 'null'}`;
+      if (!seenCombo.has(key)) { seenCombo.add(key); mergedOriginal.push(oa); }
+    }
+
+    // Update request document fields
+    requestDoc.status = 'Approved';
+    requestDoc.approvedBy = req.user?.name || 'Unknown (PM)';
+    requestDoc.manpowerProvided = Array.from(movedIds);
+    requestDoc.area = area || requestDoc.area;
+    requestDoc.project = destinationProjectId; // ensure alignment with body
+    requestDoc.originalAssignments = mergedOriginal;
+    await requestDoc.save();
+
+    // Reload with populations for richer response
+    const populated = await ManpowerRequest.findById(requestDoc._id)
+      .populate('project', 'projectName')
+      .populate('createdBy', 'name')
+      .populate('manpowerProvided', 'name position')
+      .populate('originalAssignments.manpower', 'name position')
+      .populate('originalAssignments.fromProject', 'projectName');
 
     await logAction({
       action: 'APPROVE_MANPOWER_REQUEST',
       performedBy: req.user.id,
       performedByRole: req.user.role,
-      description: `PM approved manpower request for project ${updated.project}`,
-      meta: { requestId: updated._id }
+      description: `PM approved manpower request and transferred ${movedIds.size} manpower resource(s).`,
+      meta: { requestId: requestDoc._id, movedCount: movedIds.size }
     });
 
-    // Notify creator that their request was approved
+    // Notify creator
     try {
-      const creatorId = updated.createdBy || updated.createdBy?._id;
+      const creatorId = requestDoc.createdBy || requestDoc.createdBy?._id;
       if (creatorId) {
         await createAndEmitNotification({
           type: 'manpower_request_approved',
           toUserId: creatorId,
           fromUserId: req.user.id,
           message: 'Your manpower request has been approved',
-          projectId: updated.project,
-          requestId: updated._id,
-          meta: { recipientRole: 'Project Manager', manpower: true }
+          projectId: requestDoc.project,
+          requestId: requestDoc._id,
+          meta: { recipientRole: 'Project Manager', manpower: true, movedCount: movedIds.size },
+          req
         });
       }
     } catch (e) {
       console.error('Failed to send approval notification for manpower request:', e);
     }
 
-    res.status(200).json({ message: "✅ Request approved", data: updated });
+    // Attach return window metadata (same as single fetch)
+    try {
+      const acq = populated.acquisitionDate ? new Date(populated.acquisitionDate) : null;
+      const durationDays = populated.duration || 0;
+      if (acq && !isNaN(acq.getTime()) && durationDays > 0) {
+        const maxReturn = new Date(acq.getTime() + durationDays * 24 * 60 * 60 * 1000);
+        const earliest = acq;
+        populated = populated.toObject ? populated.toObject() : populated;
+        populated.returnWindow = {
+          maxReturnDate: maxReturn.toISOString(),
+          earliestReturnDate: earliest.toISOString(),
+          daysRemainingInWindow: Math.max(0, Math.ceil((maxReturn - new Date())/(24*60*60*1000)))
+        };
+      }
+    } catch {}
+    res.status(200).json({ message: '✅ Request approved', data: populated });
   } catch (error) {
-    console.error("❌ Error approving request:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error('❌ Error approving request:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -465,11 +515,37 @@ const getSingleManpowerRequest = async (req, res) => {
     const request = await ManpowerRequest.findById(id)
       .populate('project', 'projectName location')
       .populate('createdBy', 'name email role')
-      .populate('rejectedBy.userId', 'name');
+      .populate('rejectedBy.userId', 'name')
+      .populate('originalAssignments.manpower', 'name position')
+      .populate('originalAssignments.fromProject', 'projectName')
+      .populate('originalAssignments.donorProjectManager', 'name role');
     if (!request) {
       return res.status(404).json({ message: "Request not found" });
     }
-    res.json(request);
+
+    // Compute derived return window metadata
+    let meta = {};
+    try {
+      const acq = request.acquisitionDate ? new Date(request.acquisitionDate) : null;
+      const durationDays = request.duration || 0;
+      if (acq && !isNaN(acq.getTime()) && durationDays > 0) {
+        const maxReturn = new Date(acq.getTime() + durationDays * 24 * 60 * 60 * 1000);
+        const today = new Date();
+        const earliest = acq; // could also be today if you want to disallow back-dating
+        const daysRemaining = Math.max(0, Math.ceil((maxReturn - today) / (24*60*60*1000)));
+        meta = {
+          maxReturnDate: maxReturn.toISOString(),
+          earliestReturnDate: earliest.toISOString(),
+          daysRemainingInWindow: daysRemaining
+        };
+      }
+    } catch (e) {
+      meta = { computeError: true };
+    }
+
+    const out = request.toObject();
+    out.returnWindow = meta; // attach computed metadata
+    res.json(out);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -501,13 +577,21 @@ const markManpowerRequestReceived = async (req, res) => {
   try {
     const { id } = req.params;
     const { received } = req.body;
-    const updated = await ManpowerRequest.findByIdAndUpdate(
-      id,
-      { received: !!received },
-      { new: true }
-    );
-    if (!updated) return res.status(404).json({ message: "Request not found" });
-    res.json({ message: 'Marked as received', data: updated });
+    const request = await ManpowerRequest.findById(id);
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+
+    // Only the creator (requesting project PM) can mark as received
+    const currentUserId = req.user?.id || req.user?._id;
+    if (String(request.createdBy) !== String(currentUserId)) {
+      return res.status(403).json({ message: 'Only the requester can acknowledge receipt.' });
+    }
+    if (request.status !== 'Approved') {
+      return res.status(400).json({ message: 'Can only mark as received after approval.' });
+    }
+
+    request.received = !!received;
+    await request.save();
+    res.json({ message: 'Marked as received', data: request });
   } catch (err) {
     console.error('Error marking as received:', err);
     res.status(500).json({ message: 'Server error' });
@@ -518,14 +602,54 @@ const scheduleManpowerReturn = async (req, res) => {
   try {
     const { id } = req.params;
     const { returnDate } = req.body;
-    if (!returnDate) return res.status(400).json({ message: "No return date provided" });
-    const updated = await ManpowerRequest.findByIdAndUpdate(
-      id,
-      { returnDate },
-      { new: true }
-    );
-    if (!updated) return res.status(404).json({ message: "Request not found" });
-    res.json({ message: 'Return scheduled', data: updated });
+    if (!returnDate) return res.status(400).json({ message: 'No return date provided' });
+
+    const request = await ManpowerRequest.findById(id);
+    if (!request) return res.status(404).json({ message: 'Request not found' });
+    if (request.status !== 'Approved') {
+      return res.status(400).json({ message: 'Only approved requests can schedule a return.' });
+    }
+    if (!request.received) {
+      return res.status(400).json({ message: 'Manpower must be marked received before scheduling return.' });
+    }
+
+    if (!request.acquisitionDate) {
+      return res.status(400).json({ message: 'Acquisition date not set – cannot schedule return yet.' });
+    }
+    const acqRaw = new Date(request.acquisitionDate);
+    if (isNaN(acqRaw.getTime())) {
+      return res.status(400).json({ message: 'Invalid acquisition date on request.' });
+    }
+
+    // Normalize to date-only (strip time) to avoid timezone off-by-one issues
+    const toDateOnly = (d) => {
+      const nd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      return nd;
+    };
+    const acq = toDateOnly(acqRaw);
+    const rd = new Date(returnDate);
+    if (isNaN(rd.getTime())) {
+      return res.status(400).json({ message: 'Invalid return date.' });
+    }
+    const rdOnly = toDateOnly(rd);
+
+    const durationDays = request.duration || 0;
+    if (durationDays <= 0) {
+      return res.status(400).json({ message: 'Request duration not set – cannot schedule return.' });
+    }
+    const maxReturn = new Date(acq.getTime() + durationDays * 24 * 60 * 60 * 1000);
+    const maxOnly = toDateOnly(maxReturn);
+
+    if (rdOnly < acq) {
+      return res.status(400).json({ message: 'Return date cannot be earlier than the acquisition date.' });
+    }
+    if (rdOnly > maxOnly) {
+      return res.status(400).json({ message: 'Return date exceeds the allowed duration window.' });
+    }
+
+    request.returnDate = rdOnly; // store normalized date
+    await request.save();
+    res.json({ message: 'Return scheduled', data: request });
   } catch (err) {
     console.error('Error scheduling return:', err);
     res.status(500).json({ message: 'Server error' });
@@ -718,56 +842,135 @@ const archiveRequestsForCompletedProjects = async () => {
   }
 };
 
-// Function to mark a request as completed (when manpower returns)
+// Function to mark a request as completed (reclaim manpower back to original projects)
 const markRequestCompleted = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Only the requesting project manager or HR can mark as completed
-    if (req.user?.role !== 'Project Manager' && req.user?.role !== 'HR') {
-      return res.status(403).json({ message: 'Only Project Managers or HR can mark requests as completed.' });
+
+    // Roles allowed: original requesting Project Manager (creator) or HR
+    if (!['Project Manager', 'HR'].includes(req.user?.role)) {
+      return res.status(403).json({ message: 'Only Project Managers or HR can complete requests.' });
     }
 
-    const request = await ManpowerRequest.findById(id);
-    if (!request) {
-      return res.status(404).json({ message: 'Request not found' });
-    }
+    // Load full request with originalAssignments & manpowerProvided
+    let request = await ManpowerRequest.findById(id)
+      .populate('originalAssignments.manpower', 'name position assignedProject status')
+      .populate('originalAssignments.fromProject', 'projectName')
+      .populate('project', 'projectName');
+    if (!request) return res.status(404).json({ message: 'Request not found' });
 
-    // Only Approved requests can be marked as completed
+    // Only Approved requests can move to Completed
     if (request.status !== 'Approved') {
-      return res.status(400).json({ message: 'Only approved requests can be marked as completed.' });
+      return res.status(400).json({ message: 'Only approved requests can be completed.' });
     }
 
-    // Update manpower assignments back to their original projects
-    if (request.manpowerProvided && request.manpowerProvided.length > 0) {
-      await Promise.all(request.manpowerProvided.map(async (manpowerId) => {
-        await Manpower.findByIdAndUpdate(manpowerId, {
-          assignedProject: null // Return to unassigned status
-        });
-      }));
+    // Must have been acknowledged as received first
+    if (!request.received) {
+      return res.status(400).json({ message: 'Request manpower must be marked received before completion.' });
     }
 
-    // Update request status
-    const updated = await ManpowerRequest.findByIdAndUpdate(
-      id,
-      { 
-        status: 'Completed',
-        returnDate: new Date() // Set actual return date
-      },
-      { new: true }
-    );
+    // Determine donor PMs up-front
+    const donorIdsSet = new Set((request.originalAssignments || []).map(oa => String(oa.donorProjectManager)).filter(Boolean));
+
+    // Time based guard: allow completion if (now >= scheduled returnDate) OR (no explicit returnDate but duration elapsed)
+    // Business change: donor PM may force completion early once manpower is received.
+    const now = new Date();
+    let eligibleByTime = false;
+    if (request.returnDate) {
+      eligibleByTime = now >= new Date(request.returnDate);
+    } else if (request.acquisitionDate && request.duration) {
+      const maxReturn = new Date(new Date(request.acquisitionDate).getTime() + request.duration * 24*60*60*1000);
+      eligibleByTime = now >= maxReturn; // elapsed full duration window
+    }
+    const isDonorAttempt = req.user.role === 'Project Manager' && donorIdsSet.has(String(req.user.id));
+    if (!eligibleByTime && !isDonorAttempt) {
+      return res.status(400).json({ message: 'Cannot complete yet – return date/window not reached (only donor PM can return early).' });
+    }
+
+    // Authorization: if PM, ensure they are either the creator (requesting PM) OR one of donor PMs
+    if (req.user.role === 'Project Manager') {
+      const isCreator = String(request.createdBy) === String(req.user.id);
+      const isDonor = donorIdsSet.has(String(req.user.id));
+      if (!isCreator && !isDonor) {
+        return res.status(403).json({ message: 'Only the requesting or donor Project Manager (or HR) can complete this request.' });
+      }
+    }
+
+    // Reclaim logic: for each manpowerProvided, look up its original assignment
+    const reclaimResults = [];
+    const providedIds = Array.isArray(request.manpowerProvided) ? request.manpowerProvided.map(id => String(id)) : [];
+    const originalMap = new Map();
+    (request.originalAssignments || []).forEach(oa => {
+      originalMap.set(String(oa.manpower?._id || oa.manpower), oa);
+    });
+
+    for (const manpowerId of providedIds) {
+      try {
+        const mp = await Manpower.findById(manpowerId).select('assignedProject status');
+        if (!mp) continue;
+        const orig = originalMap.get(String(manpowerId));
+        const fromProject = orig?.fromProject ? orig.fromProject._id || orig.fromProject : null;
+        const currentProject = mp.assignedProject ? String(mp.assignedProject) : null;
+        let action = 'noop';
+
+        if (fromProject) {
+          // Remove from current destination project manpower array (if still there)
+            if (currentProject && currentProject !== String(fromProject)) {
+              await Project.updateOne({ _id: currentProject }, { $pull: { manpower: mp._id } });
+            }
+          // Add back to original project
+          await Project.updateOne({ _id: fromProject }, { $addToSet: { manpower: mp._id } });
+          await Manpower.updateOne({ _id: mp._id }, { $set: { assignedProject: fromProject, status: 'Active' } });
+          action = 'restored_to_original_project';
+        } else {
+          // No original project (was unassigned). Remove from destination and set unassigned
+          if (currentProject) {
+            await Project.updateOne({ _id: currentProject }, { $pull: { manpower: mp._id } });
+          }
+          await Manpower.updateOne({ _id: mp._id }, { $set: { assignedProject: null, status: 'Inactive' } });
+          action = 'unassigned';
+        }
+        reclaimResults.push({ manpower: manpowerId, action });
+      } catch (e) {
+        reclaimResults.push({ manpower: manpowerId, action: 'error', error: e.message });
+      }
+    }
+
+    // Update request status & completion timestamp (retain scheduled returnDate - don't overwrite)
+    request.status = 'Completed';
+    request.completedAt = new Date();
+    await request.save();
 
     await logAction({
       action: 'COMPLETE_MANPOWER_REQUEST',
       performedBy: req.user.id,
       performedByRole: req.user.role,
-      description: `Marked manpower request as completed for project ${updated.project}`,
-      meta: { requestId: updated._id }
+      description: `Completed manpower request and reclaimed ${reclaimResults.length} manpower resource(s).`,
+      meta: { requestId: request._id, reclaimResults }
     });
 
-    res.json({ message: '✅ Request marked as completed', data: updated });
+    // Notify donor PM(s) if different from requester
+    try {
+      const donorIds = [...new Set((request.originalAssignments || []).map(oa => String(oa.donorProjectManager)).filter(Boolean))];
+      for (const donorId of donorIds) {
+        if (donorId === String(request.createdBy)) continue; // skip if same
+        await createAndEmitNotification({
+          type: 'manpower_request_completed',
+          toUserId: donorId,
+          fromUserId: req.user.id,
+          message: 'Manpower you lent has been returned and request completed',
+          projectId: request.project,
+          requestId: request._id,
+          meta: { reclaimed: reclaimResults.length }
+        });
+      }
+    } catch (e) {
+      console.error('Failed to send completion notifications:', e);
+    }
+
+    res.json({ message: '✅ Request completed and manpower reclaimed', data: { request, reclaimResults } });
   } catch (error) {
-    console.error('❌ Error marking request as completed:', error);
+    console.error('❌ Error completing request:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };

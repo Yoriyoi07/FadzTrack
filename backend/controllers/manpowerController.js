@@ -157,3 +157,22 @@ exports.reconcileAssignments = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// Get distinct manpower position types (with optional search query ?q=)
+exports.getManpowerTypes = async (req, res) => {
+  try {
+    const q = (req.query.q || '').trim().toLowerCase();
+    // Use aggregation for case-insensitive distinct list
+    const pipeline = [];
+    if (q) {
+      pipeline.push({ $match: { position: { $regex: q, $options: 'i' } } });
+    }
+    pipeline.push({ $group: { _id: { $toLower: '$position' }, original: { $first: '$position' } } });
+    pipeline.push({ $sort: { original: 1 } });
+    const results = await Manpower.aggregate(pipeline);
+    const types = results.map(r => r.original);
+    res.json({ types });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

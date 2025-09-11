@@ -27,7 +27,7 @@ exports.createAndEmitNotification = async ({
         case 'material_request_created': return { title:'Material Request Submitted', severity:'info', icon:'box-plus', actionUrl: requestId?`/pic/material-request/${requestId}`:undefined };
         case 'manpower_request_created': {
           // PM inbox route
-          return { title:'Manpower Request Submitted', severity:'info', icon:'users-plus', actionUrl: requestId?`/pm/requested-manpower/${requestId}`:undefined };
+          return { title:'Manpower Request Submitted', severity:'info', icon:'users-plus', actionUrl: requestId?`/pm/manpower-request/${requestId}`:undefined };
         }
         case 'pending_approval': {
           let base = '/pm/material-request/';
@@ -50,7 +50,7 @@ exports.createAndEmitNotification = async ({
           }
           return { title:'Request Fully Approved', severity:'success', icon:'check-circle', actionUrl: requestId?`${base}${requestId}`:undefined };
         }
-        case 'manpower_request_approved': return { title:'Manpower Request Approved', severity:'success', icon:'check-circle', actionUrl: requestId?`/pm/requested-manpower/${requestId}`:undefined };
+  case 'manpower_request_approved': return { title:'Manpower Request Approved', severity:'success', icon:'check-circle', actionUrl: requestId?`/pm/manpower-request/${requestId}`:undefined };
         case 'denied': {
           let base = '/pic/material-request/';
           if(meta && meta.recipientRole){

@@ -46,24 +46,8 @@ router.get('/pm', verifyToken, getManpowerRequestsForProjectManagers);
 // All requests (could be protected if needed)
 router.get('/', getAllManpowerRequests);
 
-// Schedule a return date on a request (kept as in your code)
-router.put('/:id/return', async (req, res) => {
-  console.log("BODY:", req.body);
-  console.log("ID:", req.params.id);
-  const { returnDate } = req.body;
-  try {
-    const updated = await ManpowerRequest.findByIdAndUpdate(
-      req.params.id,
-      { returnDate },
-      { new: true }
-    );
-    console.log("UPDATED:", updated);
-    res.json(updated);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to set return date' });
-  }
-});
+// Schedule a return date on a request (validated)
+router.put('/:id/return', verifyToken, scheduleManpowerReturn);
 
 // Inactive manpower list (protected)
 router.get('/inactive', verifyToken, async (req, res) => {
