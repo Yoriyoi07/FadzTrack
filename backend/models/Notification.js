@@ -10,7 +10,9 @@ const NotificationSchema = new mongoose.Schema({
       // project lifecycle
       'project_created',
       // manpower specific
-      'manpower_request_approved'
+  'manpower_request_approved',
+  // content moderation
+  'discussion_profanity_alert'
     ],
   },
   title: { type: String }, // short heading e.g. "Material Request Approved"

@@ -51,6 +51,11 @@ exports.createAndEmitNotification = async ({
           return { title:'Request Fully Approved', severity:'success', icon:'check-circle', actionUrl: requestId?`${base}${requestId}`:undefined };
         }
   case 'manpower_request_approved': return { title:'Manpower Request Approved', severity:'success', icon:'check-circle', actionUrl: requestId?`/pm/manpower-request/${requestId}`:undefined };
+        case 'discussion_profanity_alert': {
+          // meta may hold conversation id
+          const convo = meta && meta.conversation ? meta.conversation : undefined;
+          return { title: 'Profanity Detected', severity: 'warning', icon: 'alert-triangle', actionUrl: convo?`/hr/chat/${convo}`:undefined };
+        }
         case 'denied': {
           let base = '/pic/material-request/';
           if(meta && meta.recipientRole){

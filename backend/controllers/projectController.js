@@ -1,14 +1,15 @@
 // controllers/projectController.js
 const Project = require('../models/Project');
 const { logAction } = require('../utils/auditLogger');
+const { hasProfanity, findProfanities } = require('../utils/profanity');
+const { createAndEmitNotification } = require('./notificationController');
+const User = require('../models/User');
 const Manpower = require('../models/Manpower');
 const supabase = require('../utils/supabaseClient');
-const User = require('../models/User');
 const Notification = require('../models/Notification');
 const Chat = require('../models/Chats');
 const PDFDocument = require('pdfkit');
 const { Server } = require("socket.io");
-const { createAndEmitNotification } = require('../controllers/notificationController');
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
 const { sumBudgetFromPdfBuffer } = require('../utils/budgetPdf');
@@ -1449,6 +1450,37 @@ exports.addProjectDiscussion = async (req, res) => {
     await project.save();
 
     const responseData = project.discussions[project.discussions.length - 1];
+
+    // --- Profanity detection & HR notification (project discussions) ---
+    try {
+      if (text && hasProfanity(text)) {
+        const profs = findProfanities(text);
+        const hrUsers = await User.find({ role: { $regex: /^hr(\s*-\s*site)?$/i } }, '_id role');
+        console.log('[ProfanityDetection] Project discussion profanity detected', { projectId, discussionId: responseData._id, profanities: profs, hrCount: hrUsers.length });
+        for (const hr of hrUsers) {
+          const tabParam = 'Discussions';
+          // HR project record route pattern assumption
+          const base = hr.role === 'hrsite' ? '/hr-site/project-records' : '/hr/project-records';
+          const actionUrl = `${base}/${projectId}?tab=${encodeURIComponent(tabParam)}&focus=${responseData._id}`;
+          await createAndEmitNotification({
+            type: 'discussion_profanity_alert',
+            toUserId: hr._id,
+            fromUserId: req.user.id,
+            message: `Profanity detected in project discussion: ${profs.join(', ')}`,
+            projectId: project._id,
+            referenceId: responseData._id,
+            meta: { projectId: String(projectId), discussionId: String(responseData._id), profanities: profs },
+            title: 'Profanity Detected',
+            severity: 'warning',
+            icon: 'alert-triangle',
+            actionUrl,
+            req
+          });
+        }
+      }
+    } catch (pfErr) {
+      console.error('Profanity alert (project discussion) error:', pfErr);
+    }
 
     // Log the action
     try {
