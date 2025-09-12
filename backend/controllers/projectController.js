@@ -2142,6 +2142,12 @@ exports.deleteProjectReport = async (req, res) => {
     const rep = project.reports.id(reportId);
     if (!rep) return res.status(404).json({ message: 'Report not found' });
 
+    // Additional ownership restriction: if role is PIC, only allow deletion of own report
+    const roleLower = String(req.user.role || '').toLowerCase();
+    if (roleLower.includes('pic') && rep.uploadedBy && String(rep.uploadedBy) !== String(req.user.id)) {
+      return res.status(403).json({ message: 'PIC can only delete their own uploaded reports' });
+    }
+
     const toRemove = [];
     if (rep.path)     toRemove.push(rep.path.replace(/^.*?project-reports\//, 'project-reports/'));
     if (rep.jsonPath) toRemove.push(rep.jsonPath.replace(/^.*?project-reports\//, 'project-reports/'));
