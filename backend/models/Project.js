@@ -82,7 +82,9 @@ const projectSchema = new mongoose.Schema({
   // Area (geographic / organizational subdivision) – newly added so IT create can persist selected area
   area: { type: mongoose.Schema.Types.ObjectId, ref: 'Area' },
 
-  contractor: String,
+  // Contractor details: contractor name now fixed to 'FADZ' (business rule) and a type flag
+  contractor: { type: String, default: 'FADZ' },
+  contractorType: { type: String, enum: ['Contractor', 'Sub Contractor'], default: 'Contractor' },
   budget: Number,
   photos: [String],
 

@@ -477,9 +477,12 @@ exports.addProject = async (req, res) => {
   try {
     const {
       projectName, pic, staff, hrsite,
-      projectmanager, contractor, budget, location,
+      projectmanager, contractor, contractorType, budget, location,
       startDate, endDate, manpower, areamanager, area
     } = req.body;
+    // Enforce contractor business rule: always store name as 'FADZ'
+    const enforcedContractorName = 'FADZ';
+    const finalContractorType = contractorType === 'Sub Contractor' ? 'Sub Contractor' : 'Contractor';
 
  
 
@@ -569,7 +572,10 @@ exports.addProject = async (req, res) => {
       pic: picIds,
       staff: staffIds,
       hrsite: hrIds,
-      projectmanager, contractor, budget, location,
+  projectmanager,
+  contractor: enforcedContractorName,
+  contractorType: finalContractorType,
+  budget, location,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       manpower: manpowerIds, areamanager, area, photos,

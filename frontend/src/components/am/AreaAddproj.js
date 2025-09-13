@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import '../style/am_style/Area_Addproj.css';
@@ -51,7 +51,8 @@ const AreaAddproj = () => {
     pic: [],
     staff: [],
     hrsite: [],
-    contractor: '',
+    contractor: 'FADZ',
+    contractorType: 'Contractor',
     budget: '',
     location: '',
     startDate: '',
@@ -62,6 +63,8 @@ const AreaAddproj = () => {
   });
   // Formatted display value for budget (with commas) separate from raw budget in formData
   const [budgetDisplay, setBudgetDisplay] = useState('');
+
+  // Removed manpowerCategories (category badges no longer used). Backend no longer receives this mapping.
 
   useEffect(() => {
     setFormData(prev => ({
@@ -196,11 +199,8 @@ const AreaAddproj = () => {
     setAssignedHR([]);
     setFormData(prev => ({...prev, hrsite: []}));
   };
-  const handleClearManpowerAll = () => {
-    if(!assignedManpower.length) return;
-    setAvailableManpower(prev => uniqueById([...prev, ...assignedManpower]));
-    setAssignedManpower([]);
-  };
+  // NOTE: Removed original handleClearManpowerAll to avoid duplicate declaration.
+  // The updated version with category reset is defined further below.
 
   // Fetch locations (if needed)
   useEffect(() => {
@@ -317,20 +317,47 @@ const AreaAddproj = () => {
   const handleBudgetDrop = (e) => { e.preventDefault(); setIsBudgetDrag(false); onBudgetSelected(e.dataTransfer.files); };
 
   // Manpower assign
-  const filteredAvailableManpower = availableManpower.filter(mp =>
-    !assignedManpower.some(assignedMp => assignedMp._id === mp._id) &&
-    (mp.name.toLowerCase().includes(searchManpower.toLowerCase()) ||
-      mp.position.toLowerCase().includes(searchManpower.toLowerCase()))
-  );
+  const filteredAvailableManpower = availableManpower.filter(mp => {
+    const matchesSearch = (
+      mp.name.toLowerCase().includes(searchManpower.toLowerCase()) ||
+      mp.position.toLowerCase().includes(searchManpower.toLowerCase())
+    );
+    if(!matchesSearch) return false;
+    if(assignedManpower.some(assignedMp => assignedMp._id === mp._id)) return false;
+    return true;
+  });
+  // Updated manpower assignment logic integrating auto category
   const handleAssignManpower = (mp) => {
-    if (!assignedManpower.some(m => m._id === mp._id)) {
-      setAssignedManpower(prev => [...prev, mp]);
-      setAvailableManpower(prev => prev.filter(m => m._id !== mp._id));
-    }
+    // prevent duplicates
+    setAssignedManpower(prev => {
+      if (prev.some(m => m._id === mp._id)) return prev;
+      return [...prev, mp];
+    });
+    setAvailableManpower(prev => prev.filter(m => m._id !== mp._id));
+  // category detection removed
   };
   const handleRemoveManpower = (mp) => {
-    setAvailableManpower(prev => [...prev, mp]);
+    setAvailableManpower(prev => {
+      // ensure not duplicated back
+      if (prev.some(m => m._id === mp._id)) return prev;
+      return [...prev, mp];
+    });
     setAssignedManpower(prev => prev.filter(m => m._id !== mp._id));
+    // Removed category mapping population
+  };
+  const handleClearManpowerAll = () => {
+    if (!assignedManpower.length) return;
+    setAvailableManpower(prev => {
+      const merged = [...prev, ...assignedManpower];
+      const seen = new Set();
+      return merged.filter(m => {
+        if (seen.has(m._id)) return false;
+        seen.add(m._id);
+        return true;
+      });
+    });
+    setAssignedManpower([]);
+  // Removed manpowerCategories append (feature deprecated)
   };
 
   // CSV upload for manpower
@@ -414,6 +441,9 @@ const AreaAddproj = () => {
         if(alreadyAssigned.length) details.push(`Already selected: ${alreadyAssigned.slice(0,10).join('; ')}${alreadyAssigned.length>10?'…':''}`);
         if(notFound.length && matched.length) details.push(`Not found: ${notFound.slice(0,10).join('; ')}${notFound.length>10?'…':''}`);
         if(details.length) setCsvError(details.join(' | ')); else if(matched.length) setCsvError('');
+
+        // Within handleCSVUpload function after successfully constructing each mpObj and before updating state, ensure category mapping:
+        // category detection removed
       },
       error: (err) => {
         console.error('CSV Parsing Error:', err);
@@ -430,6 +460,7 @@ const AreaAddproj = () => {
   // Required field validations
   if (!formData.projectName.trim()) { toast.error('Project name is required.'); return; }
   if (!formData.contractor.trim()) { toast.error('Contractor is required.'); return; }
+  if (!formData.contractorType) { toast.error('Contractor Type is required.'); return; }
   if (!formData.budget) { toast.error('Budget is required.'); return; }
   if (!formData.location) { toast.error('Location is required.'); return; }
   if (!formData.startDate || !formData.endDate) { toast.error('Please select both start and end dates.'); return; }
@@ -457,6 +488,7 @@ const AreaAddproj = () => {
     photos.forEach(file => form.append('photos', file));
   documents.forEach(file => form.append('documents', file));
   budgetFiles.forEach(file => form.append('budgetPdf', file));
+  // manpowerCategories removed from submission
 
     try {
       const { data } = await api.post('/projects', form, {
@@ -492,6 +524,79 @@ const AreaAddproj = () => {
     return ()=> window.removeEventListener('keydown', onKey);
   },[showCsvHelp]);
 
+  // Removed detectManpowerCategory (no longer needed)
+
+  // State to manage collapsed groups in manpower list
+const [collapsedGroups, setCollapsedGroups] = useState(()=>{
+  try { const raw = localStorage.getItem('mp_collapsed'); return raw? JSON.parse(raw): {}; } catch { return {}; }
+});
+// Enhanced grouping with counts
+const groupedManpower = useMemo(()=>{
+  const groups = {};
+  filteredAvailableManpower.forEach(mp => {
+    const key = (mp.position || 'Unspecified').trim();
+    if(!groups[key]) groups[key] = { position:key, list:[], total:0 };
+    groups[key].list.push(mp);
+  });
+  // also compute total from full available list (pre-filter) if needed
+  const totals = {};
+  availableManpower.forEach(mp => {
+    const key = (mp.position || 'Unspecified').trim();
+    totals[key] = (totals[key]||0) + 1;
+  });
+  return Object.values(groups)
+    .map(g => ({ ...g, total: totals[g.position] || g.list.length }))
+    .sort((a,b)=> a.position.localeCompare(b.position));
+}, [filteredAvailableManpower, availableManpower]);
+const toggleGroup = (pos) => setCollapsedGroups(prev => {
+  const next = { ...prev, [pos]: !prev[pos] };
+  try { localStorage.setItem('mp_collapsed', JSON.stringify(next)); } catch {}
+  return next;
+});
+// Expand / Collapse all
+const expandAllGroups = () => {
+  const next = {};
+  groupedManpower.forEach(g => { next[g.position] = false; });
+  setCollapsedGroups(next); try { localStorage.setItem('mp_collapsed', JSON.stringify(next)); } catch {}
+};
+const collapseAllGroups = () => {
+  const next = {};
+  groupedManpower.forEach(g => { next[g.position] = true; });
+  setCollapsedGroups(next); try { localStorage.setItem('mp_collapsed', JSON.stringify(next)); } catch {}
+};
+
+// Incremental loading logic per group
+const GROUP_CHUNK = 25;
+const [groupVisibleCounts, setGroupVisibleCounts] = useState(()=>{
+  try { const raw = localStorage.getItem('mp_visible_counts'); return raw? JSON.parse(raw): {}; } catch { return {}; }
+});
+const visibleCountFor = (pos, total) => Math.min(groupVisibleCounts[pos] || GROUP_CHUNK, total);
+const loadMoreGroup = (pos, total) => setGroupVisibleCounts(prev => {
+  const nextVal = Math.min((prev[pos] || GROUP_CHUNK) + GROUP_CHUNK, total);
+  const next = { ...prev, [pos]: nextVal };
+  try { localStorage.setItem('mp_visible_counts', JSON.stringify(next)); } catch {}
+  return next;
+});
+const loadAllGroup = (pos, total) => setGroupVisibleCounts(prev => {
+  const next = { ...prev, [pos]: total };
+  try { localStorage.setItem('mp_visible_counts', JSON.stringify(next)); } catch {}
+  return next;
+});
+
+  // Group assigned manpower by position for grouped display
+  const groupedAssignedManpower = useMemo(()=>{
+    if(!assignedManpower.length) return [];
+    const groups = {};
+    assignedManpower.forEach(mp => {
+      const key = (mp.position || 'Unspecified').trim();
+      if(!groups[key]) groups[key] = [];
+      groups[key].push(mp);
+    });
+    return Object.keys(groups)
+      .sort((a,b)=>a.localeCompare(b))
+      .map(k => ({ position:k, list:groups[k].sort((a,b)=>a.name.localeCompare(b.name)) }));
+  }, [assignedManpower]);
+
   return (
     <div>
       {/* Unified AppHeader for Area Manager */}
@@ -519,15 +624,28 @@ const AreaAddproj = () => {
                   />
                 </div>
                 <div className="area-addproj-form-group">
-                  <label htmlFor="contractor">Contractor</label>
+                  <label htmlFor="contractorType">Contractor Type</label>
+                  <select
+                    id="contractorType"
+                    name="contractorType"
+                    value={formData.contractorType}
+                    onChange={handleChange}
+                    required
+                  >
+                    <option value="Contractor">Contractor</option>
+                    <option value="Sub Contractor">Sub Contractor</option>
+                  </select>
+                </div>
+                <div className="area-addproj-form-group">
+                  <label htmlFor="contractor">Contractor Name</label>
                   <input
                     type="text"
                     id="contractor"
                     name="contractor"
-                    placeholder="Enter contractor details"
                     value={formData.contractor}
-                    onChange={handleChange}
-                    required
+                    readOnly
+                    disabled
+                    style={{background:'#f1f5f9',cursor:'not-allowed'}}
                   />
                 </div>
                 <div className="area-addproj-form-group">
@@ -623,26 +741,36 @@ const AreaAddproj = () => {
                   <div className="search-row">
                     <input placeholder="Search PIC" value={searchPIC} onChange={e=>setSearchPIC(e.target.value)} />
                   </div>
-                  <ul className="available-list" aria-label="Available PICs">
-                    {filteredAvailablePICs.slice(0,30).map(u => (
-                      <li key={u._id}>
-                        <button type="button" onClick={()=>handleAssignPIC(u)} title="Add PIC">
-                          <span className="avatar-sm">{u.name.charAt(0)}</span>
-                          <span className="label-text">{u.name}</span>
-                          <span className="plus">+</span>
-                        </button>
-                      </li>
-                    ))}
-                    {filteredAvailablePICs.length===0 && <li className="empty">No matches</li>}
-                  </ul>
-                  <div className="chips-row" aria-label="Assigned PICs">
-                    {assignedPICs.length===0 && <span className="placeholder">None assigned</span>}
-                    {assignedPICs.map(u => (
-                      <span key={u._id} className="chip">
-                        {u.name}
-                        <button type="button" className="remove" onClick={()=>handleRemovePIC(u)} aria-label={`Remove ${u.name}`}>×</button>
-                      </span>
-                    ))}
+                  <div className="role-dual-grid" aria-label="PIC selection lists">
+                    <ul className="available-list" aria-label="Available PICs">
+                      {filteredAvailablePICs.slice(0,60).map(u => (
+                        <li key={u._id}>
+                          <button type="button" onClick={()=>handleAssignPIC(u)} title="Add PIC">
+                            <span className="avatar-sm">{u.name.charAt(0)}</span>
+                            <span className="label-text">{u.name}</span>
+                            <span className="plus">+</span>
+                          </button>
+                        </li>
+                      ))}
+                      {filteredAvailablePICs.length===0 && <li className="empty">No matches</li>}
+                    </ul>
+                    <div className="assigned-list-wrapper">
+                      <div className="assigned-subheader">Selected</div>
+                      <ul className="assigned-list styled" aria-label="Assigned PICs">
+                        {assignedPICs.length===0 && <li className="empty" style={{textAlign:'center'}}>None</li>}
+                        {assignedPICs.map(u => (
+                          <li key={u._id}>
+                            <div className="assigned-row-card">
+                              <div className="assigned-row-main">
+                                <span className="avatar-sm alt">{u.name.charAt(0)}</span>
+                                <span className="label-text">{u.name}</span>
+                              </div>
+                              <button type="button" className="remove-pill" onClick={()=>handleRemovePIC(u)} aria-label={`Remove ${u.name}`}>✕</button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -661,26 +789,36 @@ const AreaAddproj = () => {
                   <div className="search-row">
                     <input placeholder="Search Staff" value={searchStaff} onChange={e=>setSearchStaff(e.target.value)} />
                   </div>
-                  <ul className="available-list" aria-label="Available Staff">
-                    {filteredAvailableStaff.slice(0,30).map(u => (
-                      <li key={u._id}>
-                        <button type="button" onClick={()=>handleAssignStaff(u)}>
-                          <span className="avatar-sm">{u.name.charAt(0)}</span>
-                          <span className="label-text">{u.name}</span>
-                          <span className="plus">+</span>
-                        </button>
-                      </li>
-                    ))}
-                    {filteredAvailableStaff.length===0 && <li className="empty">No matches</li>}
-                  </ul>
-                  <div className="chips-row" aria-label="Assigned Staff">
-                    {assignedStaff.length===0 && <span className="placeholder">None assigned</span>}
-                    {assignedStaff.map(u => (
-                      <span key={u._id} className="chip">
-                        {u.name}
-                        <button type="button" className="remove" onClick={()=>handleRemoveStaff(u)}>×</button>
-                      </span>
-                    ))}
+                  <div className="role-dual-grid" aria-label="Staff selection lists">
+                    <ul className="available-list" aria-label="Available Staff">
+                      {filteredAvailableStaff.slice(0,60).map(u => (
+                        <li key={u._id}>
+                          <button type="button" onClick={()=>handleAssignStaff(u)}>
+                            <span className="avatar-sm">{u.name.charAt(0)}</span>
+                            <span className="label-text">{u.name}</span>
+                            <span className="plus">+</span>
+                          </button>
+                        </li>
+                      ))}
+                      {filteredAvailableStaff.length===0 && <li className="empty">No matches</li>}
+                    </ul>
+                    <div className="assigned-list-wrapper">
+                      <div className="assigned-subheader">Selected</div>
+                      <ul className="assigned-list styled" aria-label="Assigned Staff">
+                        {assignedStaff.length===0 && <li className="empty" style={{textAlign:'center'}}>None</li>}
+                        {assignedStaff.map(u => (
+                          <li key={u._id}>
+                            <div className="assigned-row-card">
+                              <div className="assigned-row-main">
+                                <span className="avatar-sm alt">{u.name.charAt(0)}</span>
+                                <span className="label-text">{u.name}</span>
+                              </div>
+                              <button type="button" className="remove-pill" onClick={()=>handleRemoveStaff(u)} aria-label={`Remove ${u.name}`}>✕</button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -699,26 +837,36 @@ const AreaAddproj = () => {
                   <div className="search-row">
                     <input placeholder="Search HR - Site" value={searchHR} onChange={e=>setSearchHR(e.target.value)} />
                   </div>
-                  <ul className="available-list" aria-label="Available HR">
-                    {filteredAvailableHR.slice(0,30).map(u => (
-                      <li key={u._id}>
-                        <button type="button" onClick={()=>handleAssignHR(u)}>
-                          <span className="avatar-sm">{u.name.charAt(0)}</span>
-                          <span className="label-text">{u.name}</span>
-                          <span className="plus">+</span>
-                        </button>
-                      </li>
-                    ))}
-                    {filteredAvailableHR.length===0 && <li className="empty">No matches</li>}
-                  </ul>
-                  <div className="chips-row" aria-label="Assigned HR">
-                    {assignedHR.length===0 && <span className="placeholder">None assigned</span>}
-                    {assignedHR.map(u => (
-                      <span key={u._id} className="chip">
-                        {u.name}
-                        <button type="button" className="remove" onClick={()=>handleRemoveHR(u)}>×</button>
-                      </span>
-                    ))}
+                  <div className="role-dual-grid" aria-label="HR selection lists">
+                    <ul className="available-list" aria-label="Available HR">
+                      {filteredAvailableHR.slice(0,60).map(u => (
+                        <li key={u._id}>
+                          <button type="button" onClick={()=>handleAssignHR(u)}>
+                            <span className="avatar-sm">{u.name.charAt(0)}</span>
+                            <span className="label-text">{u.name}</span>
+                            <span className="plus">+</span>
+                          </button>
+                        </li>
+                      ))}
+                      {filteredAvailableHR.length===0 && <li className="empty">No matches</li>}
+                    </ul>
+                    <div className="assigned-list-wrapper">
+                      <div className="assigned-subheader">Selected</div>
+                      <ul className="assigned-list styled" aria-label="Assigned HR">
+                        {assignedHR.length===0 && <li className="empty" style={{textAlign:'center'}}>None</li>}
+                        {assignedHR.map(u => (
+                          <li key={u._id}>
+                            <div className="assigned-row-card">
+                              <div className="assigned-row-main">
+                                <span className="avatar-sm alt">{u.name.charAt(0)}</span>
+                                <span className="label-text">{u.name}</span>
+                              </div>
+                              <button type="button" className="remove-pill" onClick={()=>handleRemoveHR(u)} aria-label={`Remove ${u.name}`}>✕</button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -775,27 +923,62 @@ const AreaAddproj = () => {
               {csvError && <div className="area-addproj-manpower-error" style={{marginTop:4}}>{csvError}</div>}
               <div className="manpower-grid">
                 <ul className="available-list tall" aria-label="Available Manpower">
-                  {filteredAvailableManpower.slice(0,150).map(mp => (
-                    <li key={mp._id}>
-                      <button type="button" onClick={()=>handleAssignManpower(mp)}>
-                        <span className="avatar-sm">{mp.name.charAt(0)}</span>
-                        <span className="label-text">{mp.name} <em>{mp.position}</em></span>
-                        <span className="plus">+</span>
-                      </button>
-                    </li>
-                  ))}
-                  {filteredAvailableManpower.length===0 && <li className="empty">No manpower found</li>}
-                </ul>
-                <div className="chips-column" aria-label="Assigned Manpower">
-                  {assignedManpower.length===0 && <div className="placeholder">None assigned yet</div>}
-                  <div className="chips-scroller">
-                    {assignedManpower.map(mp => (
-                      <span key={mp._id} className="chip large">
-                        {mp.name} — {mp.position}
-                        <button type="button" className="remove" onClick={()=>handleRemoveManpower(mp)}>×</button>
-                      </span>
+                  {groupedManpower.length === 0 && (
+                    <div style={{fontSize:12,color:'#666',padding:'4px 0'}}>No manpower found.</div>
+                  )}
+                  <div className="grouped-manpower-scroll">
+                    {groupedManpower.map(g => (
+                      <div key={g.position} className="mp-group-card">
+                        <header className="mp-group-card-header">
+                          <button type="button" onClick={()=>toggleGroup(g.position)} aria-expanded={!collapsedGroups[g.position]} className="mp-group-toggle">
+                            <span className="mp-group-title-text">{g.position}</span>
+                            <span className="mp-group-count-pill">{g.list.length} / {g.total}</span>
+                            <span className={`mp-group-caret ${collapsedGroups[g.position]? 'collapsed':''}`}>▾</span>
+                          </button>
+                        </header>
+                        {!collapsedGroups[g.position] && (
+                          <ul className="mp-group-people" aria-label={`${g.position} manpower`}>
+                            {g.list.slice(0, visibleCountFor(g.position, g.list.length)).map(mp => (
+                              <li key={mp._id}>
+                                <button type="button" className="mp-person-row" onClick={()=>handleAssignManpower(mp)} title="Assign">
+                                  <span className="avatar-sm">{mp.name.charAt(0)}</span>
+                                  <span className="label-text">{mp.name}<em> — {mp.position}</em></span>
+                                  <span className="plus">+</span>
+                                </button>
+                              </li>
+                            ))}
+                            {visibleCountFor(g.position, g.list.length) < g.list.length && (
+                              <div style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:4}}>
+                                <button type="button" className="show-more-btn" onClick={()=>loadMoreGroup(g.position, g.list.length)}>Load More (+{Math.min(GROUP_CHUNK, g.list.length - visibleCountFor(g.position, g.list.length))})</button>
+                                <button type="button" className="show-more-btn" onClick={()=>loadAllGroup(g.position, g.list.length)}>Show All ({g.list.length})</button>
+                              </div>
+                            )}
+                          </ul>
+                        )}
+                      </div>
                     ))}
                   </div>
+                </ul>
+                <div className="assigned-groups" aria-label="Assigned Manpower Groups">
+                  {groupedAssignedManpower.length === 0 && (
+                    <div className="placeholder" style={{padding:'4px 6px'}}>None assigned yet</div>
+                  )}
+                  {groupedAssignedManpower.map(g => (
+                    <div key={g.position} className="assigned-group-card">
+                      <div className="assigned-group-title">{g.position} <span className="mp-group-count-pill">{g.list.length}</span></div>
+                      <ul className="assigned-group-people" aria-label={`Assigned ${g.position}`}>
+                        {g.list.map(mp => (
+                          <li key={mp._id}>
+                            <button type="button" onClick={()=>handleRemoveManpower(mp)} title="Remove">
+                              <span className="avatar-sm">{mp.name.charAt(0)}</span>
+                              <span className="label-text">{mp.name}<em> — {mp.position}</em></span>
+                              <span className="remove-x" aria-label={`Remove ${mp.name}`}>×</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
                 </div>
               </div>
             </section>
