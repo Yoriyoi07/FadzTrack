@@ -73,6 +73,11 @@ const AreaAddproj = () => {
     }));
   }, [userId]);
 
+  // Ensure contractor stays preset (in case of any unintended clears)
+  useEffect(() => {
+    setFormData(prev => prev.contractor ? prev : { ...prev, contractor: 'FADZ' });
+  }, []);
+
   // Fetch eligible PMs, available PIC/Staff/HR, manpower
   useEffect(() => {
     const fetchUsers = async () => {
@@ -642,10 +647,10 @@ const loadAllGroup = (pos, total) => setGroupVisibleCounts(prev => {
                     type="text"
                     id="contractor"
                     name="contractor"
-                    value={formData.contractor}
+                    value={formData.contractor || 'FADZ'}
                     readOnly
                     disabled
-                    style={{background:'#f1f5f9',cursor:'not-allowed'}}
+                    style={{background:'#f1f5f9',cursor:'not-allowed', fontWeight:600}}
                   />
                 </div>
                 <div className="area-addproj-form-group">
