@@ -1,0 +1,62 @@
+/* Avatar & message layout enhancements for AreaChat */
+.modern-message-wrapper { position: relative; }
+.msg-bubble-outer { display:flex; align-items:flex-end; gap:6px; }
+.modern-message-wrapper.own .msg-bubble-outer { flex-direction:row-reverse; }
+.msg-bubble-stack { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
+.modern-message-wrapper.own .msg-bubble-stack { align-items:flex-end; }
+.msg-avatar-wrapper { position:relative; width:32px; height:32px; }
+.msg-avatar { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#fff; background:linear-gradient(135deg,#475569,#1e293b); box-shadow:0 2px 4px rgba(0,0,0,0.15); user-select:none; }
+.modern-message-wrapper.own .msg-avatar { background:linear-gradient(135deg,#2563eb,#1d4ed8); }
+.msg-avatar-wrapper.presence-online .msg-avatar::after, .msg-avatar.presence-online::after { content:""; position:absolute; bottom:-2px; right:-2px; width:12px; height:12px; background:#10b981; border:2px solid #f1f5f9; border-radius:50%; box-shadow:0 0 0 1px rgba(0,0,0,0.15); }
+.group-sender-inline { font-size:11px; font-weight:600; color:#374151; margin:0 0 4px 0; line-height:1.2; }
+.modern-message-wrapper.own .group-sender-inline { text-align:right; }
+.msg-collapsed-spacer { width:32px; height:32px; }
+.group-sender-outside { font-size:11px; font-weight:600; color:#64748b; padding:0 2px; }
+.group-sender-outside.other { text-align:left; }
+.group-sender-outside.own { text-align:right; }
+
+/* Seen / viewers list */
+.message-seen-info { margin-top:4px; position:relative; }
+.seen-indicator.group-seen { background:none; border:none; padding:0; cursor:pointer; font-size:11px; color:#2563eb; text-decoration:underline; text-underline-offset:2px; }
+.seen-indicator.group-seen.own { color:#e0ecff; text-decoration:underline; }
+
+/* New layout: seen row below timestamp to avoid reaction overlap */
+.message-seen-info.below-ts {
+	margin-top: 2px;
+	padding-left: 2px;
+	flex-wrap: wrap;
+}
+
+.modern-message-time-row {
+	font-size: 11px;
+	opacity: .65;
+	margin-top: 4px;
+}
+
+.seen-indicator.seen-inline {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	line-height: 1.1;
+}
+
+.seen-indicator .eye-icon,
+.dm-seen .eye-icon {
+	font-size: 12px;
+	line-height: 1;
+	filter: drop-shadow(0 0 1px rgba(0,0,0,.25));
+}
+
+/* Ensure reactions bar (if absolutely positioned) does not cover seen row */
+.chat-message-wrapper {
+	position: relative;
+}
+.chat-message-wrapper .reactions-bar + .message-seen-info.below-ts {
+	margin-top: 4px;
+}
+.seen-indicator.group-seen.own:hover { color:#ffffff; }
+.seen-indicator.group-seen.other { color:#2563eb; }
+.seen-indicator.group-seen:focus-visible { outline:2px solid #93c5fd; outline-offset:2px; border-radius:4px; }
+.seen-details-tooltip { position:absolute; top:100%; left:0; z-index:40; background:#fff; border:1px solid #e2e8f0; box-shadow:0 6px 18px rgba(0,0,0,0.15); padding:8px 10px; border-radius:8px; margin-top:4px; max-width:220px; }
+.seen-users-list.scrollable { max-height:180px; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
+.seen-user-name { font-size:11px; color:#334155; }

@@ -83,7 +83,7 @@ const mentionRowStyles={ container:{position:'relative',background:'#fffbe6',bor
 const roleConfigs={
   pic:{ label:'Person in Charge', permissions:{ image:false,statusToggle:false,uploadFiles:true,deleteFiles:true,postDiscuss:true }, base:'/pic'},
   pm:{ label:'Project Manager', permissions:{ image:true,statusToggle:true,uploadFiles:true,deleteFiles:true,postDiscuss:true }, base:'/pm'},
-  am:{ label:'Area Manager', permissions:{ image:true,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:true }, base:'/am'},
+  am:{ label:'Area Manager', permissions:{ image:true,statusToggle:false,uploadFiles:true,deleteFiles:true,postDiscuss:true }, base:'/am'},
   ceo:{ label:'CEO', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/ceo'},
   hr:{ label:'HR', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/hr'},
   it:{ label:'IT', permissions:{ image:false,statusToggle:false,uploadFiles:false,deleteFiles:false,postDiscuss:false }, base:'/it'},
@@ -137,7 +137,8 @@ export default function ProjectView(props) {
     { to: `${basePath}/request/:id`, icon:<FaBoxes/>, label:'Material' },
     // Exclude Manpower tab for Area Manager per request
     ...(role === 'am' ? [] : [{ to: `${basePath}/manpower-list`, icon:<FaUsersNav/>, label:'Manpower' }]),
-    { to: viewProjectPathMap[role] || `${basePath}/viewprojects/${id}`, icon:<FaProjectDiagram/>, label:'View Project', active:true },
+  { to: viewProjectPathMap[role] || `${basePath}/viewprojects/${id}`, icon:<FaProjectDiagram/>, label:'View Project', active:true },
+  { to: `${basePath}/budget/${id}`, icon:<FaMoneyBillWave/>, label:'Budget' },
     // Legacy nav items (Logs / Reports / Daily Logs) intentionally omitted for PM when using unified header
     ...(!useUnifiedHeader ? [
       { to: `${basePath}/daily-logs`, icon:<FaClipboardList/>, label:'Logs' },
@@ -451,11 +452,24 @@ const loadAttendance = async (pid = project?._id) => {
 
   // Always include staff-view-root so unified overview card styles apply for every role
   const rootRoleClass = `pm-view-root staff-view-root ${role==='staff'?'is-staff':''} ${role==='ceo'?'ceo-view-root':''}`;
+  // Move derived values & hooks BEFORE any early returns to satisfy hooks rules
+  const contractor = readContractor(project);
+  const contractorType = project?.contractorType === 'Sub Contractor' ? 'Sub Contractor' : 'Contractor';
+  const budgetDocument = project?.budgetDocument || null;
+  const documentsExcludingBudget = React.useMemo(()=>{
+    if(!project?.documents) return [];
+    if(!budgetDocument) return project.documents;
+    // Filter out any doc with same path as budgetDocument
+    return project.documents.filter(d => {
+      if(!d) return false;
+      if(typeof d === 'string') return d !== budgetDocument.path;
+      return d.path !== budgetDocument.path;
+    });
+  }, [project?.documents, budgetDocument]);
   if(loading) return <div className={`dashboard-container ${rootRoleClass}`}><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-spinner-container"><div className="loading-spinner"/></div><div className="loading-text"><h2 className="loading-title">Loading Project Details</h2><p className="loading-subtitle">Fetching project information...</p></div><div className="loading-progress"><div className="progress-bar"><div className="progress-fill"/></div></div></div></div></div>;
   if(!project) return <div className={`dashboard-container ${rootRoleClass}`}><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-text"><h2 className="loading-title" style={{color:'#ef4444'}}>Project Not Found</h2><p className="loading-subtitle">Project missing or access denied.</p></div><div style={{marginTop:'2rem'}}><button onClick={()=> navigate(basePath)} style={{background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',border:'none',padding:'12px 24px',borderRadius:8,fontSize:'1rem',fontWeight:600,cursor:'pointer'}}>Return to Dashboard</button></div></div></div></div>;
   const start = project?.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A';
   const end = project?.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A';
-  const contractor = readContractor(project);
   let locationLabel = 'N/A';
   if(project?.location){
     const loc = project.location;
@@ -869,7 +883,7 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                   </div>
                   <div className="overview-card contractor-card">
                     <div className="card-icon"><FaBuilding /></div>
-                    <h3 className="card-title">Contractor</h3>
+                    <h3 className="card-title">{contractorType}</h3>
                     <div className="contractor-value">{contractor}</div>
                   </div>
                 </div>
@@ -1216,6 +1230,58 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                       </div>
                     )}
                   </div>
+                  {budgetDocument && (
+                    <div style={{background:'#ffffff',border:'1px solid #e2e8f0',borderRadius:16,padding:20,display:'flex',flexDirection:'column',gap:10,position:'relative'}}>
+                      <h3 style={{margin:'0 0 4px',fontSize:16,display:'flex',alignItems:'center',gap:8}}>
+                        Budget PDF
+                        {project?.parsedBudgetTotals && project.parsedBudgetTotals.autoDeductEligible===false && (
+                          <span title="Parsed but not auto-deducted (low confidence)" style={{background:'#f59e0b',color:'#3a2f00',fontSize:11,padding:'3px 8px',borderRadius:20,fontWeight:700,letterSpacing:.5}}>NOT DEDUCTED</span>
+                        )}
+                      </h3>
+                      <div style={{fontSize:13,color:'#475569',fontWeight:600}}>{budgetDocument.name || budgetDocument.path?.split('/').pop()}</div>
+                      <div style={{display:'flex',gap:8}}>
+                        <button
+                          type="button"
+                          onClick={()=> openSignedPath(budgetDocument.path)}
+                          style={{background:'#0b5fff',color:'#fff',border:'none',padding:'8px 14px',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}
+                        >Open</button>
+                        <button
+                          type="button"
+                          onClick={()=> openSignedPath(budgetDocument.path)}
+                          style={{background:'#0f172a',color:'#fff',border:'none',padding:'8px 14px',borderRadius:8,fontSize:13,fontWeight:600,cursor:'pointer'}}
+                        >Download</button>
+                      </div>
+                      {(budgetDocument.uploadedByName || budgetDocument.uploadedAt) && (
+                        <div style={{fontSize:11,color:'#64748b'}}>
+                          {budgetDocument.uploadedByName && <span>Uploaded by <b>{budgetDocument.uploadedByName}</b></span>}
+                          {budgetDocument.uploadedAt && <span style={{marginLeft:6}}>on {new Date(budgetDocument.uploadedAt).toLocaleDateString()}</span>}
+                        </div>
+                      )}
+                      {project?.parsedBudgetTotals?.confidenceSummary && (
+                        <div style={{marginTop:4,fontSize:12,color:'#64748b'}}>{project.parsedBudgetTotals.confidenceSummary}</div>
+                      )}
+                      {/* Simple spent vs original progress bar */}
+                      {(() => {
+                        if(!project?.parsedBudgetTotals) return null;
+                        const totalDeduct = Number(project.parsedBudgetTotals.totalAll || 0);
+                        const original = (Number(budgetNum || 0) + totalDeduct) || 0;
+                        if(!original) return null;
+                        const spent = original - (Number(budgetNum||0));
+                        const pct = Math.min(100, Math.max(0, (spent / original) * 100));
+                        return (
+                          <div style={{marginTop:10}}>
+                            <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#475569',marginBottom:4}}>
+                              <span>Spent: {peso.format(spent)}</span>
+                              <span>{pct.toFixed(1)}%</span>
+                            </div>
+                            <div style={{height:8,background:'#e2e8f0',borderRadius:6,overflow:'hidden',position:'relative'}}>
+                              <div style={{width:`${pct}%`,height:'100%',background:'linear-gradient(90deg,#0b5fff,#38bdf8)'}} />
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                   {/* AM Purchase Orders */}
                   <div style={{background:'#ffffff',border:'1px solid #e2e8f0',borderRadius:16,padding:20,display:'flex',flexDirection:'column',gap:16}}>
                     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
@@ -1550,9 +1616,9 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                   <div className="files-title-section">
                     <h2 className="files-title">Project Files</h2>
                     <p className="files-subtitle">
-                      {project?.documents && project.documents.length
+                      {documentsExcludingBudget && documentsExcludingBudget.length
                         ? `Showing ${Math.min(
-                            project.documents.filter(d => {
+                            documentsExcludingBudget.filter(d => {
                               if (!fileSearchTerm) return true;
                               const n =
                                 typeof d === 'string'
@@ -1561,7 +1627,7 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                               return n.toLowerCase().includes(fileSearchTerm.toLowerCase());
                             }).length,
                             5
-                          )} of ${project.documents.length} files`
+                          )} of ${documentsExcludingBudget.length} files`
                         : 'Manage and organize project documents'}
                     </p>
                   </div>
@@ -1605,7 +1671,7 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                   </div>
                 )}
                 <div className="files-table-container">
-                  {project?.documents && project.documents.length ? (
+                  {documentsExcludingBudget && documentsExcludingBudget.length ? (
                     <table className="files-table">
                       <thead className="table-header">
                         <tr>
@@ -1618,7 +1684,7 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                         </tr>
                       </thead>
                       <tbody className="table-body">
-                        {project.documents
+                        {documentsExcludingBudget
                           .filter(d => {
                             if (!fileSearchTerm) return true;
                             const n =

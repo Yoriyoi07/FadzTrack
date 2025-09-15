@@ -1,5 +1,6 @@
 // src/components/AreaChat.jsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import './AreaChatAvatars.css';
 import AppHeader from '../layout/AppHeader';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -402,6 +403,18 @@ const AreaChat = ({ baseSegment = 'am' }) => {
       return true;
     });
   }, [messages]);
+  // Helper: derive display name & initials for a message sender
+  const getMessageSenderUser = (msg) => {
+    if (!selectedChat) return null;
+    const sid = msg.senderId || (msg.isOwn ? userId : msg.senderId);
+    if (!sid) return null;
+    return (selectedChat.users || []).find(u => u._id === sid) || null;
+  };
+  const getInitials = (name='') => {
+    const parts = name.trim().split(/\s+/).filter(Boolean).slice(0,2);
+    if(!parts.length) return 'U';
+    return parts.map(p=>p.charAt(0).toUpperCase()).join('');
+  };
   // --- In-chat search helpers ---
   const escapeRegExp = (s='') => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const highlightMessage = (text='') => {
@@ -1474,6 +1487,17 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                             if (u2) senderName = getDisplayName(u2);
                           }
                         }
+                        const senderUser = getMessageSenderUser(msg);
+                        if(!senderName && senderUser) senderName = getDisplayName(senderUser);
+                        const initials = getInitials(senderName || (msg.isOwn ? userName : 'User'));
+                        // Avatar should appear only on the LAST message of a consecutive block
+                        const prevMsg = dedupedMessages[idx - 1];
+                        const nextMsg = dedupedMessages[idx + 1];
+                        const prevSenderSame = prevMsg && (prevMsg.senderId || (prevMsg.isOwn? userId: prevMsg.senderId)) === (msg.senderId || (msg.isOwn? userId: msg.senderId));
+                        const nextSenderSame = nextMsg && (nextMsg.senderId || (nextMsg.isOwn? userId: nextMsg.senderId)) === (msg.senderId || (msg.isOwn? userId: msg.senderId));
+                        // collapseAvatar true means we hide it here (not last in block)
+                        const collapseAvatar = nextSenderSame;
+                        const isOnline = senderUser && onlineUsers instanceof Set && onlineUsers.has(senderUser._id);
                         const counts = msg.reactions.reduce((a, r) => { a[r.emoji] = (a[r.emoji] || 0) + 1; return a; }, {});
                         const isLastOwn = msg.isOwn && idx === messages.length - 1;
                         const seenByRecipient = isLastOwn && msg.seen?.length > 0;
@@ -1496,12 +1520,21 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                         const bubbleMax = isVeryLongUnbroken ? 420 : 560; // narrower for unbroken
                         return (
                           <div key={`${String(msg._id)}-${idx}`} data-msg-index={idx} className={`modern-message-wrapper ${msg.isOwn ? 'own' : 'other'} ${searchMatches.includes(idx) ? 'search-hit' : ''}`}>
-                            {showSenderName && senderName && (
-                              <div className="group-sender-label" style={{ fontSize:11, fontWeight:600, margin: msg.isOwn ? '0 8px 2px auto' : '0 0 2px 4px', color:'#374151' }}>{senderName}</div>
-                            )}
-                            <div className={`modern-message ${msg.isOwn ? 'own' : 'other'}`}
-                                 style={{maxWidth: bubbleMax, width:'fit-content', wordBreak: isVeryLongUnbroken ? 'break-all' : 'break-word', overflowWrap:'anywhere'}}>
-                              <div className="modern-message-content">
+                            <div className="msg-bubble-outer">
+                              {!collapseAvatar ? (
+                                <div className={`msg-avatar-wrapper${isOnline ? ' presence-online':''}`}>
+                                  <div className={`msg-avatar${isOnline ? ' presence-online':''}`} aria-label={senderName}>{initials}</div>
+                                </div>
+                              ) : (
+                                <div className="msg-collapsed-spacer" />
+                              )}
+                              <div className="msg-bubble-stack">
+                                {showSenderName && senderName && selectedChat.isGroup && (
+                                  <div className={`group-sender-outside ${msg.isOwn ? 'own' : 'other'}`}>{senderName}</div>
+                                )}
+                                <div className={`modern-message ${msg.isOwn ? 'own' : 'other'}`}
+                                     style={{maxWidth: bubbleMax, width:'fit-content', wordBreak: isVeryLongUnbroken ? 'break-all' : 'break-word', overflowWrap:'anywhere'}}>
+                                  <div className="modern-message-content">
                                 {/* Forward label */}
                                 {msg.forwardOf && <div className="forward-label" style={{ fontSize:10, opacity:.6, marginBottom:2 }}>Forwarded</div>}
                                 {/* Reply reference */}
@@ -1563,40 +1596,56 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                                 )}
 
                                 {/* Removed single-check seen tick per request */}
-                              </div>
-
-                              <div className="modern-message-time">
-                                {formatTime(msg.timestamp)}
-                                {isMostRecentSeen && (
-                                  <div className="message-seen-info">
-                                    {selectedChat.isGroup ? (
-                                      <span
-                                        className="seen-indicator group-seen"
-                                        onClick={() => setShowSeenDetails(showSeenDetails === msg._id ? null : msg._id)}
-                                        title={`Seen by ${seenNames.join(', ')}`}
-                                      >
-                                        Seen by: {getGroupSeenDisplay(seenNames)}
-                                      </span>
-                                    ) : (
-                                      <span className="seen-indicator dm-seen">Seen</span>
-                                    )}
-                                    {selectedChat.isGroup && showSeenDetails === msg._id && (
-                                      <div className="seen-details-tooltip">
-                                        <div className="tooltip-header">Seen by:</div>
-                                        <div className="seen-users-list">
-                                          {seenNames.map((name, index) => (
-                                            <div key={index} className="seen-user">
-                                              <span className="seen-user-name">{name}</span>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )}
                                   </div>
-                                )}
-                              </div>
 
-                              <div className="reactions-bar">
+                                  <div className="modern-message-time-row">
+                                    <span className="msg-ts">{formatTime(msg.timestamp)}</span>
+                                  </div>
+                                  {(selectedChat.isGroup ? (msg.seen?.length>0) : isMostRecentSeen) && (
+                                    <div className="message-seen-info below-ts">
+                                      {selectedChat.isGroup ? (
+                                        (()=>{
+                                          const maxInline = 2;
+                                          const inline = seenNames.slice(0,maxInline);
+                                          const remainder = seenNames.length - inline.length;
+                                          return (
+                                            <button
+                                              type="button"
+                                              className={`seen-indicator group-seen ${msg.isOwn ? 'own':'other'} seen-inline`}
+                                              onClick={() => setShowSeenDetails(showSeenDetails === msg._id ? null : msg._id)}
+                                              title={seenNames.length? `Seen by ${seenNames.join(', ')}` : 'No viewers yet'}
+                                            >
+                                              <span className="eye-icon" aria-hidden="true">👁️</span>
+                                              {seenNames.length===0 && <span>Unseen</span>}
+                                              {seenNames.length>0 && (
+                                                <span className="seen-names-text">
+                                                  {inline.join(', ')}{remainder>0 && ` +${remainder}`}
+                                                </span>
+                                              )}
+                                            </button>
+                                          );
+                                        })()
+                                      ) : (
+                                        <span className="seen-indicator dm-seen seen-inline"><span className="eye-icon" aria-hidden="true">👁️</span> Seen</span>
+                                      )}
+                                      {selectedChat.isGroup && showSeenDetails === msg._id && (
+                                        <div className="seen-details-tooltip">
+                                          <div className="seen-users-list scrollable">
+                                            {seenNames.map((name, index) => (
+                                              <div key={index} className="seen-user">
+                                                <span className="seen-user-name">{name}</span>
+                                              </div>
+                                            ))}
+                                            {!seenNames.length && (
+                                              <div className="seen-user" style={{ opacity:.6 }}>No viewers yet</div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  <div className="reactions-bar">
                                 {Object.entries(counts).map(([e, c]) => {
                                   const hasReacted = msg.reactions.some(r => (typeof r.userId === 'string' ? r.userId : r.userId?._id) === userId && r.emoji === e);
                                   return (
@@ -1605,9 +1654,11 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                                     </button>
                                   );
                                 })}
-                              </div>
+                                  </div>
 
-                              {/* Removed legacy hover-reactions-bar to avoid duplicate emoji palette (now using floating layer) */}
+                                  {/* Removed legacy hover-reactions-bar to avoid duplicate emoji palette (now using floating layer) */}
+                                </div>
+                              </div>
                             </div>
                             {/* Floating outside toolbars (Messenger-style) */}
                             <div className={`msg-floating-layer ${msg.isOwn ? 'own' : 'other'}`}>
