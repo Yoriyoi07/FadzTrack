@@ -168,6 +168,17 @@ useEffect(() => {
       .catch(() => setReports([]));
   }, [token, project]);
 
+  // Auto-refresh reports when socket-driven global event fired
+  useEffect(()=>{
+    const handler = (e)=>{ if(String(e?.detail?.projectId)===String(project?._id) && token){
+      api.get(`/projects/${project._id}/reports`, { headers:{ Authorization:`Bearer ${token}` } })
+        .then(({data})=> setReports(data?.reports||[]))
+        .catch(()=>{});
+    }};
+    window.addEventListener('projectReportsUpdated', handler);
+    return ()=> window.removeEventListener('projectReportsUpdated', handler);
+  },[project?._id, token]);
+
 
 
 const handleLogout = () => {
@@ -231,7 +242,7 @@ const handleLogout = () => {
                               name: new Date(report.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
                               completedTasks: report.ai?.completed_tasks?.length || 0,
                               workItems: report.ai?.summary_of_work_done?.length || 0,
-                              contribution: report.ai?.pic_contribution_percent || 0
+                              contribution: (()=>{ const ai=report.ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); if(isFinite(raw)&&raw>=0) return raw; if(isFinite(legacy)&&legacy>=0) return legacy; return 0; })()
                             }))}>
                               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
@@ -258,7 +269,7 @@ const handleLogout = () => {
                         icon: <FaClipboardList />, bg: 'linear-gradient(135deg,#10b981,#059669)'
                       },{
                         label: 'PIC Contribution',
-                        value: reports[0]?.ai?.pic_contribution_percent != null ? `${reports[0].ai.pic_contribution_percent}%` : 'N/A',
+                        value: (()=>{ if(!reports[0]) return 'N/A'; const ai=reports[0].ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); const val = isFinite(raw)&&raw>=0? raw : (isFinite(legacy)&&legacy>=0? legacy : null); return val==null? 'N/A' : `${Math.round(val)}%`; })(),
                         desc: 'Contribution (latest)',
                         icon: <FaEye />, bg: 'linear-gradient(135deg,#8b5cf6,#7c3aed)'
                       },{

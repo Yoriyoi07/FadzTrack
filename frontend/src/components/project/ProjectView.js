@@ -257,6 +257,18 @@ useEffect(() => {
     return docCount>0 && reportCount>0;
   },[project,reports]);
 
+  // True when every assigned PIC has a latest report and each is at 100% contribution
+  const allPics100 = React.useMemo(()=> {
+    if(!picContributions || !picContributions.picContributions) return false;
+    const assignedPics = Array.isArray(project?.pic)? project.pic : [];
+    const requiredCount = assignedPics.length || picContributions.totalPics || 0;
+    if(requiredCount === 0) return false;
+    const list = picContributions.picContributions;
+    // Must have at least one entry per assigned PIC (or per detected reporter if no assignment list)
+    if(list.length < requiredCount) return false;
+    return list.every(p => p && p.hasReport && Number(p.contribution) >= 100);
+  },[picContributions, project?.pic]);
+
   const handleToggleStatus = async(forceComplete=false)=> {
     if(!project?._id) return;
     // If completing, ensure progress is 100 (already checked in UI) and confirmation accepted
@@ -305,7 +317,13 @@ useEffect(() => {
     socket.emit('joinProject', project._id);
     const hNew=data=>{ if(String(data.projectId)===String(project._id)&&data.message){ const mid=String(data.message._id); setMessages(prev=> prev.some(m=> String(m._id)===mid) ? prev : [...prev,data.message].sort((a,b)=> new Date(a.timestamp)-new Date(b.timestamp))); } };
     const hReply=data=>{ if(String(data.projectId)===String(project._id)&&data.msgId&&data.reply){ setMessages(prev=> prev.map(m=> { if(String(m._id)!==data.msgId) return m; const has = m.replies.some(r=> String(r._id)===String(data.reply._id)); return has? m : { ...m, replies:[...m.replies,data.reply] }; })); } };
-    const hReports=d=>{ if(String(d.projectId)===String(project._id)) fetchReports(project._id); };
+    const hReports=d=>{ 
+      try { 
+        // Broadcast a window-level event so other dashboards (CEO/Area/PM/PIC) can refresh without own sockets
+        window.dispatchEvent(new CustomEvent('projectReportsUpdated',{ detail:{ projectId: d?.projectId } }));
+      } catch {}
+      if(String(d.projectId)===String(project._id)) fetchReports(project._id); 
+    };
     socket.on('project:newDiscussion',hNew); socket.on('project:newReply',hReply); socket.on('project:reportsUpdated',hReports);
     return ()=>{ try{socket.off('project:newDiscussion',hNew);socket.off('project:newReply',hReply);socket.off('project:reportsUpdated',hReports);socket.emit('leaveProject',joinedProjectRef.current);socket.disconnect();}catch{} socketRef.current=null; joinedProjectRef.current=null; };
   },[project?._id,activeTab,userId]);
@@ -655,13 +673,31 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
               )}
               {perms.statusToggle && (
                 <>
-                  <button
-                    onClick={()=> status==='Completed'? handleToggleStatus() : setShowCompleteConfirm(true)}
-                    disabled={statusUpdating || (status!=='Completed' && !completionPreconditionsMet)}
-                    className={`status-toggle-btn ${status === 'Completed' ? 'completed' : 'ongoing'}`}
-                  >
-                    {statusUpdating ? 'Updating...' : status === 'Completed' ? 'Mark as Ongoing' : 'Complete Project'}
-                  </button>
+                  {/* Single unified completion button:
+                      - If project already completed -> allow reopening
+                      - If not completed and allPics100 -> show green Finalize
+                      - Else show standard Complete Project (with modal confirm)
+                  */}
+                  {status==='Completed' ? (
+                    <button
+                      onClick={()=> handleToggleStatus()}
+                      disabled={statusUpdating}
+                      className="status-toggle-btn completed"
+                    >
+                      {statusUpdating ? 'Updating...' : 'Mark as Ongoing'}
+                    </button>
+                  ) : (
+                    // Always require confirmation modal regardless of allPics100
+                    <button
+                      onClick={()=> setShowCompleteConfirm(true)}
+                      disabled={statusUpdating || !completionPreconditionsMet}
+                      className={`status-toggle-btn ${allPics100? 'success fast-complete-btn' : 'ongoing'}`}
+                      title={allPics100? 'All PIC reports at 100% - click to confirm completion' : 'Click to confirm project completion'}
+                      style={allPics100? {background:'#16a34a', borderColor:'#15803d'}:undefined}
+                    >
+                      {statusUpdating ? 'Updating...' : (allPics100? 'Mark as Completed (All 100%)' : 'Mark as Completed')}
+                    </button>
+                  )}
                   {showCompleteConfirm && status!=='Completed' && (
                     <div className="modal-overlay">
                       <div className="modal small">

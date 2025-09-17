@@ -138,10 +138,18 @@ const CeoDash = () => {
               const distinct = [...byUser.values()];
               const valsRaw = distinct
                 .map(r => {
-                  const raw = r?.ai?.pic_contribution_percent;
-                  if (raw === undefined || raw === null) return null;
-                  const num = typeof raw === 'string' ? parseFloat(raw.toString().replace(/[^0-9.]+/g, '')) : Number(raw);
-                  return isFinite(num) ? num : null;
+                  const ai = r?.ai || {};
+                  const rawVal = ai.pic_contribution_percent_raw;
+                  const legacyVal = ai.pic_contribution_percent;
+                  let num = null;
+                  if (rawVal !== undefined && rawVal !== null) {
+                    const n = typeof rawVal === 'string' ? parseFloat(rawVal.toString().replace(/[^0-9.]+/g,'')) : Number(rawVal);
+                    if (isFinite(n)) num = n;
+                  } else if (legacyVal !== undefined && legacyVal !== null) {
+                    const n = typeof legacyVal === 'string' ? parseFloat(legacyVal.toString().replace(/[^0-9.]+/g,'')) : Number(legacyVal);
+                    if (isFinite(n)) num = n;
+                  }
+                  return num;
                 })
                 .filter(v => v !== null && v >= 0 && v <= 100);
               let vals = valsRaw;
@@ -159,9 +167,18 @@ const CeoDash = () => {
               }
               reportingPics = distinct.length; pendingPics = totalPics > 0 ? Math.max(0, totalPics - reportingPics) : 0;
               picContributions = distinct.map(r => {
-                const raw = r?.ai?.pic_contribution_percent;
-                const num = raw == null ? 0 : (typeof raw === 'string' ? parseFloat(raw.toString().replace(/[^0-9.]+/g,'')) : Number(raw));
-                return { picId: r.uploadedBy || r._id, picName: r.uploadedByName || 'Unknown', contribution: Math.round(isFinite(num) ? num : 0), hasReport: true, lastReportDate: r.uploadedAt || null };
+                const ai = r?.ai || {};
+                const rawVal = ai.pic_contribution_percent_raw;
+                const legacyVal = ai.pic_contribution_percent;
+                let chosen = 0;
+                if (rawVal !== undefined && rawVal !== null) {
+                  const n = typeof rawVal === 'string' ? parseFloat(rawVal.toString().replace(/[^0-9.]+/g,'')) : Number(rawVal);
+                  if (isFinite(n)) chosen = n;
+                } else if (legacyVal !== undefined && legacyVal !== null) {
+                  const n = typeof legacyVal === 'string' ? parseFloat(legacyVal.toString().replace(/[^0-9.]+/g,'')) : Number(legacyVal);
+                  if (isFinite(n)) chosen = n;
+                }
+                return { picId: r.uploadedBy || r._id, picName: r.uploadedByName || 'Unknown', contribution: Math.round(chosen), hasReport: true, lastReportDate: r.uploadedAt || null };
               });
 
               // Risk extraction (prefer realistic critical path analysis first report that contains it)
@@ -262,6 +279,38 @@ const CeoDash = () => {
     buildMetrics();
     return () => { cancelled = true; };
   }, [enrichedAllProjects]);
+
+  // Listen for global projectReportsUpdated to update per-project metrics incrementally
+  useEffect(()=>{
+    const handler = (e)=>{
+      const projectId = e?.detail?.projectId; if(!projectId) return;
+      // Find the project in enrichedAllProjects; if absent ignore
+      const project = enrichedAllProjects.find(p=> String(p._id)===String(projectId));
+      if(!project) return;
+      (async()=>{
+        try {
+          const totalPics = Array.isArray(project.pic)? project.pic.length : 0;
+          let avg=0; let reportingPics=0; let pendingPics=totalPics; let latestDate=null; let picContributions=[]; let aiRisk='';
+          const { data: repData } = await api.get(`/projects/${projectId}/reports`);
+          const list = repData?.reports||[];
+          if(list.length){
+            const sorted=[...list].sort((a,b)=> new Date(b.uploadedAt||0)-new Date(a.uploadedAt||0));
+            latestDate = sorted[0]?.uploadedAt||null;
+            const byUser=new Map();
+            for(const r of sorted){ const key=r.uploadedBy||r.uploadedByName||r._id; if(!byUser.has(key)) byUser.set(key,r); }
+            const distinct=[...byUser.values()];
+            const vals = distinct.map(r=>{ const ai=r.ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); if(isFinite(raw)&&raw>=0) return raw; if(isFinite(legacy)&&legacy>=0) return legacy; const done=ai.completed_tasks?.length||0; const total=done+(ai.summary_of_work_done?.length||0); return total>0?(done/total)*100:0; }).filter(v=> isFinite(v)&&v>=0);
+            if(vals.length) avg = Math.min(100,Math.max(0, vals.reduce((s,v)=> s+v,0)/vals.length));
+            reportingPics=distinct.length; pendingPics= totalPics>0? Math.max(0,totalPics-reportingPics):0;
+            picContributions = distinct.map(r=>{ const ai=r.ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); const chosen=isFinite(raw)&&raw>=0? raw : (isFinite(legacy)&&legacy>=0? legacy : 0); return { picId:r.uploadedBy||r._id, picName:r.uploadedByName||'Unknown', contribution:Math.round(chosen), hasReport:true, lastReportDate:r.uploadedAt||null }; });
+          }
+          setProjectMetrics(prev=> prev.map(m=> m.projectId===projectId? { ...m, progressPrecise: Number(avg.toFixed(2)), progress: Math.round(avg), reportingPics, pendingPics, latestDate: latestDate? new Date(latestDate): null, picContributions } : m));
+        } catch {}
+      })();
+    };
+    window.addEventListener('projectReportsUpdated', handler);
+    return ()=> window.removeEventListener('projectReportsUpdated', handler);
+  },[enrichedAllProjects, setProjectMetrics]);
 
   // (no pagination state)
 

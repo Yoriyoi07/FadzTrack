@@ -107,20 +107,33 @@ const AreaDash = () => {
                     }
                     const distinct = [...byUploader.values()];
                     const percents = distinct
-                      .map(r => Number(r?.ai?.pic_contribution_percent))
+                      .map(r => {
+                        const ai = r?.ai || {};
+                        const raw = Number(ai.pic_contribution_percent_raw);
+                        const legacy = Number(ai.pic_contribution_percent);
+                        if (isFinite(raw) && raw >= 0) return raw;
+                        if (isFinite(legacy) && legacy >= 0) return legacy;
+                        return NaN;
+                      })
                       .filter(v => isFinite(v) && v >= 0);
                     if (percents.length) {
                       avg = percents.reduce((s,v)=>s+v,0) / percents.length;
                     }
                     reportingPics = distinct.length;
                     pendingPics = totalPics > 0 ? Math.max(0, totalPics - reportingPics) : 0;
-                    picContributions = distinct.map(r => ({
-                      picId: r.uploadedBy || r._id,
-                      picName: r.uploadedByName || 'Unknown',
-                      contribution: Math.round(Number(r?.ai?.pic_contribution_percent) || 0),
-                      hasReport: true,
-                      lastReportDate: r.uploadedAt || null
-                    }));
+                    picContributions = distinct.map(r => {
+                      const ai = r?.ai || {};
+                      const raw = Number(ai.pic_contribution_percent_raw);
+                      const legacy = Number(ai.pic_contribution_percent);
+                      const chosen = isFinite(raw) && raw >= 0 ? raw : (isFinite(legacy) && legacy >= 0 ? legacy : 0);
+                      return {
+                        picId: r.uploadedBy || r._id,
+                        picName: r.uploadedByName || 'Unknown',
+                        contribution: Math.round(chosen),
+                        hasReport: true,
+                        lastReportDate: r.uploadedAt || null
+                      };
+                    });
                   }
                 } catch { /* ignore reports errors */ }
 
@@ -238,6 +251,35 @@ const AreaDash = () => {
       );
     }
   }, [assignedLocations, allProjects]);
+
+  // Listen for global projectReportsUpdated events to refresh a single project's contribution snapshot
+  useEffect(() => {
+    const handler = (e) => {
+      const projectId = e?.detail?.projectId;
+      if(!projectId) return;
+      (async () => {
+        try {
+          const { data: repData } = await api.get(`/projects/${projectId}/reports`);
+          const list = repData?.reports || [];
+          if(!list.length) return;
+          const sorted = [...list].sort((a,b)=> new Date(b.uploadedAt||0)-new Date(a.uploadedAt||0));
+          const byUploader = new Map();
+          for(const r of sorted){ const key=r.uploadedBy||r.uploadedByName||r._id; if(!byUploader.has(key)) byUploader.set(key,r); }
+          const distinct=[...byUploader.values()];
+          const percents = distinct.map(r=>{ const ai=r.ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); if(isFinite(raw)&&raw>=0) return raw; if(isFinite(legacy)&&legacy>=0) return legacy; return NaN; }).filter(v=> isFinite(v)&&v>=0);
+          let avg=0; if(percents.length) avg=percents.reduce((s,v)=> s+v,0)/percents.length;
+          const projectObj = allProjects.find(p=> String(p._id)===String(projectId));
+          const totalPics = Array.isArray(projectObj?.pic)? projectObj.pic.length : 0;
+          const reportingPics = distinct.length;
+          const pendingPics = totalPics>0? Math.max(0,totalPics-reportingPics):0;
+          const picContributions = distinct.map(r=>{ const ai=r.ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); const chosen=isFinite(raw)&&raw>=0? raw : (isFinite(legacy)&&legacy>=0? legacy : 0); return { picId:r.uploadedBy||r._id, picName:r.uploadedByName||'Unknown', contribution:Math.round(chosen), hasReport:true, lastReportDate:r.uploadedAt||null }; });
+          setProjectContribs(prev => ({ ...prev, [projectId]: { averageContribution: Math.min(100,Math.max(0,Math.round(avg))), totalPics, reportingPics, pendingPics, picContributions } }));
+        } catch {}
+      })();
+    };
+    window.addEventListener('projectReportsUpdated', handler);
+    return () => window.removeEventListener('projectReportsUpdated', handler);
+  }, [allProjects]);
 
   // Calculate metrics
   useEffect(() => {

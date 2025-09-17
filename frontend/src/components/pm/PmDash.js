@@ -340,6 +340,13 @@ const PmDash = ({ forceUserUpdate }) => {
     fetchReports();
   }, [fetchReports]);
 
+  // Auto-refresh reports when global event dispatched (from ProjectView socket)
+  useEffect(()=>{
+    const handler = (e)=>{ if(String(e?.detail?.projectId)===String(project?._id)) fetchReports(); };
+    window.addEventListener('projectReportsUpdated', handler);
+    return ()=> window.removeEventListener('projectReportsUpdated', handler);
+  },[project?._id, fetchReports]);
+
   // Calculate metrics from reports
   const reportMetrics = React.useMemo(() => {
     if (!reports.length) {
@@ -372,14 +379,17 @@ const PmDash = ({ forceUserUpdate }) => {
     let validContributions = 0;
 
     distinctReports.forEach(report => {
-      const completed = report.ai?.completed_tasks?.length || 0;
-      const inProgress = report.ai?.summary_of_work_done?.length || 0;
-      const contribution = Number(report.ai?.pic_contribution_percent) || 0;
-      
+      const ai = report.ai || {};
+      const completed = ai.completed_tasks?.length || 0;
+      const inProgress = ai.summary_of_work_done?.length || 0;
+      const raw = Number(ai.pic_contribution_percent_raw);
+      const legacy = Number(ai.pic_contribution_percent);
+      const contribution = (isFinite(raw) && raw >= 0) ? raw : ((isFinite(legacy) && legacy >= 0) ? legacy : 0);
+
       totalCompleted += completed;
       totalInProgress += inProgress;
       totalWorkItems += completed + inProgress;
-      
+
       if (contribution > 0) {
         totalContribution += contribution;
         validContributions++;
