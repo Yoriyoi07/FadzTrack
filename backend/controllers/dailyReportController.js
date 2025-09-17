@@ -3,6 +3,7 @@ const Project = require('../models/Project');
 const MaterialRequest = require('../models/MaterialRequest');
 const User = require('../models/User');
 const { logAction } = require('../utils/auditLogger');
+const { computeContribution } = require('../utils/contribution');
 
 // Create a new daily report
 exports.createDailyReport = async (req, res) => {
@@ -304,7 +305,8 @@ exports.getDailyReportById = async (req, res) => {
   }
 };
 
-// Get averaged PiC contribution percentages for a project
+// Get PiC contribution percentages for a project USING ONLY the latest report per PiC (no averaging across history).
+// Requirement update (Sep 2025): project progress should reflect the latest submitted report from each PiC.
 exports.getProjectPicContributions = async (req, res) => {
   try {
     const projectId = req.params.projectId;
@@ -337,31 +339,66 @@ exports.getProjectPicContributions = async (req, res) => {
       })
     );
 
-    // Calculate contributions
+    // Build per-PiC latest contribution only (no multi-report averaging)
     const picContributions = [];
-    let totalContribution = 0;
-    let reportingPics = 0;
-
-    latestReports.forEach((report, index) => {
-      const picId = picIds[index];
-      const contribution = report?.ai?.pic_contribution_percent || 0;
-      
-      picContributions.push({
-        picId: picId,
-        picName: report?.submittedBy?.name || 'Unknown',
-        contribution: Math.round(contribution),
-        hasReport: !!report,
-        lastReportDate: report?.date || null
-      });
-
-      if (report) {
-        totalContribution += contribution;
-        reportingPics++;
+    for (let i=0;i<picIds.length;i++) {
+      const picId = picIds[i];
+      const latest = latestReports[i];
+      if (!latest || !latest.ai) {
+        picContributions.push({
+          picId,
+          picName: latest?.submittedBy?.name || 'Unknown',
+          contribution: 0,
+          hasReport: false,
+          lastReportDate: null,
+          previousContribution: null,
+          previousReportDate: null,
+          delta: null
+        });
+        continue;
       }
-    });
+      // Fetch previous report (second most recent) for this PiC
+      const previous = await DailyReport.findOne({
+        project: projectId,
+        submittedBy: picId,
+        _id: { $ne: latest._id }
+      }).sort({ date: -1 });
 
-    const averageContribution = reportingPics > 0 
-      ? Math.round(totalContribution / reportingPics) 
+      const latestCompleted = Array.isArray(latest.ai.completed_tasks) ? latest.ai.completed_tasks.length : 0;
+      const latestSummary = Array.isArray(latest.ai.summary_of_work_done) ? latest.ai.summary_of_work_done.length : 0;
+      const latestContribution = latestSummary > 0
+        ? computeContribution(latestCompleted, latestSummary)
+        : Math.round(Number(latest.ai.pic_contribution_percent) || 0);
+
+      let prevContribution = null;
+      let prevDate = null;
+      if (previous && previous.ai) {
+        const pComp = Array.isArray(previous.ai.completed_tasks) ? previous.ai.completed_tasks.length : 0;
+        const pSum = Array.isArray(previous.ai.summary_of_work_done) ? previous.ai.summary_of_work_done.length : 0;
+        prevContribution = pSum > 0
+          ? computeContribution(pComp, pSum)
+          : Math.round(Number(previous.ai.pic_contribution_percent) || 0);
+        prevDate = previous.date || null;
+      }
+      const delta = (prevContribution !== null) ? (latestContribution - prevContribution) : null;
+
+      picContributions.push({
+        picId,
+        picName: latest?.submittedBy?.name || 'Unknown',
+        contribution: latestContribution,
+        hasReport: true,
+        lastReportDate: latest?.date || null,
+        previousContribution: prevContribution,
+        previousReportDate: prevDate,
+        delta
+      });
+    }
+
+    const reportingPics = picContributions.filter(p => p.hasReport).length;
+    // For backward compatibility with any frontend expecting averageContribution, define it as:
+    // average across latest reports only.
+    const averageContribution = reportingPics > 0
+      ? Math.round(picContributions.filter(p=>p.hasReport).reduce((acc,p)=>acc+p.contribution,0)/reportingPics)
       : 0;
 
     res.json({

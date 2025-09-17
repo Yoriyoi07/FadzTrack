@@ -50,7 +50,7 @@ function extractTextFromNotesXml(xml = '') {
   return out.trim();
 }
 
-async function extractPptText(buffer) {
+async function extractPptText(buffer, { ocr = true, ocrLang = 'eng' } = {}) {
   if (!Buffer.isBuffer(buffer)) throw new Error('extractPptText expects a Buffer');
   const isZip = buffer[0] === 0x50 && buffer[1] === 0x4B; // 'PK'
   if (!isZip) throw new Error('Only .pptx is supported');
@@ -67,6 +67,9 @@ async function extractPptText(buffer) {
   if (!slideFiles.length) throw new Error('No slides found');
 
   let all = [];
+  // We may need to read media relationships for image-only slides.
+  // Map slide -> array of embedded image paths (simplistic rel parsing)
+  const relCache = {};
   for (const sPath of slideFiles) {
     const sXml = await zip.file(sPath).async('string');
     const slideText = extractTextFromSlideXml(sXml);
@@ -79,9 +82,43 @@ async function extractPptText(buffer) {
         notesText = extractTextFromNotesXml(nXml);
       } catch {}
     }
+    let finalSlideText = slideText;
+    let ocrAdded = '';
+    if ((!finalSlideText || finalSlideText === '(no visible text)') && ocr) {
+      // Attempt OCR: find image files referenced by slide (naive: look for r:embed ids in slide xml)
+      try {
+        const embedIds = Array.from(sXml.matchAll(/r:embed="(rId[^"]+)"/g)).map(m => m[1]);
+        // Parse slide rels file
+        const relPath = sPath.replace('slides/slide', 'slides/_rels/slide') + '.rels';
+        let imagePaths = [];
+        if (zip.files[relPath]) {
+          const relXml = await zip.file(relPath).async('string');
+            imagePaths = Array.from(relXml.matchAll(/<Relationship[^>]+Id="(rId[^"]+)"[^>]+Target="([^"]+)"/g))
+              .filter(r => embedIds.includes(r[1]) && /(media\/image\d+\.(png|jpg|jpeg))/i.test(r[2]))
+              .map(r => `ppt/${r[2]}`);
+        }
+        const { createWorker } = (() => { try { return require('tesseract.js'); } catch { return {}; } })();
+        if (createWorker && imagePaths.length) {
+          const worker = await createWorker(ocrLang, 1, { logger: ()=>{} });
+          for (const imgRel of imagePaths) {
+            if (!zip.files[imgRel]) continue;
+            const imgBuf = await zip.file(imgRel).async('nodebuffer');
+            try {
+              const { data: { text: ocrText } } = await worker.recognize(imgBuf);
+              const clean = (ocrText || '').trim();
+              if (clean) ocrAdded += (ocrAdded ? '\n' : '') + clean;
+            } catch {}
+          }
+          await worker.terminate();
+        }
+      } catch {}
+    }
+    if (ocrAdded) {
+      finalSlideText = [finalSlideText, '[OCR]', ocrAdded].filter(Boolean).join('\n');
+    }
     const block = [
       `--- SLIDE ${slideNo} ---`,
-      slideText || '(no visible text)',
+      finalSlideText || '(no visible text)',
       notesText ? `\n[NOTES]\n${notesText}` : ''
     ].join('\n');
     all.push(block.trim());

@@ -9,6 +9,8 @@ const supabase = require('../utils/supabaseClient');
 const Notification = require('../models/Notification');
 const Chat = require('../models/Chats');
 const PDFDocument = require('pdfkit');
+const crypto = require('crypto');
+const { computeContribution } = require('../utils/contribution');
 const { Server } = require("socket.io");
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
@@ -1956,9 +1958,15 @@ async function generateReportJsonFromText(rawText) {
   }
   out.pic_performance_evaluation = perf;
 
+  // CONTRIBUTION FORMULA UPDATE (Sep 2025):
+  // Previous heuristic: ((completed/summary) * 60) + 20  => typical max 80% when completed == summary.
+  // This caused fully completed reports to show only 80% (user issue). We now scale linearly 0–100.
+  // If you want a minimum baseline again, adjust by adding a floor afterward.
   if (!Number.isFinite(out.pic_contribution_percent)) {
-    const denom = Math.max(1, (out.summary_of_work_done || []).length);
-    out.pic_contribution_percent = Math.min(100, Math.round(((out.completed_tasks || []).length / denom) * 60 + 20));
+    out.pic_contribution_percent = computeContribution(
+      (out.completed_tasks || []).length,
+      (out.summary_of_work_done || []).length
+    );
   }
   if (!Number.isFinite(out.confidence)) out.confidence = 0.6;
 
@@ -2021,10 +2029,9 @@ function normalizeAi(ai, rawText = '') {
   out.pic_performance_evaluation = perf;
 
   if (!(out.pic_contribution_percent >= 0 && out.pic_contribution_percent <= 100)) {
-    const denom = Math.max(1, (out.summary_of_work_done || []).length);
-    out.pic_contribution_percent = Math.min(
-      100,
-      Math.round(((out.completed_tasks || []).length / denom) * 60 + 20)
+    out.pic_contribution_percent = computeContribution(
+      (out.completed_tasks || []).length,
+      (out.summary_of_work_done || []).length
     );
   }
 
@@ -2035,12 +2042,110 @@ function normalizeAi(ai, rawText = '') {
 
 function naiveAnalyze(text = '', picName = '') {
   const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-  const bullets = lines.filter(s => s.length <= 200);
+  const rawBullets = lines.filter(s => s.length <= 260);
 
-  const summary = bullets.slice(0, 6);
-  const completed = bullets.filter(s =>
-    /done|completed|finished|achieved|installed|construction completed|cladding installation completed/i.test(s)
-  );
+  // Remove pure slide header markers from completion detection but keep them for summary context
+  const slideMarkerRe = /^---\s*SLIDE\s*\d+\s*---$/i;
+
+  // Capture percentage tokens for numeric aggregation (we will not automatically treat them as full completions)
+  const percentTokenRe = /(\b\d{1,3})\s?%/g;
+  const completionWordRe = /done|completed|finished|achieved|installed|commission(ed)?|closeout|handed over|turned over|final inspection/i;
+
+  // Additional filtering: remove slide markers, shouting ALL CAPS headings (>=3 words), and probable location/address lines
+  const allCapsHeadingRe = /^(?:[A-Z0-9][A-Z0-9\- '&]{2,}\s+){2,}[A-Z0-9][A-Z0-9\- '&]{2,}$/; // 3+ all-caps words
+  const locationHintRe = /\b(city|province|tower|towers|phase|building|makati|cebu|davao|floor)\b/i;
+  const addressLikeRe = /[,].{0,40}\b(city|ph)\b/i;
+  const filteredOut = [];
+  const bullets = rawBullets.filter(s => {
+    if (slideMarkerRe.test(s)) { filteredOut.push({ line: s, reason: 'slide_marker' }); return false; }
+    if (allCapsHeadingRe.test(s)) { filteredOut.push({ line: s, reason: 'all_caps_heading' }); return false; }
+    if (/(^|\s)(SLIDE\s+\d+)/i.test(s)) { filteredOut.push({ line: s, reason: 'inline_slide_ref' }); return false; }
+    // location/address heuristic: line contains a comma OR location keyword and is <= 4 words after stripping punctuation
+    const wordCount = s.replace(/[^A-Za-z0-9\s]/g,'').trim().split(/\s+/).filter(Boolean).length;
+    if ((addressLikeRe.test(s) || locationHintRe.test(s)) && wordCount <= 6) {
+      filteredOut.push({ line: s, reason: 'location_address' }); return false; }
+    return true;
+  });
+
+  const summary = bullets.slice(0, 10); // widen a bit for low-text decks
+  // Collect explicit completion lines (keyword-based only) to avoid inflating with raw percent lines
+  // Exclude lines that are clearly negated (e.g., "NOT YET HANDED OVER") so they don't count as completions.
+  const negationRe = /\b(not yet|not|pending|awaiting|to be|tbd|tba)\b/i;
+  const negatedLines = [];
+  const completed = bullets.filter(s => {
+    if (slideMarkerRe.test(s)) return false;
+    const match = s.match(completionWordRe);
+    if (!match) return false;
+    // If any negation phrase appears before the completion keyword, treat as not completed
+    const idx = s.toLowerCase().indexOf(match[0].toLowerCase());
+    const pre = s.slice(0, idx);
+    if (negationRe.test(pre)) {
+      negatedLines.push(s);
+      return false;
+    }
+    // Also guard against patterns like "NOT YET HANDED OVER" where negation directly precedes phrase
+    if (/not\s+(yet\s+)?handed over/i.test(s)) {
+      negatedLines.push(s);
+      return false;
+    }
+    return true;
+  });
+
+  // Extract all percent values (0-100) across text for an averaged progress estimate
+  const percentValues = [];
+  let m;
+  while ((m = percentTokenRe.exec(text)) !== null) {
+    const v = parseInt(m[1], 10);
+    if (Number.isFinite(v) && v >= 0 && v <= 100) percentValues.push(v);
+  }
+  let percentTokenAverage = null;
+  if (percentValues.length >= 3) {
+    const sum = percentValues.reduce((a,b)=>a+b,0);
+    percentTokenAverage = Math.round(sum / percentValues.length);
+  }
+
+  // Detect structured percent grid (table-like rows) for richer aggregation
+  let percentGridDetected = false;
+  let percentGridLineCount = 0;
+  let percentGridAvgAll = null;
+  let percentGridAvgNonZero = null;
+  let percentGridCellCount = 0;
+  let percentGridNonZeroCells = 0;
+  if (percentValues.length >= 15) {
+    // Lines with at least 3 percent tokens likely represent a row of the grid
+    const gridLines = bullets.filter(l => (l.match(percentTokenRe) || []).length >= 3);
+    if (gridLines.length >= 4) {
+      percentGridDetected = true;
+      percentGridLineCount = gridLines.length;
+      // Recompute using only grid lines to avoid narrative text influence
+      let gridPercents = [];
+      for (const gl of gridLines) {
+        const pts = Array.from(gl.matchAll(percentTokenRe)).map(mm => parseInt(mm[1],10)).filter(v => v>=0 && v<=100);
+        gridPercents = gridPercents.concat(pts);
+      }
+      if (gridPercents.length) {
+        percentGridCellCount = gridPercents.length;
+        const nz = gridPercents.filter(v => v>0);
+        percentGridNonZeroCells = nz.length;
+        percentGridAvgAll = Math.round(gridPercents.reduce((a,b)=>a+b,0)/gridPercents.length);
+        if (nz.length) percentGridAvgNonZero = Math.round(nz.reduce((a,b)=>a+b,0)/nz.length);
+        // Prefer grid average to simple average when richer
+        if (percentGridAvgAll !== null) {
+          percentTokenAverage = percentGridAvgAll; // override coarse average
+        }
+      }
+    }
+  }
+
+  // If no completion lines but we have many percent tokens, synthesize minimal completion placeholders proportionally
+  if (completed.length === 0 && percentTokenAverage !== null) {
+    // Derive an approximate number of "effective" completions from average percent (scale against summary length up to 10)
+    const summaryLen = Math.min(10, bullets.length || 1);
+    const approxCompleted = Math.max(1, Math.round((percentTokenAverage / 100) * summaryLen));
+    for (let i=0; i<approxCompleted; i++) {
+      completed.push(`Progress token aggregate placeholder ${i+1}/${approxCompleted}`);
+    }
+  }
 
   const floorNums = (text.match(/\b(1?\d|2\d|3\d|4\d) ?(st|nd|rd|th)?\b/gi) || [])
     .map(s => parseInt(s, 10))
@@ -2088,7 +2193,21 @@ function naiveAnalyze(text = '', picName = '') {
 
   const doneCt = completed.length;
   const sumCt = summary.length || 1;
-  const contribution = Math.min(100, Math.round((doneCt / sumCt) * 60 + 20));
+  let contribution = computeContribution(doneCt, sumCt);
+  // If percent-token average exists and suggests lower progress than inflated completion ratio, favor the average.
+  if (percentTokenAverage !== null) {
+    if (contribution > percentTokenAverage + 5) {
+      contribution = percentTokenAverage; // clamp down to realistic averaged progress
+    } else if (doneCt === 0) {
+      contribution = percentTokenAverage; // pure percent-token scenario
+    }
+  }
+  // If a grid was detected and we have zero explicit completions, prefer grid average even if small
+  if (percentGridDetected && doneCt === 0 && percentGridAvgAll !== null) {
+    contribution = percentGridAvgAll;
+  }
+  // Safety bounds
+  contribution = Math.max(0, Math.min(100, contribution));
 
   return {
     summary_of_work_done: summary,
@@ -2105,6 +2224,17 @@ function naiveAnalyze(text = '', picName = '') {
       score: Math.max(55, Math.min(92, 65 + doneCt * 4))
     },
     pic_contribution_percent: contribution,
+    percent_token_average: percentTokenAverage,
+    percent_token_count: percentValues.length,
+    percent_token_sample: percentValues.slice(0,12),
+    negated_completion_lines: negatedLines.slice(0,10),
+    percent_grid_detected: percentGridDetected,
+    percent_grid_line_count: percentGridLineCount,
+    percent_grid_avg_all: percentGridAvgAll,
+    percent_grid_avg_nonzero: percentGridAvgNonZero,
+    percent_grid_cell_count: percentGridCellCount,
+    percent_grid_nonzero_cells: percentGridNonZeroCells,
+    filtered_summary_lines: filteredOut.slice(0,15),
     confidence: 0.6
   };
 }
@@ -2127,7 +2257,24 @@ exports.getProjectReports = async (req, res) => {
     }
     if (changed) await project.save();
 
-    const reports = (project.reports || []).slice().sort((a,b) => new Date(b.uploadedAt||0) - new Date(a.uploadedAt||0));
+    const reports = (project.reports || []).slice().sort((a,b) => new Date(b.uploadedAt||0) - new Date(a.uploadedAt||0)).map(r => {
+      const clone = r.toObject ? r.toObject() : JSON.parse(JSON.stringify(r));
+      const ai = clone.ai;
+      if (ai && typeof ai === 'object') {
+        const completed = Array.isArray(ai.completed_tasks) ? ai.completed_tasks.length : 0;
+        const summary = Array.isArray(ai.summary_of_work_done) ? ai.summary_of_work_done.length : 0;
+        try {
+          const { computeContribution } = require('../utils/contribution');
+          const raw = computeContribution(completed, summary);
+          clone.ai = {
+            ...ai,
+            pic_contribution_percent_raw: raw,
+            pic_contribution_percent: ai.pic_contribution_percent
+          };
+        } catch { /* ignore */ }
+      }
+      return clone;
+    });
     res.json({ reports });
   } catch (e) {
     res.status(500).json({ message: 'Failed to list reports' });
@@ -2258,7 +2405,7 @@ exports.uploadProjectReport = async (req, res) => {
     // 2) Extract text from PPTX
     let extractedText = '';
     try {
-      extractedText = await extractPptText(file.buffer);
+      extractedText = await extractPptText(file.buffer, { ocr: true, ocrLang: 'eng' });
     } catch (e) {
       const reportDoc = {
         path: srcPath,
@@ -2276,15 +2423,73 @@ exports.uploadProjectReport = async (req, res) => {
 
     // 3) AI JSON (Gemini) with a safe fallback
     let aiJson;
+    let fallbackUsed = false;
+    let aiErrorMessage = '';
     try {
       aiJson = await generateReportJsonFromText(extractedText);
     } catch (e) {
+      fallbackUsed = true;
+      aiErrorMessage = e.message || String(e);
+      console.warn('[AI] Primary generation failed, using fallback naiveAnalyze:', aiErrorMessage);
       aiJson = naiveAnalyze(extractedText, req.user?.name || '');
     }
     // <<< ensure scenarios + non‑blank performance
     aiJson = normalizeAi(aiJson, extractedText);
     // NEW: force CPA to have path_type + estimated_days (migration-proof for UI)
     aiJson = ensureCpaShape(aiJson);
+
+    // 3a) Attach extraction / AI diagnostics metadata (non-breaking)
+    const textHash = crypto.createHash('sha256').update(extractedText).digest('hex');
+    const fileHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
+    aiJson.meta_extracted_text_hash = textHash;
+    aiJson.meta_source_file_hash = fileHash;
+    aiJson.meta_extracted_text_length = extractedText.length;
+    const ocrTagCount = (extractedText.match(/\[OCR\]/g) || []).length;
+    if (ocrTagCount) {
+      aiJson.meta_ocr_used = true;
+      aiJson.meta_ocr_slide_count = ocrTagCount;
+    }
+    aiJson.meta_fallback_used = fallbackUsed;
+    if (fallbackUsed) aiJson.meta_ai_error = aiErrorMessage;
+    // Low-text detection (e.g., slides mostly numeric or percent glyphs)
+    const nonWhitespaceChars = extractedText.replace(/\s+/g,'');
+    const alphaChars = (nonWhitespaceChars.match(/[A-Za-z]/g) || []).length;
+    const percentChars = (nonWhitespaceChars.match(/%/g) || []).length;
+    const lowAlphaRatio = alphaChars / Math.max(1, nonWhitespaceChars.length);
+    if (extractedText.length < 120 || lowAlphaRatio < 0.10) {
+      aiJson.meta_low_text = true;
+      aiJson.meta_low_text_reason = `len=${extractedText.length}, alphaRatio=${lowAlphaRatio.toFixed(3)}, percentChars=${percentChars}`;
+      // If AI produced very generic summary AND low-text, inject a placeholder summary referencing slide count
+      if (Array.isArray(aiJson.summary_of_work_done) && aiJson.summary_of_work_done.length <= 1) {
+        const slideCount = (extractedText.match(/--- SLIDE /g) || []).length || 'unknown';
+        aiJson.summary_of_work_done = [
+          `Presentation contains minimal textual content (${slideCount} slides). Percent/graphical data likely dominated the file.`
+        ];
+      }
+    }
+
+
+    // 3b) Detect duplicate hashes vs last report for same uploader (distinguish file vs text duplicates)
+    try {
+      const lastSameUser = (project.reports || [])
+        .filter(r => String(r.uploadedBy) === String(req.user.id))
+        .sort((a,b)=> new Date(b.uploadedAt||0) - new Date(a.uploadedAt||0))[0];
+      if (lastSameUser && lastSameUser.ai) {
+        const prevTextHash = lastSameUser.ai.meta_extracted_text_hash;
+        const prevFileHash = lastSameUser.ai.meta_source_file_hash;
+        if (prevTextHash === textHash) {
+          if (prevFileHash && prevFileHash !== fileHash) {
+            aiJson.meta_text_duplicate_source_diff = true; // same extracted text, different underlying file binary
+            console.info(`[REPORT] Text duplicate but file differs (text ${textHash.slice(0,12)}) user ${req.user.id} project ${id}`);
+          } else {
+            aiJson.meta_duplicate_previous = true; // identical file or no prior hash to compare
+            console.info(`[REPORT] Duplicate PPT content detected (hash ${textHash.slice(0,12)}) for user ${req.user.id} project ${id}`);
+          }
+        }
+      }
+    } catch (dupErr) {
+      console.warn('Duplicate detection failed:', dupErr.message);
+    }
 
     // 4) Upload JSON artifact
     const jsonPath = `${baseDir}/${timestamp}_analysis.json`;
