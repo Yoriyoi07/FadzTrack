@@ -1,9 +1,9 @@
 /* Two-Factor Authentication Styles */
 .two-fa-container {
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
   margin: 0 auto;
-  padding: 1.5rem; /* Reduced from 2rem to save more space */
+  padding: 0.75rem 1rem 1rem 1rem; /* tighten vertical space */
   text-align: center;
   animation: fadeInUp 0.6s ease-out forwards;
   opacity: 0;
@@ -11,7 +11,7 @@
 
 /* Header Section */
 .two-fa-header {
-  margin-bottom: 1rem; /* Reduced from 1.5rem to save more space */
+  margin-bottom: 0.5rem; /* tighter */
   animation: fadeInDown 0.6s ease-out 0.2s forwards;
   opacity: 0;
   display: flex;
@@ -34,7 +34,7 @@
 }
 
 .two-fa-title {
-  font-size: 1.5rem; /* Reduced from 1.875rem to save space */
+  font-size: 1.35rem;
   font-weight: 700;
   color: #1e293b;
   margin-bottom: 0;
@@ -43,7 +43,7 @@
 }
 
 .two-fa-subtitle {
-  font-size: 0.875rem; /* Reduced from 1rem to save space */
+  font-size: 0.8rem;
   color: #64748b;
   font-weight: 400;
   line-height: 1.4; /* Reduced from 1.6 to save space */
@@ -58,13 +58,13 @@
 
 /* Form Section */
 .two-fa-form {
-  margin-bottom: 1rem; /* Reduced from 1.5rem to save more space */
+  margin-bottom: 0.5rem;
   animation: fadeInUp 0.6s ease-out 0.4s forwards;
   opacity: 0;
 }
 
 .verification-input-group {
-  margin-bottom: 1rem; /* Reduced from 1.25rem to save more space */
+  margin-bottom: 0.75rem;
   text-align: left;
 }
 
@@ -120,7 +120,7 @@
 
 /* Remember Device Section */
 .remember-device-group {
-  margin-bottom: 1rem; /* Reduced from 1.5rem to save more space */
+  margin-bottom: 0.5rem;
   text-align: left;
 }
 
@@ -197,7 +197,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  height: 56px;
+  height: 48px;
 }
 
 .verify-button:hover:not(:disabled) {
@@ -233,7 +233,7 @@
 
 /* Resend Section */
 .resend-section {
-  margin-bottom: 0.75rem; /* Reduced from 1rem to save more space */
+  margin: 0.5rem 0 0; /* bring closer to form */
   animation: fadeInUp 0.6s ease-out 0.6s forwards;
   opacity: 0;
 }
@@ -242,9 +242,9 @@
   background: none;
   border: 2px solid #e5e7eb;
   color: #6b7280;
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1.25rem;
   border-radius: 8px;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;

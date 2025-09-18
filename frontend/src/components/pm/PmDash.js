@@ -451,59 +451,81 @@ const PmDash = ({ forceUserUpdate }) => {
         <div className="dashboard-grid">
           {/* Welcome & Project Overview Card */}
           <div className="dashboard-card pm-welcome-card">
+            {/* Hero Art */}
+            <div 
+              className="hero-art"
+              aria-hidden="true"
+              style={{
+                backgroundImage: `radial-gradient(ellipse at 65% 35%, rgba(255,255,255,0.18), transparent 55%), url(${process.env.PUBLIC_URL || ''}/images/illustration-construction-site.png)`
+              }}
+            />
             
-              <div className="welcome-content">
-                <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>
-                <p className="welcome-subtitle">Here's what's happening with your project today</p>
-              </div>
-              {project && (
-                <div className="project-badge">
-                  <FaProjectDiagram />
-                  <span>{project.projectName}</span>
-                </div>
-              )}
+            <div className="welcome-content">
+              <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>
+              <p className="welcome-subtitle">Here's what's happening with your project today</p>
+            </div>
             
-
-            {project && (
-              <div className="project-stats">
+            {/* Welcome Stats */}
+            <div className="welcome-stats">
+              <Link to="/pm/viewproj" className="stat-link">
                 <div className="stat-item">
                   <div className="stat-icon">
                     <FaProjectDiagram />
                   </div>
                   <div className="stat-content">
-                    <span className="stat-value">{reportMetrics.totalReports}</span>
-                    <span className="stat-label">Total Reports</span>
+                    <div className="stat-value">{project ? 1 : 0}</div>
+                    <div className="stat-label">TOTAL PROJECTS</div>
                   </div>
                 </div>
-                <div className="stat-item">
-                  <div className="stat-icon completed">
-                    <FaCheckCircle />
-                  </div>
-                  <div className="stat-content">
-                    <span className="stat-value">{reportMetrics.completedWorkItems}</span>
-                    <span className="stat-label">Completed Items</span>
-                  </div>
-                </div>
-                <div className="stat-item">
-                  <div className="stat-icon in-progress">
-                    <FaClock />
-                  </div>
-                  <div className="stat-content">
-                    <span className="stat-value">{reportMetrics.inProgressWorkItems}</span>
-                    <span className="stat-label">In Progress</span>
-                  </div>
-                </div>
+              </Link>
+              
+              <Link to="/pm/viewproj" className="stat-link">
                 <div className="stat-item">
                   <div className="stat-icon">
-                    <FaComments />
+                    <FaUsers />
                   </div>
                   <div className="stat-content">
-                    <span className="stat-value">{reportMetrics.reportingPics}</span>
-                    <span className="stat-label">Active PICs</span>
+                    <div className="stat-value">{project?.manpower?.length || 0}</div>
+                    <div className="stat-label">TEAM MEMBERS</div>
                   </div>
                 </div>
-              </div>
-            )}
+              </Link>
+            </div>
+
+            {/* KPI Strip */}
+            <div className="kpi-strip">
+              <Link to="/pm/request/:id" className="kpi">
+                <div className="kpi-ico">
+                  <FaBoxes />
+                </div>
+                <div className="kpi-body">
+                  <div className="kpi-title">Pending Requests</div>
+                  <div className="kpi-value">{materialRequests.filter(r => r.status === 'Pending').length}</div>
+                </div>
+              </Link>
+              
+              <Link to="/pm/viewproj" className="kpi">
+                <div className="kpi-ico">
+                  <FaChartBar />
+                </div>
+                <div className="kpi-body">
+                  <div className="kpi-title">Active Projects</div>
+                  <div className="kpi-value">{project ? 1 : 0}</div>
+                </div>
+              </Link>
+              
+              <Link to="/pm/viewproj" className="kpi">
+                <div className="kpi-ico">
+                  <FaProjectDiagram />
+                </div>
+                <div className="kpi-body">
+                  <div className="kpi-title">Avg. Progress</div>
+                  <div className="kpi-value">{project?.progress || 0}%</div>
+                </div>
+              </Link>
+            </div>
+            
+
           </div>
 
           {/* Work Progress Chart */}
@@ -547,103 +569,6 @@ const PmDash = ({ forceUserUpdate }) => {
             </div>
           )}
 
-          {/* Recent Chats */}
-          <div className="dashboard-card chats-card">
-            <div className="card-header">
-              <h3 className="card-title">Recent Conversations</h3>
-              <div className="card-actions">
-                <button
-                  className="refresh-btn"
-                  onClick={fetchChats}
-                  title="Refresh conversations"
-                  disabled={loadingChats}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M1 4v6h6M23 20v-6h-6" />
-                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
-                  </svg>
-                </button>
-                <Link to="/pm/chat" className="view-all-link">
-                  View All <FaArrowRight />
-                </Link>
-              </div>
-            </div>
-            <div className="chats-list">
-              {loadingChats ? (
-                <div className="loading-state">
-                  <div className="loading-spinner"></div>
-                  <span>Loading conversations...</span>
-                </div>
-              ) : chatsError ? (
-                <div className="error-state">
-                  <FaExclamationTriangle />
-                  <span>{chatsError}</span>
-                </div>
-              ) : chats.length === 0 ? (
-                <div className="empty-state">
-                  <FaComments />
-                  <span>No recent conversations</span>
-                  <p>Start chatting with your team members</p>
-                </div>
-              ) : (
-                chats.slice(0, 3).map((chat, index) => {
-                  console.log('Chat data for time debugging:', {
-                    chatId: chat._id || index,
-                    lastMessageTime: chat.lastMessageTime,
-                    timestamp: chat.timestamp,
-                    createdAt: chat.createdAt,
-                    fullChat: chat
-                  });
-
-                  return (
-                    <Link
-                      key={chat._id || index}
-                      to={`/pm/chat/${chat._id || chat.chatId || index}`}
-                      className="chat-item"
-                      style={{ textDecoration: 'none' }}
-                    >
-                      <div className="chat-avatar" style={{ backgroundColor: chat.color || '#3b82f6' }}>
-                        {typeof chat.name === 'string' ? chat.name.charAt(0).toUpperCase() : 'U'}
-                      </div>
-                      <div className="chat-content">
-                        <div className="chat-header">
-                          <span className="chat-name">
-                            {typeof chat.name === 'string' ? chat.name : 'Unknown User'}
-                          </span>
-                          <span className="chat-time">
-                            {(() => {
-                              const time = chat.lastMessageTime || chat.timestamp || chat.createdAt;
-                              if (!time) return 'Just now';
-
-                              try {
-                                if (typeof time === 'string') {
-                                  const date = new Date(time);
-                                  if (isNaN(date.getTime())) return 'Just now';
-                                  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                } else if (time instanceof Date) {
-                                  return time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                } else if (typeof time === 'number') {
-                                  const date = new Date(time);
-                                  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                                }
-                                return 'Just now';
-                              } catch (error) {
-                                console.log('Time formatting error:', error, 'for time:', time);
-                                return 'Just now';
-                              }
-                            })()}
-                          </span>
-                        </div>
-                        <p className="chat-message">
-                          {truncateMessage(typeof chat.lastMessage === 'string' ? chat.lastMessage : 'No messages yet')}
-                        </p>
-                      </div>
-                    </Link>
-                  );
-                })
-              )}
-            </div>
-          </div>
 
           {/* Material Requests */}
           <div className="dashboard-card requests-card">
@@ -740,6 +665,104 @@ const PmDash = ({ forceUserUpdate }) => {
                     </Link>
                   ))}
                 </div>
+              )}
+            </div>
+          </div>
+
+          {/* Recent Chats */}
+          <div className="dashboard-card chats-card">
+            <div className="card-header">
+              <h3 className="card-title">Recent Conversations</h3>
+              <div className="card-actions">
+                <button
+                  className="refresh-btn"
+                  onClick={fetchChats}
+                  title="Refresh conversations"
+                  disabled={loadingChats}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M1 4v6h6M23 20v-6h-6" />
+                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
+                  </svg>
+                </button>
+                <Link to="/pm/chat" className="view-all-link">
+                  View All <FaArrowRight />
+                </Link>
+              </div>
+            </div>
+            <div className="chats-list">
+              {loadingChats ? (
+                <div className="loading-state">
+                  <div className="loading-spinner"></div>
+                  <span>Loading conversations...</span>
+                </div>
+              ) : chatsError ? (
+                <div className="error-state">
+                  <FaExclamationTriangle />
+                  <span>{chatsError}</span>
+                </div>
+              ) : chats.length === 0 ? (
+                <div className="empty-state">
+                  <FaComments />
+                  <span>No recent conversations</span>
+                  <p>Start chatting with your team members</p>
+                </div>
+              ) : (
+                chats.slice(0, 3).map((chat, index) => {
+                  console.log('Chat data for time debugging:', {
+                    chatId: chat._id || index,
+                    lastMessageTime: chat.lastMessageTime,
+                    timestamp: chat.timestamp,
+                    createdAt: chat.createdAt,
+                    fullChat: chat
+                  });
+
+                  return (
+                    <Link
+                      key={chat._id || index}
+                      to={`/pm/chat/${chat._id || chat.chatId || index}`}
+                      className="chat-item"
+                      style={{ textDecoration: 'none' }}
+                    >
+                      <div className="chat-avatar" style={{ backgroundColor: chat.color || '#3b82f6' }}>
+                        {typeof chat.name === 'string' ? chat.name.charAt(0).toUpperCase() : 'U'}
+                      </div>
+                      <div className="chat-content">
+                        <div className="chat-header">
+                          <span className="chat-name">
+                            {typeof chat.name === 'string' ? chat.name : 'Unknown User'}
+                          </span>
+                          <span className="chat-time">
+                            {(() => {
+                              const time = chat.lastMessageTime || chat.timestamp || chat.createdAt;
+                              if (!time) return 'Just now';
+
+                              try {
+                                if (typeof time === 'string') {
+                                  const date = new Date(time);
+                                  if (isNaN(date.getTime())) return 'Just now';
+                                  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                } else if (time instanceof Date) {
+                                  return time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                } else if (typeof time === 'number') {
+                                  const date = new Date(time);
+                                  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                }
+                                return 'Just now';
+                              } catch (error) {
+                                console.log('Time formatting error:', error, 'for time:', time);
+                                return 'Just now';
+                              }
+                            })()}
+                          </span>
+                        </div>
+                        <p className="chat-message">
+                          {truncateMessage(typeof chat.lastMessage === 'string' ? chat.lastMessage : 'No messages yet')}
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })
               )}
             </div>
           </div>

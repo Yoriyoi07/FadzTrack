@@ -406,14 +406,22 @@ const CeoDash = () => {
   return (
     <div className="ceo-dashboard dashboard-container">
       {/* Unified AppHeader (reports nav omitted by default) */}
-      <AppHeader roleSegment="ceo" />
+      <AppHeader
+        roleSegment="ceo"
+        extraLeft={
+          <button
+            className="sidebar-toggle-btn ceo-header-toggle"
+            onClick={toggleSidebar}
+            aria-label={sidebarOpen ? 'Close areas & projects panel' : 'Open areas & projects panel'}
+          >
+            <FaBars />
+          </button>
+        }
+      />
 
       {/* Main */}
       <main className="dashboard-main">
-        {/* Sidebar toggle */}
-        <button className="sidebar-toggle-btn" onClick={toggleSidebar} aria-label={sidebarOpen ? 'Close areas & projects panel' : 'Open areas & projects panel'}>
-          <FaBars />
-        </button>
+        {/* Sidebar toggle moved to header */}
 
         {/* Areas & Projects Sidebar (portal) */}
         {createPortal(
@@ -506,29 +514,59 @@ const CeoDash = () => {
                 const completed = allProjects.filter(p => String(p.status || '').toLowerCase() === 'completed').length;
                 return (
                   <>
-                    <div className="stat-item">
+                    <Link to="/ceo/proj" className="stat-item stat-link no-decoration inherit-color" aria-label="View all projects">
                       <span className="stat-number">{total}</span>
                       <span className="stat-label">Total Projects</span>
-                    </div>
-                    <div className="stat-item">
+                    </Link>
+                    <Link to="/ceo/proj?status=ongoing" className="stat-item stat-link no-decoration inherit-color" aria-label="View ongoing projects">
                       <span className="stat-number">{ongoing}</span>
                       <span className="stat-label">Ongoing</span>
-                    </div>
-                    <div className="stat-item">
+                    </Link>
+                    <Link to="/ceo/proj?status=completed" className="stat-item stat-link no-decoration inherit-color" aria-label="View completed projects">
                       <span className="stat-number">{completed}</span>
                       <span className="stat-label">Completed</span>
-                    </div>
-                    <div className="stat-item">
-                      <Link to="/ceo/material-list" className="no-decoration inherit-color">
-                        <span className="stat-number pointer">{materialRequests.length}</span>
-                        <span className="stat-label">Material Requests</span>
-                      </Link>
-                    </div>
+                    </Link>
+                    <Link to="/ceo/material-list" className="stat-item stat-link no-decoration inherit-color" aria-label="View material requests">
+                      <span className="stat-number">{materialRequests.length}</span>
+                      <span className="stat-label"> Material Requests</span>
+                    </Link>
                   </>
                 );
               })()}
             
             </div>
+            {/* KPI strip similar to AM */}
+            <div className="kpi-strip">
+              <Link to="/ceo/material-list" className="kpi" aria-label="Pending material requests">
+                <div className="kpi-ico"><FaBoxes /></div>
+                <div className="kpi-body">
+                  <div className="kpi-title">Pending Requests</div>
+                  <div className="kpi-value">{materialRequests.filter(r=>/pending/i.test(String(r.status||''))).length}</div>
+                </div>
+              </Link>
+              <Link to="/ceo/proj" className="kpi" aria-label="Active projects">
+                <div className="kpi-ico"><FaProjectDiagram /></div>
+                <div className="kpi-body">
+                  <div className="kpi-title">Active Projects</div>
+                  <div className="kpi-value">{allProjects.filter(p=>/ongoing|active|in progress/i.test(String(p.status||''))).length}</div>
+                </div>
+              </Link>
+              <div className="kpi" aria-label="Avg. progress">
+                <div className="kpi-ico"><FaChartBar /></div>
+                <div className="kpi-body">
+                  <div className="kpi-title">Avg. Progress</div>
+                  <div className="kpi-value">{Math.round(visibleMetrics.reduce((a,m)=>a+(m.progress||0),0)/(visibleMetrics.length||1))}%</div>
+                </div>
+              </div>
+            </div>
+            {/* CEO hero art inside the welcome card (right side) */}
+            <div
+              className="hero-art"
+              aria-hidden="true"
+              style={{
+                backgroundImage: `radial-gradient(ellipse at 65% 35%, rgba(255,255,255,0.18), transparent 55%), url(${process.env.PUBLIC_URL || ''}/images/illustration-construction-site.png)`
+              }}
+            ></div>
           </div>
 
           {/* Progress Metrics */}

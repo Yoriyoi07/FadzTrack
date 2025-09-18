@@ -7,7 +7,7 @@ import ProgressTracker from '../ProgressTracker';
 import NotificationBell from '../NotificationBell';
 import AppHeader from '../layout/AppHeader';
 // Nav icons
-import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaBoxes, FaArrowRight, FaCheckCircle, FaClock, FaExclamationTriangle } from 'react-icons/fa';
+import { FaTachometerAlt, FaComments, FaClipboardList, FaEye, FaProjectDiagram, FaBoxes, FaArrowRight, FaCheckCircle, FaClock, FaExclamationTriangle, FaUserTie, FaBuilding, FaChartBar } from 'react-icons/fa';
 const formatRemaining = (ts) => {
   if(!ts) return null;
   const diff = ts - Date.now();
@@ -76,6 +76,31 @@ useEffect(() => {
         return <FaExclamationTriangle className="status-icon rejected" />;
       default:
         return <FaClock className="status-icon pending" />;
+    }
+  };
+
+  // Helper function for timeline status (from PMDash)
+  const getTimelineStatus = (status, stage) => {
+    switch (stage) {
+      case 'placed':
+        return 'completed';
+      case 'pm':
+        if (['Pending AM', 'Approved', 'Received', 'PENDING AREA MANAGER'].includes(status)) {
+          return 'completed';
+        }
+        return 'pending';
+      case 'am':
+        if (['Approved', 'Received'].includes(status)) {
+          return 'completed';
+        }
+        return 'pending';
+      case 'done':
+        if (['Received'].includes(status)) {
+          return 'completed';
+        }
+        return 'pending';
+      default:
+        return 'pending';
     }
   };
 
@@ -207,180 +232,237 @@ const handleLogout = () => {
   <div className="pic-dashboard dashboard-container">
   <AppHeader roleSegment="pic" />
 
-             {/* Main Content */}
-       <div className="dashboard-layout">
-         {/* Center Content */}
-         <div className="main1">
-          <div className="main-content-container">
-              <div className="pic-section-stack">
-                         {/* Welcome Section */}
-             <div className="welcome-section">
-               <div className="welcome-title">Welcome back, {userName}! 👋</div>
-               <div className="welcome-subtitle">Here's what's happening with your project today</div>
-               {project && (
-                 <div className="welcome-project">{project.projectName}</div>
-               )}
-             </div>
+  {/* Main Dashboard Content */}
+  <main className="dashboard-main">
+    <div className="dashboard-grid">
+      {/* Welcome & Project Overview Card */}
+      <div className="dashboard-card pic-welcome-card">
+        {/* Hero Art */}
+        <div 
+          className="hero-art"
+          aria-hidden="true"
+          style={{
+            backgroundImage: `radial-gradient(ellipse at 65% 35%, rgba(255,255,255,0.18), transparent 55%), url(${process.env.PUBLIC_URL || ''}/images/illustration-construction-site.png)`
+          }}
+        />
+        
+        <div className="welcome-content">
+          <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>
+          <p className="welcome-subtitle">Here's what's happening with your project today</p>
+        </div>
 
-                                       {/* Project Analytics Section - Side by Side Layout */}
-              {project ? (
-                <div className="project-analytics-section enhanced">
-                  <h2 className="analytics-title">Project Analytics</h2>
-                  
-                  <div className="analytics-flex single-column">
-                    <div className="analytics-block chart-block full-width">
-                      <div className="chart-card gradient-border">
-                        <div className="card-head-row">
-                          <h3>Work Progress Trend</h3>
-                          {reports.length > 1 && (
-                            <span className="mini-trend-note">Last {Math.min(6, reports.length)} reports</span>
-                          )}
-                        </div>
-                        {reports.length > 0 ? (
-                          <ResponsiveContainer width="100%" height={360}>
-                            <LineChart data={reports.slice(0, 6).reverse().map(report => ({
-                              name: new Date(report.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                              completedTasks: report.ai?.completed_tasks?.length || 0,
-                              workItems: report.ai?.summary_of_work_done?.length || 0,
-                              contribution: (()=>{ const ai=report.ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); if(isFinite(raw)&&raw>=0) return raw; if(isFinite(legacy)&&legacy>=0) return legacy; return 0; })()
-                            }))}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                              <YAxis tick={{ fontSize: 12 }} />
-                              <Tooltip contentStyle={{ fontSize: 12 }} />
-                              <Line type="monotone" dataKey="completedTasks" stroke="#10b981" strokeWidth={2} name="Completed" dot={{ r:3 }} />
-                              <Line type="monotone" dataKey="workItems" stroke="#3b82f6" strokeWidth={2} name="Work Items" dot={{ r:3 }} />
-                              <Line type="monotone" dataKey="contribution" stroke="#f59e0b" strokeWidth={2} name="Contribution %" dot={{ r:3 }} />
-                            </LineChart>
-                          </ResponsiveContainer>
-                        ) : (
-                          <div className="no-data-state alt">
-                            <div className="skeleton-chart" />
-                            <span>No report data yet</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="metrics-row-inline">
-                      {([{
-                        label: 'Completed Task',
-                        value: reports[0]?.ai?.completed_tasks?.length || 0,
-                        desc: 'Tasks in latest report',
-                        icon: <FaClipboardList />, bg: 'linear-gradient(135deg,#10b981,#059669)'
-                      },{
-                        label: 'PIC Contribution',
-                        value: (()=>{ if(!reports[0]) return 'N/A'; const ai=reports[0].ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); const val = isFinite(raw)&&raw>=0? raw : (isFinite(legacy)&&legacy>=0? legacy : null); return val==null? 'N/A' : `${Math.round(val)}%`; })(),
-                        desc: 'Contribution (latest)',
-                        icon: <FaEye />, bg: 'linear-gradient(135deg,#8b5cf6,#7c3aed)'
-                      },{
-                        label: 'Latest Report',
-                        value: reports[0] ? new Date(reports[0].uploadedAt).toLocaleDateString() : 'No Reports',
-                        desc: 'Date of latest upload',
-                        icon: <FaProjectDiagram />, bg: 'linear-gradient(135deg,#f59e0b,#d97706)'
-                      },{
-                        label: 'Total Reports',
-                        value: reports.length,
-                        desc: 'All submitted reports',
-                        icon: <FaClipboardList />, bg: 'linear-gradient(135deg,#06b6d4,#0891b2)'
-                      }]).map((m,i)=> (
-                        <div className="metric-card compact inline" key={i}>
-                          <div className="metric-header">
-                            <span className="metric-title">{m.label}</span>
-                            <div className="metric-icon" style={{ background:m.bg }}>{m.icon}</div>
-                          </div>
-                          <div className="metric-value small">{m.value}</div>
-                          <div className="metric-description small">{m.desc}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="no-project-state">
-                  <div className="no-project-card">
-                    <div className="no-project-icon">📊</div>
-                    <h3 className="no-project-title">No Active Project</h3>
-                    <p className="no-project-description">
-                      You don't have any active projects assigned at the moment. 
-                      Check back later or contact your project manager for updates.
-                    </p>
-                  </div>
-                </div>
-              )}
+        {/* Welcome Stats */}
+        <div className="welcome-stats">
+          <Link to="/pic/projects" className="stat-link">
+            <div className="stat-item">
+              <div className="stat-icon">
+                <FaProjectDiagram />
+              </div>
+              <div className="stat-content">
+                <span className="stat-value">{project ? 1 : 0}</span>
+                <span className="stat-label">Active Project</span>
+              </div>
+            </div>
+          </Link>
+          
+          <Link to="/pic/requests" className="stat-link">
+            <div className="stat-item">
+              <div className="stat-icon">
+                <FaBoxes />
+              </div>
+              <div className="stat-content">
+                <span className="stat-value">{requests.length}</span>
+                <span className="stat-label">Material Requests</span>
+              </div>
+            </div>
+          </Link>
+        </div>
 
-             
+        {/* KPI Strip */}
+        <div className="kpi-strip">
+          <Link to="/pic/requests" className="kpi">
+            <div className="kpi-ico">
+              <FaBoxes />
+            </div>
+            <div className="kpi-body">
+              <div className="kpi-title">Pending Requests</div>
+              <div className="kpi-value">{requests.length}</div>
+            </div>
+          </Link>
+          
+          <Link to="/pic/projects" className="kpi">
+            <div className="kpi-ico">
+              <FaProjectDiagram />
+            </div>
+            <div className="kpi-body">
+              <div className="kpi-title">Active Project</div>
+              <div className="kpi-value">{project ? 1 : 0}</div>
+            </div>
+          </Link>
+          
+          <Link to="/pic/projects" className="kpi">
+            <div className="kpi-ico">
+              <FaChartBar />
+            </div>
+            <div className="kpi-body">
+              <div className="kpi-title">Avg. Progress</div>
+              <div className="kpi-value">{reports.length > 0 ? `${Math.round(reports.reduce((acc, r) => acc + (r.ai?.pic_contribution_percent || 0), 0) / reports.length)}%` : '0%'}</div>
+            </div>
+          </Link>
+        </div>
+      </div>
 
-                                      {/* Material Requests - Modernized UI */}
-              {project && (
-                <div className="material-requests-panel gradient-border">
-                  <div className="mr-panel-head">
-                    <div className="mr-head-left">
-                      <h3 className="mr-title">Material Requests</h3>
-                      <div className="mr-sub">Recent activity · <span>{requests.length}</span> total</div>
-                    </div>
-                    <div className="mr-actions">
-                      <button className="mr-quick-btn" onClick={() => navigate(`/pic/projects/${project._id}/request`)}>
-                        <FaBoxes /> <span>New Request</span>
-                      </button>
-                      <Link to="/pic/requests" className="mr-view-all">View All <FaArrowRight /></Link>
-                    </div>
-                  </div>
-                  <div className="mr-list-wrapper">
-                    {requests.length === 0 ? (
-                      <div className="mr-empty">
-                        <div className="mr-empty-icon"><FaBoxes /></div>
-                        <div className="mr-empty-title">No material requests</div>
-                        <div className="mr-empty-desc">Create a new request to get started</div>
-                      </div>
-                    ) : (
-                      <div className="mr-list">
-                        {requests.slice(0,4).map(req => {
-                          const mats = req.materials || [];
-                          const shown = mats.slice(0,2);
-                          const extra = mats.length - shown.length;
-                          const created = new Date(req.createdAt);
-                          const now = Date.now();
-                          const diffDays = (now - created.getTime())/86400000;
-                          const relative = diffDays < 1 ? 'Today' : diffDays < 2 ? 'Yesterday' : created.toLocaleDateString();
-                          const statusSlug = (req.status||'').replace(/\s+/g,'-').toLowerCase();
-                          return (
-                            <Link to={`/pic/material-request/${req._id}`} key={req._id} className={`mr-item status-${statusSlug}`}>
-                              <div className="mr-left">
-                                <div className="mr-icon"><FaBoxes /></div>
-                                <div className="mr-main">
-                                  <div className="mr-top-row">
-                                    <div className="mr-material-badges">
-                                      {shown.map((m,i)=>(
-                                        <span key={i} className="mr-mat">{m.materialName}<span className="q">×{m.quantity}</span></span>
-                                      ))}
-                                      {extra>0 && <span className="mr-mat more">+{extra} more</span>}
-                                    </div>
-                                    <span className={`mr-status-badge ${statusSlug}`}>{req.status}</span>
-                                  </div>
-                                  <div className="mr-desc">{req.description || 'No description provided'}</div>
-                                  <div className="mr-meta">
-                                    <span className="mr-project">{req.project?.projectName}</span>
-                                    <span className="mr-date" title={created.toLocaleString()}>{relative}</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="mr-action">Open →</div>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+      {/* Work Progress Chart */}
+      {project && (
+        <div className="dashboard-card chart-card">
+          <div className="card-header">
+            <h3 className="card-title">Work Progress Trend</h3>
+            <div className="card-subtitle">
+              Based on {reports.length} report{reports.length !== 1 ? 's' : ''}
+            </div>
+          </div>
+          <div className="chart-container">
+            {reports.length > 0 ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={reports.slice(0, 6).reverse().map(report => ({
+                  name: new Date(report.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                  completedTasks: report.ai?.completed_tasks?.length || 0,
+                  workItems: report.ai?.summary_of_work_done?.length || 0,
+                  contribution: report.ai?.pic_contribution_percent || 0
+                }))}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip contentStyle={{ fontSize: 12 }} />
+                  <Line type="monotone" dataKey="completedTasks" stroke="#10b981" strokeWidth={2} name="Completed" dot={{ r:3 }} />
+                  <Line type="monotone" dataKey="workItems" stroke="#3b82f6" strokeWidth={2} name="Work Items" dot={{ r:3 }} />
+                  <Line type="monotone" dataKey="contribution" stroke="#f59e0b" strokeWidth={2} name="Contribution %" dot={{ r:3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="empty-state">
+                <FaChartBar />
+                <span>No report data yet</span>
+                <p>Submit your first report to see progress trends</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* No Project State */}
+      {!project && (
+        <div className="dashboard-card no-project-card">
+          <div className="no-project-content">
+            <div className="no-project-icon">📊</div>
+            <h3 className="no-project-title">No Active Project</h3>
+            <p className="no-project-description">
+              You don't have any active projects assigned at the moment. 
+              Check back later or contact your project manager for updates.
+            </p>
+            <div className="no-project-actions">
+              <Link to="/pic/projects" className="no-project-link">
+                View All Projects <FaArrowRight />
+              </Link>
             </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Material Requests */}
+      {project && (
+        <div className="dashboard-card requests-card">
+          <div className="card-header">
+            <h3 className="card-title">Material Requests</h3>
+            <Link to="/pic/requests" className="view-all-link">
+              View All <FaArrowRight />
+            </Link>
+          </div>
+          <div className="requests-content">
+            {requests.length === 0 ? (
+              <div className="empty-state">
+                <FaBoxes />
+                <span>No material requests found</span>
+                <p>Create a new request to get started</p>
+              </div>
+            ) : (
+              <div className="requests-list">
+                {requests.slice(0, 3).map(request => (
+                  <Link to={`/pic/material-request/${request._id}`} key={request._id} className="request-item-new-layout" style={{textDecoration:'none'}}>
+                    {/* Left Section - Item Details */}
+                    <div className="request-left-section">
+                      <div className="request-icon-new">
+                        <FaBoxes />
+                      </div>
+                      <div className="request-details-new">
+                        <h4 className="request-title-new">
+                          {request.materials?.map(m => `${m.materialName} (${m.quantity})`).join(', ')}
+                        </h4>
+                        <div className="request-meta-new">
+                          <span className="request-project-new">{request.project?.projectName}</span>
+                          <span className="request-date-new">
+                            {new Date(request.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Center Section - Progress Tracking */}
+                    <div className="request-center-section">
+                      <div className="tracking-timeline-new">
+                        {/* Placed Stage */}
+                        <div className={`timeline-step-new ${getTimelineStatus(request.status, 'placed')}`}>
+                          <div className="timeline-icon-new">
+                            <FaCheckCircle />
+                          </div>
+                          <span className="timeline-label-new">Placed</span>
+                        </div>
+                        <div className={`timeline-connector-new ${['Pending PM', 'Pending AM', 'Approved', 'Received', 'PENDING PROJECT MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
+                        {/* PM Stage */}
+                        <div className={`timeline-step-new ${getTimelineStatus(request.status, 'pm')}`}>
+                          <div className="timeline-icon-new">
+                            <FaUserTie />
+                          </div>
+                          <span className="timeline-label-new">PM</span>
+                        </div>
+                        <div className={`timeline-connector-new ${['Pending AM', 'Approved', 'Received', 'PENDING AREA MANAGER'].includes(request.status) ? 'completed' : ''}`}></div>
+                        {/* AM Stage */}
+                        <div className={`timeline-step-new ${getTimelineStatus(request.status, 'am')}`}>
+                          <div className="timeline-icon-new">
+                            <FaBuilding />
+                          </div>
+                          <span className="timeline-label-new">AM</span>
+                        </div>
+                        <div className={`timeline-connector-new ${['Approved', 'Received'].includes(request.status) ? 'completed' : ''}`}></div>
+                        {/* Done Stage */}
+                        <div className={`timeline-step-new ${getTimelineStatus(request.status, 'done')}`}>
+                          <div className="timeline-icon-new">
+                            <FaCheckCircle />
+                          </div>
+                          <span className="timeline-label-new">Done</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Right Section - Status */}
+                    <div className="request-right-section">
+                      <div className="request-status-new">
+                        <span className={`status-text-new ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
+                          {request.status}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
+  </main>
+</div>
   );
-};
-
-
+}
 
 export default PicDash;

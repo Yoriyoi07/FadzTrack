@@ -12,6 +12,7 @@ import { io } from 'socket.io-client';
  * Props:
  *  - roleSegment: 'pic' | 'pm' | 'am' | 'ceo' | 'it' | ... (used for nav config)
  *  - extraRight: node (inserts before user menu)
+ *  - extraLeft: node (inserts before logo on the left)
  *  - below: node (renders bar below header)
  *  - overrideNav: array to fully override nav items
  */
@@ -79,7 +80,7 @@ const ROLE_NAV = {
   ]
 };
 
-const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false, below, onLogout }) => {
+const AppHeader = ({ roleSegment='pic', extraRight, extraLeft, overrideNav, showBelow=false, below, onLogout }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const stored = localStorage.getItem('user');
@@ -214,6 +215,7 @@ const AppHeader = ({ roleSegment='pic', extraRight, overrideNav, showBelow=false
     <>
       <header className="pic-header pp-navbar">
         <div className="pp-left">
+          {extraLeft}
           <img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack" className="pp-logo" />
           <span className="pp-brand">FadzTrack</span>
           <nav className="pp-nav">

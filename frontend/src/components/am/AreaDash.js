@@ -6,7 +6,7 @@ import api from '../../api/axiosInstance';
 import AppHeader from '../layout/AppHeader';
 
 // React Icons
-import { FaCalendarAlt, FaCheckCircle, FaExclamationTriangle, FaArrowRight, FaChevronDown, FaChevronUp, FaBuilding, FaMapMarkerAlt, FaUserTie, FaChevronRight, FaChevronLeft, FaUsers, FaProjectDiagram, FaBoxes, FaChartBar, FaBars } from 'react-icons/fa';
+import { FaCalendarAlt, FaCheckCircle, FaExclamationTriangle, FaArrowRight, FaChevronDown, FaChevronUp, FaBuilding, FaMapMarkerAlt, FaUserTie, FaChevronRight, FaChevronLeft, FaUsers, FaProjectDiagram, FaBoxes, FaChartBar, FaBars, FaHardHat, FaHammer, FaTruck, FaIndustry } from 'react-icons/fa';
 
 const AreaDash = () => {
   const navigate = useNavigate();
@@ -458,19 +458,26 @@ const AreaDash = () => {
 
   return (
     <div className="am-dashboard dashboard-container">
-      <AppHeader roleSegment="am" />
+      <AppHeader 
+        roleSegment="am" 
+        extraLeft={
+          <button
+            className="sidebar-toggle-btn am-header-toggle"
+            onClick={toggleSidebar}
+            aria-label={sidebarOpen ? 'Close areas & projects panel' : 'Open areas & projects panel'}
+          >
+            <FaBars />
+          </button>
+        }
+      />
 
       {/* Main Dashboard Content */}
-      <main className="dashboard-main">
-        {/* Sidebar Toggle Button (burger icon like CEO) */}
-        <button className="sidebar-toggle-btn" onClick={toggleSidebar} aria-label={sidebarOpen ? 'Close areas & projects panel' : 'Open areas & projects panel'}>
-          <FaBars />
-        </button>
+      <main className="dashboard-main blueprint-bg">
 
         {/* Areas & Projects Sidebar */}
         <div className={`areas-projects-sidebar ${sidebarOpen ? 'open' : ''}`}>
           <div className="sidebar-header">
-            <h3>Areas & Projects</h3>
+            <h3><FaHardHat className="hdr-ico" /> Areas & Projects</h3>
             <button className="close-sidebar-btn" onClick={toggleSidebar}>
               <FaChevronLeft />
             </button>
@@ -536,21 +543,51 @@ const AreaDash = () => {
                 <p className="welcome-subtitle">Here's what's happening with your areas today</p>
               </div>
               <div className="welcome-stats">
-                <div className="stat-item">
+                <Link to="/am/viewproj" className="stat-item stat-link" aria-label="Go to Projects">
                   <span className="stat-number">{enrichedAllProjects.length}</span>
                   <span className="stat-label">Total Projects</span>
-                </div>
-                <div className="stat-item">
+                </Link>
+                <Link to="/am/viewproj" className="stat-item stat-link" aria-label="Go to Projects">
                   <span className="stat-number">{assignedLocations.length}</span>
                   <span className="stat-label">Areas Managed</span>
-                </div>
+                </Link>
               </div>
+              <div className="kpi-strip">
+                <Link to="/am/matreq" className="kpi" aria-label="Pending material requests">
+                  <div className="kpi-ico"><FaBoxes /></div>
+                  <div className="kpi-body">
+                    <div className="kpi-title">Pending Requests</div>
+                    <div className="kpi-value">{pendingRequests.length}</div>
+                  </div>
+                </Link>
+                <Link to="/am/viewproj" className="kpi" aria-label="Active projects">
+                  <div className="kpi-ico"><FaProjectDiagram /></div>
+                  <div className="kpi-body">
+                    <div className="kpi-title">Active Projects</div>
+                    <div className="kpi-value">{metrics.activeProjects}</div>
+                  </div>
+                </Link>
+                <Link to="/am/viewproj" className="kpi" aria-label="Average progress">
+                  <div className="kpi-ico"><FaChartBar /></div>
+                  <div className="kpi-body">
+                    <div className="kpi-title">Avg. Progress</div>
+                    <div className="kpi-value">{metrics.averageProgress}%</div>
+                  </div>
+                </Link>
+              </div>
+              <div
+                className="hero-art"
+                aria-hidden="true"
+                style={{
+                  backgroundImage: `radial-gradient(ellipse at 65% 35%, rgba(255,255,255,0.18), transparent 55%), url(${process.env.PUBLIC_URL || ''}/images/illustration-construction-site.png)`
+                }}
+              ></div>
             </div>
 
             {/* Project Metrics - Restored Original Layout (horizontal scroll, no filters) */}
             <div className="dashboard-card project-metrics-card">
               <div className="card-header">
-                <h3>Project Progress</h3>
+                <h3><FaChartBar /> Project Progress</h3>
                 <span className="metrics-subtitle">Based on latest PIC reports</span>
               </div>
               <div className="project-metrics-container">
@@ -773,7 +810,7 @@ const AreaDash = () => {
             {/* Material Requests Overview - Compact with Tracking (original layout) */}
             <div className="dashboard-card requests-card">
               <div className="card-header">
-                <h3 className="card-title">Material Requests</h3>
+                <h3 className="card-title"><FaTruck /> Material Requests</h3>
                 <div className="requests-summary">
                   <span className="pending-count">{pendingRequests.length} Pending</span>
                   <Link to="/am/matreq" className="view-all-link">
@@ -883,6 +920,7 @@ const AreaDash = () => {
           </div>
         </div>
       </main>
+      {/* Page-level overlay removed; now injected globally in index.html */}
     </div>
   );
 };

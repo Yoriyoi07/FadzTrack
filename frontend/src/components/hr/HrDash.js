@@ -483,131 +483,129 @@ const HrDash = ({ forceUserUpdate }) => {
         <div className="dashboard-grid">
           {/* Welcome & Overview Card */}
           <div className="dashboard-card hr-welcome-card">
-            <div className="welcome-header">
-              <div className="welcome-content">
-                <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>
-                <p className="welcome-subtitle">Manage your workforce and track manpower activities</p>
-              </div>
-              
-          
-        </div>
-
-            <div className="overview-stats">
-              <div className="stat-item">
-                <div className="stat-icon">
-                  <FaUsers />
-          </div>
-                <div className="stat-content">
-                  <span className="stat-value">{stats.totalStaff}</span>
-                  <span className="stat-label">Total Manpower</span>
+            {/* Hero Art */}
+            <div 
+              className="hero-art"
+              aria-hidden="true"
+              style={{
+                backgroundImage: `radial-gradient(ellipse at 65% 35%, rgba(255,255,255,0.18), transparent 55%), url(${process.env.PUBLIC_URL || ''}/images/illustration-construction-site.png)`
+              }}
+            />
+            
+            <div className="welcome-content">
+              <h2 className="welcome-title">Welcome back, {userName}! 👋</h2>
+              <p className="welcome-subtitle">Manage your workforce and track manpower activities</p>
             </div>
-          </div>
-              <div className="stat-item">
-                <div className="stat-icon assigned">
-                  <FaUserCheck />
-        </div>
-                <div className="stat-content">
-                  <span className="stat-value">{stats.assigned}</span>
-                  <span className="stat-label">Assigned</span>
-                    </div>
+
+            {/* Welcome Stats */}
+            <div className="welcome-stats">
+              <Link to="/hr/mlist" className="stat-link">
+                <div className="stat-item">
+                  <div className="stat-icon">
+                    <FaUsers />
                   </div>
-              <div className="stat-item">
-                <div className="stat-icon available">
-                  <FaUserClock />
+                  <div className="stat-content">
+                    <span className="stat-value">{stats.totalStaff}</span>
+                    <span className="stat-label">Total Manpower</span>
+                  </div>
                 </div>
-                <div className="stat-content">
-                  <span className="stat-value">{stats.available}</span>
-                  <span className="stat-label">Available</span>
-              </div>
-            </div>
-              <div className="stat-item">
-                <div className="stat-icon requests">
-                  <FaClipboardList />
-            </div>
-                <div className="stat-content">
-                  <span className="stat-value">{stats.requests}</span>
-                  <span className="stat-label">Requests</span>
+              </Link>
+              
+              <Link to="/hr/mlist" className="stat-link">
+                <div className="stat-item">
+                  <div className="stat-icon">
+                    <FaUserCheck />
                   </div>
-              </div>
+                  <div className="stat-content">
+                    <span className="stat-value">{stats.assigned}</span>
+                    <span className="stat-label">Assigned</span>
+                  </div>
+                </div>
+              </Link>
+            </div>
+
+            {/* KPI Strip */}
+            <div className="kpi-strip">
+              <Link to="/hr/mlist" className="kpi">
+                <div className="kpi-ico">
+                  <FaUsers />
+                </div>
+                <div className="kpi-body">
+                  <div className="kpi-title">Total Manpower</div>
+                  <div className="kpi-value">{stats.totalStaff}</div>
+                </div>
+              </Link>
+              
+              <Link to="/hr/mlist" className="kpi">
+                <div className="kpi-ico">
+                  <FaUserCheck />
+                </div>
+                <div className="kpi-body">
+                  <div className="kpi-title">Assigned</div>
+                  <div className="kpi-value">{stats.assigned}</div>
+                </div>
+              </Link>
+              
+              <Link to="/hr/movement" className="kpi">
+                <div className="kpi-ico">
+                  <FaClipboardList />
+                </div>
+                <div className="kpi-body">
+                  <div className="kpi-title">Requests</div>
+                  <div className="kpi-value">{stats.requests}</div>
+                </div>
+              </Link>
             </div>
           </div>
 
-          {/* Enhanced Workforce Distribution Chart */}
+          {/* Workforce Analytics Chart */}
           {workforceData.data.length > 0 && (
             <div className="dashboard-card chart-card">
               <div className="card-header">
                 <h3 className="card-title">Workforce Analytics</h3>
-  </div>
-              <div className="chart-content">
-                <div className="chart-container">
-                  <ResponsiveContainer width="100%" height={200}>
-                    <PieChart>
-                      <Pie
-                        data={workforceData.data}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        paddingAngle={2}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                        labelLine={false}
-                      >
-                        {workforceData.data.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-        </div>
-                <div className="chart-metrics">
-                  <div className="metric-item">
-                    <div className="metric-label">Total Workforce</div>
-                    <div className="metric-value">{workforceData.total}</div>
-            </div>
-                  <div className="metric-item">
-                    <div className="metric-label">Assigned</div>
-                    <div className="metric-value assigned">{workforceData.assigned}</div>
-              </div>
-                  <div className="metric-item">
-                    <div className="metric-label">Available</div>
-                    <div className="metric-value available">{workforceData.available}</div>
+                <div className="card-subtitle">
+                  Based on {workforceData.total} total workforce
                 </div>
-                  <div className="metric-item">
-                    <div className="metric-label">Utilization Rate</div>
-                    <div className="metric-value">
-                      {workforceData.total > 0 ? Math.round((workforceData.assigned / workforceData.total) * 100) : 0}%
+              </div>
+              <div className="chart-container">
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={workforceData.data}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {workforceData.data.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="chart-footer">
+                <span className="utilization-rate">
+                  Utilization Rate: {workforceData.total > 0 ? Math.round((workforceData.assigned / workforceData.total) * 100) : 0}%
+                </span>
+              </div>
             </div>
-          </div>
-    </div>
-  </div>
-</div>
           )}
 
           {/* Recent Manpower Requests */}
           <div className="dashboard-card requests-card">
             <div className="card-header">
               <h3 className="card-title">Recent Manpower Requests</h3>
-              <div className="card-actions">
-                <button
-                  className="refresh-btn"
-                  onClick={fetchManpowerRequests}
-                  title="Refresh requests"
-                  disabled={loadingRequests}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M1 4v6h6M23 20v-6h-6" />
-                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" />
-                  </svg>
-              </button>
-                                 <Link to="/hr/movement" className="view-all-btn">
-                  View All
-                  <FaArrowRight />
-                </Link>
-              </div>
+              <Link to="/hr/movement" className="view-all-link">
+                View All <FaArrowRight />
+              </Link>
             </div>
-            <div className="card-content">
+            <div className="requests-content">
               {loadingRequests ? (
                 <div className="loading-state">
                   <div className="loading-spinner"></div>
@@ -615,38 +613,60 @@ const HrDash = ({ forceUserUpdate }) => {
                 </div>
               ) : requestsError ? (
                 <div className="error-state">
-                  <span>⚠️ {requestsError}</span>
+                  <FaExclamationTriangle />
+                  <span>{requestsError}</span>
                 </div>
               ) : manpowerRequests.length === 0 ? (
                 <div className="empty-state">
-                  <span>No recent requests</span>
+                  <FaClipboardList />
+                  <span>No recent requests found</span>
+                  <p>All requests have been processed or none are pending</p>
                 </div>
               ) : (
-                                 <div className="requests-list">
-                   {manpowerRequests.map((request) => (
-                     <div 
-                       key={request._id} 
-                       className={`request-item ${!request.isViewed ? 'unviewed' : ''}`}
-                                               onClick={(e) => handleRequestClick(e, request._id)}
-                       style={{ cursor: 'pointer' }}
-                     >
-                      <div className="request-left">
-                         <div className="request-project">{request.projectName}</div>
-                         <div className={`request-status ${request.status.toLowerCase()}`}>
-                           {request.status}
-                         </div>
-            </div>
-                       <div className="request-middle">
-                         <div className="request-position">{request.position}</div>
-                         <div className="request-quantity">{request.quantity} needed</div>
+                <div className="requests-list">
+                  {manpowerRequests.slice(0, 3).map(request => (
+                    <div 
+                      key={request._id} 
+                      className={`request-item-new-layout ${!request.isViewed ? 'unviewed' : ''}`}
+                      onClick={(e) => handleRequestClick(e, request._id)}
+                      style={{ cursor: 'pointer', textDecoration: 'none' }}
+                    >
+                      {/* Left Section - Request Details */}
+                      <div className="request-left-section">
+                        <div className="request-icon-new">
+                          <FaClipboardList />
+                        </div>
+                        <div className="request-details-new">
+                          <h4 className="request-title-new">
+                            {request.position} - {request.quantity} needed
+                          </h4>
+                          <div className="request-meta-new">
+                            <span className="request-project-new">{request.projectName}</span>
+                            <span className="request-date-new">
+                              {formatDate(request.requestDate)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Center Section - Status */}
+                      <div className="request-center-section">
+                        <div className="request-status-info">
+                          <span className="request-requester">By: {request.requestedBy}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Right Section - Status Badge */}
+                      <div className="request-right-section">
+                        <div className="request-status-new">
+                          <span className={`status-text-new ${request.status?.replace(/\s/g, '').toLowerCase()}`}>
+                            {request.status}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                       <div className="request-right">
-                         <div className="request-by">By: {request.requestedBy}</div>
-                         <div className="request-date">{formatDate(request.requestDate)}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

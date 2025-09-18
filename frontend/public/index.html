@@ -28,7 +28,46 @@
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <style id="cityline-style">:root{--cityline-h:30vh}#root{padding-bottom:var(--cityline-h)}@media (min-height:1200px){:root{--cityline-h:360px}}@media (max-height:700px){:root{--cityline-h:200px}}</style>
+    <main id="app-main" role="main">
+      <div id="root"></div>
+      <!-- Skyline now also rendered inside the React app container; global elements kept as fallback -->
+    </main>
+    <script>
+      (function(){
+        var el = document.getElementById('global-cityline');
+        var img = document.getElementById('global-cityline-img');
+        if(!el || !img) return;
+        // Build robust list of candidate URLs to avoid path issues
+        var candidates = [];
+        try {
+          var base = document.querySelector('link[rel="manifest"]');
+          if (base && base.href) {
+            var a = document.createElement('a'); a.href = base.href;
+            var publicRoot = a.href.replace(/\/manifest.json.*/, '');
+            candidates.push(publicRoot + 'images/download.png');
+          }
+        } catch (e) {}
+        candidates.push('images/download.png');
+        candidates.push(window.location.origin + '/images/download.png');
+        candidates.push((document.baseURI || '/') + 'images/download.png');
+        function loadFirstWorking(srcs){
+          if(!srcs || !srcs.length) return;
+          var s = srcs.shift();
+          var probe = new Image();
+          probe.onload = function(){ el.style.backgroundImage = 'url(' + s + ')'; img.src = s; };
+          probe.onerror = function(){ loadFirstWorking(srcs); };
+          probe.src = s;
+        }
+        loadFirstWorking(candidates);
+        function syncHeight(){
+          var rh = Math.min(360, Math.max(200, Math.round(window.innerHeight*0.30)));
+          document.documentElement.style.setProperty('--cityline-h', rh + 'px');
+        }
+        window.addEventListener('resize', syncHeight);
+        syncHeight();
+      })();
+    </script>
     <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.

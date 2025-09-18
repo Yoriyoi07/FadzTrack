@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useDeferredValue } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api/axiosInstance';
 import AppHeader from '../layout/AppHeader';
 import '../style/it_style/It_Projects.css';
@@ -11,6 +11,7 @@ import {
 
 const CeoProj = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [projects,setProjects]=useState([]);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
@@ -22,6 +23,14 @@ const CeoProj = () => {
   const [sortOrder,setSortOrder]=useState('asc');
   const [page,setPage]=useState(1);
   const [pageSize,setPageSize]=useState(12);
+
+  // Set filter from URL params on component mount
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    if (statusParam && ['ongoing', 'completed', 'pending'].includes(statusParam)) {
+      setFilter(statusParam);
+    }
+  }, [searchParams]);
 
   useEffect(()=>{
     let active = true;
@@ -262,3 +271,5 @@ const CeoProj = () => {
 };
 
 export default CeoProj;
+
+

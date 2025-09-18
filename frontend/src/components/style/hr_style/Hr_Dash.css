@@ -12,6 +12,522 @@
 
 /* ===================== HR DASHBOARD SPECIFIC STYLES ===================== */
 
+/* Dashboard Grid Layout */
+.hr-dashboard .dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    "welcome welcome"
+    "chart requests";
+  gap: 1.75rem;
+  align-items: start;
+  width: 100%;
+  overflow: visible;
+  min-height: auto;
+  padding-bottom: 4rem;
+}
+
+.hr-dashboard .hr-welcome-card { grid-area: welcome; margin-bottom: 1.5rem; }
+.hr-dashboard .chart-card { grid-area: chart; }
+.hr-dashboard .requests-card { grid-area: requests; }
+
+/* Welcome Card Styling */
+.hr-dashboard .hr-welcome-card {
+  background: linear-gradient(135deg,#0b3a6e 0%,#1e40af 100%) !important;
+  color: #fff;
+  border-radius: 16px;
+  padding: 2rem;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  margin-bottom: 0.25rem;
+}
+
+/* Hero Art */
+.hr-dashboard .hr-welcome-card .hero-art {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 45%;
+  z-index: 0;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-position: right center;
+  opacity: 0.45;
+  filter: saturate(0.95) contrast(1.05) brightness(0.95);
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to top, black 65%, transparent 100%);
+  mask-image: linear-gradient(to top, black 65%, transparent 100%);
+}
+
+/* Blueprint grid on welcome card to match AM */
+.hr-dashboard .hr-welcome-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background: 
+    /* Major grid */
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.18), rgba(255,255,255,0.18) 1px, transparent 1px, transparent 96px),
+    /* Minor grid */
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.12), rgba(255,255,255,0.12) 1px, transparent 1px, transparent 96px);
+}
+
+.hr-dashboard .hr-welcome-card > *:not(.hero-art) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Welcome Content */
+.hr-dashboard .welcome-content {
+  margin-bottom: 1.5rem;
+}
+
+.hr-dashboard .welcome-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.hr-dashboard .welcome-subtitle {
+  font-size: 1rem;
+  opacity: 0.9;
+  color: #fff;
+}
+
+/* Welcome Stats */
+.hr-dashboard .welcome-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.hr-dashboard .stat-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.hr-dashboard .stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+}
+
+.hr-dashboard .stat-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.hr-dashboard .stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
+  color: #fff;
+  font-size: 1.2rem;
+}
+
+.hr-dashboard .stat-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.hr-dashboard .stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+
+.hr-dashboard .stat-label {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  color: #fff;
+  margin-top: 0.25rem;
+}
+
+/* KPI Strip */
+.hr-dashboard .kpi-strip {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.hr-dashboard .kpi {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-decoration: none;
+  color: inherit;
+  background: rgba(255,255,255,0.10);
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 12px;
+  padding: 0.55rem 0.8rem;
+  backdrop-filter: saturate(120%) blur(2px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  cursor: pointer;
+}
+
+.hr-dashboard .kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -12px rgba(0,0,0,0.45);
+  background: rgba(255,255,255,0.14);
+}
+
+.hr-dashboard .kpi-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
+  color: #fff;
+}
+
+.hr-dashboard .kpi-body {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.hr-dashboard .kpi-title {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.hr-dashboard .kpi-value {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+/* Dashboard Cards */
+.hr-dashboard .dashboard-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 1.5rem;
+  margin-bottom: 0.25rem;
+  transition: all 0.2s ease;
+}
+
+.hr-dashboard .dashboard-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Card Headers */
+.hr-dashboard .card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.hr-dashboard .card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.hr-dashboard .card-subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.hr-dashboard .view-all-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: #fff;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.hr-dashboard .view-all-link:hover {
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Make specific cards non-transparent */
+.hr-dashboard .chart-card,
+.hr-dashboard .requests-card {
+  background: #ffffff !important;
+  opacity: 1 !important;
+}
+
+/* Chart Container */
+.hr-dashboard .chart-container {
+  margin: 1rem 0;
+}
+
+.hr-dashboard .chart-footer {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  text-align: center;
+}
+
+.hr-dashboard .utilization-rate {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Requests Content */
+.hr-dashboard .requests-content {
+  min-height: 200px;
+}
+
+.hr-dashboard .loading-state,
+.hr-dashboard .error-state,
+.hr-dashboard .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: #64748b;
+}
+
+.hr-dashboard .loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #e2e8f0;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 0.5rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.hr-dashboard .error-state {
+  color: #dc2626;
+}
+
+.hr-dashboard .empty-state p {
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  opacity: 0.7;
+}
+
+/* Requests List */
+.hr-dashboard .requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hr-dashboard .request-item-new-layout {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.hr-dashboard .request-item-new-layout:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.hr-dashboard .request-item-new-layout.unviewed {
+  border-left: 4px solid #3b82f6;
+  background: #eff6ff;
+}
+
+/* Request Left Section */
+.hr-dashboard .request-left-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hr-dashboard .request-icon-new {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.hr-dashboard .request-details-new {
+  flex: 1;
+}
+
+.hr-dashboard .request-title-new {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 0.25rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hr-dashboard .request-meta-new {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hr-dashboard .request-project-new {
+  font-size: 0.875rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hr-dashboard .request-date-new {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+/* Request Center Section */
+.hr-dashboard .request-center-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hr-dashboard .request-requester {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Request Right Section */
+.hr-dashboard .request-right-section {
+  display: flex;
+  align-items: center;
+}
+
+.hr-dashboard .request-status-new {
+  display: flex;
+  align-items: center;
+}
+
+.hr-dashboard .status-text-new {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hr-dashboard .status-text-new.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.hr-dashboard .status-text-new.approved {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.hr-dashboard .status-text-new.rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.hr-dashboard .status-text-new.inprogress {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .hr-dashboard .dashboard-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "welcome"
+      "chart"
+      "requests";
+    gap: 1rem;
+  }
+
+  .hr-dashboard .kpi-strip {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .hr-dashboard .kpi {
+    justify-content: center;
+  }
+
+  .hr-dashboard .kpi-title {
+    font-size: 0.75rem;
+  }
+
+  .hr-dashboard .kpi-value {
+    font-size: 0.95rem;
+  }
+
+  .hr-dashboard .welcome-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .hr-dashboard .request-item-new-layout {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    text-align: center;
+  }
+
+  .hr-dashboard .request-left-section {
+    justify-content: center;
+  }
+
+  .hr-dashboard .request-center-section,
+  .hr-dashboard .request-right-section {
+    align-items: center;
+  }
+}
+
 /* Header */
 .hr-dashboard .dashboard-header { background:linear-gradient(135deg,#1e293b 0%,#334155 100%); color:#fff; padding:1rem 2rem; box-shadow:0 4px 20px rgba(0,0,0,.1); position:sticky; top:0; z-index:100; backdrop-filter:blur(10px); transition:.3s; }
 .hr-dashboard .dashboard-header.collapsed { padding:.5rem 2rem; }

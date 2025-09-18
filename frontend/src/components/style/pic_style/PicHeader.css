@@ -1,4 +1,4 @@
-.pp-navbar.pic-header{position:sticky;top:0;z-index:60;background:#121b26;backdrop-filter:blur(10px);padding:.75rem 2rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.pp-navbar.pic-header{position:sticky;top:0;z-index:1500;background:#121b26;backdrop-filter:blur(10px);padding:.75rem 2rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
 /* Reuse tokens from PicAllProjects */
 .pic-header{--bg:#0e141b;--surface:#18222e;--surface-alt:#1f2c3a;--border:rgba(255,255,255,0.08);--primary:#3164ff;--primary-grad:linear-gradient(135deg,#3164ff,#5e89ff);--text:#f5f7fa;--text-dim:#b5c2d1}
 .pic-header .pp-left{display:flex;align-items:center;gap:1.8rem}
@@ -15,7 +15,7 @@
 .pic-header .pp-user-text{display:flex;flex-direction:column;line-height:1.1}
 .pic-header .pp-username{font-size:.82rem;font-weight:600;letter-spacing:.4px;color:#ffffff}
 .pic-header .pp-role{font-size:.62rem;font-weight:600;letter-spacing:.65px;text-transform:uppercase;opacity:.72;margin-top:2px;color:var(--text-dim)}
-.pic-header .pp-dropdown{position:absolute;top:115%;right:0;background:var(--surface-alt);border:1px solid var(--border);padding:.4rem .55rem;border-radius:10px;box-shadow:0 12px 32px -10px rgba(0,0,0,.5);animation:fade .15s ease}
+.pic-header .pp-dropdown{position:absolute;top:115%;right:0;background:var(--surface-alt);border:1px solid var(--border);padding:.4rem .55rem;border-radius:10px;box-shadow:0 12px 32px -10px rgba(0,0,0,.5);animation:fade .15s ease;z-index:2000}
 .pic-header .pp-dropdown button{background:transparent;border:none;color:var(--text);font-size:.78rem;padding:.45rem .9rem;width:100%;text-align:left;cursor:pointer;border-radius:6px}
 .pic-header .pp-dropdown button:hover{background:var(--primary)}
 @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
