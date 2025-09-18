@@ -4,10 +4,12 @@
 .area-chat-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  /* Use dynamic viewport height to avoid mobile browser UI jumps */
+  height: 100dvh;
   background-color: #f8f9fa;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  overflow: hidden; /* Prevent scrolling */
+  /* Allow internal sections to manage their own scrolling */
+  overflow: visible;
 }
 
 /* Override blueprint background for chat pages */
@@ -28,7 +30,8 @@
 .ceo-chat-wrapper,
 .picchat-wrapper,
 .hr-site-chat-wrapper {
-  overflow: hidden !important;
+  /* Do not clip popovers/menus in chat UIs */
+  overflow: visible !important;
 }
 
 .pm-chat-wrapper .blueprint-bg,
@@ -51,11 +54,7 @@
   display: none !important;
 }
 
-/* More specific overrides to ensure they take effect */
-.area-chat-wrapper,
-.area-chat-wrapper * {
-  overflow: hidden !important;
-}
+/* Remove broad overflow clamps that blocked scrolling/popovers */
 
 .area-chat-wrapper .blueprint-bg,
 .area-chat-wrapper .cityline-overlay {
@@ -67,14 +66,17 @@
 .area-chat-wrapper .dashboard-container,
 .area-chat-wrapper .dashboard-main {
   background: #f8f9fa !important;
-  overflow: hidden !important;
+  /* Allow content inside to scroll */
+  overflow: visible !important;
 }
 
 /* Global overrides for chat pages - most specific selectors */
 body:has(.area-chat-wrapper),
 html:has(.area-chat-wrapper) {
+  /* Lock page scroll on chat routes; only inner panes should scroll */
   overflow: hidden !important;
-  height: 100vh !important;
+  overflow-x: hidden !important;
+  height: 100dvh !important;
 }
 
 /* Override any blueprint or grid backgrounds globally for chat pages */
@@ -226,7 +228,7 @@ html:has(.area-chat-wrapper) .cityline-overlay {
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  z-index: 1000;
+  z-index: 4000; /* above chat wrapper */
   min-width: 150px;
 }
 
@@ -300,7 +302,13 @@ html:has(.area-chat-wrapper) .cityline-overlay {
 .area-chat-content {
   display: flex;
   flex: 1;
-  overflow: hidden;
+  /* Fit exactly one screen below the header; tweak --app-header-h to your header height */
+  --app-header-h: 80px;
+  height: calc(100dvh - var(--app-header-h));
+  min-height: 0;
+  min-width: 0; /* avoid horizontal overflow from children */
+  /* Don't clip inner overlays like emoji/pickers */
+  overflow: visible;
   background: #ffffff;
 }
 
@@ -312,6 +320,8 @@ html:has(.area-chat-wrapper) .cityline-overlay {
   display: flex;
   flex-direction: column;
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+  height: 100%;
+  min-height: 0;
 }
 
 .modern-sidebar-header {
@@ -371,7 +381,9 @@ html:has(.area-chat-wrapper) .cityline-overlay {
 
 .modern-chat-list {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 0.5rem;
 }
 
@@ -460,16 +472,24 @@ html:has(.area-chat-wrapper) .cityline-overlay {
   display: flex;
   flex-direction: column;
   position: relative;
+  min-height: 0; /* allow inner scrollers to size */
+  min-width: 0;  /* allow flex child to shrink and avoid horizontal scroll */
+  overflow: hidden; /* prevent accidental outer scroll */
 }
 
 .modern-chat-wrapper {
   flex: 1;
   display: flex;
   background: white;
-  margin: 1rem;
+  /* Avoid vertical margin so the fixed-height pane doesn't clip header/composer */
+  margin: 0 1rem;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
+  /* Allow emoji picker and floating layers to escape */
+  overflow: visible;
+  height: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .modern-chat-main {
@@ -477,6 +497,18 @@ html:has(.area-chat-wrapper) .cityline-overlay {
   display: flex;
   flex-direction: column;
   background: white;
+  min-height: 0; /* allow messages area to size */
+  min-width: 0;  /* avoid horizontal overflow in flex */
+  /* Make the main column the scroller so wheel/trackpad works anywhere inside */
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  height: 100%;
+  scrollbar-gutter: stable both-edges;
+  /* Prevent content from being obscured by sticky header/composer when scrolling to anchors */
+  scroll-padding-top: var(--chat-header-h, 72px);
+  scroll-padding-bottom: var(--composer-h, 120px);
 }
 
 .modern-no-chat-selected {
@@ -497,6 +529,11 @@ html:has(.area-chat-wrapper) .cityline-overlay {
   padding: 1.5rem;
   border-bottom: 1px solid #e9ecef;
   background: #f8f9fa;
+  position: sticky;
+  top: 0;
+  z-index: 100; /* ensure above hovered message overlays */
+  /* Expose an approximate header height for scroll padding calculations */
+  --chat-header-h: 72px;
 }
 
 .modern-chat-header-left {
@@ -547,8 +584,13 @@ html:has(.area-chat-wrapper) .cityline-overlay {
 /* Messages */
 .modern-chat-messages {
   flex: 1;
-  overflow-y: auto;
+  /* This section no longer scrolls; parent .modern-chat-main is the scroller */
+  overflow: visible;
   padding: 1.5rem;
+  /* Extra top padding so first messages don't hide under sticky header */
+  padding-top: calc(1.5rem + 8px);
+  /* Keep last messages from sitting under the composer */
+  padding-bottom: var(--composer-h, 120px);
   background: #f8f9fa;
   position: relative;
 }
@@ -566,8 +608,8 @@ html:has(.area-chat-wrapper) .cityline-overlay {
   position: relative;
 }
 
-/* Ensure hovered message (and its floating controls) sit above adjacent messages */
-.modern-message-wrapper:hover, .modern-message-wrapper:focus-within { z-index: 15; }
+/* Ensure hovered message sits above adjacent messages, but below header/composer */
+.modern-message-wrapper:hover, .modern-message-wrapper:focus-within { z-index: 10; }
 
 .modern-message-wrapper.own {
   align-items: flex-end;
@@ -579,7 +621,8 @@ html:has(.area-chat-wrapper) .cityline-overlay {
 
 .modern-message {
   position: relative;
-  max-width: 70%;
+  /* Allow wider bubbles on desktop, keep readable on smaller screens */
+  max-width: min(80ch, 88%);
   padding: 1rem 1.25rem;
   border-radius: 18px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -608,6 +651,7 @@ html:has(.area-chat-wrapper) .cityline-overlay {
   line-height: 1.4;
   margin-bottom: 0.5rem;
   word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 .modern-message-time {
@@ -629,7 +673,7 @@ html:has(.area-chat-wrapper) .cityline-overlay {
   opacity: 0;
   pointer-events: none;
   transition: opacity .15s ease;
-  z-index: 5;
+  z-index: 15; /* below header/composer */
 }
 .modern-message-wrapper.own .message-actions { right: -4px; }
 .modern-message-wrapper.other .message-actions { left: -4px; }
@@ -672,7 +716,7 @@ html:has(.area-chat-wrapper) .cityline-overlay {
 .msg-action-popover .popover-item:active { background:#303133; }
 
 /* Floating outside layer (Messenger-like) */
-.msg-floating-layer { position: absolute; top: -42px; display:flex; align-items:center; gap:6px; opacity:0; pointer-events:none; transition:opacity .16s ease, transform .16s ease; z-index:50; }
+.msg-floating-layer { position: absolute; top: -42px; display:flex; align-items:center; gap:6px; opacity:0; pointer-events:none; transition:opacity .16s ease, transform .16s ease; z-index:16; }
 .modern-message-wrapper:hover .msg-floating-layer { opacity:1; pointer-events:auto; transform:translateY(-2px); }
 .msg-floating-layer.other { left: 0; }
 .msg-floating-layer.own { right: 0; flex-direction: row-reverse; }
@@ -916,6 +960,13 @@ html:has(.area-chat-wrapper) .cityline-overlay {
   padding: 1.5rem;
   border-top: 1px solid #e9ecef;
   background: white;
+  position: sticky;
+  bottom: 0;
+  z-index: 100; /* ensure above hovered overlays */
+  /* Safe-area inset for iOS devices to avoid home indicator overlap */
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  /* Approximate total composer height for scroll padding calculations */
+  --composer-h: 120px;
 }
 
 .modern-input-wrapper {
@@ -1063,7 +1114,7 @@ html:has(.area-chat-wrapper) .cityline-overlay {
   bottom: 100%;
   right: 0;
   margin-bottom: 1rem;
-  z-index: 1000;
+  z-index: 4000;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
 }
@@ -1081,7 +1132,8 @@ html:has(.area-chat-wrapper) .cityline-overlay {
   max-height: 100%;
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
   position: relative;
-  overflow: hidden;
+  overflow: hidden; /* header fixed; content scrolls */
+  flex: 0 0 360px; /* reserve exact width */
 }
 
 /* Messenger Header */
@@ -1133,7 +1185,7 @@ html:has(.area-chat-wrapper) .cityline-overlay {
   padding: 0;
   flex: 1 1 auto;
   overflow-y: auto;
-  max-height: calc(100% - 56px); /* subtract header height */
+  max-height: none;
 }
 
 /* Profile Section */

@@ -29,10 +29,10 @@ const App = () => {
     const location = useLocation();
     const [showSkyline, setShowSkyline] = useState(false);
     
+    // Hide entirely on login and chat pages
+    const hide = location.pathname === '/' || location.pathname.includes('/chat');
     useEffect(() => {
-      // Only add scroll listener if not on login page
-      if (location.pathname === '/') return;
-      
+      if (hide) return;
       const handleScroll = () => {
         const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
         const windowHeight = window.innerHeight;
@@ -42,15 +42,13 @@ const App = () => {
         const isAtBottom = scrollTop + windowHeight >= documentHeight - 100;
         setShowSkyline(isAtBottom);
       };
-      
       window.addEventListener('scroll', handleScroll);
       // Check initial position
       handleScroll();
-      
       return () => window.removeEventListener('scroll', handleScroll);
-    }, [location.pathname]);
+    }, [hide]);
     
-    if (location.pathname === '/') return null; // hide on login page
+    if (hide) return null; // hide on login and chat pages
     
     return (
       <div
@@ -77,7 +75,7 @@ const App = () => {
 
   const BlueprintGrid = () => {
     const location = useLocation();
-    if (location.pathname === '/') return null; // hide on login page
+    if (location.pathname === '/' || location.pathname.includes('/chat')) return null; // hide on login & chat
     return (
       <div
         className="app-blueprint-grid"
@@ -105,8 +103,10 @@ const App = () => {
   };
 
   const AppShell = () => {
-    const location = useLocation();
-    const pad = location.pathname === '/' ? '16px' : 'max(16px, calc(var(--cityline-h) * 0.5))';
+  const location = useLocation();
+    const isLogin = location.pathname === '/';
+    const isChat = location.pathname.includes('/chat');
+  const pad = (isLogin || isChat) ? '16px' : 'max(16px, calc(var(--cityline-h) * 0.5))';
     // Prevent body scroll on login page
     React.useEffect(() => {
       if (location.pathname === '/') {
@@ -115,6 +115,12 @@ const App = () => {
         return () => { document.body.style.overflow = prev; };
       }
     }, [location.pathname]);
+    // Remove global skyline bottom padding on chat pages
+    React.useEffect(() => {
+      const cls = 'no-cityline';
+      if (isChat) document.body.classList.add(cls); else document.body.classList.remove(cls);
+      return () => document.body.classList.remove(cls);
+    }, [isChat]);
     return (
       <div className="app-shell" style={{ position: 'relative', minHeight: '100vh' }}>
         <BlueprintGrid />
@@ -139,6 +145,8 @@ const App = () => {
             .dashboard-card, .welcome-card, .ceo-welcome-card, .am-welcome-card {
               background: inherit;
             }
+            /* Kill root padding reserved for skyline on chat pages */
+            body.no-cityline #root { padding-bottom: 0 !important; }
           `}
         </style>
         <AppShell />

@@ -654,7 +654,7 @@ const AreaChat = ({ baseSegment = 'am' }) => {
 
   // show/hide “scroll to bottom”
   useEffect(() => {
-    const el = document.querySelector('.modern-chat-messages');
+    const el = document.querySelector('.modern-chat-main');
     if (!el) return;
     const onScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = el;
@@ -1532,8 +1532,8 @@ const AreaChat = ({ baseSegment = 'am' }) => {
                                 {showSenderName && senderName && selectedChat.isGroup && (
                                   <div className={`group-sender-outside ${msg.isOwn ? 'own' : 'other'}`}>{senderName}</div>
                                 )}
-                                <div className={`modern-message ${msg.isOwn ? 'own' : 'other'}`}
-                                     style={{maxWidth: bubbleMax, width:'fit-content', wordBreak: isVeryLongUnbroken ? 'break-all' : 'break-word', overflowWrap:'anywhere'}}>
+              <div className={`modern-message ${msg.isOwn ? 'own' : 'other'}`}
+                style={{ maxWidth: isVeryLongUnbroken ? 'min(64ch, 88%)' : 'min(88ch, 92%)', width:'fit-content', wordBreak: isVeryLongUnbroken ? 'break-all' : 'break-word', overflowWrap:'anywhere' }}>
                                   <div className="modern-message-content">
                                 {/* Forward label */}
                                 {msg.forwardOf && <div className="forward-label" style={{ fontSize:10, opacity:.6, marginBottom:2 }}>Forwarded</div>}
