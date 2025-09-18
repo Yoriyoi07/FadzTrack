@@ -377,10 +377,21 @@ useEffect(() => {
       setReportUploadError(e?.response?.data?.message || 'Report upload failed');
     }
   };
-  // PM can delete any (existing behavior). PIC cannot delete reports.
-  const canDeleteReport = role==='pm';
+  // Delete permissions:
+  // - PM can delete any report
+  // - PIC can delete only reports they uploaded
+  const canDeleteReport = (report)=>{
+    if (role==='pm') return true;
+    if (role==='pic') {
+      const ownerId = report?.uploadedBy?._id || report?.uploadedBy;
+      return ownerId && String(ownerId)===String(userId);
+    }
+    return false;
+  };
   const handleDeleteReport = async(reportId, uploadedBy)=>{
-    if(!project?._id || !reportId || !canDeleteReport) return;
+    if(!project?._id || !reportId) return;
+    const allowed = (role==='pm') || (role==='pic' && uploadedBy && String(uploadedBy)===String(userId));
+    if(!allowed) { alert('You can only delete your own reports.'); return; }
     if(!window.confirm('Delete this report (PPT + AI outputs)?')) return;
     try {
       const { data } = await api.delete(`/projects/${project._id}/reports/${reportId}`, { headers:{ Authorization:`Bearer ${token}` } });
@@ -1933,7 +1944,7 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                                   >
                                     {openAiRows?.[r._id] ? 'Hide Summary' : 'Show Summary'}
                                   </button>
-                                  {canDeleteReport && (
+                                  {canDeleteReport(r) && (
                                     <button
                                       onClick={() => handleDeleteReport(r._id, r.uploadedBy?._id || r.uploadedBy)}
                                       style={{
