@@ -58,9 +58,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #3b82f6, #10b981, #8b5cf6, #f59e0b);
-  background-size: 300% 100%;
-  animation: gradientShift 8s ease-in-out infinite;
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
 }
 
 @keyframes gradientShift {

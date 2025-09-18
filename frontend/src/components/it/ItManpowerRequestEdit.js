@@ -150,34 +150,34 @@ const ItManpowerRequestEdit = () => {
       </header>
 
       <main className="dashboard-main">
-        <form onSubmit={handleSubmit} className="form-container" style={{ maxWidth: 840, margin: '40px auto' }}>
-          <h2 style={{ textAlign:'center', marginBottom: 24 }}>Edit Manpower Request</h2>
+        <form onSubmit={handleSubmit} className="form-container" style={{ maxWidth: 350, margin: '20px auto', background:'#fff', borderRadius:4, padding:12, boxShadow:'0 2px 8px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ textAlign:'center', marginBottom: 12, fontSize:'1rem', color:'#1e293b' }}>Edit Manpower Request</h2>
 
-          <div style={{ display:'flex', gap:24, flexWrap:'wrap' }}>
-            <div style={{ flex:'1 1 240px' }}>
-              <label style={{ display:'block', fontWeight:600, marginBottom:6 }}>Target Acquisition Date</label>
+          <div style={{ display:'flex', gap:6, alignItems:'end', marginBottom:10 }}>
+            <div style={{ flex:'1.2' }}>
+              <label style={{ display:'block', fontWeight:500, marginBottom:2, fontSize:'0.7rem', color:'#374151' }}>Target Date</label>
               <input type="date" name="acquisitionDate" value={formData.acquisitionDate} onChange={handleChange} required style={inputStyle} />
             </div>
-            <div style={{ flex:'1 1 160px' }}>
-              <label style={{ display:'block', fontWeight:600, marginBottom:6 }}>Duration (days)</label>
+            <div style={{ flex:'0.8' }}>
+              <label style={{ display:'block', fontWeight:500, marginBottom:2, fontSize:'0.7rem', color:'#374151' }}>Duration (days)</label>
               <input type="number" name="duration" value={formData.duration} onChange={handleChange} min={1} required style={inputStyle} />
             </div>
-            <div style={{ flex:'2 1 300px' }}>
-              <label style={{ display:'block', fontWeight:600, marginBottom:6 }}>Project</label>
-              <input type="text" value={formData.project} readOnly style={{ ...inputStyle, background:'#f3f4f6' }} />
+            <div style={{ flex:'1.5' }}>
+              <label style={{ display:'block', fontWeight:500, marginBottom:2, fontSize:'0.7rem', color:'#374151' }}>Project</label>
+              <input type="text" value={formData.project} readOnly style={{ ...inputStyle, background:'#f9fafb', color:'#6b7280' }} />
             </div>
           </div>
 
-          <div style={{ marginTop:32 }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-              <label style={{ fontWeight:600 }}>Manpower Needed</label>
+          <div style={{ marginBottom:12 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+              <label style={{ fontWeight:500, fontSize:'0.7rem', color:'#374151' }}>Manpower Requirements</label>
               <button type="button" onClick={addRow} style={addBtnStyle}><FaPlus/> Add</button>
             </div>
-            <div style={{ border:'1px solid #e5e7eb', borderRadius:8, padding:12, background:'#fff' }}>
+            <div style={{ border:'1px solid #e5e7eb', borderRadius:3, padding:3, background:'#fff' }}>
               {formData.manpowers.map((row, idx) => (
-                <div key={idx} style={{ display:'flex', gap:12, alignItems:'center', marginBottom:8 }}>
-                  <input placeholder="Type (e.g. Mason)" value={row.type} onChange={e=>updateManpowerRow(idx,'type',e.target.value)} style={{ ...inputStyle, flex: '2 1 200px' }} />
-                  <input type="number" placeholder="Qty" value={row.quantity} min={1} onChange={e=>updateManpowerRow(idx,'quantity',e.target.value)} style={{ ...inputStyle, width:120 }} />
+                <div key={idx} style={{ display:'flex', gap:4, alignItems:'center', marginBottom:2 }}>
+                  <input placeholder="Type (e.g. Mason)" value={row.type} onChange={e=>updateManpowerRow(idx,'type',e.target.value)} style={{ ...inputStyle, flex: '1' }} />
+                  <input type="number" placeholder="Qty" value={row.quantity} min={1} onChange={e=>updateManpowerRow(idx,'quantity',e.target.value)} style={{ ...inputStyle, width:50 }} />
                   {formData.manpowers.length > 1 && (
                     <button type="button" onClick={()=>removeRow(idx)} style={removeBtnStyle}><FaTrash/></button>
                   )}
@@ -186,12 +186,12 @@ const ItManpowerRequestEdit = () => {
             </div>
           </div>
 
-          <div style={{ marginTop:24 }}>
-            <label style={{ display:'block', fontWeight:600, marginBottom:6 }}>Description / Purpose</label>
-            <textarea name="description" value={formData.description} onChange={handleChange} required style={{ ...inputStyle, minHeight:120, resize:'vertical' }} />
+          <div style={{ marginBottom:12 }}>
+            <label style={{ display:'block', fontWeight:500, marginBottom:2, fontSize:'0.7rem', color:'#374151' }}>Description</label>
+            <textarea name="description" value={formData.description} onChange={handleChange} required style={{ ...inputStyle, minHeight:45, resize:'vertical' }} />
           </div>
 
-          <div style={{ display:'flex', justifyContent:'center', gap:20, marginTop:40 }}>
+          <div style={{ display:'flex', justifyContent:'center', gap:12, marginTop:24 }}>
             <button type="button" onClick={()=>navigate(-1)} style={secondaryBtn}><FaArrowLeft/> Back</button>
             <button type="submit" disabled={saving} style={primaryBtn}><FaSave/>{saving? ' Saving...' : ' Save Changes'}</button>
           </div>
@@ -201,10 +201,10 @@ const ItManpowerRequestEdit = () => {
   );
 };
 
-const inputStyle = { width:'100%', padding:'10px 12px', border:'1px solid #d1d5db', borderRadius:6, fontSize:14 };
-const addBtnStyle = { display:'flex', alignItems:'center', gap:6, background:'#1d4ed8', color:'#fff', border:'none', borderRadius:6, padding:'8px 14px', cursor:'pointer', fontSize:14 };
-const removeBtnStyle = { background:'#dc2626', color:'#fff', border:'none', padding:'8px 10px', borderRadius:6, cursor:'pointer' };
-const primaryBtn = { display:'flex', alignItems:'center', gap:8, background:'#2563eb', color:'#fff', padding:'12px 24px', border:'none', borderRadius:8, fontSize:16, cursor:'pointer' };
-const secondaryBtn = { display:'flex', alignItems:'center', gap:8, background:'#6b7280', color:'#fff', padding:'12px 24px', border:'none', borderRadius:8, fontSize:16, cursor:'pointer' };
+const inputStyle = { width:'100%', padding:'4px 6px', border:'1px solid #d1d5db', borderRadius:3, fontSize:11, background:'#fff' };
+const addBtnStyle = { display:'flex', alignItems:'center', gap:2, background:'#10b981', color:'#fff', border:'none', borderRadius:3, padding:'3px 6px', cursor:'pointer', fontSize:10, fontWeight:500 };
+const removeBtnStyle = { background:'#ef4444', color:'#fff', border:'none', padding:'3px 4px', borderRadius:2, cursor:'pointer', fontSize:8, width:18, height:18, display:'flex', alignItems:'center', justifyContent:'center' };
+const primaryBtn = { display:'flex', alignItems:'center', gap:3, background:'#3b82f6', color:'#fff', padding:'4px 8px', border:'none', borderRadius:3, fontSize:11, cursor:'pointer', fontWeight:500 };
+const secondaryBtn = { display:'flex', alignItems:'center', gap:3, background:'#6b7280', color:'#fff', padding:'4px 8px', border:'none', borderRadius:3, fontSize:11, cursor:'pointer', fontWeight:500 };
 
 export default ItManpowerRequestEdit;

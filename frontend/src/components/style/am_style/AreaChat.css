@@ -7,6 +7,93 @@
   height: 100vh;
   background-color: #f8f9fa;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden; /* Prevent scrolling */
+}
+
+/* Override blueprint background for chat pages */
+.area-chat-wrapper .blueprint-bg {
+  background: #f8f9fa !important;
+}
+
+/* Remove city skyline overlay for chat pages */
+.area-chat-wrapper .cityline-overlay {
+  display: none !important;
+}
+
+/* Apply same fixes to all chat wrapper types */
+.pm-chat-wrapper,
+.pic-chat-wrapper,
+.hr-chat-wrapper,
+.it-chat-wrapper,
+.ceo-chat-wrapper,
+.picchat-wrapper,
+.hr-site-chat-wrapper {
+  overflow: hidden !important;
+}
+
+.pm-chat-wrapper .blueprint-bg,
+.pic-chat-wrapper .blueprint-bg,
+.hr-chat-wrapper .blueprint-bg,
+.it-chat-wrapper .blueprint-bg,
+.ceo-chat-wrapper .blueprint-bg,
+.picchat-wrapper .blueprint-bg,
+.hr-site-chat-wrapper .blueprint-bg {
+  background: #f8f9fa !important;
+}
+
+.pm-chat-wrapper .cityline-overlay,
+.pic-chat-wrapper .cityline-overlay,
+.hr-chat-wrapper .cityline-overlay,
+.it-chat-wrapper .cityline-overlay,
+.ceo-chat-wrapper .cityline-overlay,
+.picchat-wrapper .cityline-overlay,
+.hr-site-chat-wrapper .cityline-overlay {
+  display: none !important;
+}
+
+/* More specific overrides to ensure they take effect */
+.area-chat-wrapper,
+.area-chat-wrapper * {
+  overflow: hidden !important;
+}
+
+.area-chat-wrapper .blueprint-bg,
+.area-chat-wrapper .cityline-overlay {
+  display: none !important;
+  background: #f8f9fa !important;
+}
+
+/* Override any inherited dashboard styles */
+.area-chat-wrapper .dashboard-container,
+.area-chat-wrapper .dashboard-main {
+  background: #f8f9fa !important;
+  overflow: hidden !important;
+}
+
+/* Global overrides for chat pages - most specific selectors */
+body:has(.area-chat-wrapper),
+html:has(.area-chat-wrapper) {
+  overflow: hidden !important;
+  height: 100vh !important;
+}
+
+/* Override any blueprint or grid backgrounds globally for chat pages */
+body:has(.area-chat-wrapper) .blueprint-bg,
+html:has(.area-chat-wrapper) .blueprint-bg {
+  background: #f8f9fa !important;
+  display: none !important;
+}
+
+body:has(.area-chat-wrapper) .cityline-overlay,
+html:has(.area-chat-wrapper) .cityline-overlay {
+  display: none !important;
+}
+
+/* Alternative approach - target by URL path */
+[data-path*="chat"] .blueprint-bg,
+[data-path*="chat"] .cityline-overlay {
+  display: none !important;
+  background: #f8f9fa !important;
 }
 
 /* Header Styles - Same as Area Manager Dash */

@@ -294,12 +294,9 @@ const PmRequestManpower = () => {
 
               {/* Request Details */}
               <div className="form-section">
-                <div className="section-header">
-                  <h3>Request Details</h3>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <label htmlFor="acquisitionDate">Target Acquisition Date</label>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'end' }}>
+                  <div style={{ flex: '1' }}>
+                    <label htmlFor="acquisitionDate" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Target Date</label>
                     <input
                       type="date"
                       id="acquisitionDate"
@@ -310,14 +307,14 @@ const PmRequestManpower = () => {
                       className="form-input"
                     />
                   </div>
-                  <div className="form-group">
-                    <label htmlFor="duration">Duration (days)</label>
+                  <div style={{ flex: '1' }}>
+                    <label htmlFor="duration" style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>Duration</label>
                     <input
                       type="number"
                       id="duration"
                       name="duration"
                       min="1"
-                      placeholder="How many days?"
+                      placeholder="Days"
                       value={formData.duration}
                       onChange={handleChange}
                       required
@@ -332,14 +329,14 @@ const PmRequestManpower = () => {
                 <div className="section-header">
                   <h3>Manpower Requirements</h3>
                   <p className="section-description">
-                    Specify the types and quantities of manpower needed
+                    Add the types and quantities of manpower needed
                   </p>
                 </div>
                 
                 <div className="manpower-table">
                   <div className="table-header">
-                    <div className="header-cell">Type of Manpower</div>
-                    <div className="header-cell">Quantity</div>
+                    <div className="header-cell">Type</div>
+                    <div className="header-cell">Qty</div>
                     <div className="header-cell actions">Actions</div>
                   </div>
                   
@@ -372,7 +369,7 @@ const PmRequestManpower = () => {
                         <div className="table-cell" style={{ position:'relative' }}>
                           <input
                             type="text"
-                            placeholder="e.g., Electrician, Plumber, Carpenter"
+                            placeholder="e.g., Electrician, Plumber"
                             value={mp.type}
           onChange={e => handleManpowerChange(idx, 'type', e.target.value)}
           onFocus={() => { setFocusedRow(idx); }}
@@ -402,7 +399,7 @@ const PmRequestManpower = () => {
                       <div className="table-cell">
                         <input
                           type="number"
-                          placeholder="Number of workers"
+                          placeholder="Qty"
                           min="1"
                           value={mp.quantity}
                           onChange={e => handleManpowerChange(idx, 'quantity', e.target.value)}
@@ -433,7 +430,7 @@ const PmRequestManpower = () => {
                     className="add-manpower-btn"
                   >
                     <FaPlus />
-                    <span>Add Another Manpower Type</span>
+                    <span>Add Manpower Type</span>
                   </button>
                 </div>
               </div>
@@ -441,21 +438,21 @@ const PmRequestManpower = () => {
               {/* Description */}
               <div className="form-section">
                 <div className="section-header">
-                  <h3>Request Description</h3>
+                  <h3>Description</h3>
                   <p className="section-description">
-                    Provide detailed information about your manpower request
+                    Provide details about the manpower request
                   </p>
                 </div>
                 <div className="form-row">
                   <div className="form-group full-width">
-                    <label htmlFor="description">Description</label>
+                    <label htmlFor="description">Request Details</label>
                     <textarea
                       id="description"
                       name="description"
-                      placeholder="Describe the specific requirements, skills needed, work scope, and any other relevant details..."
+                      placeholder="Describe requirements, skills needed, work scope, and other relevant details..."
                       value={formData.description}
                       onChange={handleChange}
-                      rows={6}
+                      rows={4}
                       required
                       className="form-textarea"
                     ></textarea>
