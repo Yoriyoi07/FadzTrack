@@ -19,8 +19,8 @@ const TwoFactorAuth = ({ email, onSuccess, forceUserUpdate }) => {
     setSubmitting(true);
     setMessage('');
     try {
-      const { data } = await api.post('/auth/verify-2fa', { email, code, rememberDevice: remember });
-      setAccessToken(data.accessToken);
+  const { data } = await api.post('/auth/verify-2fa', { email, code, rememberDevice: remember });
+  setAccessToken(data.accessToken, { accessTokenExpiresAt: data.accessTokenExpiresAt });
       const saved = setUser({ ...data.user }); // 🔧 normalize & persist
 
       if (onSuccess) onSuccess(data.accessToken, saved);

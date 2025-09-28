@@ -361,6 +361,8 @@ setRefreshCookie(req, res, refreshToken, REFRESH_TTL_SEC);
         return res.json({
           requires2FA: false,
           accessToken,
+          expiresIn: ACCESS_TTL_SEC,
+          accessTokenExpiresAt: Date.now() + ACCESS_TTL_SEC * 1000,
           user: { id: user._id, email: user.email, name: user.name, role: user.role, accountStatus: user.accountStatus, presenceStatus: user.presenceStatus }
         });
       }
@@ -434,7 +436,9 @@ const refreshToken  = jwt.sign(
 
     return res.json({
       accessToken,
-  user: { id: user._id, email: user.email, name: user.name, role: user.role, accountStatus: user.accountStatus, presenceStatus: user.presenceStatus }
+      expiresIn: ACCESS_TTL_SEC,
+      accessTokenExpiresAt: Date.now() + ACCESS_TTL_SEC * 1000,
+      user: { id: user._id, email: user.email, name: user.name, role: user.role, accountStatus: user.accountStatus, presenceStatus: user.presenceStatus }
     });
   } catch (err) {
     res.status(500).json({ msg: '2FA verification error', err });
@@ -480,7 +484,11 @@ const newRefresh = jwt.sign(
 setRefreshCookie(req, res, newRefresh, baseTtl);
 
     const accessToken = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: `${ACCESS_TTL_SEC}s` });
-    return res.json({ accessToken });
+    return res.json({
+      accessToken,
+      expiresIn: ACCESS_TTL_SEC,
+      accessTokenExpiresAt: Date.now() + ACCESS_TTL_SEC * 1000
+    });
   } catch (err) {
     return res.status(401).json({ msg: 'Invalid refresh token' });
   }

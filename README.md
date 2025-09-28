@@ -68,3 +68,25 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+---
+
+## Auth: Short Expiry Test (Remember Me Verification)
+
+To quickly verify that silent refresh keeps a remembered session alive without manual interaction, temporarily shorten lifetimes:
+
+1. Edit `backend/.env` (or export in shell) adding:
+	```env
+	ACCESS_TTL_SEC=60            # access tokens 1 minute
+	SHORT_REFRESH_TTL_SEC=180    # non-remembered refresh ~3 minutes
+	REFRESH_TTL_SEC=3600         # remembered refresh 1 hour
+	```
+2. Restart the backend server.
+3. Login, complete 2FA with the "Remember this device" checkbox checked.
+4. Open DevTools > Application > Local Storage. Copy the `token` and decode at https://jwt.io to see `exp`. 
+5. Wait ~50 seconds (no clicks). A background call to `/auth/refresh-token` should occur before expiry; the stored `token` value changes automatically.
+6. Repeat a few cycles to confirm continuous renewal. After 1 hour (refresh expiry) the session will end and you’ll be redirected.
+7. Revert the env values (or remove them) and restart backend when done.
+
+If refresh fails you will see a redirect to the login page; check that the `refreshToken` cookie still exists and that system time is correct.
+

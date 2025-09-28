@@ -56,9 +56,10 @@ const isAuthFailure = (err) => {
 };
 
 /* -------------------- proactive refresh handling ------------------- */
+let explicitExpiryMs = 0; // if backend supplies accessTokenExpiresAt use it
 const scheduleProactiveRefresh = (token) => {
   clearTimeout(refreshTimer);
-  const expMs = decodeJwtExpMs(token);
+  const expMs = explicitExpiryMs || decodeJwtExpMs(token);
   if (!expMs) return;
   const delay = Math.max(0, expMs - Date.now() - 60_000); // refresh ~60s early
   refreshTimer = setTimeout(() => {
@@ -75,8 +76,9 @@ async function refreshAccessToken() {
   isRefreshing = true;
   try {
     const { data } = await refreshClient.post('/auth/refresh-token', {});
-    const newToken = data?.accessToken;
+  const newToken = data?.accessToken;
     if (!newToken) throw new Error('No accessToken in refresh response');
+  explicitExpiryMs = data?.accessTokenExpiresAt || 0;
 
     // persist & apply
     localStorage.setItem('token', newToken);
@@ -94,9 +96,10 @@ async function refreshAccessToken() {
 }
 
 /* --------------------------- public helpers -------------------------- */
-export function setAccessToken(token) {
+export function setAccessToken(token, meta) {
   if (!token) return;
   localStorage.setItem('token', token);
+  explicitExpiryMs = meta?.accessTokenExpiresAt || 0;
   setAuthHeader(token);
   scheduleProactiveRefresh(token);
 }
