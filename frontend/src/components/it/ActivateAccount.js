@@ -31,7 +31,20 @@ const ActivateAccount = () => {
       alert('Account activated! You can now log in.');
       navigate('/');
     } catch (err) {
-      setError('Activation failed. The link may be expired or invalid.');
+      const msg = err?.response?.data?.msg || '';
+      if (/already activated/i.test(msg)) {
+        // Treat as success (token reuse / user double-click)
+        alert('Account was already activated. You can log in now.');
+        navigate('/');
+        return;
+      }
+      if (/invalid|expired|token/i.test(msg)) {
+        setError('Activation failed. The link may be expired or invalid.');
+      } else if (msg) {
+        setError(msg);
+      } else {
+        setError('Activation failed. Please try again later.');
+      }
     }
   };
 
