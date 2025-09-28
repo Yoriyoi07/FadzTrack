@@ -494,7 +494,13 @@ const loadAttendance = async (pid = project?._id) => {
     });
   }, [project?.documents, budgetDocument]);
   if(loading) return <div className={`dashboard-container ${rootRoleClass}`}><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-spinner-container"><div className="loading-spinner"/></div><div className="loading-text"><h2 className="loading-title">Loading Project Details</h2><p className="loading-subtitle">Fetching project information...</p></div><div className="loading-progress"><div className="progress-bar"><div className="progress-fill"/></div></div></div></div></div>;
-  if(!project) return <div className={`dashboard-container ${rootRoleClass}`}><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-text"><h2 className="loading-title" style={{color:'#ef4444'}}>Project Not Found</h2><p className="loading-subtitle">Project missing or access denied.</p></div><div style={{marginTop:'2rem'}}><button onClick={()=> navigate(basePath)} style={{background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',border:'none',padding:'12px 24px',borderRadius:8,fontSize:'1rem',fontWeight:600,cursor:'pointer'}}>Return to Dashboard</button></div></div></div></div>;
+  // When project is missing:
+  //  - For staff & hrsite we still show full layout (header, tabs, etc.) with an empty state panel
+  //  - For other roles retain the original blocking screen with a dashboard return
+  const projectMissing = !project;
+  if(projectMissing && !['staff','hrsite'].includes(role)) {
+    return <div className={`dashboard-container ${rootRoleClass}`}><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-text"><h2 className="loading-title" style={{color:'#ef4444'}}>Project Not Found</h2><p className="loading-subtitle">Project missing or access denied.</p></div><div style={{marginTop:'2rem'}}><button onClick={()=> navigate(basePath)} style={{background:'linear-gradient(135deg,#3b82f6,#1d4ed8)',color:'#fff',border:'none',padding:'12px 24px',borderRadius:8,fontSize:'1rem',fontWeight:600,cursor:'pointer'}}>Return to Dashboard</button></div></div></div></div>;
+  }
   const start = project?.startDate ? new Date(project.startDate).toLocaleDateString() : 'N/A';
   const end = project?.endDate ? new Date(project.endDate).toLocaleDateString() : 'N/A';
   let locationLabel = 'N/A';
@@ -617,8 +623,8 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
           <div className="project-header">
             <div className="project-image-section">
               <img
-                src={(project.photos && project.photos[0]) || 'https://placehold.co/1200x400?text=Project+Image'}
-                alt={project.projectName}
+                src={(project?.photos?.[0]) || 'https://placehold.co/1200x400?text=No+Active+Project'}
+                alt={project?.projectName || 'No Active Project'}
                 className="project-hero-image"
               />
               {perms.image && (
@@ -831,12 +837,16 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
               )}
             </div>
             <div className="project-title-section">
-              <h1 className="project-title">{project.projectName}</h1>
+              <h1 className="project-title">{projectMissing ? 'No Active Project Assigned' : project.projectName}</h1>
               <div className="project-status-badge">
-                <span className={`status-indicator ${status === 'Completed' ? 'completed' : 'ongoing'}`}>
-                  {status === 'Completed' ? <FaCheckCircle /> : <FaClock />}
-                </span>
-                <span className="status-text">{status || project?.status || 'N/A'}</span>
+                {!projectMissing && (
+                  <>
+                    <span className={`status-indicator ${status === 'Completed' ? 'completed' : 'ongoing'}`}>
+                      {status === 'Completed' ? <FaCheckCircle /> : <FaClock />}
+                    </span>
+                    <span className="status-text">{status || project?.status || 'N/A'}</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -872,6 +882,12 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
               </button>
             )}
           </div>
+          {projectMissing && (
+            <div style={{padding:'24px 28px',background:'#fff1f2',border:'1px solid #fecdd3',borderRadius:16,margin:'24px 24px 0'}}>
+              <h2 style={{marginTop:0,marginBottom:8,color:'#be123c'}}>No Project Assigned</h2>
+              <p style={{margin:0,color:'#9f1239',fontSize:14,lineHeight:1.5}}>You currently have no active project. You can still access other areas using the navigation above (Chat, Dashboard, etc.). Once a project is assigned to you it will appear here automatically.</p>
+            </div>
+          )}
           <div className="tab-content">
             {/* DETAILS TAB */}
             {activeTab === 'Details' && (
