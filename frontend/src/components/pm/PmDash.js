@@ -121,10 +121,23 @@ const PmDash = ({ forceUserUpdate }) => {
     if (!token || !userId) return;
     const fetchAssignedPMProject = async () => {
       try {
+        // Primary call (single project)
         const { data } = await api.get(`/projects/assigned/projectmanager/${userId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setProject(data);
+        let candidate = data;
+        // If project exists but status not ongoing, attempt to find an ongoing one from all role assignments
+        if (candidate && candidate.status && !/ongoing/i.test(candidate.status)) {
+          try {
+            const allRolesResp = await api.get(`/projects/assigned/allroles/${userId}`, { headers: { Authorization: `Bearer ${token}` } });
+            const list = Array.isArray(allRolesResp.data) ? allRolesResp.data : [];
+            const ongoing = list.find(p => /ongoing/i.test(p.status || ''));
+            if (ongoing) candidate = ongoing;
+          } catch (e) {
+            // silently ignore fallback failure
+          }
+        }
+        setProject(candidate || null);
       } catch (err) {
         setProject(null);
       }
@@ -358,11 +371,12 @@ const PmDash = ({ forceUserUpdate }) => {
         totalWorkItems: 0,
         averageContribution: 0,
         reportingPics: 0,
-        lastReportDate: null
+        lastReportDate: null,
+        overallAdjustedProgress: 0
       };
     }
 
-    // Get latest report per PIC
+    // Latest report per PIC / uploader
     const sorted = [...reports].sort((a, b) => new Date(b.uploadedAt || 0) - new Date(a.uploadedAt || 0));
     const byUploader = new Map();
     for (const report of sorted) {
@@ -371,12 +385,14 @@ const PmDash = ({ forceUserUpdate }) => {
     }
     const distinctReports = [...byUploader.values()];
 
-    // Calculate work items from reports
+    // Work item accumulation
     let totalCompleted = 0;
     let totalInProgress = 0;
     let totalWorkItems = 0;
-    let totalContribution = 0;
+    let totalContribution = 0; // sum only of non-zero contributions
     let validContributions = 0;
+
+    const contributionMap = new Map(); // picId -> contribution (0-100)
 
     distinctReports.forEach(report => {
       const ai = report.ai || {};
@@ -394,10 +410,31 @@ const PmDash = ({ forceUserUpdate }) => {
         totalContribution += contribution;
         validContributions++;
       }
+      const key = report.uploadedBy || report.uploadedByName || report._id;
+      contributionMap.set(String(key), Math.max(0, Math.min(100, Math.round(contribution))));
     });
 
     const averageContribution = validContributions > 0 ? totalContribution / validContributions : 0;
     const lastReportDate = sorted[0]?.uploadedAt || null;
+
+    // Adjust overall progress: include missing PICs as 0%
+    const assignedPicIds = Array.isArray(project?.pic)
+      ? project.pic.map(p => String(p?._id || p.id || p))
+      : [];
+    let overallAdjustedProgress = 0;
+    let headcountAverage = 0; // each reporting PIC treated as its contribution value; missing = 0
+    if (assignedPicIds.length > 0) {
+      const sum = assignedPicIds.reduce((s, id) => s + (contributionMap.get(id) || 0), 0);
+      overallAdjustedProgress = sum / assignedPicIds.length;
+      // headcount average already equivalent to adjusted (missing treated 0)
+      headcountAverage = overallAdjustedProgress;
+    } else {
+      // fallback: use average across reporters (prior behavior)
+      overallAdjustedProgress = averageContribution;
+      headcountAverage = averageContribution;
+    }
+    overallAdjustedProgress = Math.round(Math.max(0, Math.min(100, overallAdjustedProgress)));
+    headcountAverage = Math.round(Math.max(0, Math.min(100, headcountAverage)));
 
     const data = [
       { name: 'Completed', value: totalCompleted, color: '#22c55e' },
@@ -412,9 +449,23 @@ const PmDash = ({ forceUserUpdate }) => {
       totalWorkItems,
       averageContribution: Math.round(averageContribution),
       reportingPics: distinctReports.length,
-      lastReportDate
+      lastReportDate,
+      overallAdjustedProgress,
+      headcountAverage
     };
-  }, [reports]);
+  }, [reports, project?.pic]);
+
+  // --- Derived overall progress (single source for KPI + chart) ---
+  const derivedOverallProgress = React.useMemo(() => {
+    const totalPics = Array.isArray(project?.pic) ? project.pic.length : 0;
+    const reported = reportMetrics.reportingPics || 0;
+    // Headcount average already accounts for missing PICs as 0
+    let adjusted = reportMetrics.headcountAverage || 0;
+    if (totalPics === 0) {
+      adjusted = project?.progress || adjusted;
+    }
+    return Math.min(100, Math.max(0, Math.round(adjusted)));
+  }, [project?.pic, project?.progress, reportMetrics.headcountAverage]);
 
   // Function to truncate text to about 10 words
   const truncateMessage = (text, maxWords = 10) => {
@@ -498,9 +549,9 @@ const PmDash = ({ forceUserUpdate }) => {
                 <div className="kpi-ico">
                   <FaBoxes />
                 </div>
-                <div className="kpi-body">
-                  <div className="kpi-title">Pending Requests</div>
-                  <div className="kpi-value">{materialRequests.filter(r => r.status === 'Pending').length}</div>
+                <div className="kpi-body" style={{color:'#fff'}}>
+                  <div className="kpi-title" style={{color:'#fff'}}>Pending Requests</div>
+                  <div className="kpi-value" style={{color:'#fff'}}>{materialRequests.filter(r => r.status === 'Pending').length}</div>
                 </div>
               </Link>
               
@@ -508,9 +559,9 @@ const PmDash = ({ forceUserUpdate }) => {
                 <div className="kpi-ico">
                   <FaChartBar />
                 </div>
-                <div className="kpi-body">
-                  <div className="kpi-title">Active Projects</div>
-                  <div className="kpi-value">{project ? 1 : 0}</div>
+                <div className="kpi-body" style={{color:'#fff'}}>
+                  <div className="kpi-title" style={{color:'#fff'}}>Active Projects</div>
+                  <div className="kpi-value" style={{color:'#fff'}}>{project ? 1 : 0}</div>
                 </div>
               </Link>
               
@@ -518,9 +569,9 @@ const PmDash = ({ forceUserUpdate }) => {
                 <div className="kpi-ico">
                   <FaProjectDiagram />
                 </div>
-                <div className="kpi-body">
-                  <div className="kpi-title">Avg. Progress</div>
-                  <div className="kpi-value">{project?.progress || 0}%</div>
+                <div className="kpi-body" style={{color:'#fff'}}>
+                  <div className="kpi-title" style={{color:'#fff'}}>Avg. Progress</div>
+                  <div className="kpi-value" style={{color:'#fff'}}>{derivedOverallProgress}%</div>
                 </div>
               </Link>
             </div>
@@ -528,42 +579,59 @@ const PmDash = ({ forceUserUpdate }) => {
 
           </div>
 
-          {/* Work Progress Chart */}
-          {project && reportMetrics.data.length > 0 && (
+          {/* Work Progress Chart (aligned with overall project progress) */}
+          {project && (
             <div className="dashboard-card chart-card">
               <div className="card-header">
                 <h3 className="card-title">Work Progress Overview</h3>
                 <div className="card-subtitle">
-                  Based on {reportMetrics.reportingPics} PIC reports
+                  Overall progress based on latest PIC reports
                 </div>
               </div>
-              <div className="chart-container">
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
-                    <Pie
-                      data={reportMetrics.data}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine={false}
-                    >
-                      {reportMetrics.data.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+              {(() => {
+                const totalPics = Array.isArray(project?.pic) ? project.pic.length : 0;
+                const reported = reportMetrics.reportingPics || 0;
+                const overallProgress = derivedOverallProgress;
+                const progressData = [
+                  { name: 'Completed', value: overallProgress, color: '#22c55e' },
+                  { name: 'Remaining', value: 100 - overallProgress, color: '#e2e8f0' }
+                ];
+                return (
+                  <div className="chart-container" style={{position:'relative'}}>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={progressData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={80}
+                          startAngle={90}
+                          endAngle={-270}
+                          paddingAngle={1}
+                          dataKey="value"
+                        >
+                          {progressData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%, -50%)',textAlign:'center'}}>
+                      <div style={{fontSize:32,fontWeight:700,color:'#0f172a'}}>{overallProgress}%</div>
+                      <div style={{fontSize:12,color:'#64748b'}}>{reported < totalPics ? `${reported}/${totalPics} PICs` : 'Overall'}</div>
+                    </div>
+                  </div>
+                );
+              })()}
               {reportMetrics.lastReportDate && (
                 <div className="chart-footer">
-                  <span className="last-report">
-                    Last report: {new Date(reportMetrics.lastReportDate).toLocaleDateString()}
-                  </span>
+                  <span className="last-report">Last report: {new Date(reportMetrics.lastReportDate).toLocaleDateString()}</span>
+                  {Array.isArray(project?.pic) && project.pic.length>0 && (
+                    <span style={{marginLeft:12, fontSize:12, color:'#64748b'}}>
+                      Coverage: {reportMetrics.reportingPics}/{project.pic.length} PICs
+                    </span>
+                  )}
                 </div>
               )}
             </div>

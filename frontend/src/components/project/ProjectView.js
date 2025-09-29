@@ -202,6 +202,9 @@ export default function ProjectView(props) {
   const [statusUpdating,setStatusUpdating]=useState(false);
   // Per-report AI dropdown expanded state: { [reportId]: boolean }
   const [openAiRows, setOpenAiRows] = useState({});
+  // Scalable PiC card UI helpers
+  const [picSearch,setPicSearch]=useState('');
+  const [showAllPics,setShowAllPics]=useState(false);
   
   // File deletion confirmation modal state
   const [showFileDeleteConfirm, setShowFileDeleteConfirm] = useState(false);
@@ -249,7 +252,35 @@ useEffect(() => {
   useEffect(()=>{ if(!messages.length) return; setCollapsedReplies(prev=>{ const next={...prev}; let changed=false; messages.forEach(m=>{ const rc=Array.isArray(m.replies)?m.replies.length:0; if(rc>=3 && typeof next[m._id]==='undefined'){ next[m._id]=true; changed=true; } }); return changed?next:prev; }); },[messages]);
   const fetchReports=async(pid=project?._id)=>{ if(!pid) return; try { const {data}=await api.get(`/projects/${pid}/reports`,{ headers:{Authorization:`Bearer ${token}`}}); const list=data?.reports||[]; setReports(list); if(!list.length){ console.info('[ProjectView] No reports for project', pid, 'role', role); return; } const sorted=[...list].sort((a,b)=> new Date(b.uploadedAt||0)-new Date(a.uploadedAt||0)); const byUser=new Map(); for(const rep of sorted){ const key=rep.uploadedBy||rep.uploadedByName||rep._id; if(!byUser.has(key)) byUser.set(key,rep);} const distinct=[...byUser.values()]; // Prefer raw contribution field if present
     let vals=distinct.map(r=> { const ai=r?.ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); if(isFinite(raw) && raw>=0) return raw; if(isFinite(legacy) && legacy>=0) return legacy; const done=ai.completed_tasks?.length||0; const total=done + (ai.summary_of_work_done?.length||0); return total>0?(done/total)*100:0; }).filter(v=> isFinite(v)&&v>=0);
-    if(vals.length){ const avg=vals.reduce((s,v)=> s+v,0)/vals.length; const avgClamped=Number(Math.min(100,Math.max(0,avg)).toFixed(1)); setProgress(avgClamped); const assignedPics = Array.isArray(project?.pic)? project.pic : []; const totalAssigned = assignedPics.length || distinct.length; setPicContributions({ averageContribution:Number(avg.toFixed(1)), picContributions:distinct.map(r=> { const ai=r.ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); const chosen = isFinite(raw)&&raw>=0? raw : (isFinite(legacy)&&legacy>=0? legacy : 0); return ({ picId:r.uploadedBy||r._id, picName:r.uploadedByName||'Unknown', contribution:Math.round(chosen), hasReport:true, lastReportDate:r.uploadedAt||null, fallbackUsed: !!ai.meta_fallback_used, duplicate: !!ai.meta_duplicate_previous }); }), totalPics:totalAssigned, reportingPics:distinct.length, pendingPics:Math.max(totalAssigned - distinct.length,0) }); } } catch (e){ console.error('[ProjectView] fetchReports failed', e); setReports([]);} };
+    if(vals.length){
+      const assignedPics = Array.isArray(project?.pic)? project.pic : [];
+      const totalAssigned = assignedPics.length || distinct.length;
+      const sumContrib = vals.reduce((s,v)=> s+v,0);
+      const headcountAvgRaw = totalAssigned>0 ? (sumContrib / totalAssigned) : 0;
+      const headcountClamped = Number(Math.min(100,Math.max(0,headcountAvgRaw)).toFixed(1));
+      console.debug('[ProjectView] Progress calculation', { totalAssigned, reportedPICs: distinct.length, sumContrib: Number(sumContrib.toFixed(2)), headcountAvgRaw, headcountClamped });
+      setProgress(headcountClamped);
+      const perPic = distinct.map(r=> {
+        const ai=r.ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent);
+        const chosen = isFinite(raw)&&raw>=0? raw : (isFinite(legacy)&&legacy>=0? legacy : 0);
+        return ({ picId:r.uploadedBy||r._id, picName:r.uploadedByName||'Unknown', contribution:Math.round(chosen), hasReport:true, lastReportDate:r.uploadedAt||null, fallbackUsed: !!ai.meta_fallback_used, duplicate: !!ai.meta_duplicate_previous });
+      });
+      setPicContributions({
+        averageContribution: headcountClamped,
+        picContributions: perPic,
+        totalPics: totalAssigned,
+        reportingPics: distinct.length,
+        pendingPics: Math.max(totalAssigned - distinct.length,0)
+      });
+    } else {
+      // still set picContributions if there are assigned pics but zero reports (so UI shows 0% with correct denominator)
+      const assignedPics = Array.isArray(project?.pic)? project.pic : [];
+      if(assignedPics.length){
+        setProgress(0);
+        setPicContributions({ averageContribution:0, picContributions:[], totalPics:assignedPics.length, reportingPics:0, pendingPics:assignedPics.length });
+      }
+    }
+  } catch (e){ console.error('[ProjectView] fetchReports failed', e); setReports([]);} };
   const completionPreconditionsMet = React.useMemo(()=>{
     if(!project) return false;
     const docCount = Array.isArray(project.documents)? project.documents.length : 0;
@@ -986,23 +1017,15 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Overall Progress</h3>
                           <FaChartBar style={{ opacity: 0.7 }} />
                         </div>
-                        <div
-                          style={{
-                            fontSize: 38,
-                            fontWeight: 700,
-                            background: 'linear-gradient(90deg,#3b82f6,#06b6d4)',
-                            WebkitBackgroundClip: 'text',
-                            color: 'transparent'
-                          }}
-                        >
-                          {Math.round(progress)}%
+                        <div style={{ fontSize: 38, fontWeight: 700, background: 'linear-gradient(90deg,#3b82f6,#06b6d4)', WebkitBackgroundClip: 'text', color: 'transparent' }}>
+                          {picContributions ? Math.round(picContributions.averageContribution) : Math.round(progress)}%
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', alignSelf:'stretch' }}>
                           <div
                             style={{ height: 14, background: '#1e293b', borderRadius: 10, position: 'relative', width: '100%', minWidth:'100%' }}
-                            aria-label={`Overall progress ${Math.round(progress)}%`}
+                            aria-label={`Overall progress ${picContributions ? Math.round(picContributions.averageContribution) : Math.round(progress)}%`}
                             role="progressbar"
-                            aria-valuenow={Math.round(progress)}
+                            aria-valuenow={picContributions ? Math.round(picContributions.averageContribution) : Math.round(progress)}
                             aria-valuemin={0}
                             aria-valuemax={100}
                           >
@@ -1011,70 +1034,135 @@ function renderLabelBadge(label){ if(!label) return null; const s=labelColorMap[
                                 position: 'absolute',
                                 inset: 0,
                                 background: 'linear-gradient(90deg,#3b82f6,#6366f1,#8b5cf6)',
-                                width: `${progress}%`,
+                                width: `${picContributions ? Math.round(picContributions.averageContribution) : Math.round(progress)}%`,
                                 borderRadius: 10,
                                 transition: 'width .5s ease'
                               }}
                             />
                           </div>
-                          <small style={{ opacity: 0.8 }}>Average across all PiCs</small>
-                        </div>
-                        {picContributions && (
-                          <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-                            <div style={{ fontSize: 12, letterSpacing: 0.5, opacity: 0.85 }}>Reporting Coverage</div>
-                            <div style={{ display: 'flex', gap: 6, width: '100%' }}>
-                              {Array.from({ length: picContributions.totalPics }).map((_, i) => (
-                                <div
-                                  key={i}
-                                  style={{
-                                    flex: 1,
-                                    height: 6,
-                                    background:
-                                      i < picContributions.reportingPics
-                                        ? 'linear-gradient(90deg,#10b981,#4ade80)'
-                                        : '#334155',
-                                    borderRadius: 4
-                                  }}
-                                />
-                              ))}
+                          {picContributions && (
+                            <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                              <small style={{ opacity: 0.8 }}>Average across all PICs (missing reports = 0%)</small>
+                              <div style={{ display: 'flex', gap: 6, width: '100%' }}>
+                                {Array.from({ length: picContributions.totalPics }).map((_, i) => (
+                                  <div
+                                    key={i}
+                                    style={{
+                                      flex: 1,
+                                      height: 6,
+                                      background:
+                                        i < picContributions.reportingPics
+                                          ? 'linear-gradient(90deg,#10b981,#4ade80)'
+                                          : '#334155',
+                                      borderRadius: 4
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                              <div style={{ fontSize: 12, opacity: 0.7 }}>
+                                {picContributions.reportingPics}/{picContributions.totalPics} submitted
+                              </div>
                             </div>
-                            <div style={{ fontSize: 12, opacity: 0.7 }}>
-                              {picContributions.reportingPics}/{picContributions.totalPics} submitted
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                          )}
+                        </div> {/* end inner column */}
+                      </div> {/* end overall-progress card */}
+                    </div> {/* end progress-grid */}
                     {(picContributions || (project?.pic && project.pic.length > 0)) && (
                       <div
                         className="progress-card pic-contributions"
-                        style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: 20 }}
+                        style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: 20, display:'flex', flexDirection:'column', gap:16, minWidth:0 }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#0f172a' }}>PiC Contributions</h3>
+                          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#0f172a', display:'flex', alignItems:'center', gap:8 }}>
+                            PiC Contributions
+                            {picContributions && (
+                              <span style={{background:'#0f172a',color:'#fff',fontSize:11,padding:'4px 10px',borderRadius:20,letterSpacing:.5,fontWeight:600}}>
+                                Avg {Math.round(picContributions.averageContribution)}%
+                              </span>
+                            )}
+                          </h3>
                           <FaUsers style={{ color: '#475569' }} />
                         </div>
-                        <div style={{ fontSize: 32, fontWeight: 700, color: '#0f172a' }}>
-                          {picContributions ? picContributions.averageContribution : 0}%
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          {picContributions ? (
-                            <div
-                              style={{ fontSize: 13, color: '#475569', display: 'flex', justifyContent: 'space-between' }}
-                            >
-                              <span>Reporting</span>
-                              <span style={{ fontWeight: 600 }}>
-                                {picContributions.reportingPics}/{picContributions.totalPics}
-                              </span>
+                        {picContributions && picContributions.totalPics>8 && (
+                          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                            <input
+                              type="text"
+                              placeholder="Search PIC name..."
+                              value={picSearch}
+                              onChange={e=> setPicSearch(e.target.value)}
+                              style={{flex:'1 1 200px',minWidth:140,background:'#f1f5f9',border:'1px solid #e2e8f0',borderRadius:8,padding:'8px 10px',fontSize:12}}
+                            />
+                            <button
+                              type="button"
+                              onClick={()=> setShowAllPics(s=>!s)}
+                              style={{background:'#0f172a',color:'#fff',border:'none',padding:'8px 14px',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer'}}
+                            >{showAllPics? 'Show Less':'Show All'}</button>
+                          </div>
+                        )}
+                        {!picContributions && (
+                          <div style={{ fontSize: 12, background: '#f1f5f9', padding: '8px 10px', borderRadius: 8, color: '#475569' }}>
+                            No contribution data yet.
+                          </div>
+                        )}
+                        {picContributions && (() => {
+                          const assigned = Array.isArray(project?.pic) ? project.pic : [];
+                          // Map existing perPic array by picId for quick lookup
+                          const reportedMap = new Map();
+                          picContributions.picContributions.forEach(p => reportedMap.set(String(p.picId), p));
+                          const rows = assigned.map(p => {
+                            const uid = String(p?._id || p.id || p);
+                            const existing = reportedMap.get(uid);
+                            return existing || { picId: uid, picName: p?.name || 'Unresolved', contribution: 0, hasReport: false };
+                          });
+                          // In case there are reports from PICs no longer assigned, append them (edge case)
+                          picContributions.picContributions.forEach(p => {
+                            if(!rows.some(r=> String(r.picId)===String(p.picId))) rows.push(p);
+                          });
+                          // Filter by search
+                          const term = picSearch.trim().toLowerCase();
+                          const filtered = term? rows.filter(r=> (r.picName||'').toLowerCase().includes(term)) : rows;
+                          // Sort: reported first, then contribution desc, then name
+                          filtered.sort((a,b)=>{
+                            if(a.hasReport!==b.hasReport) return a.hasReport? -1:1;
+                            const diff=(Number(b.contribution)||0)-(Number(a.contribution)||0);
+                            if(diff!==0) return diff;
+                            return (a.picName||'').localeCompare(b.picName||'');
+                          });
+                          const limit = showAllPics? filtered.length : 12; // show first 12 by default
+                          const visible = filtered.slice(0,limit);
+                          return (
+                            <div style={{display:'flex',flexDirection:'column',gap:10,minWidth:0}}>
+                              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:10}}>
+                                {visible.map((r,i)=>{ const pct=Math.round(r.contribution||0); return (
+                                  <div key={i} style={{display:'flex',flexDirection:'column',gap:6,background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:12,padding:'10px 12px',minWidth:0}}>
+                                    <div style={{display:'flex',alignItems:'center',gap:8,minWidth:0}}>
+                                      <div style={{width:34,height:34,borderRadius:10,background:'#0f172a',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,fontWeight:600,flexShrink:0}}>
+                                        {(r.picName||'?').charAt(0).toUpperCase()}
+                                      </div>
+                                      <div style={{display:'flex',flexDirection:'column',minWidth:0}}>
+                                        <span style={{fontSize:12,fontWeight:600,color:'#0f172a',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:'100%'}} title={r.picName}>{r.picName}</span>
+                                        <span style={{fontSize:10,color:r.hasReport?'#10b981':'#64748b',fontWeight:500}}>{r.hasReport?'Reported':'No report'}</span>
+                                      </div>
+                                      <div style={{marginLeft:'auto',fontSize:12,fontWeight:700,color:'#0f172a'}}>{pct}%</div>
+                                    </div>
+                                    <div style={{height:6,background:'#e2e8f0',borderRadius:4,overflow:'hidden',position:'relative'}}>
+                                      <div style={{position:'absolute',inset:0,width:`${Math.min(100,Math.max(0,pct))}%`,background: pct>=100? 'linear-gradient(90deg,#16a34a,#4ade80)':'linear-gradient(90deg,#3b82f6,#6366f1)',transition:'width .5s',borderRadius:4}} />
+                                    </div>
+                                  </div> ); })}
+                              </div>
+                              {filtered.length>visible.length && (
+                                <button type="button" onClick={()=> setShowAllPics(true)} style={{background:'#fff',border:'1px solid #e2e8f0',padding:'8px 12px',borderRadius:8,fontSize:12,fontWeight:600,cursor:'pointer',alignSelf:'center'}}>Show {filtered.length-visible.length} more</button>
+                              )}
+                              {showAllPics && filtered.length>12 && (
+                                <button type="button" onClick={()=> setShowAllPics(false)} style={{background:'#fff',border:'1px solid #e2e8f0',padding:'6px 10px',borderRadius:8,fontSize:11,fontWeight:600,cursor:'pointer',alignSelf:'center'}}>Collapse</button>
+                              )}
+                              <div style={{display:'flex',justifyContent:'space-between',fontSize:11,color:'#475569',marginTop:4}}>
+                                <span style={{fontWeight:600}}>Reported</span>
+                                <span style={{fontWeight:600}}>{picContributions.reportingPics}/{picContributions.totalPics}</span>
+                              </div>
                             </div>
-                          ) : (
-                            <div
-                              style={{ fontSize: 12, background: '#f1f5f9', padding: '8px 10px', borderRadius: 8, color: '#475569' }}
-                            >
-                              No contribution data yet.
-                            </div>
-                          )}
-                        </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
