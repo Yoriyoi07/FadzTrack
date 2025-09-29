@@ -23,6 +23,35 @@ const ItAuditLog = () => {
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [expandedRow, setExpandedRow] = useState(null); // which log _id is expanded
+  // Pagination state
+  // Query param hydration
+  const initialParams = (() => {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const p = parseInt(sp.get('page') || '1', 10);
+      const ps = parseInt(sp.get('pageSize') || '30', 10);
+      return { p: isFinite(p) && p>0 ? p : 1, ps: [30,50,100].includes(ps) ? ps : 30 };
+    } catch { return { p:1, ps:30 }; }
+  })();
+  const [page, setPage] = useState(initialParams.p);
+  const [pageSize, setPageSize] = useState(initialParams.ps);
+  const [jumpPage, setJumpPage] = useState('');
+
+  // Pagination button & ellipsis styling helpers
+  const paginationBtnStyle = (disabled, active=false) => ({
+    padding: '6px 12px',
+    fontSize: 13,
+    borderRadius: 6,
+    border: active ? '1px solid #2563eb' : '1px solid #d1d5db',
+    backgroundColor: disabled ? '#f1f5f9' : active ? '#3b82f6' : '#ffffff',
+    color: disabled ? '#94a3b8' : active ? '#ffffff' : '#374151',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    fontWeight: active ? 600 : 500,
+    lineHeight: 1.2,
+    transition: 'all .15s ease',
+    minWidth: 42,
+  });
+  const ellipsisStyle = { padding: '6px 4px', color: '#64748b', fontSize: 13, userSelect: 'none' };
 
   // User state
   const [user, setUser] = useState(() => {
@@ -201,6 +230,24 @@ const ItAuditLog = () => {
       )
     );
   });
+
+  // Reset to first page whenever filters change
+  useEffect(()=>{ setPage(1); }, [search, roleFilter, actionFilter, startDate, endDate, pageSize]);
+
+  // Sync to URL (debounced minimal) when page or pageSize changes
+  useEffect(()=>{
+    const sp = new URLSearchParams(window.location.search);
+    sp.set('page', String(page));
+    sp.set('pageSize', String(pageSize));
+    const newUrl = `${window.location.pathname}?${sp.toString()}`;
+    window.history.replaceState(null,'',newUrl);
+  }, [page, pageSize]);
+
+  // Derive paginated slice
+  const totalFiltered = filteredLogs.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedLogs = filteredLogs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   // Helper function for action colors
   const getActionColor = (action) => {
@@ -410,9 +457,10 @@ const ItAuditLog = () => {
   };
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-container" style={{ overflow: 'visible' }}>
       <AppHeader roleSegment="it" />
-      <main className="dashboard-main" style={{marginTop:'1rem'}}>
+      {/* Ensure only one vertical scrollbar by disabling internal main overflow */}
+      <main className="dashboard-main" style={{ marginTop:'1rem', overflow:'visible', maxHeight:'none' }}>
         <div style={{ maxWidth: 1200, margin: "30px auto", padding: 24, background: "#fff", borderRadius: 12, boxShadow: "0 2px 16px #0001" }}>
           {/* Page Header */}
           <div style={{ 
@@ -830,7 +878,8 @@ const ItAuditLog = () => {
           </div>
         ) : (
           <div style={{ 
-            overflowX: "auto",
+            overflowX: 'auto', // horizontal scroll only if needed
+            overflowY: 'visible', // allow content to expand; rely on window scroll
             backgroundColor: 'white',
             borderRadius: '12px',
             border: '1px solid #e5e7eb',
@@ -910,7 +959,7 @@ const ItAuditLog = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredLogs.length === 0 ? (
+                {totalFiltered === 0 ? (
                   <tr>
                     <td colSpan={6} style={{ 
                       textAlign: "center", 
@@ -926,10 +975,12 @@ const ItAuditLog = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredLogs.map((log, i) => (
+                  paginatedLogs.map((log, i) => {
+                    const globalIndex = (currentPage - 1) * pageSize + i; // preserve striping across pages if desired
+                    return (
                     <React.Fragment key={log._id || i}>
                       <tr style={{ 
-                        background: i % 2 ? "#fafbfc" : "#fff",
+                        background: globalIndex % 2 ? "#fafbfc" : "#fff",
                         transition: 'all 0.2s ease',
                         borderBottom: expandedRow === (log._id || i) ? 'none' : '1px solid #f3f4f6'
                       }}
@@ -938,7 +989,7 @@ const ItAuditLog = () => {
                         e.currentTarget.style.transform = 'scale(1.01)';
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = i % 2 ? "#fafbfc" : "#fff";
+                        e.currentTarget.style.backgroundColor = globalIndex % 2 ? "#fafbfc" : "#fff";
                         e.currentTarget.style.transform = 'scale(1)';
                       }}
                       >
@@ -1039,10 +1090,81 @@ const ItAuditLog = () => {
                         </tr>
                       )}
                     </React.Fragment>
-                  ))
+                  ); })
                 )}
               </tbody>
             </table>
+            {/* Pagination Controls */}
+            {totalFiltered > 0 && (
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 12,
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '16px 20px',
+                borderTop: '1px solid #e5e7eb',
+                background: '#fff'
+              }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:6, fontSize: 13, color: '#475569' }}>
+                  <span>Showing {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalFiltered)} of {totalFiltered} logs</span>
+                  <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+                    <label style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      <span style={{ color:'#64748b' }}>Per page:</span>
+                      <select
+                        value={pageSize}
+                        onChange={e=>{ const v=parseInt(e.target.value,10); setPageSize(v); setPage(1); }}
+                        style={{ padding:'4px 8px', border:'1px solid #d1d5db', borderRadius:4, fontSize:12 }}
+                      >
+                        {[30,50,100].map(sz=> <option key={sz} value={sz}>{sz}</option>)}
+                      </select>
+                    </label>
+                    <form onSubmit={e=>{ e.preventDefault(); const val=parseInt(jumpPage,10); if(isFinite(val) && val>=1 && val<=totalPages) setPage(val); }} style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      <label style={{ display:'flex', alignItems:'center', gap:4 }}>
+                        <span style={{ color:'#64748b' }}>Jump to:</span>
+                        <input
+                          value={jumpPage}
+                          onChange={e=> setJumpPage(e.target.value.replace(/[^0-9]/g,''))}
+                          placeholder="#"
+                          style={{ width:60, padding:'4px 6px', border:'1px solid #d1d5db', borderRadius:4, fontSize:12 }}
+                        />
+                      </label>
+                      <button type="submit" style={paginationBtnStyle(false,false)}>Go</button>
+                    </form>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}>
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    style={paginationBtnStyle(currentPage === 1)}
+                  >Prev</button>
+                  {Array.from({ length: totalPages }).map((_, idx) => {
+                    const pageNum = idx + 1;
+                    // Only show first, last, current, neighbors
+                    const show = pageNum === 1 || pageNum === totalPages || Math.abs(pageNum - currentPage) <= 1;
+                    if (!show) {
+                      if (pageNum === 2 && currentPage > 3) return <span key="start-ellipsis" style={ellipsisStyle}>…</span>;
+                      if (pageNum === totalPages - 1 && currentPage < totalPages - 2) return <span key="end-ellipsis" style={ellipsisStyle}>…</span>;
+                      return null;
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setPage(pageNum)}
+                        style={paginationBtnStyle(false, pageNum === currentPage)}
+                        aria-current={pageNum === currentPage ? 'page' : undefined}
+                      >{pageNum}</button>
+                    );
+                  })}
+                  <button
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    style={paginationBtnStyle(currentPage === totalPages)}
+                  >Next</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
           </div>
