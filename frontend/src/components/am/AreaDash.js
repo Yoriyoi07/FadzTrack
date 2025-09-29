@@ -117,7 +117,9 @@ const AreaDash = () => {
                       })
                       .filter(v => isFinite(v) && v >= 0);
                     if (percents.length) {
-                      avg = percents.reduce((s,v)=>s+v,0) / percents.length;
+                      // Headcount average: divide sum of reported contributions by total assigned PICs (missing = 0)
+                      const sum = percents.reduce((s,v)=>s+v,0);
+                      avg = totalPics > 0 ? (sum / totalPics) : 0;
                     }
                     reportingPics = distinct.length;
                     pendingPics = totalPics > 0 ? Math.max(0, totalPics - reportingPics) : 0;
@@ -149,7 +151,10 @@ const AreaDash = () => {
                           .sort((a,b)=> b-a)[0];
                         latestDate = ld ? ld.toISOString() : latestDate;
                       }
-                      if (contrib.averageContribution) avg = contrib.averageContribution;
+                      if (contrib.averageContribution) {
+                        // averageContribution already represents headcount average from backend (missing PICs = 0)
+                        avg = contrib.averageContribution;
+                      }
                       if (!reportingPics) reportingPics = contrib.reportingPics || 0;
                       if (totalPics && pendingPics === totalPics) pendingPics = contrib.pendingPics ?? pendingPics;
                       if (!picContributions.length) picContributions = (contrib.picContributions || []).map(p => ({
@@ -229,28 +234,41 @@ const AreaDash = () => {
 
   // Derive enriched projects when inputs change
   useEffect(() => {
-    if (assignedLocations.length && allProjects.length) {
-      setEnrichedAllProjects(
-        allProjects
-          .filter((project) =>
-            assignedLocations.some(
-              (loc) => loc._id === (project.location?._id || project.location)
-            )
-          )
-          .map((project) => {
-            const loc = assignedLocations.find(
-              (l) => l._id === (project.location?._id || project.location)
-            );
-            return {
-              ...project,
-              location: loc ? { ...loc } : { name: 'Unknown Location', region: '' },
-              name: project.projectName,
-              engineer: project.projectmanager?.name || 'Not Assigned',
-            };
-          })
-      );
+  if (allProjects.length) {
+      // Normalize helper to extract comparable location id
+      const extractLocId = (p) => {
+        if (!p) return null;
+        const loc = p.location;
+        if (!loc) return null;
+        if (typeof loc === 'string') return loc;
+        if (typeof loc === 'object') return loc._id || loc.id || null;
+        return null;
+      };
+
+      // Filter: owned by this area manager (areamanager) and not soft-deleted
+      const filtered = allProjects.filter(project => {
+        const amId = (typeof project.areamanager === 'object') ? (project.areamanager?._id || project.areamanager?.id) : project.areamanager;
+        if(!amId) return false;
+        if(String(amId) !== String(userId)) return false;
+        if(project.isDeleted) return false;
+        return true;
+      });
+
+      // Map to enriched objects (preserve multiple projects even if identical metadata)
+      const enriched = filtered.map(project => {
+        const locId = extractLocId(project);
+        const loc = assignedLocations.find(l => l._id === locId) || null;
+        return {
+          ...project,
+          location: loc ? { ...loc } : { name: 'Unknown Location', region: '' },
+          name: project.projectName,
+          engineer: project.projectmanager?.name || 'Not Assigned',
+        };
+      });
+
+      setEnrichedAllProjects(enriched);
     }
-  }, [assignedLocations, allProjects]);
+  }, [allProjects, userId]);
 
   // Listen for global projectReportsUpdated events to refresh a single project's contribution snapshot
   useEffect(() => {
@@ -284,9 +302,35 @@ const AreaDash = () => {
   // Calculate metrics
   useEffect(() => {
     if (enrichedAllProjects.length > 0) {
+      // --- Unified status normalization for reliable metrics ---
+      // We treat any variation of:
+      //   "ongoing", "on-going", "on going", "in progress" and "active" as Active
+      // We treat any variation containing: "completed", "complete", "finished", "done" as Completed
+      // Everything else (including blank / undefined) is neither counted as Active nor Completed.
+      const normalizeStatus = (s = '') => s
+        .toString()
+        .replace(/[\s_-]+/g, ' ')    // collapse spaces, underscores, hyphens
+        .trim()
+        .toLowerCase();
+
+      // Dedupe projects just in case duplicates slipped in during enrichment
+      // No dedupe: assume backend returns distinct _id per project; removing dedupe prevents accidental undercount
+      const uniqueProjects = enrichedAllProjects; // kept variable name for clarity
       const totalProjects = enrichedAllProjects.length;
-      const activeProjects = enrichedAllProjects.filter(p => p.status === 'active' || p.status === 'ongoing').length;
-      const completedProjects = enrichedAllProjects.filter(p => p.status === 'completed').length;
+
+      let activeProjects = 0;
+      let completedProjects = 0;
+      for (const proj of uniqueProjects) {
+        const st = normalizeStatus(proj.status || '');
+        if (!st) continue;
+        if (/(completed|complete|finished|done)/.test(st)) {
+          completedProjects += 1;
+          continue; // completed shouldn't be double-counted as active
+        }
+        if (/(ongoing|on going|in progress)/.test(st) || st === 'active') {
+          activeProjects += 1;
+        }
+      }
       const totalEngineers = new Set(enrichedAllProjects.map(p => p.engineer)).size;
       const averageProgress = projects.length > 0 
         ? projects.reduce((acc, p) => {
@@ -354,7 +398,10 @@ const AreaDash = () => {
   // (Removed CEO-style filter controls to restore original horizontal layout)
   useEffect(()=>{
     if(!enrichedAllProjects.length){ setProjectMetrics([]); return; }
-  const metrics = enrichedAllProjects.map(project => {
+  // Exclude completed (or equivalent) projects from the progress carousel/card
+  const isCompleted = (status='') => /completed|complete|finished|done/i.test(status.replace(/[\s_-]+/g,' ').trim());
+  const workingSet = enrichedAllProjects.filter(p => !isCompleted(p.status || ''));
+  const metrics = workingSet.map(project => {
       const contrib = projectContribs[project._id];
       if(contrib){
     const avg = (contrib.averageContribution || contrib.fallbackProgress || 0);

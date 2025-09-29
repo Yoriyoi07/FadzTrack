@@ -32,8 +32,23 @@ const AreaProj = () => {
 
   const statusMeta = (statusRaw='')=>{ const s=statusRaw.toLowerCase(); if(s==='completed') return {color:'#10B981',Icon:FaCheckCircle,label:'Completed'}; if(['ongoing','on going'].includes(s)) return {color:'#3B82F6',Icon:FaClock,label:'Ongoing'}; if(['pending','not started'].includes(s)) return {color:'#F59E0B',Icon:FaClock,label:'Pending'}; return {color:'#6B7280',Icon:FaClock,label:statusRaw||'Unknown'}; };
 
-  // base projects for this area manager (used for stable counts independent of active filter/search)
-  const baseProjects = useMemo(()=> projects.filter(p=> p.areamanager && p.areamanager._id===areaManagerId), [projects, areaManagerId]);
+  // base projects for this area manager (handles both populated areamanager object and raw ObjectId string)
+  const baseProjects = useMemo(()=> {
+    if(!areaManagerId) return [];
+    return projects.filter(p=>{
+      if(!p.areamanager) return false;
+      // Populated reference object
+      if(typeof p.areamanager === 'object'){
+        const id = p.areamanager._id || p.areamanager.id;
+        return id && String(id) === String(areaManagerId);
+      }
+      // Raw id string
+      if(typeof p.areamanager === 'string'){
+        return String(p.areamanager) === String(areaManagerId);
+      }
+      return false;
+    });
+  }, [projects, areaManagerId]);
 
   const filteredSorted = useMemo(()=>{ const srch=deferredSearch.trim().toLowerCase(); const subset = baseProjects
       .filter(p=>{ const st=(p.status||'').toLowerCase(); if(filter==='completed') return st==='completed'; if(filter==='ongoing') return ['ongoing','on going'].includes(st); if(filter==='pending') return ['pending','not started'].includes(st); return true; })

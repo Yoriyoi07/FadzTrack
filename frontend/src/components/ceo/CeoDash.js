@@ -153,17 +153,10 @@ const CeoDash = () => {
                 })
                 .filter(v => v !== null && v >= 0 && v <= 100);
               let vals = valsRaw;
-              if (!vals.length) {
-                // heuristic fallback from completed_tasks vs summary_of_work_done
-                vals = distinct.map(r => {
-                  const done = r?.ai?.completed_tasks?.length || 0;
-                  const total = done + (r?.ai?.summary_of_work_done?.length || 0);
-                  return total > 0 ? (done / total) * 100 : 0;
-                });
-              }
               if (vals.length) {
-                const a = vals.reduce((s,v)=> s+v,0) / vals.length;
-                avg = Math.min(100, Math.max(0, a));
+                // Headcount average: sum of reported contributions divided by total assigned PICs (missing = 0)
+                const sum = vals.reduce((s,v)=> s+v,0);
+                avg = totalPics > 0 ? (sum / totalPics) : 0;
               }
               reportingPics = distinct.length; pendingPics = totalPics > 0 ? Math.max(0, totalPics - reportingPics) : 0;
               picContributions = distinct.map(r => {
@@ -201,7 +194,10 @@ const CeoDash = () => {
                   const ld = (contrib.picContributions || []).filter(p => p.lastReportDate).map(p => new Date(p.lastReportDate)).sort((a,b)=> b-a)[0];
                   latestDate = ld ? ld.toISOString() : latestDate;
                 }
-                if (contrib.averageContribution) avg = contrib.averageContribution;
+                if (contrib.averageContribution) {
+                  // Backend already returns headcount average (missing PICs = 0)
+                  avg = contrib.averageContribution;
+                }
                 if (!reportingPics) reportingPics = contrib.reportingPics || 0;
                 if (totalPics && pendingPics === totalPics) pendingPics = contrib.pendingPics ?? pendingPics;
                 if (!picContributions.length) picContributions = contrib.picContributions || [];
@@ -299,8 +295,8 @@ const CeoDash = () => {
             const byUser=new Map();
             for(const r of sorted){ const key=r.uploadedBy||r.uploadedByName||r._id; if(!byUser.has(key)) byUser.set(key,r); }
             const distinct=[...byUser.values()];
-            const vals = distinct.map(r=>{ const ai=r.ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); if(isFinite(raw)&&raw>=0) return raw; if(isFinite(legacy)&&legacy>=0) return legacy; const done=ai.completed_tasks?.length||0; const total=done+(ai.summary_of_work_done?.length||0); return total>0?(done/total)*100:0; }).filter(v=> isFinite(v)&&v>=0);
-            if(vals.length) avg = Math.min(100,Math.max(0, vals.reduce((s,v)=> s+v,0)/vals.length));
+            const vals = distinct.map(r=>{ const ai=r.ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); if(isFinite(raw)&&raw>=0) return raw; if(isFinite(legacy)&&legacy>=0) return legacy; return 0; }).filter(v=> isFinite(v)&&v>=0);
+            if(vals.length){ const sum=vals.reduce((s,v)=> s+v,0); avg = totalPics>0? (sum/totalPics):0; }
             reportingPics=distinct.length; pendingPics= totalPics>0? Math.max(0,totalPics-reportingPics):0;
             picContributions = distinct.map(r=>{ const ai=r.ai||{}; const raw=Number(ai.pic_contribution_percent_raw); const legacy=Number(ai.pic_contribution_percent); const chosen=isFinite(raw)&&raw>=0? raw : (isFinite(legacy)&&legacy>=0? legacy : 0); return { picId:r.uploadedBy||r._id, picName:r.uploadedByName||'Unknown', contribution:Math.round(chosen), hasReport:true, lastReportDate:r.uploadedAt||null }; });
           }
