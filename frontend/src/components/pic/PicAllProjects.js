@@ -14,7 +14,8 @@ const PicAllProjects = () => {
 
   const navigate = useNavigate();
   const [requests, setRequests] = useState([]); // (kept – may be surfaced later for quick view)
-  const [activeTab, setActiveTab] = useState('Ongoing');
+  // Default tab now 'All' so PIC sees every assigned project immediately
+  const [activeTab, setActiveTab] = useState('All');
   const [ongoing, setOngoing] = useState([]);
   const [completed, setCompleted] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -136,6 +137,10 @@ const PicAllProjects = () => {
     .filter(p=> p.projectName.toLowerCase().includes(search.toLowerCase()))
     .map(decorate)
     .sort(sortFn),[completed,search,sortKey,sortDir]);
+  const filteredAll = useMemo(()=> [...ongoing, ...completed]
+    .filter(p=> p.projectName.toLowerCase().includes(search.toLowerCase()))
+    .map(decorate)
+    .sort(sortFn),[ongoing,completed,search,sortKey,sortDir]);
 
   const toggleSort = (key) => {
     if (sortKey === key) {
@@ -150,13 +155,13 @@ const PicAllProjects = () => {
     <div className="dashboard-container"><div className="professional-loading-screen"><div className="loading-content"><div className="loading-logo"><img src={require('../../assets/images/FadzLogo1.png')} alt="FadzTrack Logo" className="loading-logo-img" /></div><div className="loading-spinner-container"><div className="loading-spinner"/></div><div className="loading-text"><h2 className="loading-title">Loading Projects</h2><p className="loading-subtitle">Fetching your project list...</p></div></div></div></div>
   );
 
-  const ProjectTable = ({ projects }) => (
+  const ProjectTable = ({ projects, showBadges }) => (
     <div className="projects-table-wrapper glass-card">
       <table className="projects-table">
         <thead>
           <tr>
             <th onClick={()=>toggleSort('name')} className={sortKey==='name'? 'sorted':''}>Project</th>
-            <th onClick={()=>toggleSort('status')} className={sortKey==='status'? 'sorted':''}>Status</th>
+            <th onClick={()=>toggleSort('status')} className={`${sortKey==='status'? 'sorted ':''}status-col`}>Status</th>
             <th>Timeline</th>
             <th onClick={()=>toggleSort('startDate')} className={sortKey==='startDate'? 'sorted':''}>Start</th>
             <th onClick={()=>toggleSort('endDate')} className={sortKey==='endDate'? 'sorted':''}>End</th>
@@ -177,7 +182,13 @@ const PicAllProjects = () => {
                   <div className="proj-meta">{proj.location?.name || 'No location'} • {proj.daysLeft != null ? `${proj.daysLeft}d left` : '—'}</div>
                 </div>
               </td>
-              <td><span className={`status-badge badge-${(proj.status||'').toLowerCase()}`}>{proj.status||'—'}</span></td>
+              <td className="status-col">
+                {showBadges ? (
+                  <span className={`status-badge badge-${(proj.status||'').toLowerCase()}`}>{proj.status||'—'}</span>
+                ) : (
+                  <span className="status-plain">{proj.status || '—'}</span>
+                )}
+              </td>
               <td>
                 {proj.pctTime != null ? (
                   <div className="timeline-bar" title={proj.totalDays? `${proj.elapsedDays}/${proj.totalDays} days (${proj.pctTime.toFixed(0)}%)` : ''}>
@@ -198,8 +209,14 @@ const PicAllProjects = () => {
       <div className="projects-cards">
         {projects.map(proj => (
           <div key={proj._id} className="project-card" onClick={()=> navigate(`/pic/${proj._id}`)}>
+            {showBadges ? (
+              <div className="pc-status">
+                <span className={`status-badge badge-${(proj.status||'').toLowerCase()}`}>{proj.status || '—'}</span>
+              </div>
+            ) : (
+              <div className="pc-status-plain">{proj.status || '—'}</div>
+            )}
             <div className="pc-header">
-              <span className={`status-dot ${(proj.status||'').toLowerCase()}`}></span>
               <h4>{proj.projectName}</h4>
             </div>
             <div className="pc-meta">{proj.location?.name || 'No location'}</div>
@@ -232,21 +249,42 @@ const PicAllProjects = () => {
           <h1>My Projects</h1>
           <p>Quick overview of all projects you are assigned to. Search, filter and open a project instantly.</p>
           <div className="pp-stats">
-            <div className="stat-card">
+            <div
+              className={`stat-card stat-click ${activeTab==='Ongoing' ? 'active' : ''}`}
+              onClick={()=> setActiveTab('Ongoing')}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e=>{ if(e.key==='Enter' || e.key===' ') { setActiveTab('Ongoing'); e.preventDefault(); }}}
+              aria-pressed={activeTab==='Ongoing'}
+            >
               <div className="sc-icon ongoing"><FaHourglassHalf/></div>
               <div className="sc-body">
                 <span className="sc-label">Ongoing</span>
                 <span className="sc-value">{stats.ongoing}</span>
               </div>
             </div>
-            <div className="stat-card">
+            <div
+              className={`stat-card stat-click ${activeTab==='Completed' ? 'active' : ''}`}
+              onClick={()=> setActiveTab('Completed')}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e=>{ if(e.key==='Enter' || e.key===' ') { setActiveTab('Completed'); e.preventDefault(); }}}
+              aria-pressed={activeTab==='Completed'}
+            >
               <div className="sc-icon completed"><FaCheckCircle/></div>
               <div className="sc-body">
                 <span className="sc-label">Completed</span>
                 <span className="sc-value">{stats.completed}</span>
               </div>
             </div>
-            <div className="stat-card">
+            <div
+              className={`stat-card stat-click ${activeTab==='All' ? 'active' : ''}`}
+              onClick={()=> setActiveTab('All')}
+              role="button"
+              tabIndex={0}
+              onKeyDown={e=>{ if(e.key==='Enter' || e.key===' ') { setActiveTab('All'); e.preventDefault(); }}}
+              aria-pressed={activeTab==='All'}
+            >
               <div className="sc-icon total"><FaProjectDiagram/></div>
               <div className="sc-body">
                 <span className="sc-label">Total</span>
@@ -265,6 +303,7 @@ const PicAllProjects = () => {
           </div>
           <div className="filters">
             <div className="tab-group">
+              <button className={activeTab==='All'? 'tg-btn active':'tg-btn'} onClick={()=> setActiveTab('All')}>All ({stats.total})</button>
               <button className={activeTab==='Ongoing'? 'tg-btn active':'tg-btn'} onClick={()=> setActiveTab('Ongoing')}>Ongoing ({stats.ongoing})</button>
               <button className={activeTab==='Completed'? 'tg-btn active':'tg-btn'} onClick={()=> setActiveTab('Completed')}>Completed ({stats.completed})</button>
             </div>
@@ -281,7 +320,10 @@ const PicAllProjects = () => {
           </div>
         </div>
         <div className="pp-table-area">
-          {activeTab==='Ongoing' ? <ProjectTable projects={filteredOngoing}/> : <ProjectTable projects={filteredCompleted}/>}        
+          <ProjectTable 
+            projects={activeTab==='All' ? filteredAll : activeTab==='Ongoing' ? filteredOngoing : filteredCompleted}
+            showBadges={activeTab !== 'All'}
+          />
         </div>
       </main>
     </div>
