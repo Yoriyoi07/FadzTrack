@@ -190,6 +190,13 @@ body {
 }
 
 .sidebar-IT h2 { font-size: 1.3rem; margin-bottom: 1.5rem; color: #333; }
+.bulk-upload-box-IT { background:#f3f6fb; border:1px dashed #b6c4d9; padding:.85rem .9rem; border-radius:8px; margin-bottom:1rem; }
+.bulk-upload-box-IT input[type=file] { width:100%; margin-top:.4rem; font-size:.75rem; }
+.bulk-summary-IT { margin-top:.5rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:.35rem; font-size:11px; }
+.bulk-progress-IT { margin-top:.6rem; }
+.bulk-progress-bar-outer-IT { width:100%; background:#e2e8f0; border-radius:6px; height:10px; overflow:hidden; position:relative; }
+.bulk-progress-bar-inner-IT { position:absolute; left:0; top:0; bottom:0; background:linear-gradient(90deg,#2563eb,#3b82f6); width:0; transition:width .25s; }
+.bulk-progress-label-IT { font-size:11px; margin-top:4px; text-align:right; color:#334155; }
 .error-msg-IT { color: red; font-size: 0.85em; margin-top: 2px; }
 .new-account-btn-IT {
   background-color: #3353c9;

@@ -90,3 +90,47 @@ To quickly verify that silent refresh keeps a remembered session alive without m
 
 If refresh fails you will see a redirect to the login page; check that the `refreshToken` cookie still exists and that system time is correct.
 
+---
+
+## IT Bulk Account Import
+
+IT users can create many accounts at once using a CSV upload.
+
+CSV Requirements:
+
+```
+name,email,role,phone
+Jane Doe,jane.doe@example.com,Project Manager,09171234567
+Juan Dela Cruz,juan.cruz@example.com,Area Manager,09181234567
+```
+
+Rules:
+1. Required headers: `name,email,role` (phone optional).
+2. Roles must match existing role labels (e.g. Project Manager, Area Manager, HR, Person in Charge, Staff, HR - Site).
+3. Existing emails are skipped (reported as `exists`).
+4. New accounts get a random temp password and an activation email (status starts Inactive until activated).
+5. Activation links expire after 4 hours (configurable if you adjust the code).
+
+UI Flow:
+1. Go to IT Dashboard sidebar.
+2. In "Bulk Accounts Import" choose your CSV file.
+3. (Optional) Leave "Dry run" checked to validate without creating accounts or sending emails. You will see which rows WOULD be created (status `would_create`).
+4. Real-time progress bar updates via `bulkRegisterProgress` socket events (percent = processed / total).
+5. After completion, review summary (Created / Existing / Failed) and expand details.
+6. Download sample: `sample_accounts_import.csv` (located in repo root) if needed.
+
+API:
+`POST /api/auth/bulk-register` (multipart/form-data, field name: `file`).
+
+Response shape:
+```
+{
+	summary: { totalRows, created, existing, failed },
+	results: [ { line, email, status, reason? }, ... ]
+}
+```
+
+Statuses per row: `created`, `exists`, `invalid`, `error`, `would_create` (dry run only).
+
+Security Recommendation: protect this endpoint so only IT/admin roles can access (add middleware verify + role check if needed).
+

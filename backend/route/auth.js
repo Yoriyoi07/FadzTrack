@@ -2,6 +2,7 @@
 const express = require('express');
 const router  = express.Router();
 const authController = require('../controllers/authController');
+const upload = require('../middleware/upload');
 const { verifyToken } = require('../middleware/authMiddleware');
 
 router.post('/register',              authController.registerUser);
@@ -16,6 +17,9 @@ router.post('/resend-2fa',  authController.resend2FACode);
 
 router.post('/refresh-token', authController.refreshToken);
 router.post('/logout',        authController.logoutUser); // no verifyToken required
+
+// Bulk register accounts via CSV (expects field 'file')
+router.post('/bulk-register', upload.single('file'), authController.bulkRegisterUsers);
 
 // Optional admin/IT endpoints you already had
 router.get('/users',           authController.getAllUsers);

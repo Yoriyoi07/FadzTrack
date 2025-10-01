@@ -42,6 +42,24 @@ const ItDash = () => {
     phone: '',
     email: ''
   });
+  // Bulk upload state
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkResults, setBulkResults] = useState(null); // { summary, results }
+  const [bulkFileName, setBulkFileName] = useState('');
+  const [bulkDryRun, setBulkDryRun] = useState(true);
+  const [bulkProgress, setBulkProgress] = useState({ processed:0, total:0, percent:0, id:null });
+
+  // Listen for bulk progress socket events
+  useEffect(()=> {
+    if (!socketRef.current) return; // socket already initialized earlier
+    const handler = (payload) => {
+      if (payload.progressId && payload.progressId === bulkProgress.id) {
+        setBulkProgress(prev=> ({ ...prev, processed: payload.processed, total: payload.total, percent: payload.percent }));
+      }
+    };
+    socketRef.current.on('bulkRegisterProgress', handler);
+    return ()=> { socketRef.current && socketRef.current.off('bulkRegisterProgress', handler); };
+  }, [bulkProgress.id]);
 
   const [userName, setUserName] = useState(user?.name || '');
   const [userRole, setUserRole] = useState(user?.role || '');
@@ -382,6 +400,84 @@ const handleLogout = () => {
       return (
         <>
           <h2>Dashboard</h2>
+          <div className="bulk-upload-box-IT">
+            <h3 style={{marginTop:0}}>Bulk Accounts Import</h3>
+            <p style={{fontSize:'12px',color:'#555',lineHeight:1.4}}>Upload a CSV with columns: <code>name,email,role,phone</code>. An activation email will be sent automatically to new accounts. Existing emails are skipped.</p>
+            <label style={{display:'flex',alignItems:'center',gap:6,fontSize:'12px',marginBottom:4}}>
+              <input type="checkbox" checked={bulkDryRun} onChange={e=> setBulkDryRun(e.target.checked)} /> Dry run (no accounts created / emails sent)
+            </label>
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e)=>{
+                const file = e.target.files && e.target.files[0];
+                if (!file) return;
+                setBulkFileName(file.name);
+                const formData = new FormData();
+                formData.append('file', file);
+                const progressId = 'prg_' + Date.now();
+                formData.append('progressId', progressId);
+                formData.append('dryRun', String(bulkDryRun));
+                setBulkProgress({ processed:0, total:0, percent:0, id: progressId });
+                setBulkUploading(true);
+                setBulkResults(null);
+                api.post('/auth/bulk-register', formData, { headers: { 'Content-Type':'multipart/form-data' } })
+                  .then(res=> {
+                    setBulkResults(res.data);
+                    // Refresh accounts list implicitly by refetching
+                    if (!res.data.dryRun) {
+                      return api.get('/auth/Users').then(resp => {
+                        const data = resp.data;
+                        const formattedAccounts = data.map(user => ({
+                          id: user._id,
+                          name: user.name,
+                          position: user.role,
+                          phone: user.phone,
+                          email: user.email,
+                          accountStatus: user.accountStatus || (user.status === 'Active' ? 'Active' : 'Inactive'),
+                          presence: user.presenceStatus || 'offline'
+                        }));
+                        setAccounts(formattedAccounts);
+                      });
+                    }
+                  })
+                  .catch(err=> { console.error('Bulk upload failed', err); toast.error('Bulk upload failed'); })
+                  .finally(()=> setBulkUploading(false));
+              }}
+              disabled={bulkUploading}
+            />
+            {bulkUploading && (
+              <div className="bulk-progress-IT">
+                <div className="bulk-progress-bar-outer-IT">
+                  <div className="bulk-progress-bar-inner-IT" style={{width: `${bulkProgress.percent}%`}} />
+                </div>
+                <div className="bulk-progress-label-IT">{bulkProgress.percent}% ({bulkProgress.processed}/{bulkProgress.total || '?'})</div>
+              </div>
+            )}
+            <div style={{marginTop:6,fontSize:'12px'}}>
+              {bulkUploading && <span>Uploading & processing…</span>}
+              {!bulkUploading && bulkFileName && !bulkResults && <span>Processing {bulkFileName}…</span>}
+              {bulkResults && (
+                <div className="bulk-summary-IT">
+                  <div><strong>Imported:</strong> {bulkResults.summary.created}</div>
+                  <div><strong>Existing:</strong> {bulkResults.summary.existing}</div>
+                  <div><strong>Failed:</strong> {bulkResults.summary.failed}</div>
+                  <button className="new-account-btn-IT" style={{marginTop:6}} onClick={()=> setBulkResults(null)}>Clear</button>
+                  <details style={{marginTop:4}}>
+                    <summary style={{cursor:'pointer'}}>Details</summary>
+                    <div style={{maxHeight:150,overflowY:'auto',fontSize:'11px',marginTop:4}}>
+                      {bulkResults.results.map(r=> (
+                        <div key={r.line} style={{padding:'2px 0',borderBottom:'1px solid #eee'}}>
+                          Line {r.line}: {r.email || '(no email)'} → {r.status}{r.reason? ` (${r.reason})`:''}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                  <p style={{marginTop:6}}><a href="/sample_accounts_import.csv" download>Download sample CSV</a></p>
+                </div>
+              )}
+            </div>
+          </div>
           <button
             className="new-account-btn-IT"
             onClick={() => {

@@ -593,3 +593,114 @@ module.exports = {
   revokeTrustedDevices,
   checkEmailExists,
 };
+
+// ---- Bulk register (appended export for clarity) ----
+// NOTE: placed after module.exports above; we re-assign to include new export to avoid large refactor.
+// Better approach is to move exports to bottom single object; keeping minimal diff.
+
+/**
+ * Parse simple CSV buffer (UTF-8) into array of objects.
+ * Expected headers: name,email,role,phone (case-insensitive; extra columns ignored)
+ */
+function parseAccountsCsv(buffer) {
+  const text = buffer.toString('utf8').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  const lines = text.split('\n').filter(l=> l.trim().length);
+  if (!lines.length) return { rows: [], error: 'Empty file' };
+  const headerCells = lines[0].split(',').map(h=> h.trim().toLowerCase());
+  const idx = {
+    name: headerCells.indexOf('name'),
+    email: headerCells.indexOf('email'),
+    role: headerCells.indexOf('role'),
+    phone: headerCells.indexOf('phone')
+  };
+  if (idx.name === -1 || idx.email === -1 || idx.role === -1) {
+    return { rows: [], error: 'Missing required headers. Need at least name,email,role' };
+  }
+  const rows = lines.slice(1).map((line, i)=> {
+    const cells = line.split(',');
+    const obj = {
+      __line: i+2,
+      name: (cells[idx.name] || '').trim(),
+      email: (cells[idx.email] || '').trim(),
+      role: (cells[idx.role] || '').trim(),
+      phone: idx.phone !== -1 ? (cells[idx.phone] || '').trim() : ''
+    };
+    return obj;
+  }).filter(r=> r.name || r.email); // drop empty
+  return { rows };
+}
+
+async function bulkRegisterUsers(req, res) {
+  try {
+    if (!req.file) return res.status(400).json({ msg: 'CSV file is required (multipart/form-data, field "file")' });
+    const dryRun = String(req.body.dryRun || '').toLowerCase() === 'true';
+    const progressId = req.body.progressId; // optional client-provided id for socket correlation
+    const { rows, error } = parseAccountsCsv(req.file.buffer);
+    if (error) return res.status(400).json({ msg: error });
+    const total = rows.length;
+    const results = [];
+    let createdCount = 0, skippedExisting = 0, failed = 0;
+    const io = req.app.get('io');
+    const emitProgress = (processed) => {
+      if (!io || !progressId) return;
+      const pct = total ? Math.round((processed/total)*100) : 100;
+      io.emit('bulkRegisterProgress', { progressId, processed, total, percent: pct });
+    };
+    let processed = 0;
+    for (const r of rows) {
+      const rowResult = { line: r.__line, email: r.email, status: 'pending' };
+      try {
+        if (!r.name || !r.email || !r.role) {
+          rowResult.status = 'invalid';
+          rowResult.reason = 'Missing required field';
+          failed++; results.push(rowResult); processed++; emitProgress(processed); continue;
+        }
+        const emailLower = r.email.toLowerCase();
+        const existing = await User.findOne({ email: emailLower });
+        if (existing) {
+          rowResult.status = 'exists';
+          skippedExisting++; results.push(rowResult); processed++; emitProgress(processed); continue;
+        }
+        if (dryRun) {
+          rowResult.status = 'would_create';
+          createdCount++; // count as potential creation for preview
+          results.push(rowResult); processed++; emitProgress(processed); continue;
+        }
+        const tempPassword = crypto.randomBytes(8).toString('hex');
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+        await User.create({
+          name: r.name,
+          email: emailLower,
+          phone: r.phone,
+            role: r.role,
+          password: hashedPassword,
+          status: 'Inactive'
+        });
+        const activationToken = jwt.sign({ email: emailLower }, JWT_SECRET, { expiresIn: '4h' });
+        const activationLink = `${FRONTEND_BASE_URL}/activate-account?token=${activationToken}`;
+        await sendEmailLink(emailLower, 'Activate Your FadzTrack Account', 'Click below to set your password and activate your account:', activationLink, 'Activate Account');
+        rowResult.status = 'created';
+        createdCount++;
+        results.push(rowResult);
+      } catch (e) {
+        rowResult.status = 'error';
+        rowResult.reason = e.message;
+        failed++;
+        results.push(rowResult);
+      } finally {
+        processed++; emitProgress(processed);
+      }
+    }
+    emitProgress(total);
+    return res.json({
+      dryRun,
+      summary: { totalRows: total, created: createdCount, existing: skippedExisting, failed },
+      results
+    });
+  } catch (err) {
+    res.status(500).json({ msg: 'Bulk register failed', err: err.message });
+  }
+}
+
+// Extend previous exports
+module.exports.bulkRegisterUsers = bulkRegisterUsers;
