@@ -10,10 +10,10 @@ function computeApiBase() {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname || '';
       const origin = window.location.origin || '';
-      const onFadzDomain = /(^|\.)fadztrack\.online$/.test(host);
       // Allow opt-out if explicitly forced via REACT_APP_FORCE_API_URL
       const forceEnv = (process.env.REACT_APP_FORCE_API_URL || '').trim().length > 0;
-      if (isProd && onFadzDomain && !forceEnv) {
+      if (isProd && !forceEnv) {
+        // Prefer same-origin in production to keep cookies consistent even on preview domains
         return `${origin.replace(/\/+$/, '')}/api`;
       }
     }

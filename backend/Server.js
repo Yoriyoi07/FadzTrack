@@ -480,6 +480,8 @@ initChangeStreamsWhenReady();
 
 // Routes setup
 app.get('/', (req, res) => res.send('API is working'));
+// Lightweight health check for proxy/rewrite verification
+app.get('/api/health', (req, res) => res.json({ ok: true, ts: Date.now() }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
