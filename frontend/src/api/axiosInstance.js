@@ -5,7 +5,7 @@ import axios from 'axios';
 export const API_BASE_URL = (
   process.env.REACT_APP_API_URL ||
   process.env.REACT_APP_API_BASE_URL ||
-  (process.env.NODE_ENV === 'development' ? 'http://localhost:5000/api' : 'https://fadztrack.onrender.com/api')
+  (process.env.NODE_ENV === 'development' ? 'http://localhost:5000/api' : 'https://www.fadztrack.online/api')
 ).replace(/\/+$/, '');
 
 const api = axios.create({

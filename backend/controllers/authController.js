@@ -385,11 +385,12 @@ setRefreshCookie(req, res, refreshToken, REFRESH_TTL_SEC);
       }
     }
 
-    // ❗ Not trusted → send 2FA
-    const twoFACode = Math.floor(100000 + Math.random() * 900000).toString();
-    twoFACodes[user.email] = { code: twoFACode, expires: Date.now() + 5 * 60 * 1000 };
-    if (!isProd) console.log(`[2FA DEV] Code for ${user.email}: ${twoFACode}`);
-    await sendTwoFACode(user.email, twoFACode);
+  // ❗ Not trusted → send 2FA (do not fail login if email transport is down)
+  const twoFACode = Math.floor(100000 + Math.random() * 900000).toString();
+  twoFACodes[user.email] = { code: twoFACode, expires: Date.now() + 5 * 60 * 1000 };
+  if (!isProd) console.log(`[2FA DEV] Code for ${user.email}: ${twoFACode}`);
+  try { await sendTwoFACode(user.email, twoFACode); }
+  catch (mailErr) { console.warn('[2FA mail] send failed:', mailErr?.message || mailErr); }
 
     res.json({
       msg: '2FA code sent to email',
