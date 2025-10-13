@@ -70,18 +70,35 @@ function stableUA(ua = '') {
 
 // Choose cookie attributes that work on localhost (HTTP) and prod (HTTPS)
 function cookieAttrs(req, { path = '/', maxAge } = {}) {
-  const host  = (req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+  const hostHdr = (req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim();
+  const host = (hostHdr || '').split(':')[0].toLowerCase();
   const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'http').split(',')[0].trim();
 
   const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1');
- const secure   = !isLocal;
+  const secure = !isLocal; // only secure in non-local
   const sameSite = isLocal ? 'lax' : 'none';
+
+  // Compute cookie domain so cookies persist on our custom domain regardless of proxy origin.
+  // - Do NOT set domain on localhost.
+  // - If a specific COOKIE_DOMAIN is provided, use it.
+  // - Else, if host is fadztrack.online or a subdomain of it, use .fadztrack.online.
+  // - Otherwise, omit domain so it defaults to current host (e.g., onrender.com) for that deployment.
+  let domain;
+  const envDom = (process.env.COOKIE_DOMAIN || '').trim().toLowerCase();
+  if (!isLocal) {
+    if (envDom) {
+      domain = envDom;
+    } else if (host === 'fadztrack.online' || host.endsWith('.fadztrack.online')) {
+      domain = '.fadztrack.online';
+    }
+  }
 
   return {
     httpOnly: true,
     secure,
     sameSite,
     path,
+    ...(domain ? { domain } : {}),
     ...(maxAge != null ? { maxAge } : {}),
   };
 }
