@@ -1,7 +1,9 @@
 {
   "version": 2,
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://fadztrack.onrender.com/api/$1" }
+    { "source": "/api/(.*)", "destination": "https://fadztrack.onrender.com/api/$1" },
+    { "source": "/socket.io", "destination": "https://fadztrack.onrender.com/socket.io" },
+    { "source": "/socket.io/(.*)", "destination": "https://fadztrack.onrender.com/socket.io/$1" }
   ],
   "headers": [
     {
