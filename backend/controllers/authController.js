@@ -3,6 +3,7 @@ const User = require('../models/User');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const { sendMailHtml } = require('../utils/mailer');
 const crypto = require('crypto');
 const { logAction } = require('../utils/auditLogger');
 const TrustedDevice = require('../models/TrustedDevice');
@@ -39,6 +40,7 @@ const twoFACodes = {};
 
 // ───────────── helpers ─────────────
 function makeTransport() {
+  // kept for backward compatibility in other modules
   return nodemailer.createTransport({
     service: 'gmail',
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
@@ -121,11 +123,6 @@ function clearRefreshCookie(req, res) {
 }
 
 async function sendEmailLink(to, subject, linkText, linkURL, buttonText = 'Activate Account') {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    console.error('[MAIL] Missing EMAIL_USER/EMAIL_PASS env vars. Cannot send email. Intended link:', linkURL);
-    return { sent:false, skipped:true };
-  }
-  const t = makeTransport();
   const fromAddr = process.env.EMAIL_FROM || process.env.EMAIL_USER;
   const html = `
     <div style="font-family: Arial,sans-serif;">
@@ -136,22 +133,21 @@ async function sendEmailLink(to, subject, linkText, linkURL, buttonText = 'Activ
       <hr style="margin:24px 0;opacity:.25" />
       <small style="color:#666">If you did not request this, you can ignore this email.</small>
     </div>`;
-  try {
-    const info = await t.sendMail({ from: fromAddr, to, subject, html, replyTo: 'no-reply@fadztrack.com' });
-    if (!isProd) console.log(`[MAIL DEBUG] Sent ${subject} to ${to}. Link: ${linkURL} (msgId=${info.messageId})`);
-    return { sent:true };
-  } catch (err) {
-    console.error('[MAIL ERROR] Failed to send email:', err.message, 'Link:', linkURL);
-    return { sent:false, error:err };
+  const result = await sendMailHtml({ to, subject, html, from: fromAddr });
+  if (!result.sent) {
+    console.error('[MAIL ERROR] Failed to send link:', subject, 'to', to, 'via', result.via, 'link:', linkURL, result.error?.message || result.error || '');
+  } else if (!isProd) {
+    console.log(`[MAIL DEBUG] Sent ${subject} to ${to}. Link: ${linkURL}`);
   }
+  return { sent: !!result.sent };
 }
 
 async function sendTwoFACode(email, code) {
   if (!isProd) console.log(`[2FA DEV] (mailer) ${email}: ${code}`);
-  const t = makeTransport();
   const fromAddr = process.env.EMAIL_FROM || process.env.EMAIL_USER;
   const html = `<p>Your FadzTrack 2FA code:</p><p style="font-size:20px;letter-spacing:3px;"><b>${code}</b></p><p>Valid for 5 minutes.</p>`;
-  await t.sendMail({ from: fromAddr, to: email, subject: 'Your FadzTrack 2FA Code', html, replyTo: 'no-reply@fadztrack.com' });
+  const result = await sendMailHtml({ from: fromAddr, to: email, subject: 'Your FadzTrack 2FA Code', html });
+  if (!result.sent) throw new Error('2FA email send failed');
 }
 
 // ───────────── Users CRUD ─────────────
