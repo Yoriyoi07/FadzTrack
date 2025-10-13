@@ -126,6 +126,7 @@ async function sendEmailLink(to, subject, linkText, linkURL, buttonText = 'Activ
     return { sent:false, skipped:true };
   }
   const t = makeTransport();
+  const fromAddr = process.env.EMAIL_FROM || process.env.EMAIL_USER;
   const html = `
     <div style="font-family: Arial,sans-serif;">
       <h2>${subject}</h2>
@@ -136,7 +137,7 @@ async function sendEmailLink(to, subject, linkText, linkURL, buttonText = 'Activ
       <small style="color:#666">If you did not request this, you can ignore this email.</small>
     </div>`;
   try {
-    const info = await t.sendMail({ from: '"FadzTrack" <no-reply@fadztrack.com>', to, subject, html });
+    const info = await t.sendMail({ from: fromAddr, to, subject, html, replyTo: 'no-reply@fadztrack.com' });
     if (!isProd) console.log(`[MAIL DEBUG] Sent ${subject} to ${to}. Link: ${linkURL} (msgId=${info.messageId})`);
     return { sent:true };
   } catch (err) {
@@ -148,8 +149,9 @@ async function sendEmailLink(to, subject, linkText, linkURL, buttonText = 'Activ
 async function sendTwoFACode(email, code) {
   if (!isProd) console.log(`[2FA DEV] (mailer) ${email}: ${code}`);
   const t = makeTransport();
+  const fromAddr = process.env.EMAIL_FROM || process.env.EMAIL_USER;
   const html = `<p>Your FadzTrack 2FA code:</p><p style="font-size:20px;letter-spacing:3px;"><b>${code}</b></p><p>Valid for 5 minutes.</p>`;
-  await t.sendMail({ from: '"FadzTrack" <no-reply@fadztrack.com>', to: email, subject: 'Your FadzTrack 2FA Code', html });
+  await t.sendMail({ from: fromAddr, to: email, subject: 'Your FadzTrack 2FA Code', html, replyTo: 'no-reply@fadztrack.com' });
 }
 
 // ───────────── Users CRUD ─────────────
