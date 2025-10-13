@@ -187,6 +187,10 @@ const LoginPage = ({ forceUserUpdate }) => {
       });
       
       // Determine the error message based on what we know
+      if (statusCode === 503 && serverMessage) {
+        // Backend indicates 2FA email could not be sent
+        errorMessage = serverMessage;
+      } else {
       if (emailExists === false) {
         // We know the email doesn't exist
         errorMessage = "Email address not found. Please check your email.";
@@ -196,6 +200,7 @@ const LoginPage = ({ forceUserUpdate }) => {
       } else {
         // We couldn't check email existence, so use server message analysis
         errorMessage = getSpecificErrorMessage(serverMessage, statusCode);
+      }
       }
       
       // Handle network errors separately

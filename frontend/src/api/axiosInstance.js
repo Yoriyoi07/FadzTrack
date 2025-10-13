@@ -2,11 +2,27 @@
 import axios from 'axios';
 
 // Prefer HTTPS in prod; trim trailing slashes
-export const API_BASE_URL = (
-  process.env.REACT_APP_API_URL ||
-  process.env.REACT_APP_API_BASE_URL ||
-  (process.env.NODE_ENV === 'development' ? 'http://localhost:5000/api' : 'https://www.fadztrack.online/api')
-).replace(/\/+$/, '');
+// Compute API base with safety: if hosted on fadztrack.online, prefer same-origin /api to avoid cookie/host mismatch even if env is stale.
+function computeApiBase() {
+  const fromEnv = (process.env.REACT_APP_API_URL || process.env.REACT_APP_API_BASE_URL || '').trim();
+  const isProd = process.env.NODE_ENV === 'production';
+  try {
+    if (typeof window !== 'undefined') {
+      const host = window.location.hostname || '';
+      const origin = window.location.origin || '';
+      const onFadzDomain = /(^|\.)fadztrack\.online$/.test(host);
+      // Allow opt-out if explicitly forced via REACT_APP_FORCE_API_URL
+      const forceEnv = (process.env.REACT_APP_FORCE_API_URL || '').trim().length > 0;
+      if (isProd && onFadzDomain && !forceEnv) {
+        return `${origin.replace(/\/+$/, '')}/api`;
+      }
+    }
+  } catch {}
+  if (fromEnv) return fromEnv.replace(/\/+$/, '');
+  return (isProd ? 'https://www.fadztrack.online/api' : 'http://localhost:5000/api');
+}
+
+export const API_BASE_URL = computeApiBase().replace(/\/+$/, '');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
