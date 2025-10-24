@@ -244,16 +244,16 @@ const LoginPage = ({ forceUserUpdate }) => {
               el.style.backgroundImage = `url(${base}/images/login_picture.png)`;
             };
             if ('requestIdleCallback' in window) {
-              window.requestIdleCallback(loadBg, { timeout: 2000 });
+              window.requestIdleCallback(loadBg, { timeout: 4000 });
             } else {
-              setTimeout(loadBg, 300);
+              setTimeout(loadBg, 4000);
             }
           } catch {}
         }}
       >
         <div className="left-overlay">
           <div className="left-content">
-            <img src={FadzLogo} alt="Fadz Company Logo" className="left-company-logo" loading="lazy" decoding="async" />
+            <img src={FadzLogo} alt="Fadz Company Logo" className="left-company-logo" loading="lazy" decoding="async" width="180" height="180" />
             <h2 className="welcome-text">Welcome to</h2>
             <h1 className="brand-text">FadzTrack</h1>
             <p className="tagline">Streamline your project management workflow</p>
@@ -264,7 +264,7 @@ const LoginPage = ({ forceUserUpdate }) => {
       <div className="login-right">
         <div className="login-form-container">
           <div className="logo-section">
-            <img src={AppLogo} alt="FadzTrack App Logo" className="right-logo" loading="eager" decoding="async" />
+            <img src={AppLogo} alt="FadzTrack App Logo" className="right-logo" loading="eager" decoding="async" fetchpriority="high" width="160" height="160" />
             <h1 className="app-title">FadzTrack</h1>
             <p className="app-subtitle">Sign in to your account</p>
           </div>

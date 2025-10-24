@@ -15,6 +15,8 @@
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+  <!-- Preload LCP image to improve desktop score -->
+  <link rel="preload" as="image" href="%PUBLIC_URL%/images/fadz-app-logo.png" />
   <!-- Performance hints: resolve connection setup earlier -->
   <link rel="preconnect" href="https://www.fadztrack.online" crossorigin>
   <link rel="preconnect" href="https://fadztrack.onrender.com" crossorigin>
