@@ -5,12 +5,14 @@ import api, { setAccessToken } from '../api/axiosInstance';
 import { setUser, getUser } from '../api/userStore';
 import { FaEye, FaEyeSlash, FaEnvelope, FaLock } from "react-icons/fa";
 import "./style/Loginpage.css";
-import backgroundImage from "../assets/images/login_picture.png";
-import TwoFactorAuth from "./TwoFactorAuth";
+import { Suspense, lazy } from 'react';
+const TwoFactorAuthLazy = lazy(() => import(/* webpackChunkName: "auth" */ './TwoFactorAuth'));
 // Company logo - FADZ CONSTRUCTION INCORPORATED logo
 const FadzLogo = "/images/fadz-company-logo.png";
 // App logo - Abstract app logo with red base and blue elements
 const AppLogo = "/images/fadz-app-logo.png";
+// Background image served from public to avoid bundling into main chunk
+const LoginBg = "/images/login_picture.png";
 
 const LoginPage = ({ forceUserUpdate }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -228,10 +230,10 @@ const LoginPage = ({ forceUserUpdate }) => {
 
   return (
     <div className="login-container">
-      <div className="login-left" style={{ backgroundImage: `url(${backgroundImage})` }}>
+  <div className="login-left" style={{ backgroundImage: `url(${LoginBg})` }}>
         <div className="left-overlay">
           <div className="left-content">
-            <img src={FadzLogo} alt="Fadz Company Logo" className="left-company-logo" />
+            <img src={FadzLogo} alt="Fadz Company Logo" className="left-company-logo" loading="lazy" decoding="async" />
             <h2 className="welcome-text">Welcome to</h2>
             <h1 className="brand-text">FadzTrack</h1>
             <p className="tagline">Streamline your project management workflow</p>
@@ -242,13 +244,14 @@ const LoginPage = ({ forceUserUpdate }) => {
       <div className="login-right">
         <div className="login-form-container">
           <div className="logo-section">
-            <img src={AppLogo} alt="FadzTrack App Logo" className="right-logo" />
+            <img src={AppLogo} alt="FadzTrack App Logo" className="right-logo" loading="eager" decoding="async" />
             <h1 className="app-title">FadzTrack</h1>
             <p className="app-subtitle">Sign in to your account</p>
           </div>
 
           {show2FA ? (
-            <TwoFactorAuth
+            <Suspense fallback={<div style={{padding: 16}}>Loading verification…</div>}>
+            <TwoFactorAuthLazy
               email={email}
               onSuccess={(accessToken, userFrom2FA) => {
                 setAccessToken(accessToken);
@@ -258,6 +261,7 @@ const LoginPage = ({ forceUserUpdate }) => {
               }}
               forceUserUpdate={forceUserUpdate}
             />
+            </Suspense>
           ) : (
             <form onSubmit={handleSubmit} className="login-form">
               <div className="form-group">

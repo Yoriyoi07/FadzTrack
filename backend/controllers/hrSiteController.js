@@ -39,12 +39,12 @@ exports.generateAttendanceReport = async (req, res) => {
   }
 };
 
-// Submit attendance report
+// attendance report
 exports.submitAttendanceReport = async (req, res) => {
   try {
     const { userId, periodStart, periodEnd, reportUrl, reportName, dataFiles } = req.body;
     
-    // Simulate saving the report (replace with actual database logic)
+
     const savedReport = {
       id: Date.now(),
       userId,
@@ -56,7 +56,6 @@ exports.submitAttendanceReport = async (req, res) => {
       submittedAt: new Date().toISOString()
     };
     
-    // Log the action
     try {
       await logAction({
         action: 'SUBMIT_ATTENDANCE_REPORT',

@@ -638,7 +638,6 @@ exports.addProject = async (req, res) => {
     /* ------------------------------------------------------------ */
     /* Auto-create group chat for project members */
     try {
-      // Collect unique user ids for chat membership (exclude falsy)
   const memberIds = [
         ...(Array.isArray(pic)? pic: pic? [pic]: []),
         ...(Array.isArray(staff)? staff: staff? [staff]: []),
@@ -665,14 +664,14 @@ exports.addProject = async (req, res) => {
       const userDocs = await User.find({ _id: { $in: uniqueMemberIds } }, 'role');
       const roleById = new Map(userDocs.map(u => [String(u._id), u.role]));
       const routeFor = (role, pid) => {
-        if (!role) return `/pm/viewprojects/${pid}`; // default fallback
+        if (!role) return `/pm/viewprojects/${pid}`; 
         const r = role.toLowerCase();
         if (r.includes('person in charge')) return `/pic/${pid}`;
         if (r === 'project manager') return `/pm/viewprojects/${pid}`;
         if (r === 'area manager') return `/am/projects/${pid}`;
         if (r === 'ceo') return `/ceo/proj/${pid}`;
-        if (r === 'it') return `/it/projects`; // list page (no per-id view currently)
-        if (r === 'hr - site') return `/hr-site/current-project`; // simplified
+        if (r === 'it') return `/it/projects`;
+        if (r === 'hr - site') return `/hr-site/current-project`; 
         if (r === 'hr') return `/hr/project-records/${pid}`;
         if (r === 'staff') return `/staff/current-project`;
         return `/pm/viewprojects/${pid}`;
@@ -1080,7 +1079,6 @@ exports.getAllProjects = async (req, res) => {
     const { includeDeleted = false } = req.query;
     const userRole = req.user?.role;
     
-    // Build query - exclude soft-deleted projects by default
     let query = { isDeleted: { $ne: true } };
     
     // IT and CEO can see soft-deleted projects if requested
@@ -1407,7 +1405,6 @@ exports.getProjectDiscussions = async (req, res) => {
   }
 };
 
-// helper
 async function uploadDiscussionFiles(projectId, incomingFiles = []) {
   const saved = [];
   for (const file of incomingFiles) {
@@ -1849,7 +1846,7 @@ exports.deleteProjectDocument = async (req, res) => {
   }
 };
 
-/* ====================== REPORTS: AI helpers ====================== */
+/*  REPORTS: AI   */
 function coerceJson(text = '') {
   const t = text.trim();
   const fence = t.match(/^\s*```(?:json)?\s*([\s\S]*?)\s*```$/i);
@@ -3083,7 +3080,7 @@ exports.getAttendanceSignedUrl = async (req,res)=>{
   }
 };
 
-/* ===================== PROJECT PHOTO (primary) ===================== */
+/* PROJECT PHOTO  */
 exports.uploadProjectPhoto = async (req, res) => {
   try {
     const projectId = req.params.id;

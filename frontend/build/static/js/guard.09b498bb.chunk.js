@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkfadz_web_frontend=self.webpackChunkfadz_web_frontend||[]).push([[794],{6641:(e,l,t)=>{t.r(l),t.d(l,{default:()=>a});t(5043);var n=t(3216),o=t(5319),s=t(579);const a=e=>{let{allowedRoles:l}=e;const t=localStorage.getItem("token"),a=(0,o.wz)();return t&&a?null!==l&&void 0!==l&&l.length&&!l.includes(a.role)?(0,s.jsx)(n.C5,{to:"/",replace:!0}):(0,s.jsx)(n.sv,{}):(0,s.jsx)(n.C5,{to:"/",replace:!0})}}}]);
+//# sourceMappingURL=guard.09b498bb.chunk.js.map

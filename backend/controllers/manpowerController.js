@@ -54,15 +54,12 @@ exports.uploadManpowerFromCSV = async (req, res) => {
       const processed = {
         name: entry.name,
         position: entry.position,
-        status: entry.status || 'Active', // Default to Active if not provided
+        status: entry.status || 'Active', 
         avatar: entry.avatar || '',
-        assignedProject: null // Default to null (unassigned)
+        assignedProject: null 
       };
 
-      // If project is provided, we'll need to find the project ID
       if (entry.project && entry.project.trim() !== '') {
-        // For now, we'll set assignedProject to null and handle project assignment separately
-        // This can be enhanced later to automatically assign projects by name
         processed.assignedProject = null;
       }
 

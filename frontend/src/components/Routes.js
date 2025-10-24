@@ -1,108 +1,109 @@
 // src/AppRoutes.jsx
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
 
-// PUBLIC
+// PUBLIC (small; keep Login eager, lazy the rest)
 import LoginPage from './Login';
-import TwoFactorAuth from './TwoFactorAuth';
-import ActivateAccount from './it/ActivateAccount';
-import ResetPassword from './it/ResetPassword';
+const TwoFactorAuth = lazy(() => import(/* webpackChunkName: "auth" */ './TwoFactorAuth'));
+const ActivateAccount = lazy(() => import(/* webpackChunkName: "auth" */ './it/ActivateAccount'));
+const ResetPassword = lazy(() => import(/* webpackChunkName: "auth" */ './it/ResetPassword'));
 
 // GUARD
-import PrivateRoute from './PrivateRoute';
+const PrivateRoute = lazy(() => import(/* webpackChunkName: "guard" */ './PrivateRoute'));
 
 // PROJECT MANAGER
-import PmDash from './pm/PmDash';
-import PmChat from './chats/PmChat';
-import PmRequestManpower from './pm/PmRequestManpower';
-import PmMatRequestListWrapper from './pm/PmMatRequestListWrapper';
-import PmMatRequestDetailWrapper from './pm/PmMatRequestDetailWrapper';
-import PmManpowerList from './pm/PmManpowerList';
-import PM_Manpower_Request_List from './pm/PM_Manpower_Request_List';
-import PmRequestedManpowerDetail from './pm/PmRequestedManpowerDetail';
-import PmViewProjects from './pm/PmViewProjects';
-import PmAllProjects from './pm/PmAllProjects';
-import PmDailyLogs from './pm/PMDailyLogs';
-import PmDailyLogsList from './pm/PmDailyLogsList';
-import PmViewDailyLogs from './pm/PmViewDailyLogs';
-import PmProgressReport from './pm/PmProgressReport';
+const PmDash = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PmDash'));
+const PmChat = lazy(() => import(/* webpackChunkName: "pm" */ './chats/PmChat'));
+const PmRequestManpower = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PmRequestManpower'));
+const PmMatRequestListWrapper = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PmMatRequestListWrapper'));
+const PmMatRequestDetailWrapper = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PmMatRequestDetailWrapper'));
+const PmManpowerList = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PmManpowerList'));
+const PM_Manpower_Request_List = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PM_Manpower_Request_List'));
+const PmRequestedManpowerDetail = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PmRequestedManpowerDetail'));
+const PmViewProjects = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PmViewProjects'));
+const PmAllProjects = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PmAllProjects'));
+const PmDailyLogs = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PMDailyLogs'));
+const PmDailyLogsList = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PmDailyLogsList'));
+const PmViewDailyLogs = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PmViewDailyLogs'));
+const PmProgressReport = lazy(() => import(/* webpackChunkName: "pm" */ './pm/PmProgressReport'));
 
 // PIC
-import PicDash from './pic/PicDash';
-import PicChat from './chats/PicChat';
-import PicReq from './pic/PicReq'; // legacy detail (to retire)
-import PicProject from './pic/PicProject';
-import PicMatReq from './pic/PicMatReq';
-import PicRequestList from './pic/PicRequestList'; // legacy list
-import PicMatRequestListWrapper from './pic/PicMatRequestListWrapper';
-import PicMatRequestDetailWrapper from './pic/PicMatRequestDetailWrapper';
-import PicAllProjects from './pic/PicAllProjects';
-import PicMaterialRequestEdit from './pic/PicMaterialRequestEdit';
+const PicDash = lazy(() => import(/* webpackChunkName: "pic" */ './pic/PicDash'));
+const PicChat = lazy(() => import(/* webpackChunkName: "pic" */ './chats/PicChat'));
+const PicReq = lazy(() => import(/* webpackChunkName: "pic" */ './pic/PicReq')); // legacy detail (to retire)
+const PicProject = lazy(() => import(/* webpackChunkName: "pic" */ './pic/PicProject'));
+const PicMatReq = lazy(() => import(/* webpackChunkName: "pic" */ './pic/PicMatReq'));
+const PicRequestList = lazy(() => import(/* webpackChunkName: "pic" */ './pic/PicRequestList')); // legacy list
+const PicMatRequestListWrapper = lazy(() => import(/* webpackChunkName: "pic" */ './pic/PicMatRequestListWrapper'));
+const PicMatRequestDetailWrapper = lazy(() => import(/* webpackChunkName: "pic" */ './pic/PicMatRequestDetailWrapper'));
+const PicAllProjects = lazy(() => import(/* webpackChunkName: "pic" */ './pic/PicAllProjects'));
+const PicMaterialRequestEdit = lazy(() => import(/* webpackChunkName: "pic" */ './pic/PicMaterialRequestEdit'));
 
 // AREA MANAGER
-import AreaManagerDashboard from './am/AreaDash';
-import AreaChat from './chats/AreaChat';
-import AddProject from './am/AreaAddproj';
-import AmMatRequestList from './am/AmMatRequestList';
-import AreaManpowerList from './am/AreaManpowerList';
-import AreasPage from './am/AreaProjArea';
-import AreaManpowerReqDetails from './am/AreaManpowerReqDetails';
-import AmMatRequestDetail from './am/AmMatRequestDetail';
-import ProgressReport from './am/ProgressReport';
-import AmViewProject from './am/AmViewProject';
+const AreaManagerDashboard = lazy(() => import(/* webpackChunkName: "am" */ './am/AreaDash'));
+const AreaChat = lazy(() => import(/* webpackChunkName: "am" */ './chats/AreaChat'));
+const AddProject = lazy(() => import(/* webpackChunkName: "am" */ './am/AreaAddproj'));
+const AmMatRequestList = lazy(() => import(/* webpackChunkName: "am" */ './am/AmMatRequestList'));
+const AreaManpowerList = lazy(() => import(/* webpackChunkName: "am" */ './am/AreaManpowerList'));
+const AreasPage = lazy(() => import(/* webpackChunkName: "am" */ './am/AreaProjArea'));
+const AreaManpowerReqDetails = lazy(() => import(/* webpackChunkName: "am" */ './am/AreaManpowerReqDetails'));
+const AmMatRequestDetail = lazy(() => import(/* webpackChunkName: "am" */ './am/AmMatRequestDetail'));
+const ProgressReport = lazy(() => import(/* webpackChunkName: "am" */ './am/ProgressReport'));
+const AmViewProject = lazy(() => import(/* webpackChunkName: "am" */ './am/AmViewProject'));
 
 // IT
-import ItDash from './it/ItDash';
-import ItChat from './chats/ItChat';
-import ItAuditLog from './it/ItAuditLogs';
-import ItMatRequestListWrapper from './it/ItMatRequestListWrapper';
-import ItMaterialRequestDetail from './it/ItMaterialRequestDetail';
-import ItMaterialRequestEdit from './it/ItMaterialRequestEdit';
-import ItManpowerList from './it/ItManpowerList';
-import ItManpowerRequestDetail from './it/ItManpowerRequestDetail';
-import ItProjects from './it/ItProjects';
-import ItViewProject from './it/ItViewProject';
+const ItDash = lazy(() => import(/* webpackChunkName: "it" */ './it/ItDash'));
+const ItChat = lazy(() => import(/* webpackChunkName: "it" */ './chats/ItChat'));
+const ItAuditLog = lazy(() => import(/* webpackChunkName: "it" */ './it/ItAuditLogs'));
+const ItMatRequestListWrapper = lazy(() => import(/* webpackChunkName: "it" */ './it/ItMatRequestListWrapper'));
+const ItMaterialRequestDetail = lazy(() => import(/* webpackChunkName: "it" */ './it/ItMaterialRequestDetail'));
+const ItMaterialRequestEdit = lazy(() => import(/* webpackChunkName: "it" */ './it/ItMaterialRequestEdit'));
+const ItManpowerList = lazy(() => import(/* webpackChunkName: "it" */ './it/ItManpowerList'));
+const ItManpowerRequestDetail = lazy(() => import(/* webpackChunkName: "it" */ './it/ItManpowerRequestDetail'));
+const ItProjects = lazy(() => import(/* webpackChunkName: "it" */ './it/ItProjects'));
+const ItViewProject = lazy(() => import(/* webpackChunkName: "it" */ './it/ItViewProject'));
 
 // CEO
-import CeoDash from './ceo/CeoDash';
-import CeoProj from './ceo/CeoProj';
-import CeoAddArea from './ceo/CeoAddArea';
-import CeoMatRequestListWrapper from './ceo/CeoMatRequestListWrapper';
-import CeoMaterialRequestDetail from './ceo/CeoMaterialRequestDetail';
-import CeoAuditLogs from './ceo/CeoAuditLogs';
-import CeoChat from './chats/CeoChat';
-import CeoMaterialRequestEdit from './ceo/CeoMaterialRequestEdit';
-import CeoManpowerRequestList from './ceo/CeoManpowerRequestList';
-import CeoManpowerRequestDetail from './ceo/CeoManpowerRequestDetail';
-import CeoViewProject from './ceo/CeoViewProject';
+const CeoDash = lazy(() => import(/* webpackChunkName: "ceo" */ './ceo/CeoDash'));
+const CeoProj = lazy(() => import(/* webpackChunkName: "ceo" */ './ceo/CeoProj'));
+const CeoAddArea = lazy(() => import(/* webpackChunkName: "ceo" */ './ceo/CeoAddArea'));
+const CeoMatRequestListWrapper = lazy(() => import(/* webpackChunkName: "ceo" */ './ceo/CeoMatRequestListWrapper'));
+const CeoMaterialRequestDetail = lazy(() => import(/* webpackChunkName: "ceo" */ './ceo/CeoMaterialRequestDetail'));
+const CeoAuditLogs = lazy(() => import(/* webpackChunkName: "ceo" */ './ceo/CeoAuditLogs'));
+const CeoChat = lazy(() => import(/* webpackChunkName: "ceo" */ './chats/CeoChat'));
+const CeoMaterialRequestEdit = lazy(() => import(/* webpackChunkName: "ceo" */ './ceo/CeoMaterialRequestEdit'));
+const CeoManpowerRequestList = lazy(() => import(/* webpackChunkName: "ceo" */ './ceo/CeoManpowerRequestList'));
+const CeoManpowerRequestDetail = lazy(() => import(/* webpackChunkName: "ceo" */ './ceo/CeoManpowerRequestDetail'));
+const CeoViewProject = lazy(() => import(/* webpackChunkName: "ceo" */ './ceo/CeoViewProject'));
 
 // HR
-import HrDash from './hr/HrDash';
-import HrManpowerList from './hr/HrManpowerList';
-import HrMovementList from './hr/HrMovementList';
-import HrProj from './hr/HrProj';
-import HrManpowerRequestDetail from './hr/HrManpowerRequestDetail';
-import HrChat from './chats/HrChat';
-import HrManpowerRequestList from './hr/HrManpowerRequestList';
-import HrViewProject from './hr/HrViewProject';
-import HrAttendance from './hr/HrAttendance';
+const HrDash = lazy(() => import(/* webpackChunkName: "hr" */ './hr/HrDash'));
+const HrManpowerList = lazy(() => import(/* webpackChunkName: "hr" */ './hr/HrManpowerList'));
+const HrMovementList = lazy(() => import(/* webpackChunkName: "hr" */ './hr/HrMovementList'));
+const HrProj = lazy(() => import(/* webpackChunkName: "hr" */ './hr/HrProj'));
+const HrManpowerRequestDetail = lazy(() => import(/* webpackChunkName: "hr" */ './hr/HrManpowerRequestDetail'));
+const HrChat = lazy(() => import(/* webpackChunkName: "hr" */ './chats/HrChat'));
+const HrManpowerRequestList = lazy(() => import(/* webpackChunkName: "hr" */ './hr/HrManpowerRequestList'));
+const HrViewProject = lazy(() => import(/* webpackChunkName: "hr" */ './hr/HrViewProject'));
+const HrAttendance = lazy(() => import(/* webpackChunkName: "hr" */ './hr/HrAttendance'));
 
 // STAFF
-import StaffCurrentProject from './staff/StaffCurrentProject';
-import StaffAllProjects from './staff/StaffAllProjects';
-import StaffChat from './chats/StaffChat';
+const StaffCurrentProject = lazy(() => import(/* webpackChunkName: "staff" */ './staff/StaffCurrentProject'));
+const StaffAllProjects = lazy(() => import(/* webpackChunkName: "staff" */ './staff/StaffAllProjects'));
+const StaffChat = lazy(() => import(/* webpackChunkName: "staff" */ './chats/StaffChat'));
 
 // HR-SITE
-import HrSiteCurrentProject from './hrSite/HrSiteCurrentProject';
-import HrSiteAllProjects from './hrSite/HrSiteAllProjects';
-import HrSiteChat from './chats/HrSiteChat';
+const HrSiteCurrentProject = lazy(() => import(/* webpackChunkName: "hrsite" */ './hrSite/HrSiteCurrentProject'));
+const HrSiteAllProjects = lazy(() => import(/* webpackChunkName: "hrsite" */ './hrSite/HrSiteAllProjects'));
+const HrSiteChat = lazy(() => import(/* webpackChunkName: "hrsite" */ './chats/HrSiteChat'));
 
 // SHARED / REUSABLE
-import ProgressTracker from './ProgressTracker';
-import ApproveDenyAction from './ApproveDenyActions';
+const ProgressTracker = lazy(() => import(/* webpackChunkName: "shared" */ './ProgressTracker'));
+const ApproveDenyAction = lazy(() => import(/* webpackChunkName: "shared" */ './ApproveDenyActions'));
 
 const AppRoutes = ({ forceUserUpdate }) => {
   return (
+    <Suspense fallback={<div style={{padding: 24}}>Loading…</div>}>
     <Routes>
       {/* Public */}
       <Route path="/" element={<LoginPage forceUserUpdate={forceUserUpdate} />} />
@@ -243,6 +244,7 @@ const AppRoutes = ({ forceUserUpdate }) => {
       {/* Not found → back to login */}
       <Route path="*" element={<LoginPage forceUserUpdate={forceUserUpdate} />} />
     </Routes>
+    </Suspense>
   );
 };
 

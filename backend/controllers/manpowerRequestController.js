@@ -523,7 +523,7 @@ const getSingleManpowerRequest = async (req, res) => {
       return res.status(404).json({ message: "Request not found" });
     }
 
-    // Compute derived return window metadata
+
     let meta = {};
     try {
       const acq = request.acquisitionDate ? new Date(request.acquisitionDate) : null;
@@ -531,7 +531,7 @@ const getSingleManpowerRequest = async (req, res) => {
       if (acq && !isNaN(acq.getTime()) && durationDays > 0) {
         const maxReturn = new Date(acq.getTime() + durationDays * 24 * 60 * 60 * 1000);
         const today = new Date();
-        const earliest = acq; // could also be today if you want to disallow back-dating
+        const earliest = acq; 
         const daysRemaining = Math.max(0, Math.ceil((maxReturn - today) / (24*60*60*1000)));
         meta = {
           maxReturnDate: maxReturn.toISOString(),
@@ -544,7 +544,7 @@ const getSingleManpowerRequest = async (req, res) => {
     }
 
     const out = request.toObject();
-    out.returnWindow = meta; // attach computed metadata
+    out.returnWindow = meta; 
     res.json(out);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
@@ -621,7 +621,6 @@ const scheduleManpowerReturn = async (req, res) => {
       return res.status(400).json({ message: 'Invalid acquisition date on request.' });
     }
 
-    // Normalize to date-only (strip time) to avoid timezone off-by-one issues
     const toDateOnly = (d) => {
       const nd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
       return nd;

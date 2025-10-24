@@ -321,7 +321,7 @@ exports.updateMaterialRequest = async (req, res) => {
       if(/^https?:\/\//i.test(val)){
         const m = val.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
         if(m && m[1] === MR_BUCKET) return m[2];
-        return val; // keep as-is if can't parse
+        return val; 
       }
       return val;
     };
