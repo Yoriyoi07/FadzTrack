@@ -11,8 +11,7 @@ const TwoFactorAuthLazy = lazy(() => import(/* webpackChunkName: "auth" */ './Tw
 const FadzLogo = "/images/fadz-company-logo.png";
 // App logo - Abstract app logo with red base and blue elements
 const AppLogo = "/images/fadz-app-logo.png";
-// Background image served from public to avoid bundling into main chunk
-const LoginBg = "/images/login_picture.png";
+// Background image is loaded lazily on desktop to avoid large LCP on mobile
 
 const LoginPage = ({ forceUserUpdate }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -230,7 +229,28 @@ const LoginPage = ({ forceUserUpdate }) => {
 
   return (
     <div className="login-container">
-  <div className="login-left" style={{ backgroundImage: `url(${LoginBg})` }}>
+      <div
+        className="login-left"
+        ref={(el) => {
+          // Defer heavy background on desktop only
+          if (!el) return;
+          try {
+            const prefersReducedData = (navigator.connection && (navigator.connection.saveData || navigator.connection.effectiveType === '2g'));
+            const isDesktop = window.matchMedia && window.matchMedia('(min-width: 1024px)').matches;
+            if (!isDesktop || prefersReducedData) return; // don’t load on mobile or constrained connections
+            const loadBg = () => {
+              el.classList.add('bg-ready');
+              const base = (process.env.PUBLIC_URL || '');
+              el.style.backgroundImage = `url(${base}/images/login_picture.png)`;
+            };
+            if ('requestIdleCallback' in window) {
+              window.requestIdleCallback(loadBg, { timeout: 2000 });
+            } else {
+              setTimeout(loadBg, 300);
+            }
+          } catch {}
+        }}
+      >
         <div className="left-overlay">
           <div className="left-content">
             <img src={FadzLogo} alt="Fadz Company Logo" className="left-company-logo" loading="lazy" decoding="async" />

@@ -5,6 +5,10 @@
     { "source": "/socket.io", "destination": "https://fadztrack.onrender.com/socket.io" },
     { "source": "/socket.io/(.*)", "destination": "https://fadztrack.onrender.com/socket.io/$1" }
   ],
+  "routes": [
+    { "src": "/images/(.*)", "headers": { "Cache-Control": "public, max-age=31536000, immutable" }, "dest": "/images/$1" },
+    { "src": "/fonts/(.*)", "headers": { "Cache-Control": "public, max-age=31536000, immutable" }, "dest": "/fonts/$1" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

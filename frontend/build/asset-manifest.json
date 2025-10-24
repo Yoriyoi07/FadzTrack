@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/static/css/main.b732d159.css",
-    "main.js": "/static/js/main.d6e2efa8.js",
+    "main.css": "/static/css/main.1f86cd95.css",
+    "main.js": "/static/js/main.3045070c.js",
     "auth.css": "/static/css/auth.6de4d17b.chunk.css",
     "auth.js": "/static/js/auth.61b72260.chunk.js",
     "guard.js": "/static/js/guard.09b498bb.chunk.js",
@@ -45,8 +45,8 @@
     "static/media/FadzLogo1.png": "/static/media/FadzLogo1.7cb95760a42ff4cc7b15.png",
     "static/media/attach.png": "/static/media/attach.7db0cd41fa458423a7d7.png",
     "index.html": "/index.html",
-    "main.b732d159.css.map": "/static/css/main.b732d159.css.map",
-    "main.d6e2efa8.js.map": "/static/js/main.d6e2efa8.js.map",
+    "main.1f86cd95.css.map": "/static/css/main.1f86cd95.css.map",
+    "main.3045070c.js.map": "/static/js/main.3045070c.js.map",
     "auth.6de4d17b.chunk.css.map": "/static/css/auth.6de4d17b.chunk.css.map",
     "auth.61b72260.chunk.js.map": "/static/js/auth.61b72260.chunk.js.map",
     "guard.09b498bb.chunk.js.map": "/static/js/guard.09b498bb.chunk.js.map",
@@ -89,7 +89,7 @@
     "706.3ec913ae.chunk.css.map": "/static/css/706.3ec913ae.chunk.css.map"
   },
   "entrypoints": [
-    "static/css/main.b732d159.css",
-    "static/js/main.d6e2efa8.js"
+    "static/css/main.1f86cd95.css",
+    "static/js/main.3045070c.js"
   ]
 }

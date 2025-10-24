@@ -42,6 +42,13 @@ body {
   border-right: 1px solid rgba(0, 31, 139, 0.1);
 }
 
+/* Default lightweight gradient background; heavy photo loads only when .bg-ready is added on desktop */
+.login-left {
+  background-image: linear-gradient(135deg, #0b1d4d 0%, #142b66 50%, #0b1d4d 100%);
+}
+
+/* The heavy background image is applied inline by Login.js when '.bg-ready' is added on desktop */
+
 .left-overlay {
   position: absolute;
   top: 0;
