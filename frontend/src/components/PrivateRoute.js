@@ -1,4 +1,4 @@
-// src/components/PrivateRoute.jsx
+//private routes
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { getUser } from '../api/userStore';
