@@ -5,7 +5,7 @@ import AppHeader from '../layout/AppHeader';
 import '../style/hr_style/HrSite_Dash.css';
 import '../style/am_style/Area_Projects.css';
 
-// React Icons
+//yep
 import { 
   FaTachometerAlt, 
   FaComments, 
